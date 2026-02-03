@@ -10,6 +10,7 @@ import { TransformInterceptor } from './common/interceptors/transform.intercepto
 import { LoggerModule } from './common/logger.module';
 import configuration from './config/config';
 import { LoggingInterceptor } from './middleware/logging.interceptor';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
@@ -31,10 +32,10 @@ import { LoggingInterceptor } from './middleware/logging.interceptor';
         database: config.get<string>('DB_NAME'),
         autoLoadEntities: true,
         migrationsRun: false,
-        synchronize: true,
+        synchronize: false,
       }),
     }),
-    // ...other modules
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [
