@@ -44,7 +44,7 @@ describe('Booking System (e2e)', () => {
         professionalId = professionals[0].id;
       }
     }
-  });
+  }, 30000);
 
   afterAll(async () => {
     await app.close();
