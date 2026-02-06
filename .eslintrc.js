@@ -107,4 +107,12 @@ module.exports = {
       },
     },
   },
+  overrides: [
+    {
+      files: ['**/*.e2e-spec.ts', '**/*.spec.ts'],
+      rules: {
+        'jest/no-conditional-expect': 'off',
+      },
+    },
+  ],
 };

@@ -8,12 +8,13 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 
-import { ProfessionalService } from './professional.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+
 import {
   ProfessionalResponseDto,
   ProfessionalDetailResponseDto,
 } from './dto/professional-response.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { ProfessionalService } from './professional.service';
 
 @ApiTags('Professionals')
 @Controller('professionals')
@@ -44,7 +45,9 @@ export class ProfessionalController {
     description: 'Professional details',
     type: ProfessionalDetailResponseDto,
   })
-  async findOne(@Param('id') id: string): Promise<ProfessionalDetailResponseDto> {
+  async findOne(
+    @Param('id') id: string,
+  ): Promise<ProfessionalDetailResponseDto> {
     return this.professionalService.findOne(id);
   }
 }

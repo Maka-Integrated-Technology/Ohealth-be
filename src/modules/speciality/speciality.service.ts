@@ -2,8 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
-import { Speciality } from './entities/speciality.entity';
 import { SpecialityResponseDto } from './dto/speciality-response.dto';
+import { Speciality } from './entities/speciality.entity';
 
 @Injectable()
 export class SpecialityService {

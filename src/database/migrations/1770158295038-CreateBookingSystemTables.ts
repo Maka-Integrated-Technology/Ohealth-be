@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreateBookingSystemTables1770158295038
-  implements MigrationInterface
-{
+export class CreateBookingSystemTables1770158295038 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS "specialities" (
@@ -79,7 +77,9 @@ export class CreateBookingSystemTables1770158295038
 
   public async down(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query('DROP TABLE IF EXISTS "bookings";');
-    await queryRunner.query('DROP TABLE IF EXISTS "professional_availabilities";');
+    await queryRunner.query(
+      'DROP TABLE IF EXISTS "professional_availabilities";',
+    );
     await queryRunner.query('DROP TABLE IF EXISTS "professionals";');
     await queryRunner.query('DROP TABLE IF EXISTS "specialities";');
   }

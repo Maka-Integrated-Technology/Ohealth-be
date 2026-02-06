@@ -16,12 +16,12 @@ import {
 } from '@nestjs/swagger';
 
 import { IRequestWithUser } from '../../common/types';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 import { BookingService } from './booking.service';
-import { CreateBookingDto } from './dto/create-booking.dto';
 import { BookingResponseDto } from './dto/booking-response.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CreateBookingDto } from './dto/create-booking.dto';
 
 @ApiTags('Bookings')
 @Controller('bookings')
@@ -51,7 +51,9 @@ export class BookingController {
     description: 'List of bookings',
     type: [BookingResponseDto],
   })
-  async findAll(@CurrentUser() user: IRequestWithUser['user']): Promise<BookingResponseDto[]> {
+  async findAll(
+    @CurrentUser() user: IRequestWithUser['user'],
+  ): Promise<BookingResponseDto[]> {
     return this.bookingService.findUserBookings(user.id);
   }
 

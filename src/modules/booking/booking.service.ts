@@ -7,11 +7,12 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
-import { Booking, BookingStatus } from './entities/booking.entity';
-import { Professional } from '../professional/entities/professional.entity';
 import { ProfessionalAvailability } from '../professional/entities/professional-availability.entity';
-import { CreateBookingDto } from './dto/create-booking.dto';
+import { Professional } from '../professional/entities/professional.entity';
+
 import { BookingResponseDto } from './dto/booking-response.dto';
+import { CreateBookingDto } from './dto/create-booking.dto';
+import { Booking, BookingStatus } from './entities/booking.entity';
 
 @Injectable()
 export class BookingService {
@@ -28,8 +29,13 @@ export class BookingService {
     patientId: string,
     createBookingDto: CreateBookingDto,
   ): Promise<BookingResponseDto> {
-    const { professional_id, booking_date, booking_time, consultation_type, notes } =
-      createBookingDto;
+    const {
+      professional_id,
+      booking_date,
+      booking_time,
+      consultation_type,
+      notes,
+    } = createBookingDto;
 
     // Validate professional exists
     const professional = await this.professionalRepository.findOne({
@@ -110,7 +116,11 @@ export class BookingService {
   async findUserBookings(userId: string): Promise<BookingResponseDto[]> {
     const bookings = await this.bookingRepository.find({
       where: { patient_id: userId },
-      relations: ['professional', 'professional.user', 'professional.speciality'],
+      relations: [
+        'professional',
+        'professional.user',
+        'professional.speciality',
+      ],
       order: { created_at: 'DESC' },
     });
 
@@ -132,7 +142,11 @@ export class BookingService {
   async findOne(id: string, userId: string): Promise<BookingResponseDto> {
     const booking = await this.bookingRepository.findOne({
       where: { id, patient_id: userId },
-      relations: ['professional', 'professional.user', 'professional.speciality'],
+      relations: [
+        'professional',
+        'professional.user',
+        'professional.speciality',
+      ],
     });
 
     if (!booking) {

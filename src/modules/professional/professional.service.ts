@@ -2,12 +2,12 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
-import { Professional } from './entities/professional.entity';
-import { ProfessionalAvailability } from './entities/professional-availability.entity';
 import {
   ProfessionalResponseDto,
   ProfessionalDetailResponseDto,
 } from './dto/professional-response.dto';
+import { ProfessionalAvailability } from './entities/professional-availability.entity';
+import { Professional } from './entities/professional.entity';
 
 @Injectable()
 export class ProfessionalService {
@@ -18,7 +18,9 @@ export class ProfessionalService {
     private readonly availabilityRepository: Repository<ProfessionalAvailability>,
   ) {}
 
-  async findBySpeciality(specialityId: string): Promise<ProfessionalResponseDto[]> {
+  async findBySpeciality(
+    specialityId: string,
+  ): Promise<ProfessionalResponseDto[]> {
     const professionals = await this.professionalRepository.find({
       where: {
         speciality_id: specialityId,
@@ -80,7 +82,11 @@ export class ProfessionalService {
       },
       [] as {
         date: string;
-        slots: { start_time: string; end_time: string; is_available: boolean }[];
+        slots: {
+          start_time: string;
+          end_time: string;
+          is_available: boolean;
+        }[];
       }[],
     );
 

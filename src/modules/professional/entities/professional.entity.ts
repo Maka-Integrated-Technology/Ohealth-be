@@ -1,10 +1,18 @@
-import { Column, Entity, JoinColumn, ManyToOne, OneToMany, OneToOne } from 'typeorm';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+  OneToOne,
+} from 'typeorm';
 
 import { BaseEntity } from '../../../entities/base-entity';
-import { User } from '../../user/entities/user.entity';
-import { Speciality } from '../../speciality/entities/speciality.entity';
-import { ProfessionalAvailability } from './professional-availability.entity';
 import { Booking } from '../../booking/entities/booking.entity';
+import { Speciality } from '../../speciality/entities/speciality.entity';
+import { User } from '../../user/entities/user.entity';
+
+import { ProfessionalAvailability } from './professional-availability.entity';
 
 export enum ConsultationType {
   CHAT = 'chat',
@@ -59,7 +67,10 @@ export class Professional extends BaseEntity {
   @Column({ default: true })
   is_active: boolean;
 
-  @OneToMany(() => ProfessionalAvailability, (availability) => availability.professional)
+  @OneToMany(
+    () => ProfessionalAvailability,
+    (availability) => availability.professional,
+  )
   availabilities: ProfessionalAvailability[];
 
   @OneToMany(() => Booking, (booking) => booking.professional)

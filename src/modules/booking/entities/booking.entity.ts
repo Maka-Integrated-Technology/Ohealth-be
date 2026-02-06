@@ -1,8 +1,8 @@
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 
 import { BaseEntity } from '../../../entities/base-entity';
-import { User } from '../../user/entities/user.entity';
 import { Professional } from '../../professional/entities/professional.entity';
+import { User } from '../../user/entities/user.entity';
 
 export enum BookingStatus {
   PENDING = 'pending',

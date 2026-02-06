@@ -1,9 +1,15 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 
-import { SpecialityService } from './speciality.service';
-import { SpecialityResponseDto } from './dto/speciality-response.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+
+import { SpecialityResponseDto } from './dto/speciality-response.dto';
+import { SpecialityService } from './speciality.service';
 
 @ApiTags('Specialities')
 @Controller('specialities')

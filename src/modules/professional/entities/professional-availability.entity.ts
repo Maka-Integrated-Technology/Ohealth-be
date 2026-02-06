@@ -1,6 +1,7 @@
 import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
 
 import { BaseEntity } from '../../../entities/base-entity';
+
 import { Professional } from './professional.entity';
 
 @Entity('professional_availabilities')

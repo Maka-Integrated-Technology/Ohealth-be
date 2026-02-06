@@ -1,10 +1,12 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { Test, TestingModule } from '@nestjs/testing';
 import * as request from 'supertest';
+
 import { AppModule } from '../src/app.module';
+
 import { TestHelper, generateTestUser, generateBooking } from './test-helper';
 
-interface TestUser {
+interface ITestUser {
   email: string;
   password: string;
   first_name: string;
@@ -17,7 +19,7 @@ describe('Booking System (e2e)', () => {
   let userToken: string;
   let specialityId: string;
   let professionalId: string;
-  let testUser: TestUser;
+  let testUser: ITestUser;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -25,7 +27,9 @@ describe('Booking System (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
+    app.useGlobalPipes(
+      new ValidationPipe({ whitelist: true, transform: true }),
+    );
     await app.init();
 
     helper = new TestHelper(app);
@@ -39,7 +43,10 @@ describe('Booking System (e2e)', () => {
     const specialities = await helper.getSpecialities(userToken);
     if (Array.isArray(specialities) && specialities.length > 0) {
       specialityId = specialities[0].id;
-      const professionals = await helper.getProfessionals(userToken, specialityId);
+      const professionals = await helper.getProfessionals(
+        userToken,
+        specialityId,
+      );
       if (Array.isArray(professionals) && professionals.length > 0) {
         professionalId = professionals[0].id;
       }
@@ -88,7 +95,10 @@ describe('Booking System (e2e)', () => {
   describe('Professionals', () => {
     it('should get professionals with required fields and availability', async () => {
       if (specialityId) {
-        const professionals = await helper.getProfessionals(userToken, specialityId);
+        const professionals = await helper.getProfessionals(
+          userToken,
+          specialityId,
+        );
         expect(professionals).toBeDefined();
       } else {
         expect(true).toBe(true);
@@ -97,7 +107,10 @@ describe('Booking System (e2e)', () => {
 
     it('should get professional details with availability', async () => {
       if (professionalId) {
-        const professional = await helper.getProfessionalById(userToken, professionalId);
+        const professional = await helper.getProfessionalById(
+          userToken,
+          professionalId,
+        );
         expect(professional).toHaveProperty('id');
         expect(professional).toHaveProperty('first_name');
         expect(professional).toHaveProperty('availabilities');
@@ -110,7 +123,10 @@ describe('Booking System (e2e)', () => {
 
   describe('Bookings', () => {
     it('should fail booking without authentication', async () => {
-      const response = await helper.createBooking('', generateBooking('test-id', 7));
+      const response = await helper.createBooking(
+        '',
+        generateBooking('test-id', 7),
+      );
       expect(response.status).toBe(401);
     });
 
@@ -121,7 +137,10 @@ describe('Booking System (e2e)', () => {
       );
       expect(emptyResponse.status).toBe(400);
 
-      const invalidUuid = await helper.createBooking(userToken, generateBooking('not-uuid', 7));
+      const invalidUuid = await helper.createBooking(
+        userToken,
+        generateBooking('not-uuid', 7),
+      );
       expect(invalidUuid.status).toBe(400);
 
       if (professionalId) {
@@ -137,7 +156,10 @@ describe('Booking System (e2e)', () => {
 
     it('should create booking and get user bookings', async () => {
       if (professionalId) {
-        const response = await helper.createBooking(userToken, generateBooking(professionalId, 7));
+        const response = await helper.createBooking(
+          userToken,
+          generateBooking(professionalId, 7),
+        );
         expect([201, 400, 404]).toContain(response.status);
       } else {
         expect(true).toBe(true);
@@ -148,7 +170,10 @@ describe('Booking System (e2e)', () => {
 
     it('should validate date and time formats', async () => {
       if (professionalId) {
-        const pastDate = await helper.createBooking(userToken, generateBooking(professionalId, -1));
+        const pastDate = await helper.createBooking(
+          userToken,
+          generateBooking(professionalId, -1),
+        );
         expect([400, 422]).toContain(pastDate.status);
 
         const invalidTime = await helper.createBooking(userToken, {
@@ -190,12 +215,21 @@ describe('Booking System (e2e)', () => {
       expect(specialities).toBeDefined();
 
       if (Array.isArray(specialities) && specialities.length > 0) {
-        const professionals = await helper.getProfessionals(token, specialities[0].id);
+        const professionals = await helper.getProfessionals(
+          token,
+          specialities[0].id,
+        );
         if (Array.isArray(professionals) && professionals.length > 0) {
-          const professional = await helper.getProfessionalById(token, professionals[0].id);
+          const professional = await helper.getProfessionalById(
+            token,
+            professionals[0].id,
+          );
           expect(professional).toHaveProperty('id');
 
-          const booking = await helper.createBooking(token, generateBooking(professionals[0].id, 10));
+          const booking = await helper.createBooking(
+            token,
+            generateBooking(professionals[0].id, 10),
+          );
           expect([201, 400, 404]).toContain(booking.status);
         } else {
           expect(professionals).toBeDefined();
