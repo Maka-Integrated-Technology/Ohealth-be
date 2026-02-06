@@ -33,9 +33,14 @@ async function bootstrap() {
   // Swagger setup
   const config = new DocumentBuilder()
     .setTitle('HealthBridge API')
-    .setDescription('API documentation for HealthBridge')
+    .setDescription(
+      'API documentation for HealthBridge - A comprehensive healthcare booking platform',
+    )
     .setVersion('1.0')
-    .addTag('Core')
+    .addTag('Authentication', 'User authentication and authorization endpoints')
+    .addTag('Specialities', 'Medical specialities management')
+    .addTag('Professionals', 'Healthcare professionals management')
+    .addTag('Bookings', 'Appointment booking and management')
     .addBearerAuth({
       type: 'http',
       scheme: 'bearer',

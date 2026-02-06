@@ -11,6 +11,9 @@ import { LoggerModule } from './common/logger.module';
 import configuration from './config/config';
 import { LoggingInterceptor } from './middleware/logging.interceptor';
 import { AuthModule } from './modules/auth/auth.module';
+import { SpecialityModule } from './modules/speciality/speciality.module';
+import { ProfessionalModule } from './modules/professional/professional.module';
+import { BookingModule } from './modules/booking/booking.module';
 
 @Module({
   imports: [
@@ -36,6 +39,9 @@ import { AuthModule } from './modules/auth/auth.module';
       }),
     }),
     AuthModule,
+    SpecialityModule,
+    ProfessionalModule,
+    BookingModule,
   ],
   controllers: [AppController],
   providers: [
