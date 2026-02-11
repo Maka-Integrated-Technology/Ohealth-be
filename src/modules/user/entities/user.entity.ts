@@ -41,6 +41,12 @@ export class User extends BaseEntity {
   is_verified: boolean;
 
   @Column({ nullable: true })
+  verification_code?: string | null;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  verification_code_expires_at?: Date | null;
+
+  @Column({ nullable: true })
   google_id?: string | null;
 
   @Column({ nullable: true })

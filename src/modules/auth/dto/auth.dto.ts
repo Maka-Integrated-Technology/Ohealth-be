@@ -210,6 +210,25 @@ export class AuthMeResponseDto {
   updated_at: Date;
 }
 
+export class VerifySignupDto {
+  @ApiProperty({
+    example: 'user@example.com',
+    description: 'User email address',
+  })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @ApiProperty({
+    example: '123456',
+    description: '6-digit verification code',
+  })
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^\d{6}$/)
+  code: string;
+}
+
 export class LogoutDto {
   @ApiProperty({
     example: 'session-id-123',

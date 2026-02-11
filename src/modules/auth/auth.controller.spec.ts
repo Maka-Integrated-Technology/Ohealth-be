@@ -18,6 +18,7 @@ describe('AuthController', () => {
     refreshToken: jest.fn(),
     forgotPassword: jest.fn(),
     resetPassword: jest.fn(),
+    verifySignup: jest.fn(),
     activateUserAccount: jest.fn(),
     getProfile: jest.fn(),
     logout: jest.fn(),
@@ -107,6 +108,17 @@ describe('AuthController', () => {
     const result = await controller.getProfile(request);
 
     expect(authService.getProfile).toHaveBeenCalledWith(request);
+    expect(result).toEqual(expected);
+  });
+
+  it('should verify signup code', async () => {
+    const payload = { email: 'user@example.com', code: '123456' };
+    const expected = { message: sysMsg.ACCOUNT_VERIFIED };
+    mockAuthService.verifySignup.mockResolvedValue(expected);
+
+    const result = await controller.verifySignup(payload);
+
+    expect(authService.verifySignup).toHaveBeenCalledWith(payload);
     expect(result).toEqual(expected);
   });
 });

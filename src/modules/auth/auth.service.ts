@@ -18,7 +18,9 @@ import { IsNull, MoreThan, Repository } from 'typeorm';
 import { Logger } from 'winston';
 
 import { IRequestWithUser } from '../../common/types';
+import { EmailTemplateID } from '../../constants/email-constants';
 import * as sysMsg from '../../constants/system.messages';
+import { EmailService } from '../email/email.service';
 import { User } from '../user/entities/user.entity';
 import { UserRole } from '../user/enums/user-role.enum';
 import { UserService } from '../user/user.service';
@@ -29,6 +31,7 @@ import {
   LogoutDto,
   RefreshTokenDto,
   ResetPasswordDto,
+  VerifySignupDto,
 } from './dto/auth.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthSession } from './entities/auth.entity';
@@ -50,6 +53,7 @@ export class AuthService {
     private readonly sessionRepository: Repository<AuthSession>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly emailService: EmailService,
     @Inject(WINSTON_MODULE_PROVIDER) logger: Logger,
   ) {
     this.logger = logger.child({ context: AuthService.name });
@@ -67,6 +71,8 @@ export class AuthService {
       signupPayload.password,
       this.saltRounds,
     );
+    const verificationCode = this.generateVerificationCode();
+    const verificationExpiry = new Date(Date.now() + 10 * 60 * 1000);
     const savedUser = await this.userService.create({
       email,
       password: hashedPassword,
@@ -79,8 +85,10 @@ export class AuthService {
       role: signupPayload.role?.length
         ? signupPayload.role
         : [UserRole.PATIENT],
-      is_active: signupPayload.is_active ?? true,
+      is_active: false,
       is_verified: false,
+      verification_code: verificationCode,
+      verification_code_expires_at: verificationExpiry,
     });
     const tokens = await this.generateTokens(
       savedUser.id,
@@ -93,9 +101,10 @@ export class AuthService {
     );
 
     this.logger.info(sysMsg.ACCOUNT_CREATED);
+    void this.sendVerificationEmail(savedUser, verificationCode, 10);
 
     return {
-      message: sysMsg.ACCOUNT_CREATED,
+      message: sysMsg.VERIFICATION_CODE_SENT,
       user: this.toUserResponse(savedUser),
       ...tokens,
       session_id: session.session_id,
@@ -111,7 +120,7 @@ export class AuthService {
       throw new UnauthorizedException(sysMsg.INVALID_CREDENTIALS);
     }
 
-    if (!user.is_active) {
+    if (!user.is_active || !user.is_verified) {
       throw new UnauthorizedException(sysMsg.USER_INACTIVE);
     }
 
@@ -246,6 +255,36 @@ export class AuthService {
     return sysMsg.USER_ACTIVATED;
   }
 
+  async verifySignup(payload: VerifySignupDto) {
+    const email = payload.email.trim().toLowerCase();
+    const user = await this.userService.findByEmail(email);
+    if (!user) {
+      throw new NotFoundException(sysMsg.USER_NOT_FOUND);
+    }
+
+    if (!user.verification_code || !user.verification_code_expires_at) {
+      throw new BadRequestException(sysMsg.INVALID_VERIFICATION_CODE);
+    }
+
+    if (user.verification_code !== payload.code) {
+      throw new BadRequestException(sysMsg.INVALID_VERIFICATION_CODE);
+    }
+
+    if (user.verification_code_expires_at < new Date()) {
+      throw new BadRequestException(sysMsg.VERIFICATION_CODE_EXPIRED);
+    }
+
+    user.is_active = true;
+    user.is_verified = true;
+    user.verification_code = null;
+    user.verification_code_expires_at = null;
+    await this.userService.save(user);
+
+    void this.sendWelcomeEmail(user);
+
+    return { message: sysMsg.ACCOUNT_VERIFIED };
+  }
+
   async getProfile(req: IRequestWithUser) {
     const userId = req.user?.id ?? req.user?.userId;
     if (!userId) {
@@ -326,6 +365,7 @@ export class AuthService {
 
     const email = payload.email.toLowerCase();
     let user = await this.userService.findByEmail(email);
+    let isNewUser = false;
 
     if (!user) {
       const generatedPassword = crypto.randomBytes(24).toString('hex');
@@ -334,6 +374,7 @@ export class AuthService {
         this.saltRounds,
       );
 
+      isNewUser = true;
       user = await this.userService.create({
         email,
         password: hashedPassword,
@@ -356,6 +397,10 @@ export class AuthService {
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     const session = await this.createSession(user.id, tokens.refresh_token);
 
+    if (isNewUser) {
+      void this.sendWelcomeEmail(user);
+    }
+
     return {
       message: sysMsg.LOGIN_SUCCESS,
       user: {
@@ -366,6 +411,72 @@ export class AuthService {
       session_id: session.session_id,
       session_expires_at: session.expires_at,
     };
+  }
+
+  private async sendWelcomeEmail(user: User) {
+    const appName =
+      this.configService.get<string>('app.name') || 'HealthBridge';
+    const fromAddress = this.configService.get<string>('mail.from.address');
+    const fromName = this.configService.get<string>('mail.from.name');
+
+    if (!fromAddress) {
+      this.logger.warn('Welcome email not sent: MAIL_FROM_ADDRESS not set.');
+      return;
+    }
+
+    try {
+      await this.emailService.sendMail({
+        from: { email: fromAddress, name: fromName },
+        to: [{ email: user.email, name: user.first_name }],
+        subject: `Welcome to ${appName}`,
+        templateNameID: EmailTemplateID.WELCOME,
+        templateData: {
+          name: user.first_name,
+          app_name: appName,
+        },
+      });
+      this.logger.info('Welcome email sent', { email: user.email });
+    } catch (error) {
+      this.logger.error('Failed to send welcome email', error);
+    }
+  }
+
+  private async sendVerificationEmail(
+    user: User,
+    code: string,
+    expiryMinutes: number,
+  ) {
+    const appName =
+      this.configService.get<string>('app.name') || 'HealthBridge';
+    const fromAddress = this.configService.get<string>('mail.from.address');
+    const fromName = this.configService.get<string>('mail.from.name');
+
+    if (!fromAddress) {
+      this.logger.warn('Verification email not sent: MAIL_FROM_ADDRESS not set.');
+      return;
+    }
+
+    try {
+      await this.emailService.sendMail({
+        from: { email: fromAddress, name: fromName },
+        to: [{ email: user.email, name: user.first_name }],
+        subject: `Verify your ${appName} account`,
+        templateNameID: EmailTemplateID.VERIFICATION_CODE,
+        templateData: {
+          name: user.first_name,
+          app_name: appName,
+          code,
+          expiry_minutes: expiryMinutes,
+        },
+      });
+      this.logger.info('Verification email sent', { email: user.email });
+    } catch (error) {
+      this.logger.error('Failed to send verification email', error);
+    }
+  }
+
+  private generateVerificationCode(): string {
+    return String(crypto.randomInt(100000, 1000000));
   }
 
   private async generateTokens(
