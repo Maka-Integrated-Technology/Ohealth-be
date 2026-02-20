@@ -5,4 +5,5 @@
 export enum EmailTemplateID {
   WELCOME = 'welcome.njk',
   VERIFICATION_CODE = 'verification-code.njk',
+  OTP = 'otp.njk',
 }

@@ -3,22 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Verify your {{ app_name }} account</title>
+    <title>Your {{ app_name }} one-time password</title>
     <style>
       @media only screen and (max-width: 600px) {
         .email-outer {
           padding: 12px !important;
-        }
-        .email-container {
-          width: 100% !important;
-          border-width: 3px !important;
-        }
-        .header-text {
-          font-size: 22px !important;
-        }
-        .banner {
-          padding: 16px 20px !important;
-          font-size: 18px !important;
         }
         .content-section {
           padding: 20px !important;
@@ -32,6 +21,16 @@
         .verify-text {
           padding: 3px 6px !important;
           font-size: 15px !important;
+        }
+        .otp-digit {
+          padding: 10px 12px !important;
+          font-size: 20px !important;
+          margin: 4px !important;
+        }
+        .otp-wrapper {
+          padding: 12px 8px !important;
+          background-color: #f3f4f6 !important;
+          border-radius: 12px !important;
         }
       }
     </style>
@@ -74,14 +73,14 @@
                   background-color: #155eef;
                   color: #ffffff;
                   font-size: 16px;
-                  fontWeight: 600;
+                  font-weight: 700;
                   padding: 4px 8px;
                   border-top-left-radius: 8px;
                   border-top-right-radius: 8px;
                   text-align: center;
                 "
               >
-                Verify My Account
+                One Time Password (OTP)
               </td>
             </tr>
 
@@ -93,34 +92,49 @@
                 <p style="font-size: 16px; font-weight: 700; margin: 0 0 4px">
                   Hello {{ name }},
                 </p>
-                <p style="font-size: 15px; line-height: 24px; margin: 0 0 16px">
-                  Welcome to {{ app_name }}.
-                  <br />
-                  Please verify your email address to activate your account.
+
+                <p style="font-size: 15px; line-height: 24px; margin: 0 0 20px">
+                  Your one-time verification code is
                 </p>
 
-                <div
-                  style="
-                    display: inline-block;
-                    padding: 12px 18px;
-                    font-size: 20px;
-                    letter-spacing: 4px;
-                    background: #ffffff;
-                    border: 2px solid #d1d5db;
-                    border-radius: 8px;
-                    color: #111827;
-                    font-weight: 700;
-                    margin-bottom: 16px;
-                  "
+                <table
+                  class="otp-wrapper"
+                  cellpadding="0"
+                  cellspacing="0"
+                  border="0"
+                  role="presentation"
+                  style="width: 100%; margin: 0 auto 24px; padding: 16px 0"
                 >
-                  {{ code }}
-                </div>
+                  <tr>
+                    {% for digit in otp_digits %}
+                    <td style="text-align: center">
+                      <div
+                        class="otp-digit"
+                        style="
+                          display: inline-block;
+                          padding: 16px 32px;
+                          font-size: 26px;
+                          font-weight: 700;
+                          color: #1e293b;
+                          text-align: center;
+                          background-color: #ffffff;
+                          border: 2px solid #d1d5db;
+                          border-radius: 10px;
+                          margin: 0 6px;
+                        "
+                      >
+                        {{ digit }}
+                      </div>
+                    </td>
+                    {% endfor %}
+                  </tr>
+                </table>
 
-                {% if verification_url %}
-                <div style="margin: 0 0 16px; text-align: center">
+                {% if reset_url %}
+                <div style="text-align: center">
                   <a
                     class="verify-button"
-                    href="{{ verification_url }}"
+                    href="{{ reset_url }}"
                     style="
                       background-color: #155eef;
                       color: #ffffff;
@@ -133,24 +147,26 @@
                       width: 100%;
                       text-align: center;
                       box-sizing: border-box;
+                      margin-bottom: 12px;
                     "
                   >
-                    Verify My Account
+                    Reset My Password
                   </a>
                 </div>
                 {% endif %}
 
                 <p style="font-size: 14px; line-height: 22px; margin: 0 0 12px">
-                  This code expires in {{ expiry_minutes }} minutes.
+                  This code will expire shortly, so please use it as soon as
+                  possible.
                 </p>
 
-                <p style="font-size: 14px; line-height: 22px; margin: 0 0 24px">
-                  If you didn't create this account, you can safely ignore this
+                <p style="font-size: 14px; line-height: 22px; margin: 0 0 12px">
+                  If you didn't request this code, you can safely ignore this
                   email.
                 </p>
 
                 <p style="font-size: 14px; line-height: 22px; margin: 0">
-                  Stay healthy,
+                  Stay safe,
                   <br />
                   {{ app_name }} Team
                 </p>

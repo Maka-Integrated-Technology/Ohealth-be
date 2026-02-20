@@ -202,6 +202,24 @@ describe('AuthService', () => {
     });
   });
 
+  describe('forgotPassword', () => {
+    it('should send otp email when user exists', async () => {
+      mockUserService.findByEmail.mockResolvedValue({
+        id: 'user-id-1',
+        email: 'user@example.com',
+        first_name: 'Tunde',
+      });
+      mockUserService.save.mockImplementation(
+        async (u: Record<string, unknown>) => u,
+      );
+
+      const result = await service.forgotPassword({ email: 'user@example.com' });
+
+      expect(result.message).toBe(sysMsg.PASSWORD_RESET_CODE_SENT);
+      expect(mockEmailService.sendMail).toHaveBeenCalled();
+    });
+  });
+
   describe('refreshToken', () => {
     it('should throw unauthorized exception when the session is missing', async () => {
       mockJwtService.verifyAsync.mockResolvedValue({

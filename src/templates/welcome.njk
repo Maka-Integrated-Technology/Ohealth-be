@@ -4,13 +4,32 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Welcome to {{ app_name }}</title>
+    <style>
+      @media only screen and (max-width: 600px) {
+        .email-outer {
+          padding: 0px !important;
+        }
+        .banner {
+          font-size: 20px !important;
+          padding: 16px 20px !important;
+        }
+        .content-section {
+          padding: 20px !important;
+        }
+        .app-image {
+          width: 100% !important;
+          max-width: 100% !important;
+        }
+      }
+    </style>
   </head>
   <body
     style="
+      background-color: #e5e7eb;
       margin: 0;
       padding: 0;
-      background-color: #f7f7f7;
-      font-family: Arial, Helvetica, sans-serif;
+      font-family: Geist, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      color: #111827;
     "
   >
     <table
@@ -18,7 +37,7 @@
       cellpadding="0"
       cellspacing="0"
       border="0"
-      style="padding: 24px 0"
+      style="padding: 20px 0"
     >
       <tr>
         <td align="center">
@@ -27,44 +46,152 @@
             cellpadding="0"
             cellspacing="0"
             border="0"
+            class="email-outer"
             style="
               max-width: 600px;
-              background: #ffffff;
-              border-radius: 8px;
-              padding: 24px;
+              margin: 0 auto;
+              background-color: #ffffff;
+              padding: 0;
             "
           >
             <tr>
-              <td align="center" style="padding-bottom: 16px">
-                <h2
+              <td align="center" style="padding: 30px 20px 20px">
+                <img
+                  alt="HealthBridge logo"
+                  src="https://res.cloudinary.com/dvieev0ag/image/upload/fl_preserve_transparency/v1771272075/healthBridge_x7vff5.jpg?_s=public-apps"
+                  width="200"
+                  style="display: block; margin: 0 auto"
+                />
+              </td>
+            </tr>
+
+            <tr>
+              <td align="center">
+                <table
+                  width="90%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  border="0"
                   style="
-                    margin: 0;
-                    font-size: 22px;
-                    color: #1a1a1a;
-                    font-weight: 700;
+                    background-color: #155eef;
+                    border-top-left-radius: 8px;
+                    border-top-right-radius: 8px;
                   "
                 >
-                  Welcome to {{ app_name }}
-                </h2>
+                  <tr>
+                    <td
+                      class="banner"
+                      align="center"
+                      style="
+                        color: #ffffff;
+                        font-size: 22px;
+                        font-weight: 700;
+                        padding: 20px 32px;
+                      "
+                    >
+                      Welcome to {{ app_name }}
+                    </td>
+                  </tr>
+                </table>
               </td>
             </tr>
+
             <tr>
-              <td style="font-size: 14px; color: #444444; line-height: 22px">
-                <p style="margin: 0 0 12px 0">Hello {{ name }},</p>
-                <p style="margin: 0 0 12px 0">
-                  Thanks for signing in to {{ app_name }}. We're excited to help
-                  you manage your health in one place.
+              <td class="content-section" style="padding: 28px 32px 32px">
+                <p
+                  style="
+                    font-size: 16px;
+                    font-weight: 700;
+                    margin: 0 0 8px;
+                    color: #111827;
+                  "
+                >
+                  Hello {{ name }},
                 </p>
-                <p style="margin: 0">
-                  If you did not initiate this sign-in, please reset your
-                  password or contact support.
+
+                <p
+                  style="
+                    font-size: 15px;
+                    line-height: 24px;
+                    margin: 0 0 16px;
+                    color: #374151;
+                  "
+                >
+                  Your signup was successful, welcome to {{ app_name }}!
                 </p>
-              </td>
-            </tr>
-            <tr>
-              <td align="center" style="padding-top: 20px">
-                <p style="margin: 0; font-size: 12px; color: #777777">
-                  © {{ copyRightYear }} {{ app_name }}. All rights reserved.
+
+                <table
+                  width="70%"
+                  cellpadding="0"
+                  cellspacing="0"
+                  border="0"
+                  align="center"
+                  style="
+                    background-color: #f3f4f6;
+                    border-radius: 12px;
+                    padding: 20px;
+                    margin: 8px auto 24px;
+                  "
+                >
+                  <tr>
+                    <td style="padding-right: 10px" width="50%">
+                      <img
+                        alt="HealthBridge app screenshot 1"
+                        src="https://res.cloudinary.com/duye4a3ff/image/upload/v1771321820/iPhone_14_15_Pro_-_2-2_bruevl.png"
+                        width="100%"
+                        class="app-image"
+                        style="display: block; border-radius: 8px"
+                      />
+                    </td>
+                    <td style="padding-left: 10px" width="50%">
+                      <img
+                        alt="HealthBridge app screenshot 2"
+                        src="https://res.cloudinary.com/duye4a3ff/image/upload/v1771321999/iPhone_14_15_Pro_-_1_bzquso.png"
+                        width="100%"
+                        class="app-image"
+                        style="display: block; border-radius: 8px"
+                      />
+                    </td>
+                  </tr>
+                </table>
+
+                <p
+                  style="
+                    font-size: 15px;
+                    line-height: 24px;
+                    margin: 0 0 16px;
+                    color: #374151;
+                  "
+                >
+                  We're here to make accessing healthcare simpler, safer, and
+                  more convenient for you. You can now book appointments,
+                  connect with healthcare professionals, and manage your health
+                  records all in one place.
+                </p>
+
+                <p
+                  style="
+                    font-size: 15px;
+                    line-height: 24px;
+                    margin: 0 0 16px;
+                    color: #374151;
+                  "
+                >
+                  If you need any help getting started, we're always here for
+                  you.
+                </p>
+
+                <p
+                  style="
+                    font-size: 14px;
+                    line-height: 22px;
+                    margin: 8px 0 0;
+                    color: #374151;
+                  "
+                >
+                  Stay well,
+                  <br />
+                  {{ app_name }} Team
                 </p>
               </td>
             </tr>

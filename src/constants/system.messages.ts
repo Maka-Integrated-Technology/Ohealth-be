@@ -18,6 +18,7 @@ export const REGISTRATION_INVITE_ONLY = 'registration is by invite only';
 export const INVALID_VERIFICATION_TOKEN = 'invalid verification token';
 export const INVITE_EMAIL_MISMATCH = 'invite email does not match account';
 export const PASSWORD_RESET_TOKEN_SENT = 'password reset instructions sent';
+export const PASSWORD_RESET_CODE_SENT = 'password reset code sent';
 export const PASSWORD_RESET_SUCCESS = 'password reset successful';
 export const PROFILE_RETRIEVED = 'profile retrieved';
 export const UNAUTHORIZED = 'unauthorized';

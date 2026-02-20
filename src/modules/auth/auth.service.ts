@@ -199,15 +199,17 @@ export class AuthService {
     const user = await this.userService.findByEmail(email);
 
     if (user) {
-      user.reset_token = crypto.randomBytes(32).toString('hex');
-      user.reset_token_expiry = new Date(Date.now() + 60 * 60 * 1000);
+      const resetCode = this.generateVerificationCode();
+      user.reset_token = resetCode;
+      user.reset_token_expiry = new Date(Date.now() + 10 * 60 * 1000);
       await this.userService.save(user);
 
       this.logger.info(`Password reset token generated for user ${user.id}`);
+      void this.sendPasswordResetEmail(user, resetCode, 10);
     }
 
     return {
-      message: sysMsg.PASSWORD_RESET_TOKEN_SENT,
+      message: sysMsg.PASSWORD_RESET_CODE_SENT,
     };
   }
 
@@ -477,6 +479,46 @@ export class AuthService {
 
   private generateVerificationCode(): string {
     return String(crypto.randomInt(100000, 1000000));
+  }
+
+  private async sendPasswordResetEmail(
+    user: User,
+    code: string,
+    expiryMinutes: number,
+  ) {
+    const appName =
+      this.configService.get<string>('app.name') || 'HealthBridge';
+    const fromAddress = this.configService.get<string>('mail.from.address');
+    const fromName = this.configService.get<string>('mail.from.name');
+    const frontendUrl = this.configService.get<string>('frontend.url');
+    const resetUrl = frontendUrl
+      ? `${frontendUrl}/reset-password?code=${code}`
+      : undefined;
+
+    if (!fromAddress) {
+      this.logger.warn('Password reset email not sent: MAIL_FROM_ADDRESS not set.');
+      return;
+    }
+
+    try {
+      await this.emailService.sendMail({
+        from: { email: fromAddress, name: fromName },
+        to: [{ email: user.email, name: user.first_name }],
+        subject: `Reset your ${appName} password`,
+        templateNameID: EmailTemplateID.OTP,
+        templateData: {
+          name: user.first_name,
+          app_name: appName,
+          otp: code,
+          otp_digits: code.split(''),
+          reset_url: resetUrl,
+          expiry_minutes: expiryMinutes,
+        },
+      });
+      this.logger.info('Password reset email sent', { email: user.email });
+    } catch (error) {
+      this.logger.error('Failed to send password reset email', error);
+    }
   }
 
   private async generateTokens(
