@@ -19,6 +19,9 @@ const compat = new FlatCompat({
 
 module.exports = defineConfig([
   {
+    ignores: ['test/**/*.ts'],
+  },
+  {
     languageOptions: {
       parser: tsParser,
       sourceType: 'module',
