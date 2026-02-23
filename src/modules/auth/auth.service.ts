@@ -336,8 +336,7 @@ export class AuthService {
     };
   }
 
-  async googleLogin(token: string, inviteToken?: string) {
-    void inviteToken;
+  async googleLogin(token: string) {
     const googleClientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
     if (!googleClientId) {
       throw new UnauthorizedException(sysMsg.INVALID_GOOGLE_TOKEN);
@@ -348,6 +347,7 @@ export class AuthService {
       sub?: string;
       given_name?: string;
       family_name?: string;
+      name?: string;
       picture?: string;
     } | null;
     try {
@@ -366,6 +366,7 @@ export class AuthService {
     }
 
     const email = payload.email.toLowerCase();
+    const derivedName = this.deriveNameFromGoogle(payload);
     let user = await this.userService.findByEmail(email);
     let isNewUser = false;
 
@@ -380,8 +381,8 @@ export class AuthService {
       user = await this.userService.create({
         email,
         password: hashedPassword,
-        first_name: payload.given_name || 'HealthBridge',
-        last_name: payload.family_name || 'User',
+        first_name: derivedName.firstName,
+        last_name: derivedName.lastName,
         middle_name: null,
         gender: null,
         dob: null,
@@ -391,9 +392,28 @@ export class AuthService {
         is_verified: true,
         google_id: payload.sub,
       });
-    } else if (!user.google_id) {
-      user.google_id = payload.sub;
-      user = await this.userService.save(user);
+    } else {
+      const defaultFirst = 'HealthBridge';
+      const defaultLast = 'User';
+      const shouldUpdateFirst =
+        !user.first_name || user.first_name === defaultFirst;
+      const shouldUpdateLast =
+        !user.last_name || user.last_name === defaultLast;
+      const shouldUpdateGoogleId = !user.google_id;
+
+      if (shouldUpdateGoogleId) {
+        user.google_id = payload.sub;
+      }
+      if (shouldUpdateFirst) {
+        user.first_name = derivedName.firstName;
+      }
+      if (shouldUpdateLast) {
+        user.last_name = derivedName.lastName;
+      }
+
+      if (shouldUpdateGoogleId || shouldUpdateFirst || shouldUpdateLast) {
+        user = await this.userService.save(user);
+      }
     }
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);
@@ -413,6 +433,114 @@ export class AuthService {
       session_id: session.session_id,
       session_expires_at: session.expires_at,
     };
+  }
+
+  private deriveNameFromGoogle(payload: {
+    given_name?: string;
+    family_name?: string;
+    name?: string;
+    email?: string;
+  }): { firstName: string; lastName: string } {
+    const given = this.cleanName(payload.given_name);
+    const family = this.cleanName(payload.family_name);
+    const fromEmail = this.splitEmailLocalPart(payload.email);
+    const emailFirst = fromEmail?.firstName;
+    const emailLast = fromEmail?.lastName;
+
+    if (given || family) {
+      return {
+        firstName:
+          given ||
+          this.firstFromFullName(payload.name) ||
+          emailFirst ||
+          'HealthBridge',
+        lastName:
+          family || this.lastFromFullName(payload.name) || emailLast || 'User',
+      };
+    }
+
+    const fullName = this.splitFullName(payload.name);
+    if (fullName) {
+      return fullName;
+    }
+
+    if (fromEmail) {
+      return fromEmail;
+    }
+
+    return { firstName: 'HealthBridge', lastName: 'User' };
+  }
+
+  private cleanName(value?: string): string | undefined {
+    const trimmed = value?.trim();
+    return trimmed ? trimmed : undefined;
+  }
+
+  private splitFullName(
+    fullName?: string,
+  ): { firstName: string; lastName: string } | null {
+    const trimmed = fullName?.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const parts = trimmed.split(/\s+/).filter(Boolean);
+    if (!parts.length) {
+      return null;
+    }
+    if (parts.length === 1) {
+      return { firstName: parts[0], lastName: 'User' };
+    }
+    return {
+      firstName: parts[0],
+      lastName: parts.slice(1).join(' '),
+    };
+  }
+
+  private firstFromFullName(fullName?: string): string | null {
+    return this.splitFullName(fullName)?.firstName ?? null;
+  }
+
+  private lastFromFullName(fullName?: string): string | null {
+    return this.splitFullName(fullName)?.lastName ?? null;
+  }
+
+  private splitEmailLocalPart(
+    email?: string,
+  ): { firstName: string; lastName: string } | null {
+    if (!email) {
+      return null;
+    }
+    const localPart = email.split('@')[0]?.replace(/\+.*$/, '');
+    if (!localPart) {
+      return null;
+    }
+    const parts = localPart
+      .split(/[._-]+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (!parts.length) {
+      return null;
+    }
+    const firstName = this.titleCase(parts[0]);
+    const lastName =
+      parts.length > 1
+        ? this.titleCase(parts.slice(1).join(' '))
+        : 'User';
+    return { firstName, lastName };
+  }
+
+  private titleCase(value: string): string {
+    if (!value) {
+      return value;
+    }
+    return value
+      .toLowerCase()
+      .split(' ')
+      .map((word) => {
+        const [first, ...rest] = word.split('');
+        return first ? `${first.toUpperCase()}${rest.join('')}` : word;
+      })
+      .join(' ');
   }
 
   private async sendWelcomeEmail(user: User) {

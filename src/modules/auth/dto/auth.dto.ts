@@ -161,15 +161,6 @@ export class GoogleLoginDto {
   @IsString()
   @IsNotEmpty()
   token: string;
-
-  @ApiProperty({
-    example: 'a1b2c3d4... (Invite Token)',
-    description: 'Invite Token (Required for new users)',
-    required: false,
-  })
-  @IsString()
-  @IsOptional()
-  invite_token?: string;
 }
 
 export class AuthMeResponseDto {
