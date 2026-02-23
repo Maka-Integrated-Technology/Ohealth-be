@@ -3,10 +3,14 @@ import {
   NotFoundException,
   BadRequestException,
   ConflictException,
+  Inject,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Repository } from 'typeorm';
+import { Logger } from 'winston';
 
+import * as sysMsg from '../../constants/system.messages';
 import { ProfessionalAvailability } from '../professional/entities/professional-availability.entity';
 import { Professional } from '../professional/entities/professional.entity';
 
@@ -16,6 +20,8 @@ import { Booking, BookingStatus } from './entities/booking.entity';
 
 @Injectable()
 export class BookingService {
+  private readonly logger: Logger;
+
   constructor(
     @InjectRepository(Booking)
     private readonly bookingRepository: Repository<Booking>,
@@ -23,7 +29,10 @@ export class BookingService {
     private readonly professionalRepository: Repository<Professional>,
     @InjectRepository(ProfessionalAvailability)
     private readonly availabilityRepository: Repository<ProfessionalAvailability>,
-  ) {}
+    @Inject(WINSTON_MODULE_PROVIDER) logger: Logger,
+  ) {
+    this.logger = logger.child({ context: BookingService.name });
+  }
 
   async create(
     patientId: string,
@@ -43,7 +52,8 @@ export class BookingService {
     });
 
     if (!professional) {
-      throw new NotFoundException('Professional not found');
+      this.logger.warn(`Professional not found: ${professional_id}`);
+      throw new NotFoundException(sysMsg.PROFESSIONAL_NOT_FOUND);
     }
 
     // Check if professional supports consultation type
@@ -51,8 +61,11 @@ export class BookingService {
       professional.consultation_type !== 'both' &&
       professional.consultation_type !== consultation_type
     ) {
+      this.logger.warn(
+        `Professional ${professional_id} does not support ${consultation_type}`,
+      );
       throw new BadRequestException(
-        `Professional does not support ${consultation_type} consultation`,
+        `${sysMsg.CONSULTATION_TYPE_NOT_SUPPORTED}: ${consultation_type}`,
       );
     }
 
@@ -67,7 +80,10 @@ export class BookingService {
     });
 
     if (!availability) {
-      throw new BadRequestException('Selected time slot is not available');
+      this.logger.warn(
+        `Time slot not available for professional ${professional_id} on ${booking_date} at ${booking_time}`,
+      );
+      throw new BadRequestException(sysMsg.TIME_SLOT_NOT_AVAILABLE);
     }
 
     // Check for existing booking
@@ -81,7 +97,10 @@ export class BookingService {
     });
 
     if (existingBooking) {
-      throw new ConflictException('Time slot already booked');
+      this.logger.warn(
+        `Time slot already booked for professional ${professional_id} on ${booking_date} at ${booking_time}`,
+      );
+      throw new ConflictException(sysMsg.TIME_SLOT_ALREADY_BOOKED);
     }
 
     // Create booking
@@ -97,6 +116,10 @@ export class BookingService {
     });
 
     const savedBooking = await this.bookingRepository.save(booking);
+
+    this.logger.info(
+      `Booking created: ${savedBooking.id} for patient ${patientId}`,
+    );
 
     return {
       id: savedBooking.id,
@@ -150,7 +173,8 @@ export class BookingService {
     });
 
     if (!booking) {
-      throw new NotFoundException('Booking not found');
+      this.logger.warn(`Booking not found: ${id} for user ${userId}`);
+      throw new NotFoundException(sysMsg.BOOKING_NOT_FOUND);
     }
 
     return {
@@ -174,19 +198,22 @@ export class BookingService {
     });
 
     if (!booking) {
-      throw new NotFoundException('Booking not found');
+      this.logger.warn(`Booking not found for cancellation: ${id}`);
+      throw new NotFoundException(sysMsg.BOOKING_NOT_FOUND);
     }
 
     if (booking.status === BookingStatus.COMPLETED) {
-      throw new BadRequestException('Cannot cancel completed booking');
+      throw new BadRequestException(sysMsg.BOOKING_CANNOT_CANCEL_COMPLETED);
     }
 
     if (booking.status === BookingStatus.CANCELLED) {
-      throw new BadRequestException('Booking already cancelled');
+      throw new BadRequestException(sysMsg.BOOKING_ALREADY_CANCELLED);
     }
 
     booking.status = BookingStatus.CANCELLED;
     const updatedBooking = await this.bookingRepository.save(booking);
+
+    this.logger.info(`Booking cancelled: ${id} by user ${userId}`);
 
     return {
       id: updatedBooking.id,

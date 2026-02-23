@@ -24,5 +24,18 @@ export const UNAUTHORIZED = 'unauthorized';
 export const PERMISSION_DENIED = 'permission denied';
 export const VALIDATION_ERROR = 'validation error';
 
+// Booking
+export const BOOKING_CREATED = 'booking created successfully';
+export const BOOKING_NOT_FOUND = 'booking not found';
+export const BOOKING_CANCELLED = 'booking cancelled successfully';
+export const BOOKING_ALREADY_CANCELLED = 'booking already cancelled';
+export const BOOKING_CANNOT_CANCEL_COMPLETED =
+  'cannot cancel completed booking';
+export const PROFESSIONAL_NOT_FOUND = 'professional not found';
+export const CONSULTATION_TYPE_NOT_SUPPORTED =
+  'professional does not support this consultation type';
+export const TIME_SLOT_NOT_AVAILABLE = 'selected time slot is not available';
+export const TIME_SLOT_ALREADY_BOOKED = 'time slot already booked';
+
 // 2FA
 export const MFA_SETUP_SUCCESS = '2fa setup initialized';

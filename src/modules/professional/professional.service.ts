@@ -1,6 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Repository } from 'typeorm';
+import { Logger } from 'winston';
+
+import * as sysMsg from '../../constants/system.messages';
 
 import {
   ProfessionalResponseDto,
@@ -11,12 +15,17 @@ import { Professional } from './entities/professional.entity';
 
 @Injectable()
 export class ProfessionalService {
+  private readonly logger: Logger;
+
   constructor(
     @InjectRepository(Professional)
     private readonly professionalRepository: Repository<Professional>,
     @InjectRepository(ProfessionalAvailability)
     private readonly availabilityRepository: Repository<ProfessionalAvailability>,
-  ) {}
+    @Inject(WINSTON_MODULE_PROVIDER) logger: Logger,
+  ) {
+    this.logger = logger.child({ context: ProfessionalService.name });
+  }
 
   async findBySpeciality(
     specialityId: string,
@@ -52,7 +61,8 @@ export class ProfessionalService {
     });
 
     if (!professional) {
-      throw new NotFoundException('Professional not found');
+      this.logger.warn(`Professional not found: ${id}`);
+      throw new NotFoundException(sysMsg.PROFESSIONAL_NOT_FOUND);
     }
 
     const availabilities = await this.availabilityRepository.find({
