@@ -523,9 +523,7 @@ export class AuthService {
     }
     const firstName = this.titleCase(parts[0]);
     const lastName =
-      parts.length > 1
-        ? this.titleCase(parts.slice(1).join(' '))
-        : 'User';
+      parts.length > 1 ? this.titleCase(parts.slice(1).join(' ')) : 'User';
     return { firstName, lastName };
   }
 
@@ -582,7 +580,9 @@ export class AuthService {
     const fromName = this.configService.get<string>('mail.from.name');
 
     if (!fromAddress) {
-      this.logger.warn('Verification email not sent: MAIL_FROM_ADDRESS not set.');
+      this.logger.warn(
+        'Verification email not sent: MAIL_FROM_ADDRESS not set.',
+      );
       return;
     }
 
@@ -624,7 +624,9 @@ export class AuthService {
       : undefined;
 
     if (!fromAddress) {
-      this.logger.warn('Password reset email not sent: MAIL_FROM_ADDRESS not set.');
+      this.logger.warn(
+        'Password reset email not sent: MAIL_FROM_ADDRESS not set.',
+      );
       return;
     }
 

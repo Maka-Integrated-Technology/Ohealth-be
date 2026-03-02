@@ -9,12 +9,12 @@ import { Logger } from 'winston';
 
 import { IRequestWithUser } from '../../common/types';
 import * as sysMsg from '../../constants/system.messages';
+import { EmailService } from '../email/email.service';
 import { UserRole } from '../user/enums/user-role.enum';
 import { UserService } from '../user/user.service';
-import { EmailService } from '../email/email.service';
-import { VerifySignupDto } from './dto/auth.dto';
 
 import { AuthService } from './auth.service';
+import { VerifySignupDto } from './dto/auth.dto';
 import { AuthSession } from './entities/auth.entity';
 
 describe('AuthService', () => {
@@ -213,7 +213,9 @@ describe('AuthService', () => {
         async (u: Record<string, unknown>) => u,
       );
 
-      const result = await service.forgotPassword({ email: 'user@example.com' });
+      const result = await service.forgotPassword({
+        email: 'user@example.com',
+      });
 
       expect(result.message).toBe(sysMsg.PASSWORD_RESET_CODE_SENT);
       expect(mockEmailService.sendMail).toHaveBeenCalled();
@@ -310,7 +312,9 @@ describe('AuthService', () => {
         verification_code: '123456',
         verification_code_expires_at: new Date(Date.now() + 60000),
       });
-      mockUserService.save.mockImplementation(async (u: Record<string, unknown>) => u);
+      mockUserService.save.mockImplementation(
+        async (u: Record<string, unknown>) => u,
+      );
 
       const result = await service.verifySignup(payload);
 
