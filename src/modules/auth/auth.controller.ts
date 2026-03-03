@@ -32,6 +32,7 @@ import {
   RefreshTokenDto,
   ResetPasswordDto,
   GoogleLoginDto,
+  VerifySignupDto,
 } from './dto/auth.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -62,10 +63,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @GoogleLoginDocs()
   googleLogin(@Body() googleLoginDto: GoogleLoginDto) {
-    return this.authService.googleLogin(
-      googleLoginDto.token,
-      googleLoginDto.invite_token,
-    );
+    return this.authService.googleLogin(googleLoginDto.token);
   }
 
   @RefreshTokenDocs()
@@ -86,6 +84,13 @@ export class AuthController {
   @Post('reset-password')
   resetPassword(@Body() payload: ResetPasswordDto) {
     return this.authService.resetPassword(payload);
+  }
+
+  @Public()
+  @Post('verify')
+  @HttpCode(HttpStatus.OK)
+  verifySignup(@Body() payload: VerifySignupDto) {
+    return this.authService.verifySignup(payload);
   }
 
   @Public()

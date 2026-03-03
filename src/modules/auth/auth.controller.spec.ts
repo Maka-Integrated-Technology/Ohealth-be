@@ -18,6 +18,7 @@ describe('AuthController', () => {
     refreshToken: jest.fn(),
     forgotPassword: jest.fn(),
     resetPassword: jest.fn(),
+    verifySignup: jest.fn(),
     activateUserAccount: jest.fn(),
     getProfile: jest.fn(),
     logout: jest.fn(),
@@ -59,20 +60,6 @@ describe('AuthController', () => {
     expect(result).toEqual(expected);
   });
 
-  it('should call google login with invite token when provided', async () => {
-    const payload = { token: 'google-token', invite_token: 'invite-token' };
-    const expected = { message: sysMsg.LOGIN_SUCCESS };
-    mockAuthService.googleLogin.mockResolvedValue(expected);
-
-    const result = await controller.googleLogin(payload);
-
-    expect(authService.googleLogin).toHaveBeenCalledWith(
-      payload.token,
-      payload.invite_token,
-    );
-    expect(result).toEqual(expected);
-  });
-
   it('should return status and message on account activation', async () => {
     mockAuthService.activateUserAccount.mockResolvedValue(
       sysMsg.USER_ACTIVATED,
@@ -107,6 +94,17 @@ describe('AuthController', () => {
     const result = await controller.getProfile(request);
 
     expect(authService.getProfile).toHaveBeenCalledWith(request);
+    expect(result).toEqual(expected);
+  });
+
+  it('should verify signup code', async () => {
+    const payload = { email: 'user@example.com', code: '123456' };
+    const expected = { message: sysMsg.ACCOUNT_VERIFIED };
+    mockAuthService.verifySignup.mockResolvedValue(expected);
+
+    const result = await controller.verifySignup(payload);
+
+    expect(authService.verifySignup).toHaveBeenCalledWith(payload);
     expect(result).toEqual(expected);
   });
 });

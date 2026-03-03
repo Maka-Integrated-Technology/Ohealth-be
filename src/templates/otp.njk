@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Your {{ app_name }} one-time password</title>
+    <style>
+      @font-face {
+        font-family: "Geist";
+        font-style: normal;
+        font-weight: 400;
+        src: url("https://fonts.gstatic.com/s/geist/v1/cl8i4onL69kv55YcO2VhcQ.woff2")
+          format("woff2");
+      }
+      @media only screen and (max-width: 600px) {
+        .email-outer {
+          padding: 12px !important;
+        }
+        .content-section {
+          padding: 20px !important;
+        }
+        .verify-button {
+          padding: 14px 24px !important;
+          font-size: 15px !important;
+          margin: 0 0 12px !important;
+        }
+        .verify-text {
+          padding: 3px 6px !important;
+          font-size: 15px !important;
+        }
+        .otp-digit {
+          padding: 10px 12px !important;
+          font-size: 20px !important;
+          margin: 4px !important;
+        }
+        .otp-wrapper {
+          padding: 12px 8px !important;
+          border-radius: 12px !important;
+        }
+      }
+
+      /* Dark mode */
+      @media (prefers-color-scheme: dark) {
+        .email-body {
+          background-color: #111827 !important;
+        }
+        .email-outer {
+          background-color: #1f2937 !important;
+        }
+        .logo-section {
+          background-color: #1f2937 !important;
+        }
+        .content-section {
+          background-color: #111827 !important;
+        }
+        .otp-wrapper {
+          background-color: #374151 !important;
+        }
+        .otp-digit {
+          background-color: #4b5563 !important;
+          border-color: #6b7280 !important;
+          color: #f9fafb !important;
+        }
+        .email-text {
+          color: #f9fafb !important;
+        }
+        .logo-text {
+          color: #ffffff !important;
+        }
+      }
+
+      /* Light mode (explicit) */
+      @media (prefers-color-scheme: light) {
+        .email-body {
+          background-color: #e5e7eb !important;
+        }
+        .email-outer {
+          background-color: #ffffff !important;
+        }
+        .logo-section {
+          background-color: #ffffff !important;
+        }
+        .content-section {
+          background-color: #f6f6f6 !important;
+        }
+        .otp-wrapper {
+          background-color: transparent !important;
+        }
+        .otp-digit {
+          background-color: #ffffff !important;
+          border-color: #d1d5db !important;
+          color: #1e293b !important;
+        }
+        .email-text {
+          color: #000000 !important;
+        }
+        .logo-text {
+          color: #000000 !important;
+        }
+      }
+    </style>
+  </head>
+  <body
+    class="email-body"
+    style="
+      background-color: #e5e7eb;
+      margin: 0;
+      padding: 0;
+      font-family: Geist, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      color: #111827;
+    "
+  >
+    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td align="center">
+          <div
+            style="
+              display: none;
+              max-height: 0px;
+              overflow: hidden;
+              mso-hide: all;
+              font-size: 1px;
+              line-height: 1px;
+              color: #ffffff;
+              opacity: 0;
+            "
+          >
+            Your {{ app_name }} one-time password
+          </div>
+          <table
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            border="0"
+            class="email-outer"
+            style="
+              max-width: 600px;
+              padding: 40px 20px;
+              background-color: #ffffff;
+            "
+          >
+            <tr>
+              <td
+                align="center"
+                class="logo-section"
+                style="padding: 30px 20px 20px; background-color: #ffffff"
+              >
+                <table cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td align="center">
+                      <img
+                        alt="HealthBridge logo"
+                        src="https://res.cloudinary.com/dvieev0ag/image/upload/v1771969746/logo_ezqram.png"
+                        width="25"
+                        style="display: inline-block; vertical-align: middle"
+                      />
+                      <span
+                        class="logo-text"
+                        style="
+                          display: inline-block;
+                          vertical-align: middle;
+                          margin: 0 0 0 8px;
+                          font-weight: 700;
+                          font-size: 16px;
+                          color: #000000;
+                        "
+                      >
+                        {{ app_name }}
+                      </span>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td
+                class="verify-text"
+                style="
+                  background-color: #155eef;
+                  color: #ffffff;
+                  font-size: 16px;
+                  font-weight: 700;
+                  padding: 4px 8px;
+                  border-top-left-radius: 8px;
+                  border-top-right-radius: 8px;
+                  text-align: center;
+                "
+              >
+                One Time Password (OTP)
+              </td>
+            </tr>
+
+            <tr>
+              <td class="content-section" style="background-color: #f6f6f6; padding: 20px">
+                <p
+                  class="email-text"
+                  style="font-size: 16px; font-weight: 700; margin: 0 0 4px; color: #111827"
+                >
+                  Hello {{ name }},
+                </p>
+
+                <p
+                  class="email-text"
+                  style="font-size: 15px; line-height: 24px; margin: 0 0 20px; color: #111827"
+                >
+                  Your one-time verification code is
+                </p>
+
+                <table
+                  class="otp-wrapper"
+                  cellpadding="0"
+                  cellspacing="0"
+                  border="0"
+                  role="presentation"
+                  style="width: 100%; margin: 0 auto 24px; padding: 16px 0"
+                >
+                  <tr>
+                    {% for digit in otp_digits %}
+                    <td style="text-align: center">
+                      <div
+                        class="otp-digit"
+                        style="
+                          display: inline-block;
+                          padding: 16px 32px;
+                          font-size: 26px;
+                          font-weight: 700;
+                          color: #1e293b;
+                          text-align: center;
+                          background-color: #ffffff;
+                          border: 2px solid #d1d5db;
+                          border-radius: 10px;
+                          margin: 0 6px;
+                        "
+                      >
+                        {{ digit }}
+                      </div>
+                    </td>
+                    {% endfor %}
+                  </tr>
+                </table>
+
+                {% if reset_url %}
+                <div style="text-align: center">
+                  <a
+                    class="verify-button"
+                    href="{{ reset_url }}"
+                    style="
+                      background-color: #155eef;
+                      color: #ffffff;
+                      font-size: 16px;
+                      font-weight: 600;
+                      padding: 16px 32px;
+                      border-radius: 8px;
+                      text-decoration: none;
+                      display: inline-block;
+                      width: 100%;
+                      text-align: center;
+                      box-sizing: border-box;
+                      margin-bottom: 12px;
+                    "
+                  >
+                    Reset My Password
+                  </a>
+                </div>
+                {% endif %}
+
+                <p
+                  class="email-text"
+                  style="font-size: 14px; line-height: 22px; margin: 0 0 12px; color: #111827"
+                >
+                  This code will expire shortly, so please use it as soon as
+                  possible.
+                </p>
+
+                <p
+                  class="email-text"
+                  style="font-size: 14px; line-height: 22px; margin: 0 0 12px; color: #111827"
+                >
+                  If you didn't request this code, you can safely ignore this
+                  email.
+                </p>
+
+                <p
+                  class="email-text"
+                  style="font-size: 14px; line-height: 22px; margin: 0; color: #111827"
+                >
+                  Stay safe,
+                  <br />
+                  {{ app_name }} Team
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

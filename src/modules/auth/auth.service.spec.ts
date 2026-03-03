@@ -9,10 +9,12 @@ import { Logger } from 'winston';
 
 import { IRequestWithUser } from '../../common/types';
 import * as sysMsg from '../../constants/system.messages';
+import { EmailService } from '../email/email.service';
 import { UserRole } from '../user/enums/user-role.enum';
 import { UserService } from '../user/user.service';
 
 import { AuthService } from './auth.service';
+import { VerifySignupDto } from './dto/auth.dto';
 import { AuthSession } from './entities/auth.entity';
 
 describe('AuthService', () => {
@@ -54,10 +56,20 @@ describe('AuthService', () => {
           return '7d';
         case 'GOOGLE_CLIENT_ID':
           return 'google-client-id';
+        case 'mail.from.address':
+          return 'support@healthbridge.test';
+        case 'mail.from.name':
+          return 'HealthBridge';
+        case 'app.name':
+          return 'HealthBridge';
         default:
           return fallback;
       }
     }),
+  };
+
+  const mockEmailService = {
+    sendMail: jest.fn(),
   };
 
   const mockLogger = {
@@ -87,6 +99,10 @@ describe('AuthService', () => {
         {
           provide: ConfigService,
           useValue: mockConfigService,
+        },
+        {
+          provide: EmailService,
+          useValue: mockEmailService,
         },
         {
           provide: WINSTON_MODULE_PROVIDER,
@@ -149,12 +165,13 @@ describe('AuthService', () => {
         role: [UserRole.PATIENT],
       });
 
-      expect(result.message).toBe(sysMsg.ACCOUNT_CREATED);
+      expect(result.message).toBe(sysMsg.VERIFICATION_CODE_SENT);
       expect(result.user.email).toBe('tunde@example.com');
       expect(result).toHaveProperty('access_token', 'access-token');
       expect(result).toHaveProperty('refresh_token', 'refresh-token');
       expect(result).toHaveProperty('session_id');
       expect(mockLogger.info).toHaveBeenCalledWith(sysMsg.ACCOUNT_CREATED);
+      expect(mockEmailService.sendMail).toHaveBeenCalled();
     });
 
     it('should throw conflict exception for duplicate email', async () => {
@@ -182,6 +199,26 @@ describe('AuthService', () => {
           password: 'wrong-pass',
         }),
       ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('forgotPassword', () => {
+    it('should send otp email when user exists', async () => {
+      mockUserService.findByEmail.mockResolvedValue({
+        id: 'user-id-1',
+        email: 'user@example.com',
+        first_name: 'Tunde',
+      });
+      mockUserService.save.mockImplementation(
+        async (u: Record<string, unknown>) => u,
+      );
+
+      const result = await service.forgotPassword({
+        email: 'user@example.com',
+      });
+
+      expect(result.message).toBe(sysMsg.PASSWORD_RESET_CODE_SENT);
+      expect(mockEmailService.sendMail).toHaveBeenCalled();
     });
   });
 
@@ -256,6 +293,34 @@ describe('AuthService', () => {
       expect(result).toEqual({ message: sysMsg.LOGOUT_SUCCESS });
       expect(mockSessionRepository.save).toHaveBeenCalled();
       expect(mockLogger.info).toHaveBeenCalledWith(sysMsg.LOGOUT_SUCCESS);
+    });
+  });
+
+  describe('verifySignup', () => {
+    it('should activate and verify a user with a valid code', async () => {
+      const payload: VerifySignupDto = {
+        email: 'tunde@example.com',
+        code: '123456',
+      };
+      mockUserService.findByEmail.mockResolvedValue({
+        id: 'user-id-1',
+        email: payload.email,
+        first_name: 'Tunde',
+        last_name: 'Adebayo',
+        is_active: false,
+        is_verified: false,
+        verification_code: '123456',
+        verification_code_expires_at: new Date(Date.now() + 60000),
+      });
+      mockUserService.save.mockImplementation(
+        async (u: Record<string, unknown>) => u,
+      );
+
+      const result = await service.verifySignup(payload);
+
+      expect(result).toEqual({ message: sysMsg.ACCOUNT_VERIFIED });
+      expect(mockUserService.save).toHaveBeenCalled();
+      expect(mockEmailService.sendMail).toHaveBeenCalled();
     });
   });
 });

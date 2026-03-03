@@ -46,6 +46,10 @@ export default () => ({
     clientId: process.env.GOOGLE_CLIENT_ID,
   },
 
+  frontend: {
+    url: process.env.FRONTEND_URL,
+  },
+
   isTest(): boolean {
     return process.env.NODE_ENV === 'test';
   },
