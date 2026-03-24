@@ -68,4 +68,12 @@ export default () => ({
   hash: {
     salt: process.env.HASH_SALT || '10',
   },
+  openrouter: {
+    apiKey: process.env.OPENROUTER_API_KEY,
+    baseUrl: process.env.OPENROUTER_BASE_URL,
+    model: process.env.OPENROUTER_MODEL,
+    systemPrompt: process.env.OPENROUTER_SYSTEM_PROMPT,
+    contextMessageLimit:
+      parseInt(process.env.OPENROUTER_CONTEXT_MESSAGE_LIMIT, 10) || 20,
+  },
 });

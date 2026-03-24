@@ -12,6 +12,7 @@ import configuration from './config/config';
 import { LoggingInterceptor } from './middleware/logging.interceptor';
 import { AuthModule } from './modules/auth/auth.module';
 import { BookingModule } from './modules/booking/booking.module';
+import { ChatModule } from './modules/chat/chat.module';
 import { ProfessionalModule } from './modules/professional/professional.module';
 import { SpecialityModule } from './modules/speciality/speciality.module';
 
@@ -42,6 +43,7 @@ import { SpecialityModule } from './modules/speciality/speciality.module';
     SpecialityModule,
     ProfessionalModule,
     BookingModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [
