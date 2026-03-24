@@ -2,6 +2,7 @@
 
 A comprehensive healthcare booking platform built with NestJS, TypeORM, and PostgreSQL. HealthBridge connects patients with healthcare professionals through an intuitive appointment booking system.
 
+
 ## 🌟 Features
 
 - **User Authentication** - JWT-based authentication with refresh tokens, Google OAuth, password reset
@@ -11,6 +12,7 @@ A comprehensive healthcare booking platform built with NestJS, TypeORM, and Post
 - **Booking Management** - View, track, and cancel appointments
 - **Real-time Availability** - Check professional availability by day and time
 - **Secure API** - Role-based access control and input validation
+- **AI Chat (OpenRouter Integration)** - Chat with an AI assistant, with chat history tracked per user. Powered by OpenRouter and configurable via environment variables.
 
 ## 🛠️ Tech Stack
 
@@ -96,6 +98,12 @@ Interactive API documentation is available via Swagger UI:
 http://localhost:3000/docs
 ```
 
+
+### AI Chat Endpoints
+
+- `POST /chat/send` - Send a message to the AI (requires authentication)
+- `GET /chat/history` - Get chat history for the logged-in user (requires authentication)
+
 ### API Endpoints
 
 #### Authentication
@@ -120,6 +128,7 @@ http://localhost:3000/docs
 - `GET /api/v1/bookings/{id}` - Get booking details
 - `PATCH /api/v1/bookings/{id}/cancel` - Cancel booking
 
+
 ## 🗄️ Database Schema
 
 ### Core Tables
@@ -131,6 +140,8 @@ http://localhost:3000/docs
 - **bookings** - Appointment bookings
 - **auth_sessions** - User sessions and refresh tokens
 - **user_2fa** - Two-factor authentication data
+- **chats** - AI chat sessions (linked to users)
+- **messages** - Chat messages (user and AI messages, linked to chats)
 
 ## 🧪 Testing
 
@@ -178,6 +189,7 @@ src/
 ├── modules/             # Feature modules
 │   ├── auth/            # Authentication module
 │   ├── booking/         # Booking management
+│   ├── chat/            # AI chat module
 │   ├── professional/    # Professional management
 │   ├── speciality/      # Speciality management
 │   └── user/            # User management
@@ -209,6 +221,7 @@ npm run build
 npm run start:prod
 ```
 
+
 ## 📝 Environment Variables
 
 | Variable | Description | Default |
@@ -224,6 +237,9 @@ npm run start:prod
 | `JWT_REFRESH_SECRET` | JWT refresh secret | - |
 | `TOKEN_ACCESS_DURATION` | Access token expiry | `15m` |
 | `TOKEN_REFRESH_DURATION` | Refresh token expiry | `7d` |
+| `OPENROUTER_API_KEY` | OpenRouter API key for AI chat | - |
+| `OPENROUTER_BASE_URL` | OpenRouter API base URL | `https://openrouter.ai/api/v1` |
+| `OPENROUTER_MODEL` | OpenRouter model name | `gpt-4-turbo` |
 
 ## 🤝 Contributing
 
