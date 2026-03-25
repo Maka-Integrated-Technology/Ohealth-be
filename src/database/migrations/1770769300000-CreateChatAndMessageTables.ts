@@ -21,6 +21,7 @@ export class CreateChatAndMessageTables1770769300000 implements MigrationInterfa
           },
           { name: 'user_id', type: 'uuid' },
           { name: 'created_at', type: 'timestamp', default: 'now()' },
+          { name: 'updated_at', type: 'timestamp', default: 'now()' },
         ],
       }),
     );
@@ -49,6 +50,7 @@ export class CreateChatAndMessageTables1770769300000 implements MigrationInterfa
           { name: 'sender', type: 'varchar' },
           { name: 'content', type: 'text' },
           { name: 'created_at', type: 'timestamp', default: 'now()' },
+          { name: 'updated_at', type: 'timestamp', default: 'now()' },
         ],
       }),
     );

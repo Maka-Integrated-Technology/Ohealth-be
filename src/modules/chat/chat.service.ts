@@ -36,9 +36,14 @@ export class ChatService {
 
   async sendMessage(userId: string, dto: SendMessageDto) {
     // Find or create chat
-    let chat = await this.chatRepo.findOne({
-      where: { id: dto.chatId, user: { id: userId } },
-    });
+    let chat: Chat | null = null;
+
+    if (dto.chatId) {
+      chat = await this.chatRepo.findOne({
+        where: { id: dto.chatId, user: { id: userId } },
+      });
+    }
+
     if (!chat) {
       chat = this.chatRepo.create({ user: { id: userId } });
       await this.chatRepo.save(chat);
