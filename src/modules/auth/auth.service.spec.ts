@@ -57,11 +57,11 @@ describe('AuthService', () => {
         case 'GOOGLE_CLIENT_ID':
           return 'google-client-id';
         case 'mail.from.address':
-          return 'support@healthbridge.test';
+          return 'support@ohealth.test';
         case 'mail.from.name':
-          return 'HealthBridge';
+          return 'OHealth';
         case 'app.name':
-          return 'HealthBridge';
+          return 'OHealth';
         default:
           return fallback;
       }

@@ -4,7 +4,7 @@ export default () => ({
   port: parseInt(process.env.PORT, 10) || 4005,
 
   app: {
-    name: process.env.APP_NAME || 'HealthBridge',
+    name: process.env.APP_NAME || 'OHealth',
     slug: process.env.APP_SLUG,
     logo_url: process.env.LOGO_URL,
   },

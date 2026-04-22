@@ -393,7 +393,7 @@ export class AuthService {
         google_id: payload.sub,
       });
     } else {
-      const defaultFirst = 'HealthBridge';
+      const defaultFirst = 'OHealth';
       const defaultLast = 'User';
       const shouldUpdateFirst =
         !user.first_name || user.first_name === defaultFirst;
@@ -453,7 +453,7 @@ export class AuthService {
           given ||
           this.firstFromFullName(payload.name) ||
           emailFirst ||
-          'HealthBridge',
+          'OHealth',
         lastName:
           family || this.lastFromFullName(payload.name) || emailLast || 'User',
       };
@@ -468,7 +468,7 @@ export class AuthService {
       return fromEmail;
     }
 
-    return { firstName: 'HealthBridge', lastName: 'User' };
+    return { firstName: 'OHealth', lastName: 'User' };
   }
 
   private cleanName(value?: string): string | undefined {
@@ -542,8 +542,7 @@ export class AuthService {
   }
 
   private async sendWelcomeEmail(user: User) {
-    const appName =
-      this.configService.get<string>('app.name') || 'HealthBridge';
+    const appName = this.configService.get<string>('app.name') || 'OHealth';
     const fromAddress = this.configService.get<string>('mail.from.address');
     const fromName = this.configService.get<string>('mail.from.name');
 
@@ -574,14 +573,13 @@ export class AuthService {
     code: string,
     expiryMinutes: number,
   ) {
-    const appName =
-      this.configService.get<string>('app.name') || 'HealthBridge';
+    const appName = this.configService.get<string>('app.name') || 'OHealth';
     const fromAddress = this.configService.get<string>('mail.from.address');
     const fromName = this.configService.get<string>('mail.from.name');
 
     if (!fromAddress) {
       this.logger.warn(
-        'Verification email not sent: MAIL_FROM_ADDRESS not set.',
+        'Verification email not sent: MAIL_FROM_ADDRESS not set',
       );
       return;
     }
@@ -614,8 +612,7 @@ export class AuthService {
     code: string,
     expiryMinutes: number,
   ) {
-    const appName =
-      this.configService.get<string>('app.name') || 'HealthBridge';
+    const appName = this.configService.get<string>('app.name') || 'OHealth';
     const fromAddress = this.configService.get<string>('mail.from.address');
     const fromName = this.configService.get<string>('mail.from.name');
     const frontendUrl = this.configService.get<string>('frontend.url');

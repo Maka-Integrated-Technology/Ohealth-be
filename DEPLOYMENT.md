@@ -1,6 +1,6 @@
-# HealthBridge — EC2 Deployment Guide
+# OHealth — EC2 Deployment Guide
 
-Complete guide to deploy the HealthBridge NestJS API on AWS EC2 with GitHub Actions CI/CD.
+Complete guide to deploy the OHealth NestJS API on AWS EC2 with GitHub Actions CI/CD.
 
 ## Prerequisites
 
@@ -73,7 +73,7 @@ This allows the server to clone your private repo via SSH and allows GitHub Acti
 ### 4a. Generate SSH Key on EC2
 
 ```bash
-ssh-keygen -t ed25519 -C "healthbridge-ec2" -f ~/.ssh/github_deploy -N ""
+ssh-keygen -t ed25519 -C "ohealth-ec2" -f ~/.ssh/github_deploy -N ""
 ```
 
 This creates:
@@ -113,7 +113,7 @@ cat ~/.ssh/github_deploy.pub
 ```
 
 Then go to **GitHub → Repository → Settings → Deploy keys → Add deploy key**:
-- **Title**: `healthbridge-ec2`
+- **Title**: `ohealth-ec2`
 - **Key**: Paste the public key output
 - **Allow write access**: Leave unchecked (read-only is fine for pulling)
 
@@ -137,9 +137,9 @@ sudo -u postgres psql
 ```
 
 ```sql
-CREATE USER healthbridge WITH PASSWORD '<strong_password>';
-CREATE DATABASE healthbridge_app_db OWNER healthbridge;
-GRANT ALL PRIVILEGES ON DATABASE healthbridge_app_db TO healthbridge;
+CREATE USER ohealth WITH PASSWORD '<strong_password>';
+CREATE DATABASE ohealth_app_db OWNER ohealth;
+GRANT ALL PRIVILEGES ON DATABASE ohealth_app_db TO ohealth;
 \q
 ```
 
@@ -235,14 +235,14 @@ nano /var/www/healthbridge/be/prod/.env
 ```env
 NODE_ENV=production
 PORT=3000
-APP_NAME=HealthBridge
-APP_SLUG=healthbridge
-APP_DESCRIPTION=HealthBridge Application
+APP_NAME=OHealth
+APP_SLUG=ohealth
+APP_DESCRIPTION=OHealth Application
 
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=healthbridge_app_db
-DB_USER=healthbridge
+DB_NAME=ohealth_app_db
+DB_USER=ohealth
 DB_PASS=<your_db_password>
 DB_SSL=false
 
@@ -266,12 +266,12 @@ Change in staging:
 ```env
 NODE_ENV=staging
 PORT=3001
-DB_NAME=healthbridge_staging_db
+DB_NAME=ohealth_staging_db
 ```
 
 > Create the staging database too if you want isolation:
 > ```bash
-> sudo -u postgres psql -c "CREATE DATABASE healthbridge_staging_db OWNER healthbridge;"
+> sudo -u postgres psql -c "CREATE DATABASE ohealth_staging_db OWNER ohealth;"
 > ```
 
 ---
@@ -302,14 +302,16 @@ curl http://localhost:3000/docs
 
 ## 10. Configure Nginx Reverse Proxy
 
+### Production
+
 ```bash
-sudo nano /etc/nginx/sites-available/healthbridge
+sudo nano /etc/nginx/sites-available/api.healthbridge
 ```
 
 ```nginx
 server {
     listen 80;
-    server_name your-domain.com;  # or EC2 public IP
+    server_name api.ohealthltd.com;
 
     location / {
         proxy_pass http://127.0.0.1:3000;
@@ -325,11 +327,37 @@ server {
 }
 ```
 
-Enable the site:
+### Staging
 
 ```bash
-sudo ln -s /etc/nginx/sites-available/healthbridge /etc/nginx/sites-enabled/
-sudo rm /etc/nginx/sites-enabled/default
+sudo nano /etc/nginx/sites-available/api.staging.healthbridge
+```
+
+```nginx
+server {
+    listen 80;
+    server_name api.staging.ohealthltd.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+### Enable both sites
+
+```bash
+sudo ln -s /etc/nginx/sites-available/api.healthbridge /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/api.staging.healthbridge /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t
 sudo systemctl restart nginx
 ```
@@ -420,11 +448,50 @@ Update `.github/workflows/ci-pipeline.yml` — replace `password` with `key` in 
 
 ---
 
-## 12. SSL with Let's Encrypt (Optional)
+## 12. DNS Setup
+
+### Get Your EC2 Public IP
+
+From the **AWS Console**: EC2 → Instances → select your instance → Details tab → **Public IPv4 address**
+
+Or run on the EC2 server:
+
+```bash
+curl -s http://checkip.amazonaws.com
+```
+
+> **Important**: Assign an **Elastic IP** so the public IP doesn't change on reboot:
+> EC2 → Elastic IPs → Allocate Elastic IP address → Associate to your instance.
+
+### Configure DNS Records
+
+Go to your domain hosting provider (wherever `ohealthltd.com` is registered) and add these **A records**:
+
+| Type | Name          | Value            | TTL |
+| ---- | ------------- | ---------------- | --- |
+| A    | `api`         | `<EC2_PUBLIC_IP>` | 300 |
+| A    | `api.staging` | `<EC2_PUBLIC_IP>` | 300 |
+
+This maps:
+- `api.ohealthltd.com` → your EC2 instance (production)
+- `api.staging.ohealthltd.com` → your EC2 instance (staging)
+
+### Verify DNS Propagation
+
+```bash
+nslookup api.ohealthltd.com
+nslookup api.staging.ohealthltd.com
+```
+
+Both should resolve to your EC2 public IP. DNS propagation can take up to 24 hours but usually completes within minutes.
+
+---
+
+## 13. SSL with Let's Encrypt (Optional)
 
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d your-domain.com
+sudo certbot --nginx -d api.ohealthltd.com -d api.staging.ohealthltd.com
 ```
 
 Certbot auto-renews. Verify with:
@@ -454,6 +521,36 @@ main → push → GitHub Actions CI → SSH into EC2 → deploy to /prod (port 3
 
 ---
 
+## Manual Deployment
+
+If you need to deploy without going through GitHub Actions (e.g. first deploy, hotfix, or CI is down).
+
+### Staging
+
+```bash
+cd /var/www/healthbridge/be/dev
+git pull origin staging
+npm ci --production=false
+npm run build
+npm run migration:run
+pm2 restart hb-api-staging || pm2 start dist/src/main.js --name hb-api-staging
+pm2 save
+```
+
+### Production
+
+```bash
+cd /var/www/healthbridge/be/prod
+git pull origin main
+npm ci --production=false
+npm run build
+npm run migration:run
+pm2 restart hb-api-prod || pm2 start dist/src/main.js --name hb-api-prod
+pm2 save
+```
+
+---
+
 ## Useful Commands
 
 ```bash
@@ -461,9 +558,11 @@ main → push → GitHub Actions CI → SSH into EC2 → deploy to /prod (port 3
 pm2 list
 
 # View logs
+pm2 logs hb-api-staging
 pm2 logs hb-api-prod
 
 # Restart
+pm2 restart hb-api-staging
 pm2 restart hb-api-prod
 
 # Check Nginx status

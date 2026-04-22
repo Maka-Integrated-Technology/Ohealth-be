@@ -1,6 +1,6 @@
-# HealthBridge Backend API
+# OHealth Backend API
 
-A comprehensive healthcare booking platform built with NestJS, TypeORM, and PostgreSQL. HealthBridge connects patients with healthcare professionals through an intuitive appointment booking system.
+A comprehensive healthcare booking platform built with NestJS, TypeORM, and PostgreSQL. OHealth connects patients with healthcare professionals through an intuitive appointment booking system.
 
 
 ## 🌟 Features
@@ -60,7 +60,7 @@ PORT=3000
 # Database
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=healthbridge_app_db
+DB_NAME=ohealth_app_db
 DB_USER=postgres
 DB_PASS=password
 DB_SSL=false
@@ -230,7 +230,7 @@ npm run start:prod
 | `PORT` | Server port | `3000` |
 | `DB_HOST` | Database host | `localhost` |
 | `DB_PORT` | Database port | `5432` |
-| `DB_NAME` | Database name | `healthbridge_app_db` |
+| `DB_NAME` | Database name | `ohealth_app_db` |
 | `DB_USER` | Database user | `postgres` |
 | `DB_PASS` | Database password | - |
 | `JWT_SECRET` | JWT secret key | - |
@@ -259,11 +259,11 @@ For support and questions, please open an issue in the repository.
 
 ---
 
-**HealthBridge** - Connecting patients with healthcare professionals seamlessly.
+**OHealth** - Connecting patients with healthcare professionals seamlessly.
 
 
 ### Ai context
 
 ```bash
-You are HealthBridge's AI medical assistant with broad, evidence-informed knowledge across major medical specialties. Provide clear, cautious, and practical health guidance, ask relevant follow-up questions when key details are missing, and advise urgent medical care when red-flag symptoms are present. Do not invent diagnoses or claim to have examined the patient, and encourage consultation with a licensed clinician for diagnosis and treatment.
+You are OHealth's AI medical assistant with broad, evidence-informed knowledge across major medical specialties. Provide clear, cautious, and practical health guidance, ask relevant follow-up questions when key details are missing, and advise urgent medical care when red-flag symptoms are present. Do not invent diagnoses or claim to have examined the patient, and encourage consultation with a licensed clinician for diagnosis and treatment.
 ```
