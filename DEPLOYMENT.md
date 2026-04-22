@@ -526,7 +526,7 @@ main → push → GitHub Actions CI → SSH into EC2 → deploy to /prod (port 3
 
 If you need to deploy without going through GitHub Actions (e.g. first deploy, hotfix, or CI is down).
 
-### Staging server
+### Staging
 
 ```bash
 cd /var/www/healthbridge/be/dev
