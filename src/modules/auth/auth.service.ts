@@ -18,7 +18,9 @@ import { IsNull, MoreThan, Repository } from 'typeorm';
 import { Logger } from 'winston';
 
 import { IRequestWithUser } from '../../common/types';
+import { EmailTemplateID } from '../../constants/email-constants';
 import * as sysMsg from '../../constants/system.messages';
+import { EmailService } from '../email/email.service';
 import { User } from '../user/entities/user.entity';
 import { UserRole } from '../user/enums/user-role.enum';
 import { UserService } from '../user/user.service';
@@ -29,6 +31,7 @@ import {
   LogoutDto,
   RefreshTokenDto,
   ResetPasswordDto,
+  VerifySignupDto,
 } from './dto/auth.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthSession } from './entities/auth.entity';
@@ -50,6 +53,7 @@ export class AuthService {
     private readonly sessionRepository: Repository<AuthSession>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly emailService: EmailService,
     @Inject(WINSTON_MODULE_PROVIDER) logger: Logger,
   ) {
     this.logger = logger.child({ context: AuthService.name });
@@ -67,6 +71,8 @@ export class AuthService {
       signupPayload.password,
       this.saltRounds,
     );
+    const verificationCode = this.generateVerificationCode();
+    const verificationExpiry = new Date(Date.now() + 10 * 60 * 1000);
     const savedUser = await this.userService.create({
       email,
       password: hashedPassword,
@@ -79,8 +85,10 @@ export class AuthService {
       role: signupPayload.role?.length
         ? signupPayload.role
         : [UserRole.PATIENT],
-      is_active: signupPayload.is_active ?? true,
+      is_active: false,
       is_verified: false,
+      verification_code: verificationCode,
+      verification_code_expires_at: verificationExpiry,
     });
     const tokens = await this.generateTokens(
       savedUser.id,
@@ -93,9 +101,10 @@ export class AuthService {
     );
 
     this.logger.info(sysMsg.ACCOUNT_CREATED);
+    void this.sendVerificationEmail(savedUser, verificationCode, 10);
 
     return {
-      message: sysMsg.ACCOUNT_CREATED,
+      message: sysMsg.VERIFICATION_CODE_SENT,
       user: this.toUserResponse(savedUser),
       ...tokens,
       session_id: session.session_id,
@@ -111,7 +120,7 @@ export class AuthService {
       throw new UnauthorizedException(sysMsg.INVALID_CREDENTIALS);
     }
 
-    if (!user.is_active) {
+    if (!user.is_active || !user.is_verified) {
       throw new UnauthorizedException(sysMsg.USER_INACTIVE);
     }
 
@@ -190,15 +199,17 @@ export class AuthService {
     const user = await this.userService.findByEmail(email);
 
     if (user) {
-      user.reset_token = crypto.randomBytes(32).toString('hex');
-      user.reset_token_expiry = new Date(Date.now() + 60 * 60 * 1000);
+      const resetCode = this.generateVerificationCode();
+      user.reset_token = resetCode;
+      user.reset_token_expiry = new Date(Date.now() + 10 * 60 * 1000);
       await this.userService.save(user);
 
       this.logger.info(`Password reset token generated for user ${user.id}`);
+      void this.sendPasswordResetEmail(user, resetCode, 10);
     }
 
     return {
-      message: sysMsg.PASSWORD_RESET_TOKEN_SENT,
+      message: sysMsg.PASSWORD_RESET_CODE_SENT,
     };
   }
 
@@ -244,6 +255,36 @@ export class AuthService {
     user.is_active = true;
     await this.userService.save(user);
     return sysMsg.USER_ACTIVATED;
+  }
+
+  async verifySignup(payload: VerifySignupDto) {
+    const email = payload.email.trim().toLowerCase();
+    const user = await this.userService.findByEmail(email);
+    if (!user) {
+      throw new NotFoundException(sysMsg.USER_NOT_FOUND);
+    }
+
+    if (!user.verification_code || !user.verification_code_expires_at) {
+      throw new BadRequestException(sysMsg.INVALID_VERIFICATION_CODE);
+    }
+
+    if (user.verification_code !== payload.code) {
+      throw new BadRequestException(sysMsg.INVALID_VERIFICATION_CODE);
+    }
+
+    if (user.verification_code_expires_at < new Date()) {
+      throw new BadRequestException(sysMsg.VERIFICATION_CODE_EXPIRED);
+    }
+
+    user.is_active = true;
+    user.is_verified = true;
+    user.verification_code = null;
+    user.verification_code_expires_at = null;
+    await this.userService.save(user);
+
+    void this.sendWelcomeEmail(user);
+
+    return { message: sysMsg.ACCOUNT_VERIFIED };
   }
 
   async getProfile(req: IRequestWithUser) {
@@ -295,8 +336,7 @@ export class AuthService {
     };
   }
 
-  async googleLogin(token: string, inviteToken?: string) {
-    void inviteToken;
+  async googleLogin(token: string) {
     const googleClientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
     if (!googleClientId) {
       throw new UnauthorizedException(sysMsg.INVALID_GOOGLE_TOKEN);
@@ -307,6 +347,7 @@ export class AuthService {
       sub?: string;
       given_name?: string;
       family_name?: string;
+      name?: string;
       picture?: string;
     } | null;
     try {
@@ -325,7 +366,9 @@ export class AuthService {
     }
 
     const email = payload.email.toLowerCase();
+    const derivedName = this.deriveNameFromGoogle(payload);
     let user = await this.userService.findByEmail(email);
+    let isNewUser = false;
 
     if (!user) {
       const generatedPassword = crypto.randomBytes(24).toString('hex');
@@ -334,11 +377,12 @@ export class AuthService {
         this.saltRounds,
       );
 
+      isNewUser = true;
       user = await this.userService.create({
         email,
         password: hashedPassword,
-        first_name: payload.given_name || 'HealthBridge',
-        last_name: payload.family_name || 'User',
+        first_name: derivedName.firstName,
+        last_name: derivedName.lastName,
         middle_name: null,
         gender: null,
         dob: null,
@@ -348,13 +392,36 @@ export class AuthService {
         is_verified: true,
         google_id: payload.sub,
       });
-    } else if (!user.google_id) {
-      user.google_id = payload.sub;
-      user = await this.userService.save(user);
+    } else {
+      const defaultFirst = 'HealthBridge';
+      const defaultLast = 'User';
+      const shouldUpdateFirst =
+        !user.first_name || user.first_name === defaultFirst;
+      const shouldUpdateLast =
+        !user.last_name || user.last_name === defaultLast;
+      const shouldUpdateGoogleId = !user.google_id;
+
+      if (shouldUpdateGoogleId) {
+        user.google_id = payload.sub;
+      }
+      if (shouldUpdateFirst) {
+        user.first_name = derivedName.firstName;
+      }
+      if (shouldUpdateLast) {
+        user.last_name = derivedName.lastName;
+      }
+
+      if (shouldUpdateGoogleId || shouldUpdateFirst || shouldUpdateLast) {
+        user = await this.userService.save(user);
+      }
     }
 
     const tokens = await this.generateTokens(user.id, user.email, user.role);
     const session = await this.createSession(user.id, tokens.refresh_token);
+
+    if (isNewUser) {
+      void this.sendWelcomeEmail(user);
+    }
 
     return {
       message: sysMsg.LOGIN_SUCCESS,
@@ -366,6 +433,222 @@ export class AuthService {
       session_id: session.session_id,
       session_expires_at: session.expires_at,
     };
+  }
+
+  private deriveNameFromGoogle(payload: {
+    given_name?: string;
+    family_name?: string;
+    name?: string;
+    email?: string;
+  }): { firstName: string; lastName: string } {
+    const given = this.cleanName(payload.given_name);
+    const family = this.cleanName(payload.family_name);
+    const fromEmail = this.splitEmailLocalPart(payload.email);
+    const emailFirst = fromEmail?.firstName;
+    const emailLast = fromEmail?.lastName;
+
+    if (given || family) {
+      return {
+        firstName:
+          given ||
+          this.firstFromFullName(payload.name) ||
+          emailFirst ||
+          'HealthBridge',
+        lastName:
+          family || this.lastFromFullName(payload.name) || emailLast || 'User',
+      };
+    }
+
+    const fullName = this.splitFullName(payload.name);
+    if (fullName) {
+      return fullName;
+    }
+
+    if (fromEmail) {
+      return fromEmail;
+    }
+
+    return { firstName: 'HealthBridge', lastName: 'User' };
+  }
+
+  private cleanName(value?: string): string | undefined {
+    const trimmed = value?.trim();
+    return trimmed ? trimmed : undefined;
+  }
+
+  private splitFullName(
+    fullName?: string,
+  ): { firstName: string; lastName: string } | null {
+    const trimmed = fullName?.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const parts = trimmed.split(/\s+/).filter(Boolean);
+    if (!parts.length) {
+      return null;
+    }
+    if (parts.length === 1) {
+      return { firstName: parts[0], lastName: 'User' };
+    }
+    return {
+      firstName: parts[0],
+      lastName: parts.slice(1).join(' '),
+    };
+  }
+
+  private firstFromFullName(fullName?: string): string | null {
+    return this.splitFullName(fullName)?.firstName ?? null;
+  }
+
+  private lastFromFullName(fullName?: string): string | null {
+    return this.splitFullName(fullName)?.lastName ?? null;
+  }
+
+  private splitEmailLocalPart(
+    email?: string,
+  ): { firstName: string; lastName: string } | null {
+    if (!email) {
+      return null;
+    }
+    const localPart = email.split('@')[0]?.replace(/\+.*$/, '');
+    if (!localPart) {
+      return null;
+    }
+    const parts = localPart
+      .split(/[._-]+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (!parts.length) {
+      return null;
+    }
+    const firstName = this.titleCase(parts[0]);
+    const lastName =
+      parts.length > 1 ? this.titleCase(parts.slice(1).join(' ')) : 'User';
+    return { firstName, lastName };
+  }
+
+  private titleCase(value: string): string {
+    if (!value) {
+      return value;
+    }
+    return value
+      .toLowerCase()
+      .split(' ')
+      .map((word) => {
+        const [first, ...rest] = word.split('');
+        return first ? `${first.toUpperCase()}${rest.join('')}` : word;
+      })
+      .join(' ');
+  }
+
+  private async sendWelcomeEmail(user: User) {
+    const appName =
+      this.configService.get<string>('app.name') || 'HealthBridge';
+    const fromAddress = this.configService.get<string>('mail.from.address');
+    const fromName = this.configService.get<string>('mail.from.name');
+
+    if (!fromAddress) {
+      this.logger.warn('Welcome email not sent: MAIL_FROM_ADDRESS not set.');
+      return;
+    }
+
+    try {
+      await this.emailService.sendMail({
+        from: { email: fromAddress, name: fromName },
+        to: [{ email: user.email, name: user.first_name }],
+        subject: `Welcome to ${appName}`,
+        templateNameID: EmailTemplateID.WELCOME,
+        templateData: {
+          name: user.first_name,
+          app_name: appName,
+        },
+      });
+      this.logger.info('Welcome email sent', { email: user.email });
+    } catch (error) {
+      this.logger.error('Failed to send welcome email', error);
+    }
+  }
+
+  private async sendVerificationEmail(
+    user: User,
+    code: string,
+    expiryMinutes: number,
+  ) {
+    const appName =
+      this.configService.get<string>('app.name') || 'HealthBridge';
+    const fromAddress = this.configService.get<string>('mail.from.address');
+    const fromName = this.configService.get<string>('mail.from.name');
+
+    if (!fromAddress) {
+      this.logger.warn(
+        'Verification email not sent: MAIL_FROM_ADDRESS not set.',
+      );
+      return;
+    }
+
+    try {
+      await this.emailService.sendMail({
+        from: { email: fromAddress, name: fromName },
+        to: [{ email: user.email, name: user.first_name }],
+        subject: `Verify your ${appName} account`,
+        templateNameID: EmailTemplateID.VERIFICATION_CODE,
+        templateData: {
+          name: user.first_name,
+          app_name: appName,
+          code,
+          expiry_minutes: expiryMinutes,
+        },
+      });
+      this.logger.info('Verification email sent', { email: user.email });
+    } catch (error) {
+      this.logger.error('Failed to send verification email', error);
+    }
+  }
+
+  private generateVerificationCode(): string {
+    return String(crypto.randomInt(100000, 1000000));
+  }
+
+  private async sendPasswordResetEmail(
+    user: User,
+    code: string,
+    expiryMinutes: number,
+  ) {
+    const appName =
+      this.configService.get<string>('app.name') || 'HealthBridge';
+    const fromAddress = this.configService.get<string>('mail.from.address');
+    const fromName = this.configService.get<string>('mail.from.name');
+    const frontendUrl = this.configService.get<string>('frontend.url');
+    const resetUrl = frontendUrl
+      ? `${frontendUrl}/reset-password?code=${code}`
+      : undefined;
+
+    if (!fromAddress) {
+      this.logger.warn(
+        'Password reset email not sent: MAIL_FROM_ADDRESS not set.',
+      );
+      return;
+    }
+
+    try {
+      await this.emailService.sendMail({
+        from: { email: fromAddress, name: fromName },
+        to: [{ email: user.email, name: user.first_name }],
+        subject: `Reset your ${appName} password`,
+        templateNameID: EmailTemplateID.OTP,
+        templateData: {
+          name: user.first_name,
+          app_name: appName,
+          otp: code,
+          otp_digits: code.split(''),
+          reset_url: resetUrl,
+          expiry_minutes: expiryMinutes,
+        },
+      });
+      this.logger.info('Password reset email sent', { email: user.email });
+    } catch (error) {
+      this.logger.error('Failed to send password reset email', error);
+    }
   }
 
   private async generateTokens(

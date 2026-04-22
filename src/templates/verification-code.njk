@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Verify your {{ app_name }} account</title>
+    <style>
+      @font-face {
+        font-family: "Geist";
+        font-style: normal;
+        font-weight: 400;
+        src: url("https://fonts.gstatic.com/s/geist/v1/cl8i4onL69kv55YcO2VhcQ.woff2")
+          format("woff2");
+      }
+      @media only screen and (max-width: 600px) {
+        .email-outer {
+          padding: 12px !important;
+        }
+        .email-container {
+          width: 100% !important;
+          border-width: 3px !important;
+        }
+        .header-text {
+          font-size: 22px !important;
+        }
+        .banner {
+          padding: 16px 20px !important;
+          font-size: 18px !important;
+        }
+        .content-section {
+          padding: 20px !important;
+        }
+        .verify-button {
+          padding: 14px 24px !important;
+          font-size: 15px !important;
+          margin: 0 0 12px !important;
+        }
+        .verify-text {
+          padding: 3px 6px !important;
+          font-size: 15px !important;
+        }
+      }
+
+      /* Dark mode */
+      @media (prefers-color-scheme: dark) {
+        .email-body {
+          background-color: #111827 !important;
+        }
+        .email-outer {
+          background-color: #1f2937 !important;
+        }
+        .logo-section {
+          background-color: #1f2937 !important;
+        }
+        .content-section {
+          background-color: #111827 !important;
+        }
+        .email-text {
+          color: #f9fafb !important;
+        }
+        .logo-text {
+          color: #ffffff !important;
+        }
+      }
+
+      /* Light mode (explicit) */
+      @media (prefers-color-scheme: light) {
+        .email-body {
+          background-color: #e5e7eb !important;
+        }
+        .email-outer {
+          background-color: #ffffff !important;
+        }
+        .logo-section {
+          background-color: #ffffff !important;
+        }
+        .content-section {
+          background-color: #f6f6f6 !important;
+        }
+        .email-text {
+          color: #000000 !important;
+        }
+        .logo-text {
+          color: #000000 !important;
+        }
+      }
+    </style>
+  </head>
+  <body
+    class="email-body"
+    style="
+      background-color: #e5e7eb;
+      margin: 0;
+      padding: 0;
+      font-family: Geist, 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      color: #111827;
+    "
+  >
+    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td align="center">
+          <div
+            style="
+              display: none;
+              max-height: 0px;
+              overflow: hidden;
+              mso-hide: all;
+              font-size: 1px;
+              line-height: 1px;
+              color: #ffffff;
+              opacity: 0;
+            "
+          >
+            Verify your email address for {{ app_name }}
+          </div>
+          <table
+            width="100%"
+            cellpadding="0"
+            cellspacing="0"
+            border="0"
+            class="email-outer"
+            style="
+              max-width: 600px;
+              padding: 40px 20px;
+              background-color: #ffffff;
+            "
+          >
+            <tr>
+              <td
+                align="center"
+                class="logo-section"
+                style="padding: 30px 20px 20px; background-color: #ffffff"
+              >
+                <table cellpadding="0" cellspacing="0" border="0">
+                  <tr>
+                    <td align="center">
+                      <img
+                        alt="HealthBridge logo"
+                        src="https://res.cloudinary.com/dvieev0ag/image/upload/v1771969746/logo_ezqram.png"
+                        width="25"
+                        style="display: inline-block; vertical-align: middle"
+                      />
+                      <span
+                        class="logo-text"
+                        style="
+                          display: inline-block;
+                          vertical-align: middle;
+                          margin: 0 0 0 8px;
+                          font-weight: 700;
+                          font-size: 16px;
+                          color: #000000;
+                        "
+                      >
+                        {{ app_name }}
+                      </span>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <tr>
+              <td
+                class="verify-text"
+                style="
+                  background-color: #155eef;
+                  color: #ffffff;
+                  font-size: 16px;
+                  font-weight: 600;
+                  padding: 4px 8px;
+                  border-top-left-radius: 8px;
+                  border-top-right-radius: 8px;
+                  text-align: center;
+                "
+              >
+                Verify My Account
+              </td>
+            </tr>
+
+            <tr>
+              <td class="content-section" style="background-color: #f6f6f6; padding: 20px">
+                <p
+                  class="email-text"
+                  style="font-size: 16px; font-weight: 700; margin: 0 0 4px; color: #111827"
+                >
+                  Hello {{ name }},
+                </p>
+
+                <p
+                  class="email-text"
+                  style="font-size: 15px; line-height: 24px; margin: 0 0 16px; color: #111827"
+                >
+                  Welcome to {{ app_name }}.
+                  <br />
+                  Please verify your email address to activate your account
+                </p>
+
+                {% if code %}
+                <div
+                  style="
+                    display: inline-block;
+                    padding: 12px 18px;
+                    font-size: 20px;
+                    letter-spacing: 4px;
+                    background: #ffffff;
+                    border: 2px solid #d1d5db;
+                    border-radius: 8px;
+                    color: #111827;
+                    font-weight: 700;
+                    margin-bottom: 16px;
+                  "
+                >
+                  {{ code }}
+                </div>
+                {% endif %}
+
+                {% if verification_url %}
+                <div style="margin: 0 0 16px; text-align: center">
+                  <a
+                    class="verify-button"
+                    href="{{ verification_url }}"
+                    style="
+                      background-color: #155eef;
+                      color: #ffffff;
+                      font-size: 16px;
+                      font-weight: 600;
+                      padding: 16px 32px;
+                      border-radius: 8px;
+                      text-decoration: none;
+                      display: inline-block;
+                      width: 100%;
+                      text-align: center;
+                      box-sizing: border-box;
+                    "
+                  >
+                    Verify My Account
+                  </a>
+                </div>
+                {% endif %}
+
+                <p
+                  class="email-text"
+                  style="font-size: 14px; line-height: 22px; margin: 0 0 12px; color: #111827"
+                >
+                  This code expires in {{ expiry_minutes }} minutes.
+                </p>
+
+                <p
+                  class="email-text"
+                  style="font-size: 14px; line-height: 22px; margin: 0 0 24px; color: #111827"
+                >
+                  If you didn't create this account, you can safely ignore this
+                  email.
+                </p>
+
+                <p
+                  class="email-text"
+                  style="font-size: 14px; line-height: 22px; margin: 0; color: #111827"
+                >
+                  Stay healthy,
+                  <br />
+                  {{ app_name }} Team
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

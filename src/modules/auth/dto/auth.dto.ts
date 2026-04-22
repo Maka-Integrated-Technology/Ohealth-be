@@ -161,15 +161,6 @@ export class GoogleLoginDto {
   @IsString()
   @IsNotEmpty()
   token: string;
-
-  @ApiProperty({
-    example: 'a1b2c3d4... (Invite Token)',
-    description: 'Invite Token (Required for new users)',
-    required: false,
-  })
-  @IsString()
-  @IsOptional()
-  invite_token?: string;
 }
 
 export class AuthMeResponseDto {
@@ -208,6 +199,25 @@ export class AuthMeResponseDto {
 
   @ApiProperty({ example: '2024-01-15T10:30:00Z' })
   updated_at: Date;
+}
+
+export class VerifySignupDto {
+  @ApiProperty({
+    example: 'user@example.com',
+    description: 'User email address',
+  })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @ApiProperty({
+    example: '123456',
+    description: '6-digit verification code',
+  })
+  @IsString()
+  @IsNotEmpty()
+  @Matches(/^\d{6}$/)
+  code: string;
 }
 
 export class LogoutDto {
