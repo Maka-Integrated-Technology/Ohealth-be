@@ -492,6 +492,7 @@ Both should resolve to your EC2 public IP. DNS propagation can take up to 24 hou
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
 sudo certbot --nginx -d api.ohealthltd.com -d api.staging.ohealthltd.com
+sudo certbot --nginx --non-interactive --agree-tos --email healthbrigde33@gmail.com -d api.ohealthltd.com -d api.staging.ohealthltd.com
 ```
 
 Certbot auto-renews. Verify with:
