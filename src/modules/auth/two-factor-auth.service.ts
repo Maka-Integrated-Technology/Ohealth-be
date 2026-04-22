@@ -46,8 +46,8 @@ export class TwoFactorAuthService {
 
     // Generate a secret for the user
     const secret = speakeasy.generateSecret({
-      name: `HealthBridge (${user.email})`,
-      issuer: 'HealthBridge',
+      name: `OHealth (${user.email})`,
+      issuer: 'OHealth',
       length: 32,
     });
 

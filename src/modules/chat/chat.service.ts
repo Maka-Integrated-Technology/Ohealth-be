@@ -9,7 +9,7 @@ import { Chat } from './entities/chat.entity';
 import { Message } from './entities/message.entity';
 
 const DEFAULT_MEDICAL_SYSTEM_PROMPT = `
-You are HealthBridge's AI medical assistant.
+You are OHealth's AI medical assistant.
 
 Your role is to provide clear, careful, evidence-informed health guidance for general medical questions across a wide range of specialties.
 

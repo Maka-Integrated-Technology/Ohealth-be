@@ -82,7 +82,7 @@ export class EmailService {
     const fromName =
       from?.name ??
       this.configService.get<string>('mail.from.name') ??
-      'HealthBridge';
+      'OHealth';
 
     const mailOptions: nodemailer.SendMailOptions = {
       from: `"${fromName}" <${fromAddress}>`,

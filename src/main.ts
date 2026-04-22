@@ -32,9 +32,9 @@ async function bootstrap() {
 
   // Swagger setup
   const config = new DocumentBuilder()
-    .setTitle('HealthBridge API')
+    .setTitle('OHealth API')
     .setDescription(
-      'API documentation for HealthBridge - A comprehensive healthcare booking platform',
+      'API documentation for OHealth - A comprehensive healthcare booking platform',
     )
     .setVersion('1.0')
     .addTag('Authentication', 'User authentication and authorization endpoints')
