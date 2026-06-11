@@ -29,6 +29,7 @@ export const VERIFICATION_CODE_SENT = 'verification code sent';
 export const INVALID_VERIFICATION_CODE = 'invalid verification code';
 export const VERIFICATION_CODE_EXPIRED = 'verification code expired';
 export const ACCOUNT_VERIFIED = 'account verified';
+export const ACCOUNT_ALREADY_VERIFIED = 'account already verified';
 
 // Booking
 export const BOOKING_CREATED = 'booking created successfully';
