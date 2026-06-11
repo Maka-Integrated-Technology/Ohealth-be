@@ -46,3 +46,30 @@ export const TIME_SLOT_ALREADY_BOOKED = 'time slot already booked';
 
 // 2FA
 export const MFA_SETUP_SUCCESS = '2fa setup initialized';
+
+// Speciality
+export const SPECIALITY_NOT_FOUND = 'speciality not found';
+export const SPECIALITY_ALREADY_EXISTS =
+  'speciality with this name already exists';
+export const SPECIALITY_CREATED = 'speciality created successfully';
+export const SPECIALITY_UPDATED = 'speciality updated successfully';
+
+// Professional admin
+export const PROFESSIONAL_ALREADY_EXISTS =
+  'professional profile already exists for this user';
+export const PROFESSIONAL_CREATED = 'professional created successfully';
+export const PROFESSIONAL_UPDATED = 'professional updated successfully';
+export const PROFESSIONAL_INVALID_ROLE =
+  'user does not have a valid professional role';
+export const AVAILABILITY_CREATED = 'availability slots created successfully';
+
+// Reviews
+export const REVIEW_CREATED = 'review submitted successfully';
+export const REVIEW_ALREADY_EXISTS =
+  'a review has already been submitted for this booking';
+export const REVIEW_INVALID_BOOKING =
+  'booking does not belong to this reviewer or professional';
+
+// Booking validation
+export const BOOKING_INVALID_DATE = 'booking date cannot be in the past';
+export const BOOKING_INVALID_TIME = 'booking time must be in HH:MM format';

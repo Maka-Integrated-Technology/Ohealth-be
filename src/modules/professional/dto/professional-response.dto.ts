@@ -1,5 +1,27 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+class AvailabilitySlotResponseDto {
+  @ApiProperty()
+  id: string;
+
+  @ApiProperty()
+  start_time: string;
+
+  @ApiProperty()
+  end_time: string;
+
+  @ApiProperty()
+  is_available: boolean;
+}
+
+class GroupedAvailabilityDto {
+  @ApiProperty()
+  date: string;
+
+  @ApiProperty({ type: [AvailabilitySlotResponseDto] })
+  slots: AvailabilitySlotResponseDto[];
+}
+
 export class ProfessionalResponseDto {
   @ApiProperty()
   id: string;
@@ -7,8 +29,11 @@ export class ProfessionalResponseDto {
   @ApiProperty()
   name: string;
 
-  @ApiProperty()
+  @ApiProperty({ required: false })
   image?: string;
+
+  @ApiProperty()
+  speciality_id: string;
 
   @ApiProperty()
   speciality: string;
@@ -25,7 +50,7 @@ export class ProfessionalResponseDto {
   @ApiProperty()
   years_of_experience: number;
 
-  @ApiProperty()
+  @ApiProperty({ required: false })
   about?: string;
 
   @ApiProperty()
@@ -36,9 +61,6 @@ export class ProfessionalResponseDto {
 }
 
 export class ProfessionalDetailResponseDto extends ProfessionalResponseDto {
-  @ApiProperty({ type: [Object] })
-  availabilities: {
-    date: string;
-    slots: { start_time: string; end_time: string; is_available: boolean }[];
-  }[];
+  @ApiProperty({ type: [GroupedAvailabilityDto] })
+  availabilities: GroupedAvailabilityDto[];
 }
