@@ -11,6 +11,18 @@ export class BookingResponseDto {
   professional_id: string;
 
   @ApiProperty()
+  professional_name: string;
+
+  @ApiProperty({ required: false })
+  professional_image?: string;
+
+  @ApiProperty()
+  speciality_id: string;
+
+  @ApiProperty()
+  speciality_name: string;
+
+  @ApiProperty()
   booking_date: string;
 
   @ApiProperty()
@@ -24,6 +36,9 @@ export class BookingResponseDto {
 
   @ApiProperty()
   status: string;
+
+  @ApiProperty({ enum: ['paid', 'unpaid'] })
+  payment_status: 'paid' | 'unpaid';
 
   @ApiProperty({ required: false })
   notes?: string;
