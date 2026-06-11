@@ -30,6 +30,7 @@ import {
   ForgotPasswordDto,
   LogoutDto,
   RefreshTokenDto,
+  ResendVerificationDto,
   ResetPasswordDto,
   VerifySignupDto,
 } from './dto/auth.dto';
@@ -285,6 +286,30 @@ export class AuthService {
     void this.sendWelcomeEmail(user);
 
     return { message: sysMsg.ACCOUNT_VERIFIED };
+  }
+
+  async resendVerification(
+    payload: ResendVerificationDto,
+  ): Promise<{ message: string }> {
+    const email = payload.email.trim().toLowerCase();
+    const user = await this.userService.findByEmail(email);
+
+    if (!user) {
+      return { message: sysMsg.VERIFICATION_CODE_SENT };
+    }
+
+    if (user.is_verified) {
+      throw new BadRequestException(sysMsg.ACCOUNT_ALREADY_VERIFIED);
+    }
+
+    const verificationCode = this.generateVerificationCode();
+    user.verification_code = verificationCode;
+    user.verification_code_expires_at = new Date(Date.now() + 10 * 60 * 1000);
+    await this.userService.save(user);
+
+    void this.sendVerificationEmail(user, verificationCode, 10);
+
+    return { message: sysMsg.VERIFICATION_CODE_SENT };
   }
 
   async getProfile(req: IRequestWithUser) {
