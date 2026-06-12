@@ -1,4 +1,8 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -14,7 +18,7 @@ import { UserRole } from '../user/enums/user-role.enum';
 import { UserService } from '../user/user.service';
 
 import { AuthService } from './auth.service';
-import { VerifySignupDto } from './dto/auth.dto';
+import { ResendVerificationDto, VerifySignupDto } from './dto/auth.dto';
 import { AuthSession } from './entities/auth.entity';
 
 describe('AuthService', () => {
@@ -293,6 +297,59 @@ describe('AuthService', () => {
       expect(result).toEqual({ message: sysMsg.LOGOUT_SUCCESS });
       expect(mockSessionRepository.save).toHaveBeenCalled();
       expect(mockLogger.info).toHaveBeenCalledWith(sysMsg.LOGOUT_SUCCESS);
+    });
+  });
+
+  describe('resendVerification', () => {
+    it('should update code, save user, send email, and return VERIFICATION_CODE_SENT for unverified user', async () => {
+      const payload: ResendVerificationDto = { email: 'tunde@example.com' };
+      const user = {
+        id: 'user-id-1',
+        email: payload.email,
+        first_name: 'Tunde',
+        is_verified: false,
+        verification_code: 'old-code',
+        verification_code_expires_at: new Date(Date.now() - 1000),
+      };
+      mockUserService.findByEmail.mockResolvedValue(user);
+      mockUserService.save.mockImplementation(
+        async (u: Record<string, unknown>) => u,
+      );
+
+      const result = await service.resendVerification(payload);
+
+      expect(result).toEqual({ message: sysMsg.VERIFICATION_CODE_SENT });
+      expect(mockUserService.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          verification_code: expect.any(String),
+          verification_code_expires_at: expect.any(Date),
+        }),
+      );
+      expect(mockEmailService.sendMail).toHaveBeenCalled();
+    });
+
+    it('should return VERIFICATION_CODE_SENT without sending email for unknown email', async () => {
+      mockUserService.findByEmail.mockResolvedValue(null);
+
+      const result = await service.resendVerification({
+        email: 'ghost@example.com',
+      });
+
+      expect(result).toEqual({ message: sysMsg.VERIFICATION_CODE_SENT });
+      expect(mockUserService.save).not.toHaveBeenCalled();
+      expect(mockEmailService.sendMail).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException for an already verified user', async () => {
+      mockUserService.findByEmail.mockResolvedValue({
+        id: 'user-id-2',
+        email: 'verified@example.com',
+        is_verified: true,
+      });
+
+      await expect(
+        service.resendVerification({ email: 'verified@example.com' }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

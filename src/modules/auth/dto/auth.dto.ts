@@ -220,6 +220,16 @@ export class VerifySignupDto {
   code: string;
 }
 
+export class ResendVerificationDto {
+  @ApiProperty({
+    example: 'user@example.com',
+    description: 'User email address',
+  })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+}
+
 export class LogoutDto {
   @ApiProperty({
     example: 'session-id-123',

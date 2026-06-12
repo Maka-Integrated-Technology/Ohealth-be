@@ -1,6 +1,14 @@
-import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import {
+  Column,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  OneToOne,
+} from 'typeorm';
 
 import { BaseEntity } from '../../../entities/base-entity';
+import { ProfessionalAvailability } from '../../professional/entities/professional-availability.entity';
 import { Professional } from '../../professional/entities/professional.entity';
 import { User } from '../../user/entities/user.entity';
 
@@ -16,6 +24,7 @@ export enum ConsultationType {
   VIDEO = 'video',
 }
 
+@Index(['professional_id', 'booking_date', 'booking_time'])
 @Entity('bookings')
 export class Booking extends BaseEntity {
   @ManyToOne(() => User)
@@ -62,4 +71,19 @@ export class Booking extends BaseEntity {
 
   @Column({ default: false })
   is_paid: boolean;
+
+  /**
+   * Links back to the specific availability slot so we can restore it
+   * when the booking is cancelled.  Null for bookings created before
+   * this column was added.
+   */
+  @OneToOne(() => ProfessionalAvailability, {
+    nullable: true,
+    onDelete: 'SET NULL',
+  })
+  @JoinColumn({ name: 'availability_id' })
+  availability?: ProfessionalAvailability;
+
+  @Column({ name: 'availability_id', nullable: true })
+  availability_id?: string;
 }
