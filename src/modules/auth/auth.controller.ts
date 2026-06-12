@@ -30,6 +30,7 @@ import {
   ForgotPasswordDto,
   LogoutDto,
   RefreshTokenDto,
+  ResendVerificationDto,
   ResetPasswordDto,
   GoogleLoginDto,
   VerifySignupDto,
@@ -91,6 +92,13 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   verifySignup(@Body() payload: VerifySignupDto) {
     return this.authService.verifySignup(payload);
+  }
+
+  @Public()
+  @Post('verify/resend')
+  @HttpCode(HttpStatus.OK)
+  resendVerification(@Body() payload: ResendVerificationDto) {
+    return this.authService.resendVerification(payload);
   }
 
   @Public()

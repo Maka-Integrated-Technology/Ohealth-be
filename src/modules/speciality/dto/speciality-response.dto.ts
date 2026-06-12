@@ -15,4 +15,10 @@ export class SpecialityResponseDto {
 
   @ApiProperty()
   is_active: boolean;
+
+  @ApiProperty()
+  created_at: Date;
+
+  @ApiProperty()
+  updated_at: Date;
 }
