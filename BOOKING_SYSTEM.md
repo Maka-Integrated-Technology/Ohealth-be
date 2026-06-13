@@ -244,6 +244,64 @@ The latest migration is `1770900000000-BookingSystemEnhancements`.
 
 ---
 
+## Local Seed Data
+
+The booking-flow seed populates all data needed for a patient to complete the
+full consultation-booking journey in the mobile app without manually creating
+any records.
+
+### Run the seed
+
+```bash
+# 1. Make sure the database is running
+docker compose up -d db
+
+# 2. Apply all pending migrations
+npm run migration:run
+
+# 3. Seed booking-flow data
+npm run seed:booking
+```
+
+The seed is **idempotent** — safe to run multiple times. Existing records are
+detected and reused; no duplicates are created.
+
+### Demo patient credentials
+
+```
+email:    patient.demo@healthbridge.test
+password: Password123!
+```
+
+### Seeded data
+
+| Category | Count |
+|----------|-------|
+| Specialities | 4 |
+| Professional users | 9 |
+| Professional profiles | 9 |
+| Availability slots | 180 (9 professionals × 5 dates × 4 time slots) |
+| Reviewer users | 3 |
+| Reviews | 19 |
+
+**Specialities:** General Doctor, Nurse, Nutritionist, Counsellor
+
+**Professionals per speciality:**
+- General Doctor — Dr. Adebayo Okafor (`both`), Dr. Aisha Bello (`video`), Dr. Chisom Obi (`chat`)
+- Nurse — Fatima Bello (`both`), Daniel Mensah (`chat`)
+- Nutritionist — Dr. Ngozi Eze (`both`), Maya Okonkwo (`video`)
+- Counsellor — Dr. Emeka Nwosu (`both`), Tola Adeyemi (`chat`)
+
+**Availability slots:** 4 time slots (09:00, 10:30, 13:00, 15:00) across 5
+future dates (tomorrow through tomorrow+6) for every professional.
+
+### Environment guard
+
+The seed refuses to run when `NODE_ENV=production` unless
+`ALLOW_PRODUCTION_SEED=true` is explicitly set.
+
+---
+
 ## Remaining TODOs
 
 - **Payment integration** — `is_paid` and `payment_reference` are on the `Booking` entity
