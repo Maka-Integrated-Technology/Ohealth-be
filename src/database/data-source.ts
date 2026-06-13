@@ -13,7 +13,10 @@ const dataSource = new DataSource({
   username: database.user,
   password: database.pass || 'postgres',
   database: database.name,
-  entities: [__dirname + '/**/*.entity.{ts,js}'],
+  entities: [
+    __dirname + '/**/*.entity.{ts,js}',
+    __dirname + '/../modules/**/*.entity.{ts,js}',
+  ],
   migrations: [__dirname + '/migrations/*{.ts,.js}'],
   synchronize: false,
   migrationsRun: false,
