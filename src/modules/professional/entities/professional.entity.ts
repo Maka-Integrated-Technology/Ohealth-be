@@ -1,10 +1,12 @@
 import {
   Column,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   OneToMany,
   OneToOne,
+  Unique,
 } from 'typeorm';
 
 import { BaseEntity } from '../../../entities/base-entity';
@@ -13,6 +15,7 @@ import { Speciality } from '../../speciality/entities/speciality.entity';
 import { User } from '../../user/entities/user.entity';
 
 import { ProfessionalAvailability } from './professional-availability.entity';
+import { ProfessionalReview } from './professional-review.entity';
 
 export enum ConsultationType {
   CHAT = 'chat',
@@ -20,6 +23,9 @@ export enum ConsultationType {
   BOTH = 'both',
 }
 
+/** Each user may only have one professional profile. */
+@Unique(['user_id'])
+@Index(['speciality_id'])
 @Entity('professionals')
 export class Professional extends BaseEntity {
   @OneToOne(() => User)
@@ -75,4 +81,7 @@ export class Professional extends BaseEntity {
 
   @OneToMany(() => Booking, (booking) => booking.professional)
   bookings: Booking[];
+
+  @OneToMany(() => ProfessionalReview, (review) => review.professional)
+  reviews: ProfessionalReview[];
 }
