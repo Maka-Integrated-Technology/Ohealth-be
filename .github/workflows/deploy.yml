@@ -21,13 +21,10 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            cd /var/www/healthbridge/be/dev
+            cd /var/www/ohealth/be/staging
             git pull origin staging
-            npm ci --production=false
-            npm run build
-            npm run migration:run
-            pm2 restart hb-api-staging || pm2 start dist/src/main.js --name hb-api-staging
-            pm2 save
+            docker compose -p ohealth-staging --env-file .env.prod -f docker-compose.prod.yml up -d --build
+            docker image prune -f
 
   deploy-production:
     runs-on: ubuntu-latest
@@ -41,10 +38,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            cd /var/www/healthbridge/be/prod
+            cd /var/www/ohealth/be/prod
             git pull origin main
-            npm ci --production=false
-            npm run build
-            npm run migration:run
-            pm2 restart hb-api-prod || pm2 start dist/src/main.js --name hb-api-prod
-            pm2 save
+            docker compose -p ohealth-prod --env-file .env.prod -f docker-compose.prod.yml up -d --build
+            docker image prune -f
