@@ -5,24 +5,71 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
 import * as nunjucks from 'nunjucks';
+import { Resend } from 'resend';
 
 import { EmailPayload } from './email.types';
+
+/** The provider-agnostic message a driver knows how to deliver. */
+type DriverMessage = {
+  from: string;
+  to: string[];
+  subject: string;
+  html: string;
+  text?: string;
+};
+
+/** A send strategy. Returns the provider's message id for logging. */
+type EmailDriver = (message: DriverMessage) => Promise<string>;
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private transporter: nodemailer.Transporter;
+  private readonly mailer: string;
+  private readonly send: EmailDriver;
 
   constructor(private readonly configService: ConfigService) {
-    // Initialize the transporter
-    this.transporter = nodemailer.createTransport({
+    this.mailer = this.configService.get<string>('mail.mailer') ?? 'smtp';
+
+    // Resolve the driver once, up front, so the hot path has no branching.
+    this.send =
+      this.mailer === 'resend'
+        ? this.createResendDriver()
+        : this.createSmtpDriver();
+  }
+
+  /** Resend HTTP API — used for production and staging. */
+  private createResendDriver(): EmailDriver {
+    const apiKey = this.configService.get<string>('mail.resendApiKey');
+    if (!apiKey) {
+      throw new Error('RESEND_API_KEY is required when MAIL_MAILER=resend');
+    }
+    const resend = new Resend(apiKey);
+
+    return async ({ from, to, subject, html, text }) => {
+      const { data, error } = await resend.emails.send({
+        from,
+        to,
+        subject,
+        html,
+        text,
+      });
+      if (error) {
+        throw new Error(`${error.name}: ${error.message}`);
+      }
+      return data?.id ?? '';
+    };
+  }
+
+  /** SMTP transport — used for local dev against Mailpit. */
+  private createSmtpDriver(): EmailDriver {
+    const transporter = nodemailer.createTransport({
       host: this.configService.get<string>('mail.host'),
       port: this.configService.get<number>('mail.port'),
       secure: this.configService.get<number>('mail.port') === 465,
 
       auth: {
-        user: this.configService.get<string>('mail.username'),
-        pass: this.configService.get<string>('mail.password'),
+        user: this.configService.get<string>('mail.username') || undefined,
+        pass: this.configService.get<string>('mail.password') || undefined,
       },
       connectionTimeout: 10000,
       greetingTimeout: 10000,
@@ -30,6 +77,17 @@ export class EmailService {
       pool: true,
       maxConnections: 5,
     });
+
+    return async ({ from, to, subject, html, text }) => {
+      const info = await transporter.sendMail({
+        from,
+        to: to.join(', '),
+        subject,
+        html,
+        text, // Optional plain-text version
+      });
+      return info.messageId;
+    };
   }
 
   /**
@@ -84,24 +142,27 @@ export class EmailService {
       this.configService.get<string>('mail.from.name') ??
       'OHealth';
 
-    const mailOptions: nodemailer.SendMailOptions = {
-      from: `"${fromName}" <${fromAddress}>`,
-      to: to
-        .map((t) => (t.name ? `"${t.name}" <${t.email}>` : t.email))
-        .join(', '),
-      subject: subject,
-      html: html,
-      text: text, // Optional plain-text version
-    };
+    const fromHeader = `"${fromName}" <${fromAddress}>`;
+    const toHeader = to.map((t) =>
+      t.name ? `"${t.name}" <${t.email}>` : t.email,
+    );
 
-    // Send the email
     try {
-      const info = await this.transporter.sendMail(mailOptions);
+      const messageId = await this.send({
+        from: fromHeader,
+        to: toHeader,
+        subject,
+        html,
+        text,
+      });
       this.logger.log(
-        `Email sent successfully to ${mailOptions.to}: ${info.messageId}`,
+        `Email sent successfully to ${toHeader.join(', ')}: ${messageId}`,
       );
     } catch (error) {
-      this.logger.error(`Failed to send email to ${mailOptions.to}`, error);
+      this.logger.error(
+        `Failed to send email to ${toHeader.join(', ')}`,
+        error,
+      );
       throw error;
     }
   }
