@@ -36,6 +36,7 @@ lerna-debug.log*
 
 # Environment variables
 .env
+.env.prod
 .env.setup.backup.*
 logs/
 branch_structure.json
