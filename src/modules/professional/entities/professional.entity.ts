@@ -23,6 +23,12 @@ export enum ConsultationType {
   BOTH = 'both',
 }
 
+export enum ProfessionalVerificationStatus {
+  PENDING = 'pending',
+  VERIFIED = 'verified',
+  REJECTED = 'rejected',
+}
+
 /** Each user may only have one professional profile. */
 @Unique(['user_id'])
 @Index(['speciality_id'])
@@ -48,6 +54,9 @@ export class Professional extends BaseEntity {
   @Column({ type: 'text', nullable: true })
   about?: string;
 
+  @Column({ nullable: true })
+  license_number?: string;
+
   @Column({ type: 'int', default: 0 })
   years_of_experience: number;
 
@@ -72,6 +81,15 @@ export class Professional extends BaseEntity {
 
   @Column({ default: true })
   is_active: boolean;
+
+  @Column({
+    type: 'varchar',
+    default: ProfessionalVerificationStatus.PENDING,
+  })
+  verification_status: ProfessionalVerificationStatus;
+
+  @Column({ default: false })
+  profile_setup_completed: boolean;
 
   @OneToMany(
     () => ProfessionalAvailability,
