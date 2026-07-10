@@ -31,6 +31,9 @@ export class User extends BaseEntity {
   @Column({ nullable: true })
   phone?: string | null;
 
+  @Column({ nullable: true })
+  image?: string | null;
+
   @Column({ type: 'simple-array', default: UserRole.PATIENT })
   role: UserRole[];
 
