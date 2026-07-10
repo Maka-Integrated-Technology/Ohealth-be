@@ -7,6 +7,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -31,12 +32,25 @@ import { BulkCreateAvailabilityDto } from './dto/create-professional-availabilit
 import { CreateProfessionalDto } from './dto/create-professional.dto';
 import { CreateReviewDto } from './dto/create-review.dto';
 import {
+  ProfessionalAppointmentResponseDto,
+  ProfessionalDashboardResponseDto,
+} from './dto/professional-dashboard-response.dto';
+import { ProfessionalMeResponseDto } from './dto/professional-me-response.dto';
+import {
   ProfessionalDetailResponseDto,
   ProfessionalResponseDto,
 } from './dto/professional-response.dto';
 import { ReviewResponseDto } from './dto/review-response.dto';
 import { UpdateProfessionalDto } from './dto/update-professional.dto';
+import { UpsertProfessionalProfileDto } from './dto/upsert-professional-profile.dto';
 import { ProfessionalService } from './professional.service';
+
+const PROFESSIONAL_ACCESS_ROLES = [
+  UserRole.DOCTOR,
+  UserRole.THERAPIST,
+  UserRole.COUNSELLOR,
+  UserRole.LAB_PROFESSIONAL,
+];
 
 @ApiTags('Professionals')
 @Controller('professionals')
@@ -57,6 +71,91 @@ export class ProfessionalController {
     @Query('speciality_id') specialityId: string,
   ): Promise<ProfessionalResponseDto[]> {
     return this.professionalService.findBySpeciality(specialityId);
+  }
+
+  @Get('me')
+  @UseGuards(RolesGuard)
+  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @ApiOperation({ summary: 'Get current professional onboarding profile' })
+  @ApiResponse({ status: 200, type: ProfessionalMeResponseDto })
+  findMe(
+    @CurrentUser() user: IRequestWithUser['user'],
+  ): Promise<ProfessionalMeResponseDto> {
+    return this.professionalService.findMe(user.id);
+  }
+
+  @Put('me/profile')
+  @UseGuards(RolesGuard)
+  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @ApiOperation({
+    summary: 'Create or update current professional practice profile',
+  })
+  @ApiResponse({ status: 200, type: ProfessionalMeResponseDto })
+  upsertMeProfile(
+    @CurrentUser() user: IRequestWithUser['user'],
+    @Body() dto: UpsertProfessionalProfileDto,
+  ): Promise<ProfessionalMeResponseDto> {
+    return this.professionalService.upsertMeProfile(user.id, dto);
+  }
+
+  @Post('me/availabilities')
+  @UseGuards(RolesGuard)
+  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Add availability slots for current professional' })
+  @ApiResponse({
+    status: 201,
+    description:
+      'Slots created. Returns array of created ProfessionalAvailability records.',
+  })
+  createMyAvailabilities(
+    @CurrentUser() user: IRequestWithUser['user'],
+    @Body() dto: BulkCreateAvailabilityDto,
+  ): Promise<ProfessionalAvailability[]> {
+    return this.professionalService.createMyAvailabilities(user.id, dto);
+  }
+
+  @Get('me/dashboard')
+  @UseGuards(RolesGuard)
+  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @ApiOperation({ summary: 'Get current professional dashboard data' })
+  @ApiQuery({
+    name: 'date',
+    required: false,
+    description: 'Dashboard date in YYYY-MM-DD format. Defaults to today.',
+  })
+  @ApiResponse({ status: 200, type: ProfessionalDashboardResponseDto })
+  getMyDashboard(
+    @CurrentUser() user: IRequestWithUser['user'],
+    @Query('date') date?: string,
+  ): Promise<ProfessionalDashboardResponseDto> {
+    return this.professionalService.getMyDashboard(user.id, date);
+  }
+
+  @Patch('me/bookings/:bookingId/accept')
+  @UseGuards(RolesGuard)
+  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @ApiOperation({ summary: 'Accept an appointment request' })
+  @ApiParam({ name: 'bookingId', description: 'Booking UUID' })
+  @ApiResponse({ status: 200, type: ProfessionalAppointmentResponseDto })
+  acceptMyBooking(
+    @CurrentUser() user: IRequestWithUser['user'],
+    @Param('bookingId') bookingId: string,
+  ): Promise<ProfessionalAppointmentResponseDto> {
+    return this.professionalService.acceptMyBooking(user.id, bookingId);
+  }
+
+  @Patch('me/bookings/:bookingId/reject')
+  @UseGuards(RolesGuard)
+  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @ApiOperation({ summary: 'Reject an appointment request' })
+  @ApiParam({ name: 'bookingId', description: 'Booking UUID' })
+  @ApiResponse({ status: 200, type: ProfessionalAppointmentResponseDto })
+  rejectMyBooking(
+    @CurrentUser() user: IRequestWithUser['user'],
+    @Param('bookingId') bookingId: string,
+  ): Promise<ProfessionalAppointmentResponseDto> {
+    return this.professionalService.rejectMyBooking(user.id, bookingId);
   }
 
   @Get(':id')

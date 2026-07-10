@@ -10,7 +10,10 @@ import {
   Min,
 } from 'class-validator';
 
-import { ConsultationType } from '../entities/professional.entity';
+import {
+  ConsultationType,
+  ProfessionalVerificationStatus,
+} from '../entities/professional.entity';
 
 export class CreateProfessionalDto {
   @ApiProperty({ example: '123e4567-e89b-12d3-a456-426614174000' })
@@ -36,6 +39,11 @@ export class CreateProfessionalDto {
   @IsOptional()
   about?: string;
 
+  @ApiProperty({ required: false, example: 'MDCN-123456' })
+  @IsString()
+  @IsOptional()
+  license_number?: string;
+
   @ApiProperty({ required: false, example: 8 })
   @IsInt()
   @Min(0)
@@ -51,4 +59,13 @@ export class CreateProfessionalDto {
   @IsEnum(ConsultationType)
   @IsOptional()
   consultation_type?: ConsultationType;
+
+  @ApiProperty({
+    enum: ProfessionalVerificationStatus,
+    required: false,
+    default: ProfessionalVerificationStatus.PENDING,
+  })
+  @IsEnum(ProfessionalVerificationStatus)
+  @IsOptional()
+  verification_status?: ProfessionalVerificationStatus;
 }
