@@ -191,6 +191,13 @@ export class AuthMeResponseDto {
   @ApiProperty({ example: '+1234567890' })
   phone: string;
 
+  @ApiProperty({
+    example: 'https://res.cloudinary.com/ohealth/image/upload/v123/avatar.png',
+    required: false,
+    nullable: true,
+  })
+  image?: string | null;
+
   @ApiProperty({ example: true })
   is_active: boolean;
 
@@ -246,4 +253,101 @@ export class LogoutDto {
   @IsUUID()
   @IsNotEmpty()
   user_id: string;
+}
+
+export class UpdateProfileDto {
+  @ApiProperty({
+    description: 'User first name',
+    example: 'John',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  first_name?: string;
+
+  @ApiProperty({
+    description: 'User last name',
+    example: 'Doe',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  last_name?: string;
+
+  @ApiProperty({
+    description: 'User middle name',
+    example: 'Michael',
+    required: false,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  middle_name?: string | null;
+
+  @ApiProperty({
+    description: 'User gender',
+    example: 'Male',
+    enum: ['Male', 'Female', 'Other'],
+    required: false,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  gender?: string | null;
+
+  @ApiProperty({
+    description: 'Date of birth in YYYY-MM-DD format',
+    example: '2000-01-15',
+    required: false,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  dob?: string | null;
+
+  @ApiProperty({
+    description: 'User phone number',
+    example: '+1234567890',
+    required: false,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  phone?: string | null;
+
+  @ApiProperty({
+    description: 'User avatar image URL',
+    example: 'https://res.cloudinary.com/ohealth/image/upload/v123/avatar.png',
+    required: false,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  image?: string | null;
+}
+
+export class ChangePasswordDto {
+  @ApiProperty({
+    description: 'Current password',
+    example: 'OldPassword123!',
+  })
+  @IsString()
+  @IsNotEmpty()
+  currentPassword: string;
+
+  @ApiProperty({
+    description: 'New password',
+    example: 'NewPassword123!',
+    minLength: 8,
+  })
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(8, { message: 'Password must be at least 8 characters long' })
+  @Matches(/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
+    message:
+      'Password must contain at least one uppercase letter, one lowercase letter, and one number',
+  })
+  newPassword: string;
 }

@@ -27,11 +27,13 @@ import { UserService } from '../user/user.service';
 
 import {
   AuthDto,
+  ChangePasswordDto,
   ForgotPasswordDto,
   LogoutDto,
   RefreshTokenDto,
   ResendVerificationDto,
   ResetPasswordDto,
+  UpdateProfileDto,
   VerifySignupDto,
 } from './dto/auth.dto';
 import { LoginDto } from './dto/login.dto';
@@ -334,10 +336,90 @@ export class AuthService {
       gender: user.gender,
       dob: user.dob,
       phone: user.phone,
+      image: user.image,
       is_active: user.is_active,
       created_at: user.created_at,
       updated_at: user.updated_at,
     };
+  }
+
+  async updateProfile(req: IRequestWithUser, dto: UpdateProfileDto) {
+    const userId = req.user?.id ?? req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedException(sysMsg.TOKEN_INVALID);
+    }
+
+    const user = await this.userService.findById(userId);
+    if (!user) {
+      this.logger.warn(sysMsg.USER_NOT_FOUND);
+      throw new UnauthorizedException(sysMsg.USER_NOT_FOUND);
+    }
+
+    if (dto.first_name !== undefined) {
+      user.first_name = dto.first_name.trim();
+    }
+    if (dto.last_name !== undefined) {
+      user.last_name = dto.last_name.trim();
+    }
+    if (dto.middle_name !== undefined) {
+      user.middle_name = dto.middle_name?.trim() || null;
+    }
+    if (dto.gender !== undefined) {
+      user.gender = dto.gender;
+    }
+    if (dto.dob !== undefined) {
+      user.dob = dto.dob;
+    }
+    if (dto.phone !== undefined) {
+      user.phone = dto.phone;
+    }
+    if (dto.image !== undefined) {
+      user.image = dto.image;
+    }
+
+    const saved = await this.userService.save(user);
+    this.logger.info(`Profile updated for user ${user.id}`);
+
+    return this.getProfile({
+      ...req,
+      user: { ...req.user, id: saved.id },
+    } as IRequestWithUser);
+  }
+
+  async changePassword(req: IRequestWithUser, dto: ChangePasswordDto) {
+    const userId = req.user?.id ?? req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedException(sysMsg.TOKEN_INVALID);
+    }
+
+    const user = await this.userService.findById(userId);
+    if (!user) {
+      this.logger.warn(sysMsg.USER_NOT_FOUND);
+      throw new UnauthorizedException(sysMsg.USER_NOT_FOUND);
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(
+      dto.currentPassword,
+      user.password,
+    );
+    if (!isCurrentPasswordValid) {
+      throw new UnauthorizedException(sysMsg.INVALID_CURRENT_PASSWORD);
+    }
+
+    user.password = await bcrypt.hash(dto.newPassword, this.saltRounds);
+    await this.userService.save(user);
+
+    await this.sessionRepository
+      .createQueryBuilder()
+      .update(AuthSession)
+      .set({ revoked_at: new Date() })
+      .where('user_id = :userId', { userId: user.id })
+      .andWhere('revoked_at IS NULL')
+      .execute();
+
+    this.logger.info(`Password changed for user ${user.id}`);
+
+    return { message: sysMsg.PASSWORD_CHANGED };
   }
 
   async logout(logoutPayload: LogoutDto) {
