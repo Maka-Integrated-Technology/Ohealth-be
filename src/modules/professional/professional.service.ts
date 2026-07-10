@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   Inject,
@@ -11,7 +12,7 @@ import { DataSource, Repository } from 'typeorm';
 import { Logger } from 'winston';
 
 import * as sysMsg from '../../constants/system.messages';
-import { Booking } from '../booking/entities/booking.entity';
+import { Booking, BookingStatus } from '../booking/entities/booking.entity';
 import { SpecialityService } from '../speciality/speciality.service';
 import { User } from '../user/entities/user.entity';
 import { UserRole } from '../user/enums/user-role.enum';
@@ -20,14 +21,27 @@ import { BulkCreateAvailabilityDto } from './dto/create-professional-availabilit
 import { CreateProfessionalDto } from './dto/create-professional.dto';
 import { CreateReviewDto } from './dto/create-review.dto';
 import {
+  ProfessionalAppointmentResponseDto,
+  ProfessionalDashboardResponseDto,
+} from './dto/professional-dashboard-response.dto';
+import {
+  ProfessionalMeProfileDto,
+  ProfessionalMeResponseDto,
+  ProfessionalSetupStatus,
+} from './dto/professional-me-response.dto';
+import {
   ProfessionalDetailResponseDto,
   ProfessionalResponseDto,
 } from './dto/professional-response.dto';
 import { ReviewResponseDto } from './dto/review-response.dto';
 import { UpdateProfessionalDto } from './dto/update-professional.dto';
+import { UpsertProfessionalProfileDto } from './dto/upsert-professional-profile.dto';
 import { ProfessionalAvailability } from './entities/professional-availability.entity';
 import { ProfessionalReview } from './entities/professional-review.entity';
-import { Professional } from './entities/professional.entity';
+import {
+  Professional,
+  ProfessionalVerificationStatus,
+} from './entities/professional.entity';
 
 /** Non-patient, non-admin roles that may have a professional profile. */
 const PROFESSIONAL_ROLES: UserRole[] = [
@@ -69,6 +83,222 @@ export class ProfessionalService {
     });
 
     return professionals.map(this.toProfessionalDto);
+  }
+
+  async findMe(userId: string): Promise<ProfessionalMeResponseDto> {
+    const user = await this.findUserOrThrow(userId);
+    const professional = await this.professionalRepository.findOne({
+      where: { user_id: userId },
+      relations: ['user', 'speciality'],
+    });
+    const availabilityCount = professional
+      ? await this.availabilityRepository.count({
+          where: { professional_id: professional.id },
+        })
+      : 0;
+
+    return this.toProfessionalMeResponse(user, professional, availabilityCount);
+  }
+
+  async upsertMeProfile(
+    userId: string,
+    dto: UpsertProfessionalProfileDto,
+  ): Promise<ProfessionalMeResponseDto> {
+    const user = await this.findUserOrThrow(userId);
+    this.assertProfessionalUser(user);
+
+    await this.specialityService.findOne(dto.speciality_id);
+
+    let professional = await this.professionalRepository.findOne({
+      where: { user_id: userId },
+      relations: ['user', 'speciality'],
+    });
+    const licenseChanged =
+      !!professional && professional.license_number !== dto.license_number;
+
+    if (!professional) {
+      professional = this.professionalRepository.create({
+        user_id: userId,
+        speciality_id: dto.speciality_id,
+        license_number: dto.license_number,
+        years_of_experience: dto.years_of_experience,
+        consultation_type: dto.consultation_type,
+        about: dto.about,
+        image: dto.image,
+        consultation_fee: dto.consultation_fee ?? 0,
+        verification_status: ProfessionalVerificationStatus.PENDING,
+      });
+    } else {
+      Object.assign(professional, {
+        speciality_id: dto.speciality_id,
+        license_number: dto.license_number,
+        years_of_experience: dto.years_of_experience,
+        consultation_type: dto.consultation_type,
+        about: dto.about ?? professional.about,
+        image: dto.image ?? professional.image,
+        consultation_fee: dto.consultation_fee ?? professional.consultation_fee,
+      });
+
+      if (
+        licenseChanged &&
+        professional.verification_status ===
+          ProfessionalVerificationStatus.VERIFIED
+      ) {
+        professional.verification_status =
+          ProfessionalVerificationStatus.PENDING;
+      }
+    }
+
+    try {
+      await this.professionalRepository.save(professional);
+    } catch (err: unknown) {
+      if ((err as { code?: string })?.code === '23505') {
+        throw new ConflictException(
+          'professional license number already exists',
+        );
+      }
+      throw err;
+    }
+
+    const reloaded = await this.findProfessionalByUserOrThrow(userId);
+    const availabilityCount = await this.availabilityRepository.count({
+      where: { professional_id: reloaded.id },
+    });
+    await this.syncProfileSetupCompleted(reloaded, availabilityCount);
+
+    return this.toProfessionalMeResponse(user, reloaded, availabilityCount);
+  }
+
+  async createMyAvailabilities(
+    userId: string,
+    dto: BulkCreateAvailabilityDto,
+  ): Promise<ProfessionalAvailability[]> {
+    const professional = await this.findProfessionalByUserOrThrow(userId);
+    const created = await this.createAvailabilities(professional.id, dto);
+    const availabilityCount = await this.availabilityRepository.count({
+      where: { professional_id: professional.id },
+    });
+    await this.syncProfileSetupCompleted(professional, availabilityCount);
+
+    return created;
+  }
+
+  async getMyDashboard(
+    userId: string,
+    date?: string,
+  ): Promise<ProfessionalDashboardResponseDto> {
+    const professional = await this.findProfessionalByUserOrThrow(userId);
+    const dashboardDate = this.normalizeDate(date);
+
+    const [
+      todaysAppointments,
+      appointmentRequests,
+      patientCount,
+      currentPeriodPatientCount,
+      previousPeriodPatientCount,
+      availabilityCount,
+    ] = await Promise.all([
+      this.bookingRepository.find({
+        where: {
+          professional_id: professional.id,
+          booking_date: dashboardDate,
+          status: BookingStatus.CONFIRMED,
+        },
+        relations: ['patient', 'professional', 'professional.user'],
+        order: { booking_time: 'ASC' },
+      }),
+      this.bookingRepository.find({
+        where: {
+          professional_id: professional.id,
+          status: BookingStatus.PENDING,
+        },
+        relations: ['patient', 'professional', 'professional.user'],
+        order: { created_at: 'DESC' },
+        take: 10,
+      }),
+      this.countDistinctPatients(professional.id),
+      this.countDistinctPatientsInRange(
+        professional.id,
+        this.shiftDate(dashboardDate, -29),
+        dashboardDate,
+      ),
+      this.countDistinctPatientsInRange(
+        professional.id,
+        this.shiftDate(dashboardDate, -59),
+        this.shiftDate(dashboardDate, -30),
+      ),
+      this.availabilityRepository.count({
+        where: { professional_id: professional.id },
+      }),
+    ]);
+
+    const setup = this.toSetupStatus(professional, availabilityCount);
+
+    return {
+      date: dashboardDate,
+      profile: this.toProfessionalMeProfileDto(professional),
+      stats: {
+        patients: patientCount,
+        patient_growth_percent: this.calculatePercentChange(
+          currentPeriodPatientCount,
+          previousPeriodPatientCount,
+        ),
+        todays_appointments: todaysAppointments.length,
+        pending_appointments: appointmentRequests.length,
+      },
+      todays_appointments: todaysAppointments.map(this.toAppointmentDto),
+      appointment_requests: appointmentRequests.map(this.toAppointmentDto),
+      activities: this.buildDashboardActivities(professional),
+      setup,
+    };
+  }
+
+  async acceptMyBooking(
+    userId: string,
+    bookingId: string,
+  ): Promise<ProfessionalAppointmentResponseDto> {
+    const professional = await this.findProfessionalByUserOrThrow(userId);
+    const booking = await this.findMyBookingOrThrow(professional.id, bookingId);
+
+    if (booking.status !== BookingStatus.PENDING) {
+      throw new BadRequestException('only pending bookings can be accepted');
+    }
+
+    booking.status = BookingStatus.CONFIRMED;
+    const saved = await this.bookingRepository.save(booking);
+    this.logger.info(`Booking accepted: ${bookingId} by professional ${userId}`);
+
+    return this.toAppointmentDto(saved);
+  }
+
+  async rejectMyBooking(
+    userId: string,
+    bookingId: string,
+  ): Promise<ProfessionalAppointmentResponseDto> {
+    const professional = await this.findProfessionalByUserOrThrow(userId);
+    const booking = await this.findMyBookingOrThrow(professional.id, bookingId);
+
+    if (booking.status !== BookingStatus.PENDING) {
+      throw new BadRequestException('only pending bookings can be rejected');
+    }
+
+    const saved = await this.dataSource.transaction(async (manager) => {
+      booking.status = BookingStatus.CANCELLED;
+      const updated = await manager.save(Booking, booking);
+
+      if (booking.availability_id) {
+        await manager.update(
+          ProfessionalAvailability,
+          { id: booking.availability_id },
+          { is_available: true },
+        );
+      }
+
+      return updated;
+    });
+    this.logger.info(`Booking rejected: ${bookingId} by professional ${userId}`);
+
+    return this.toAppointmentDto(saved);
   }
 
   async findOne(id: string): Promise<ProfessionalDetailResponseDto> {
@@ -152,12 +382,25 @@ export class ProfessionalService {
       speciality_id: dto.speciality_id,
       image: dto.image,
       about: dto.about,
+      license_number: dto.license_number,
       years_of_experience: dto.years_of_experience ?? 0,
       consultation_fee: dto.consultation_fee,
       consultation_type: dto.consultation_type,
+      verification_status:
+        dto.verification_status ?? ProfessionalVerificationStatus.PENDING,
     });
 
-    const saved = await this.professionalRepository.save(professional);
+    let saved: Professional;
+    try {
+      saved = await this.professionalRepository.save(professional);
+    } catch (err: unknown) {
+      if ((err as { code?: string })?.code === '23505') {
+        throw new ConflictException(
+          'professional license number already exists',
+        );
+      }
+      throw err;
+    }
     this.logger.info(
       `Professional created: ${saved.id} for user ${dto.user_id}`,
     );
@@ -300,6 +543,242 @@ export class ProfessionalService {
     });
 
     return reviews.map(this.toReviewDto);
+  }
+
+  private async findUserOrThrow(userId: string): Promise<User> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) throw new NotFoundException(sysMsg.USER_NOT_FOUND);
+    return user;
+  }
+
+  private assertProfessionalUser(user: User): void {
+    const hasProfessionalRole = (user.role ?? []).some((role) =>
+      PROFESSIONAL_ROLES.includes(role as UserRole),
+    );
+
+    if (!hasProfessionalRole) {
+      throw new ForbiddenException(sysMsg.PROFESSIONAL_INVALID_ROLE);
+    }
+  }
+
+  private async findProfessionalByUserOrThrow(
+    userId: string,
+  ): Promise<Professional> {
+    const professional = await this.professionalRepository.findOne({
+      where: { user_id: userId },
+      relations: ['user', 'speciality'],
+    });
+
+    if (!professional) {
+      throw new NotFoundException(sysMsg.PROFESSIONAL_NOT_FOUND);
+    }
+
+    return professional;
+  }
+
+  private async findMyBookingOrThrow(
+    professionalId: string,
+    bookingId: string,
+  ): Promise<Booking> {
+    const booking = await this.bookingRepository.findOne({
+      where: { id: bookingId, professional_id: professionalId },
+      relations: ['patient', 'professional', 'professional.user'],
+    });
+
+    if (!booking) {
+      throw new NotFoundException(sysMsg.BOOKING_NOT_FOUND);
+    }
+
+    return booking;
+  }
+
+  private async countDistinctPatients(professionalId: string): Promise<number> {
+    const result = await this.bookingRepository
+      .createQueryBuilder('booking')
+      .select('COUNT(DISTINCT booking.patient_id)', 'count')
+      .where('booking.professional_id = :professionalId', { professionalId })
+      .andWhere('booking.status != :cancelled', {
+        cancelled: BookingStatus.CANCELLED,
+      })
+      .getRawOne<{ count: string }>();
+
+    return parseInt(result?.count ?? '0', 10);
+  }
+
+  private async countDistinctPatientsInRange(
+    professionalId: string,
+    startDate: string,
+    endDate: string,
+  ): Promise<number> {
+    const result = await this.bookingRepository
+      .createQueryBuilder('booking')
+      .select('COUNT(DISTINCT booking.patient_id)', 'count')
+      .where('booking.professional_id = :professionalId', { professionalId })
+      .andWhere('booking.status != :cancelled', {
+        cancelled: BookingStatus.CANCELLED,
+      })
+      .andWhere('booking.booking_date BETWEEN :startDate AND :endDate', {
+        startDate,
+        endDate,
+      })
+      .getRawOne<{ count: string }>();
+
+    return parseInt(result?.count ?? '0', 10);
+  }
+
+  private calculatePercentChange(current: number, previous: number): number {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return Math.round(((current - previous) / previous) * 100);
+  }
+
+  private normalizeDate(date?: string): string {
+    const value = date ?? new Date().toISOString().slice(0, 10);
+    const isValidFormat = /^\d{4}-\d{2}-\d{2}$/.test(value);
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+
+    if (!isValidFormat || Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException('date must be in YYYY-MM-DD format');
+    }
+
+    return value;
+  }
+
+  private shiftDate(date: string, days: number): string {
+    const parsed = new Date(`${date}T00:00:00.000Z`);
+    parsed.setUTCDate(parsed.getUTCDate() + days);
+    return parsed.toISOString().slice(0, 10);
+  }
+
+  private async syncProfileSetupCompleted(
+    professional: Professional,
+    availabilityCount: number,
+  ): Promise<void> {
+    const setup = this.toSetupStatus(professional, availabilityCount);
+    if (professional.profile_setup_completed === setup.completed) return;
+
+    professional.profile_setup_completed = setup.completed;
+    await this.professionalRepository.save(professional);
+  }
+
+  private toProfessionalMeResponse(
+    user: User,
+    professional: Professional | null,
+    availabilityCount: number,
+  ): ProfessionalMeResponseDto {
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        phone: user.phone,
+        roles: user.role,
+        is_verified: user.is_verified,
+      },
+      profile: professional
+        ? this.toProfessionalMeProfileDto(professional)
+        : null,
+      setup: this.toSetupStatus(professional, availabilityCount),
+    };
+  }
+
+  private toSetupStatus(
+    professional: Professional | null,
+    availabilityCount: number,
+  ): ProfessionalSetupStatus {
+    const verified =
+      professional?.verification_status ===
+      ProfessionalVerificationStatus.VERIFIED;
+    const setAvailability = availabilityCount > 0;
+    const addProfilePhoto = !!professional?.image;
+    const addDescription = !!professional?.about?.trim();
+
+    return {
+      verified,
+      set_availability: setAvailability,
+      add_profile_photo: addProfilePhoto,
+      add_description: addDescription,
+      completed:
+        verified && setAvailability && addProfilePhoto && addDescription,
+    };
+  }
+
+  private toProfessionalMeProfileDto = (
+    professional: Professional,
+  ): ProfessionalMeProfileDto => ({
+    id: professional.id,
+    user_id: professional.user_id,
+    speciality_id: professional.speciality_id,
+    speciality: professional.speciality?.name ?? '',
+    image: professional.image,
+    about: professional.about,
+    license_number: professional.license_number,
+    years_of_experience: professional.years_of_experience,
+    consultation_fee: Number(professional.consultation_fee),
+    consultation_type: professional.consultation_type,
+    verification_status: professional.verification_status,
+    profile_setup_completed: professional.profile_setup_completed,
+    is_available: professional.is_available,
+    created_at: professional.created_at,
+    updated_at: professional.updated_at,
+  });
+
+  private toAppointmentDto = (
+    booking: Booking,
+  ): ProfessionalAppointmentResponseDto => ({
+    id: booking.id,
+    patient_id: booking.patient_id,
+    patient_name: booking.patient
+      ? `${booking.patient.first_name} ${booking.patient.last_name}`
+      : '',
+    professional_id: booking.professional_id,
+    booking_date: booking.booking_date,
+    booking_time: booking.booking_time,
+    consultation_type: booking.consultation_type,
+    amount: Number(booking.amount),
+    status: booking.status,
+    notes: booking.notes,
+    is_paid: booking.is_paid,
+    created_at: booking.created_at,
+  });
+
+  private buildDashboardActivities(professional: Professional) {
+    if (
+      professional.verification_status ===
+      ProfessionalVerificationStatus.VERIFIED
+    ) {
+      return [
+        {
+          title: 'Verification is successful',
+          message:
+            'Congratulations! Your credentials have been successfully verified. You now have full access to the OHealth+ professional dashboard.',
+          occurred_at: professional.updated_at,
+        },
+      ];
+    }
+
+    if (
+      professional.verification_status ===
+      ProfessionalVerificationStatus.REJECTED
+    ) {
+      return [
+        {
+          title: 'Verification rejected',
+          message:
+            'Your submitted credentials could not be verified. Update your professional profile and submit the correct information.',
+          occurred_at: professional.updated_at,
+        },
+      ];
+    }
+
+    return [
+      {
+        title: 'Awaiting Verification',
+        message:
+          'Your documents have been submitted successfully. Our team is reviewing your information and will notify you once your account has been approved.',
+        occurred_at: professional.updated_at,
+      },
+    ];
   }
 
   private toProfessionalDto = (
