@@ -149,6 +149,17 @@ export class AuthService {
     };
   }
 
+  async issueAuthSession(user: User) {
+    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    const session = await this.createSession(user.id, tokens.refresh_token);
+
+    return {
+      ...tokens,
+      session_id: session.session_id,
+      session_expires_at: session.expires_at,
+    };
+  }
+
   async refreshToken(refreshToken: RefreshTokenDto) {
     let payload: IRefreshPayload;
     try {
