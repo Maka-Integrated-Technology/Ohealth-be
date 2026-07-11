@@ -19,7 +19,8 @@ export class PharmacyController {
   @ApiResponse({ status: 201, type: PharmacyResponseDto })
   @ApiResponse({
     status: 409,
-    description: 'Pharmacy registration number or license number already exists',
+    description:
+      'Pharmacy registration number or license number already exists',
   })
   register(@Body() dto: CreatePharmacyDto): Promise<PharmacyResponseDto> {
     return this.pharmacyService.register(dto);
