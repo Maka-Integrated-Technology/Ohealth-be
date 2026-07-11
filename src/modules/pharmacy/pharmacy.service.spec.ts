@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 
@@ -127,6 +127,65 @@ describe('PharmacyService', () => {
           contact_phone: '+2348012345678',
         }),
       ).rejects.toThrow(sysMsg.PHARMACY_ALREADY_EXISTS);
+    });
+
+    it('should reject direct service calls with whitespace-only required fields', async () => {
+      await expect(
+        service.register({
+          name: '   ',
+          registration_number: 'PCN-123456',
+          license_number: 'LIC-789012',
+          business_address: '12 Admiralty Way, Lekki',
+          region: 'Lagos',
+          contact_email: 'contact@healthplus.example',
+          contact_phone: '+2348012345678',
+        }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(mockPharmacyRepository.findOne).not.toHaveBeenCalled();
+      expect(mockPharmacyRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('should map database unique constraint failures to conflict exceptions', async () => {
+      mockPharmacyRepository.findOne.mockResolvedValue(null);
+      mockPharmacyRepository.create.mockImplementation(
+        (payload: Partial<Pharmacy>) => payload,
+      );
+      mockPharmacyRepository.save.mockRejectedValue({ code: '23505' });
+
+      await expect(
+        service.register({
+          name: 'HealthPlus Pharmacy',
+          registration_number: 'PCN-123456',
+          license_number: 'LIC-789012',
+          business_address: '12 Admiralty Way, Lekki',
+          region: 'Lagos',
+          contact_email: 'contact@healthplus.example',
+          contact_phone: '+2348012345678',
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('should rethrow unexpected persistence errors', async () => {
+      const error = new Error('database unavailable');
+
+      mockPharmacyRepository.findOne.mockResolvedValue(null);
+      mockPharmacyRepository.create.mockImplementation(
+        (payload: Partial<Pharmacy>) => payload,
+      );
+      mockPharmacyRepository.save.mockRejectedValue(error);
+
+      await expect(
+        service.register({
+          name: 'HealthPlus Pharmacy',
+          registration_number: 'PCN-123456',
+          license_number: 'LIC-789012',
+          business_address: '12 Admiralty Way, Lekki',
+          region: 'Lagos',
+          contact_email: 'contact@healthplus.example',
+          contact_phone: '+2348012345678',
+        }),
+      ).rejects.toThrow(error);
     });
   });
 });
