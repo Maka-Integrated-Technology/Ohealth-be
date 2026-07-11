@@ -57,6 +57,16 @@ export const SPECIALITY_ALREADY_EXISTS =
 export const SPECIALITY_CREATED = 'speciality created successfully';
 export const SPECIALITY_UPDATED = 'speciality updated successfully';
 
+// Laboratory onboarding
+export const LABORATORY_ADMIN_SETUP_COMPLETED =
+  'laboratory administrator setup completed successfully';
+export const LABORATORY_ALREADY_EXISTS =
+  'laboratory with this registration or license number already exists';
+export const LABORATORY_ADMIN_ALREADY_EXISTS =
+  'laboratory administrator account already exists';
+export const LABORATORY_ADMIN_EMAIL_ALREADY_REGISTERED =
+  'this email is already registered to another account and cannot be used for a laboratory administrator';
+
 // Professional admin
 export const PROFESSIONAL_ALREADY_EXISTS =
   'professional profile already exists for this user';
