@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class CreatePharmacyRegistrationTable1771000000000
-  implements MigrationInterface
-{
+export class CreatePharmacyRegistrationTable1771000000000 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       CREATE TYPE "public"."pharmacies_verification_status_enum" AS ENUM (

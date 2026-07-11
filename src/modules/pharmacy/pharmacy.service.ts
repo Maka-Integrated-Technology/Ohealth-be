@@ -6,7 +6,10 @@ import * as sysMsg from '../../constants/system.messages';
 
 import { CreatePharmacyDto } from './dto/create-pharmacy.dto';
 import { PharmacyResponseDto } from './dto/pharmacy-response.dto';
-import { Pharmacy, PharmacyVerificationStatus } from './entities/pharmacy.entity';
+import {
+  Pharmacy,
+  PharmacyVerificationStatus,
+} from './entities/pharmacy.entity';
 
 @Injectable()
 export class PharmacyService {
