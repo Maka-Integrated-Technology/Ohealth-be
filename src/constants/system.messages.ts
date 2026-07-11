@@ -67,6 +67,11 @@ export const LABORATORY_ADMIN_ALREADY_EXISTS =
 export const LABORATORY_ADMIN_EMAIL_ALREADY_REGISTERED =
   'this email is already registered to another account and cannot be used for a laboratory administrator';
 
+// Pharmacy onboarding
+export const PHARMACY_CREATED = 'pharmacy registration submitted successfully';
+export const PHARMACY_ALREADY_EXISTS =
+  'pharmacy with this registration number or license number already exists';
+
 // Professional admin
 export const PROFESSIONAL_ALREADY_EXISTS =
   'professional profile already exists for this user';
