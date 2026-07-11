@@ -14,6 +14,7 @@ import { Logger } from 'winston';
 import { IRequestWithUser } from '../../common/types';
 import * as sysMsg from '../../constants/system.messages';
 import { EmailService } from '../email/email.service';
+import { User } from '../user/entities/user.entity';
 import { UserRole } from '../user/enums/user-role.enum';
 import { UserService } from '../user/user.service';
 
@@ -203,6 +204,49 @@ describe('AuthService', () => {
           password: 'wrong-pass',
         }),
       ).rejects.toThrow(UnauthorizedException);
+    });
+  });
+
+  describe('issueAuthSession', () => {
+    it('should issue tokens and create a refresh session for an existing user', async () => {
+      const expiresAt = new Date('2026-07-11T16:16:13.000Z');
+      mockJwtService.signAsync
+        .mockResolvedValueOnce('access-token')
+        .mockResolvedValueOnce('refresh-token');
+      mockJwtService.decode.mockReturnValue({
+        exp: Math.floor(expiresAt.getTime() / 1000),
+      });
+      mockSessionRepository.create.mockImplementation(
+        (payload: Partial<AuthSession>) => ({
+          id: 'session-db-id',
+          ...payload,
+        }),
+      );
+      mockSessionRepository.save.mockImplementation(
+        async (payload: Partial<AuthSession>) => payload,
+      );
+
+      const result = await service.issueAuthSession({
+        id: 'user-id-1',
+        email: 'lab.admin@example.com',
+        role: [UserRole.LAB_ADMIN],
+      } as User);
+
+      expect(mockJwtService.signAsync).toHaveBeenCalledTimes(2);
+      expect(mockSessionRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          session_id: expect.any(String),
+          user_id: 'user-id-1',
+          refresh_token_hash: expect.any(String),
+          revoked_at: null,
+        }),
+      );
+      expect(result).toEqual({
+        access_token: 'access-token',
+        refresh_token: 'refresh-token',
+        session_id: expect.any(String),
+        session_expires_at: expiresAt,
+      });
     });
   });
 
