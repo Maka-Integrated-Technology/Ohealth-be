@@ -1,0 +1,3 @@
+export const S3_CLIENT = 'S3_CLIENT';
+export const DEFAULT_SIGNED_URL_TTL_SECONDS = 300;
+export const MAX_SIGNED_URL_TTL_SECONDS = 604800;
