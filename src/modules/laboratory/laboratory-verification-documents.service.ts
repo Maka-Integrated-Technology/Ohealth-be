@@ -11,10 +11,11 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Logger } from 'winston';
 
 import { IMulterFile } from '../../common/types';
+import { IStorageUploadResult } from '../storage/interfaces/storage.interface';
 import { StorageService } from '../storage/storage.service';
 
 import {
@@ -32,7 +33,10 @@ import {
 import { LaboratoryVerificationStatus } from './enums/laboratory-verification-status.enum';
 import { LaboratoryVerificationDocumentFileValidator } from './laboratory-verification-document-file.validator';
 
-const EDITABLE_VERIFICATION_STATUSES = [LaboratoryVerificationStatus.PENDING];
+const EDITABLE_VERIFICATION_STATUSES = [
+  LaboratoryVerificationStatus.PENDING,
+  LaboratoryVerificationStatus.SUBMITTED,
+];
 
 @Injectable()
 export class LaboratoryVerificationDocumentsService {
@@ -43,6 +47,7 @@ export class LaboratoryVerificationDocumentsService {
     private readonly laboratoryAdminRepository: Repository<LaboratoryAdmin>,
     @InjectRepository(LaboratoryVerificationDocument)
     private readonly documentRepository: Repository<LaboratoryVerificationDocument>,
+    private readonly dataSource: DataSource,
     private readonly storageService: StorageService,
     private readonly configService: ConfigService,
     private readonly fileValidator: LaboratoryVerificationDocumentFileValidator,
@@ -65,12 +70,6 @@ export class LaboratoryVerificationDocumentsService {
     this.assertValidDocumentType(documentType);
     const validatedFile = this.fileValidator.validate(file);
 
-    const existingDocument = await this.documentRepository.findOne({
-      where: {
-        laboratory_id: laboratory.id,
-        document_type: documentType,
-      },
-    });
     const storageKey = this.buildStorageKey(
       laboratory.id,
       documentType,
@@ -87,34 +86,31 @@ export class LaboratoryVerificationDocumentsService {
       },
     });
 
-    let savedDocument: LaboratoryVerificationDocument;
+    let persistenceResult: {
+      savedDocument: LaboratoryVerificationDocument;
+      replacedDocument: LaboratoryVerificationDocument | null;
+    };
     try {
-      savedDocument = await this.documentRepository.save(
-        this.documentRepository.create({
-          id: existingDocument?.id,
-          laboratory_id: laboratory.id,
-          document_type: documentType,
-          bucket: uploaded.bucket,
-          storage_key: uploaded.key,
-          original_filename: this.normalizeFilename(file.originalname),
-          mime_type: uploaded.contentType,
-          file_size: uploaded.size,
-          uploaded_by_user_id: userId,
-        }),
+      persistenceResult = await this.persistUploadedDocument(
+        laboratory.id,
+        userId,
+        documentType,
+        file,
+        uploaded,
       );
     } catch (error) {
       await this.deleteStoredObjectBestEffort(uploaded.bucket, uploaded.key);
       throw error;
     }
 
-    if (existingDocument?.storage_key) {
+    if (persistenceResult.replacedDocument?.storage_key) {
       await this.deleteStoredObjectBestEffort(
-        existingDocument.bucket,
-        existingDocument.storage_key,
+        persistenceResult.replacedDocument.bucket,
+        persistenceResult.replacedDocument.storage_key,
       );
     }
 
-    return this.toDocumentDto(savedDocument);
+    return this.toDocumentDto(persistenceResult.savedDocument);
   }
 
   async listMyDocuments(
@@ -172,12 +168,33 @@ export class LaboratoryVerificationDocumentsService {
   ): Promise<{ message: string }> {
     const laboratory = await this.findLaboratoryForAdminOrThrow(userId);
     this.assertCanMutateDocuments(laboratory);
-    const document = await this.findDocumentOrThrow(
-      laboratory.id,
-      documentType,
-    );
+    const document = await this.dataSource.transaction(async (manager) => {
+      const laboratoryRepository = manager.withRepository(
+        this.laboratoryRepository,
+      );
+      const documentRepository = manager.withRepository(
+        this.documentRepository,
+      );
+      const lockedLaboratory = await laboratoryRepository.findOne({
+        where: { id: laboratory.id },
+        lock: { mode: 'pessimistic_write' },
+      });
 
-    await this.documentRepository.remove(document);
+      if (!lockedLaboratory) {
+        throw new NotFoundException('laboratory not found');
+      }
+
+      this.assertCanMutateDocuments(lockedLaboratory);
+      const storedDocument = await this.findDocumentWithRepositoryOrThrow(
+        documentRepository,
+        laboratory.id,
+        documentType,
+      );
+      await documentRepository.remove(storedDocument);
+
+      return storedDocument;
+    });
+
     await this.deleteStoredObjectBestEffort(
       document.bucket,
       document.storage_key,
@@ -197,6 +214,57 @@ export class LaboratoryVerificationDocumentsService {
         missing_document_types: missingDocumentTypes,
       });
     }
+  }
+
+  private async persistUploadedDocument(
+    laboratoryId: string,
+    userId: string,
+    documentType: LaboratoryVerificationDocumentType,
+    file: IMulterFile,
+    uploaded: IStorageUploadResult,
+  ): Promise<{
+    savedDocument: LaboratoryVerificationDocument;
+    replacedDocument: LaboratoryVerificationDocument | null;
+  }> {
+    return this.dataSource.transaction(async (manager) => {
+      const laboratoryRepository = manager.withRepository(
+        this.laboratoryRepository,
+      );
+      const documentRepository = manager.withRepository(
+        this.documentRepository,
+      );
+      const laboratory = await laboratoryRepository.findOne({
+        where: { id: laboratoryId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!laboratory) {
+        throw new NotFoundException('laboratory not found');
+      }
+
+      this.assertCanMutateDocuments(laboratory);
+      const replacedDocument = await documentRepository.findOne({
+        where: {
+          laboratory_id: laboratoryId,
+          document_type: documentType,
+        },
+      });
+      const savedDocument = await documentRepository.save(
+        documentRepository.create({
+          id: replacedDocument?.id,
+          laboratory_id: laboratoryId,
+          document_type: documentType,
+          bucket: uploaded.bucket,
+          storage_key: uploaded.key,
+          original_filename: this.normalizeFilename(file.originalname),
+          mime_type: uploaded.contentType,
+          file_size: uploaded.size,
+          uploaded_by_user_id: userId,
+        }),
+      );
+
+      return { savedDocument, replacedDocument };
+    });
   }
 
   private async findLaboratoryForAdminOrThrow(
@@ -232,8 +300,20 @@ export class LaboratoryVerificationDocumentsService {
     laboratoryId: string,
     documentType: LaboratoryVerificationDocumentType,
   ): Promise<LaboratoryVerificationDocument> {
+    return this.findDocumentWithRepositoryOrThrow(
+      this.documentRepository,
+      laboratoryId,
+      documentType,
+    );
+  }
+
+  private async findDocumentWithRepositoryOrThrow(
+    documentRepository: Repository<LaboratoryVerificationDocument>,
+    laboratoryId: string,
+    documentType: LaboratoryVerificationDocumentType,
+  ): Promise<LaboratoryVerificationDocument> {
     this.assertValidDocumentType(documentType);
-    const document = await this.documentRepository.findOne({
+    const document = await documentRepository.findOne({
       where: {
         laboratory_id: laboratoryId,
         document_type: documentType,
