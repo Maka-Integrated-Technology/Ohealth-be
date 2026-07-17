@@ -81,6 +81,8 @@ export class LaboratoryAuthService {
         contact_email: laboratory.contact_email,
         contact_phone: laboratory.contact_phone,
         verification_status: laboratory.verification_status,
+        verification_rejection_reason:
+          laboratory.verification_rejection_reason ?? null,
         onboarding_status: laboratory.onboarding_status,
         is_active: laboratory.is_active,
         created_at: laboratory.created_at,
@@ -147,6 +149,7 @@ export class LaboratoryAuthService {
             contact_email: laboratoryPayload.contactEmail,
             contact_phone: laboratoryPayload.contactPhone,
             verification_status: LaboratoryVerificationStatus.PENDING,
+            verification_rejection_reason: null,
             onboarding_status: LaboratoryOnboardingStatus.ADMIN_SETUP_COMPLETED,
             is_active: true,
           }),
