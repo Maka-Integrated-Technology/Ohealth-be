@@ -14,6 +14,7 @@ export interface ILaboratoryAdminSetupResult {
     contact_email: string;
     contact_phone: string;
     verification_status: LaboratoryVerificationStatus;
+    verification_rejection_reason: string | null;
     onboarding_status: LaboratoryOnboardingStatus;
     is_active: boolean;
     created_at: Date;

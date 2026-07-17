@@ -36,6 +36,12 @@ class LaboratorySetupResponseDto {
   verification_status: LaboratoryVerificationStatus;
 
   @ApiProperty({
+    example: null,
+    nullable: true,
+  })
+  verification_rejection_reason: string | null;
+
+  @ApiProperty({
     enum: LaboratoryOnboardingStatus,
     example: LaboratoryOnboardingStatus.ADMIN_SETUP_COMPLETED,
   })

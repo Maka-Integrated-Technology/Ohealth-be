@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
+import { DataSource } from 'typeorm';
 import { Logger } from 'winston';
 
 import { IMulterFile } from '../../common/types';
@@ -73,15 +74,29 @@ describe('LaboratoryVerificationDocumentsService', () => {
     verification_status: LaboratoryVerificationStatus.PENDING,
   } as Laboratory;
 
-  const verifiedLaboratory = {
+  const approvedLaboratory = {
     id: 'laboratory-id',
-    verification_status: LaboratoryVerificationStatus.VERIFIED,
+    verification_status: LaboratoryVerificationStatus.APPROVED,
   } as Laboratory;
 
   const rejectedLaboratory = {
     id: 'laboratory-id',
     verification_status: LaboratoryVerificationStatus.REJECTED,
   } as Laboratory;
+
+  const submittedLaboratory = {
+    id: 'laboratory-id',
+    verification_status: LaboratoryVerificationStatus.SUBMITTED,
+  } as Laboratory;
+
+  const underReviewLaboratory = {
+    id: 'laboratory-id',
+    verification_status: LaboratoryVerificationStatus.UNDER_REVIEW,
+  } as Laboratory;
+
+  const mockDataSource = {
+    transaction: jest.fn(),
+  };
 
   const pdfBuffer = Buffer.from('%PDF-1.7\n');
 
@@ -127,6 +142,10 @@ describe('LaboratoryVerificationDocumentsService', () => {
           useValue: mockDocumentRepository,
         },
         {
+          provide: DataSource,
+          useValue: mockDataSource,
+        },
+        {
           provide: StorageService,
           useValue: mockStorageService,
         },
@@ -146,6 +165,16 @@ describe('LaboratoryVerificationDocumentsService', () => {
     );
 
     jest.clearAllMocks();
+    mockDataSource.transaction.mockImplementation(
+      async (
+        callback: (manager: {
+          withRepository: <T>(repository: T) => T;
+        }) => Promise<unknown>,
+      ) =>
+        callback({
+          withRepository: <T>(repository: T) => repository,
+        }),
+    );
     mockLaboratoryAdminRepository.findOne.mockResolvedValue({ laboratory });
     mockLaboratoryRepository.findOne.mockResolvedValue(laboratory);
     mockDocumentRepository.findOne.mockResolvedValue(null);
@@ -204,6 +233,10 @@ describe('LaboratoryVerificationDocumentsService', () => {
         },
       }),
     );
+    expect(mockLaboratoryRepository.findOne).toHaveBeenCalledWith({
+      where: { id: laboratory.id },
+      lock: { mode: 'pessimistic_write' },
+    });
     expect(mockDocumentRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
         laboratory_id: 'laboratory-id',
@@ -377,6 +410,10 @@ describe('LaboratoryVerificationDocumentsService', () => {
     );
 
     expect(mockDocumentRepository.remove).toHaveBeenCalledWith(document);
+    expect(mockLaboratoryRepository.findOne).toHaveBeenCalledWith({
+      where: { id: laboratory.id },
+      lock: { mode: 'pessimistic_write' },
+    });
     expect(mockStorageService.deleteObject).toHaveBeenCalledWith({
       bucket: document.bucket,
       key: document.storage_key,
@@ -387,7 +424,79 @@ describe('LaboratoryVerificationDocumentsService', () => {
     expect(mockLogger.warn).toHaveBeenCalled();
   });
 
-  it.each([verifiedLaboratory, rejectedLaboratory])(
+  it('should allow document changes while verification is submitted', async () => {
+    mockLaboratoryAdminRepository.findOne.mockResolvedValue({
+      laboratory: submittedLaboratory,
+    });
+    mockLaboratoryRepository.findOne.mockResolvedValue(submittedLaboratory);
+    mockDocumentRepository.findOne.mockResolvedValue(document);
+
+    await expect(
+      service.deleteMyDocument(
+        'user-id',
+        LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
+      ),
+    ).resolves.toEqual({
+      message: 'laboratory verification document deleted successfully',
+    });
+
+    expect(mockDocumentRepository.remove).toHaveBeenCalledWith(document);
+  });
+
+  it('should allow document replacement while verification is submitted', async () => {
+    mockLaboratoryAdminRepository.findOne.mockResolvedValue({
+      laboratory: submittedLaboratory,
+    });
+    mockLaboratoryRepository.findOne.mockResolvedValue(submittedLaboratory);
+    mockDocumentRepository.findOne.mockResolvedValue(document);
+
+    await expect(
+      service.uploadMyDocument(
+        'user-id',
+        LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
+        uploadFile,
+      ),
+    ).resolves.toMatchObject({ id: document.id });
+
+    expect(mockDocumentRepository.create).toHaveBeenCalledWith(
+      expect.objectContaining({ id: document.id }),
+    );
+  });
+
+  it('should recheck status under lock before persisting an upload', async () => {
+    mockLaboratoryRepository.findOne.mockResolvedValue(underReviewLaboratory);
+
+    await expect(
+      service.uploadMyDocument(
+        'user-id',
+        LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
+        uploadFile,
+      ),
+    ).rejects.toThrow(ForbiddenException);
+
+    expect(mockDocumentRepository.save).not.toHaveBeenCalled();
+    expect(mockStorageService.deleteObject).toHaveBeenCalledWith({
+      bucket: 'private-bucket',
+      key: 'laboratories/laboratory-id/verification-documents/laboratory_license-1770000000000.pdf',
+    });
+  });
+
+  it('should recheck status under lock before deleting a document', async () => {
+    mockDocumentRepository.findOne.mockResolvedValue(document);
+    mockLaboratoryRepository.findOne.mockResolvedValue(underReviewLaboratory);
+
+    await expect(
+      service.deleteMyDocument(
+        'user-id',
+        LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
+      ),
+    ).rejects.toThrow(ForbiddenException);
+
+    expect(mockDocumentRepository.remove).not.toHaveBeenCalled();
+    expect(mockStorageService.deleteObject).not.toHaveBeenCalled();
+  });
+
+  it.each([underReviewLaboratory, approvedLaboratory, rejectedLaboratory])(
     'should block document changes when verification status is $verification_status',
     async (nonEditableLaboratory) => {
       mockLaboratoryAdminRepository.findOne.mockResolvedValue({

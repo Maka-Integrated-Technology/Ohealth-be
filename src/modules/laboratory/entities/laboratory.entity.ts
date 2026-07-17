@@ -1,13 +1,22 @@
-import { Column, Entity, Index, OneToMany, Unique } from 'typeorm';
+import { Check, Column, Entity, Index, OneToMany, Unique } from 'typeorm';
 
 import { BaseEntity } from '../../../entities/base-entity';
 import { LaboratoryOnboardingStatus } from '../enums/laboratory-onboarding-status.enum';
 import { LaboratoryVerificationStatus } from '../enums/laboratory-verification-status.enum';
 
 import { LaboratoryAdmin } from './laboratory-admin.entity';
+import { LaboratoryVerificationStatusHistory } from './laboratory-verification-status-history.entity';
 
 @Unique(['registration_number'])
 @Unique(['license_number'])
+@Check(
+  'CHK_laboratories_verification_status',
+  `"verification_status" IN ('pending', 'submitted', 'under_review', 'approved', 'rejected')`,
+)
+@Check(
+  'CHK_laboratories_verification_rejection_reason',
+  `"verification_status" <> 'rejected' OR NULLIF(BTRIM("verification_rejection_reason"), '') IS NOT NULL`,
+)
 @Index(['region'])
 @Index(['verification_status'])
 @Entity('laboratories')
@@ -39,6 +48,9 @@ export class Laboratory extends BaseEntity {
   })
   verification_status: LaboratoryVerificationStatus;
 
+  @Column({ type: 'text', nullable: true })
+  verification_rejection_reason: string | null;
+
   @Column({
     type: 'varchar',
     default: LaboratoryOnboardingStatus.LABORATORY_CREATED,
@@ -50,4 +62,10 @@ export class Laboratory extends BaseEntity {
 
   @OneToMany(() => LaboratoryAdmin, (administrator) => administrator.laboratory)
   administrators: LaboratoryAdmin[];
+
+  @OneToMany(
+    () => LaboratoryVerificationStatusHistory,
+    (history) => history.laboratory,
+  )
+  verification_history: LaboratoryVerificationStatusHistory[];
 }
