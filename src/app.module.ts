@@ -14,6 +14,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { BookingModule } from './modules/booking/booking.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { LaboratoryModule } from './modules/laboratory/laboratory.module';
+import { OrganizationModule } from './modules/organization/organization.module';
 import { PharmacyModule } from './modules/pharmacy/pharmacy.module';
 import { ProfessionalModule } from './modules/professional/professional.module';
 import { SpecialityModule } from './modules/speciality/speciality.module';
@@ -47,6 +48,7 @@ import { SpecialityModule } from './modules/speciality/speciality.module';
     BookingModule,
     ChatModule,
     LaboratoryModule,
+    OrganizationModule,
     PharmacyModule,
   ],
   controllers: [AppController],
