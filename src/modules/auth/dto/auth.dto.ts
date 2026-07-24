@@ -5,16 +5,18 @@ import {
   IsNotEmpty,
   IsEmail,
   IsString,
-  IsEnum,
   MinLength,
   Matches,
   IsJWT,
   IsUUID,
   IsOptional,
   ArrayNotEmpty,
+  ArrayMaxSize,
+  IsIn,
 } from 'class-validator';
 
 import { UserRole } from '../../user/enums/user-role.enum';
+import { SELF_SERVICE_SIGNUP_ROLES } from '../constants/self-service-signup-roles.constant';
 
 export class AuthDto {
   @ApiProperty({
@@ -79,17 +81,17 @@ export class AuthDto {
   phone?: string;
 
   @ApiProperty({
-    description: 'User roles',
-    enum: UserRole,
+    description: 'Single self-service account role selected during signup',
+    enum: SELF_SERVICE_SIGNUP_ROLES,
     isArray: true,
     example: [UserRole.PATIENT],
-    required: false,
+    required: true,
   })
-  @IsOptional()
   @IsArray()
   @ArrayNotEmpty()
-  @IsEnum(UserRole, { each: true })
-  role?: UserRole[];
+  @ArrayMaxSize(1)
+  @IsIn(SELF_SERVICE_SIGNUP_ROLES, { each: true })
+  role: UserRole[];
 
   @ApiProperty({
     description: 'User password (minimum 8 characters)',
