@@ -72,6 +72,14 @@ export const PHARMACY_CREATED = 'pharmacy registration submitted successfully';
 export const PHARMACY_ALREADY_EXISTS =
   'pharmacy with this registration number or license number already exists';
 
+// Shared organization onboarding
+export const ORGANIZATION_ADMIN_SETUP_COMPLETED =
+  'organization administrator setup completed successfully';
+export const ORGANIZATION_ALREADY_EXISTS =
+  'organization with this registration number already exists';
+export const ORGANIZATION_ADMIN_EMAIL_ALREADY_REGISTERED =
+  'this email is already registered and cannot be used for an organization administrator';
+
 // Professional admin
 export const PROFESSIONAL_ALREADY_EXISTS =
   'professional profile already exists for this user';
