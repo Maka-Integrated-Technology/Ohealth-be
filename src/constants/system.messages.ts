@@ -29,6 +29,30 @@ export const PERMISSION_DENIED = 'permission denied';
 export const VALIDATION_ERROR = 'validation error';
 export const INVALID_SIGNUP_ROLE =
   'select exactly one supported role during signup';
+export const LABORATORY_APPROVED_ADMIN_REQUIRED =
+  'an active, approved laboratory administrator account is required';
+export const LABORATORY_OPERATING_HOURS_DUPLICATE_DAY =
+  'operating hours may only contain one entry per day';
+export const LABORATORY_OPERATING_HOURS_INVALID =
+  'open days require an opening time earlier than the closing time; closed days cannot include times';
+export const LABORATORY_TEST_ALREADY_EXISTS =
+  'a laboratory test with this name already exists';
+export const LABORATORY_TEST_NAME_REQUIRED = 'laboratory test name is required';
+export const LABORATORY_TEST_NOT_FOUND = 'laboratory test not found';
+export const LABORATORY_TEST_UPDATE_REQUIRED =
+  'provide at least one laboratory test field to update';
+export const LABORATORY_STAFF_ALREADY_EXISTS =
+  'a laboratory staff account or active invitation already exists for this email';
+export const LABORATORY_STAFF_NAME_REQUIRED =
+  'laboratory staff full name is required';
+export const LABORATORY_STAFF_INVITATION_INVALID =
+  'laboratory staff invitation is invalid or expired';
+export const LABORATORY_STAFF_INVITED =
+  'laboratory staff invitation sent successfully';
+export const LABORATORY_STAFF_INVITATION_SEND_FAILED =
+  'laboratory staff invitation could not be sent; try again';
+export const LABORATORY_STAFF_INVITATION_ACCEPTED =
+  'laboratory staff invitation accepted successfully';
 export const ACCOUNT_CREATION_EMAIL_SENT = 'account creation email sent';
 export const VERIFICATION_CODE_SENT = 'verification code sent';
 export const INVALID_VERIFICATION_CODE = 'invalid verification code';
