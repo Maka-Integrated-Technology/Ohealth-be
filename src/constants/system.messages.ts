@@ -27,6 +27,8 @@ export const INVALID_CURRENT_PASSWORD = 'current password is incorrect';
 export const UNAUTHORIZED = 'unauthorized';
 export const PERMISSION_DENIED = 'permission denied';
 export const VALIDATION_ERROR = 'validation error';
+export const INVALID_SIGNUP_ROLE =
+  'select exactly one supported role during signup';
 export const ACCOUNT_CREATION_EMAIL_SENT = 'account creation email sent';
 export const VERIFICATION_CODE_SENT = 'verification code sent';
 export const INVALID_VERIFICATION_CODE = 'invalid verification code';
