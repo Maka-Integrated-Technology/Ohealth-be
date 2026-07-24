@@ -6,6 +6,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import * as sysMsg from '../../../constants/system.messages';
 import { UserRole } from '../../user/enums/user-role.enum';
 import { UserService } from '../../user/user.service';
+import { haveSameRoles } from '../utils/auth-role.util';
 
 interface IJwtPayload {
   sub: string;
@@ -32,12 +33,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException(sysMsg.USER_INACTIVE);
     }
 
-    const roles = Array.isArray(payload.role) ? payload.role : [payload.role];
+    if (!haveSameRoles(payload.role, user.role)) {
+      throw new UnauthorizedException(sysMsg.TOKEN_INVALID);
+    }
+
     return {
-      id: payload.sub,
-      userId: payload.sub,
-      email: payload.email,
-      roles,
+      id: user.id,
+      userId: user.id,
+      email: user.email,
+      roles: user.role,
     };
   }
 }

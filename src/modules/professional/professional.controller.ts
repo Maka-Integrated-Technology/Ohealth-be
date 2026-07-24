@@ -178,6 +178,8 @@ export class ProfessionalController {
   }
 
   @Post(':id/reviews')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.PATIENT)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Submit a review for a professional' })
   @ApiParam({ name: 'id', description: 'Professional UUID' })
