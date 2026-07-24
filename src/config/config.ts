@@ -51,6 +51,10 @@ export default () => ({
     url: process.env.FRONTEND_URL,
   },
 
+  invite: {
+    expirationDays: parseInt(process.env.INVITE_EXPIRATION_DAYS, 10) || 7,
+  },
+
   storage: {
     aws: {
       region: process.env.AWS_REGION,

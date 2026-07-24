@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { EmailModule } from '../email/email.module';
 import { LaboratoryAdmin } from '../laboratory/entities/laboratory-admin.entity';
+import { LaboratoryStaff } from '../laboratory/entities/laboratory-staff.entity';
 import { OrganizationAdmin } from '../organization/entities/organization-admin.entity';
 import { Professional } from '../professional/entities/professional.entity';
 import { UserModule } from '../user/user.module';
@@ -33,6 +34,7 @@ import { TwoFactorAuthService } from './two-factor-auth.service';
       Professional,
       OrganizationAdmin,
       LaboratoryAdmin,
+      LaboratoryStaff,
     ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],

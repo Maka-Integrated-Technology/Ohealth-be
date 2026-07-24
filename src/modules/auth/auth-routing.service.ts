@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { LaboratoryAdmin } from '../laboratory/entities/laboratory-admin.entity';
+import { LaboratoryStaff } from '../laboratory/entities/laboratory-staff.entity';
+import { LaboratoryStaffStatus } from '../laboratory/enums/laboratory-post-approval.enum';
 import { LaboratoryVerificationStatus } from '../laboratory/enums/laboratory-verification-status.enum';
 import { ORGANIZATION_ADMIN_ROLE } from '../organization/constants/organization-role.constant';
 import { OrganizationAdmin } from '../organization/entities/organization-admin.entity';
@@ -54,6 +56,8 @@ export class AuthRoutingService {
     private readonly organizationAdminRepository: Repository<OrganizationAdmin>,
     @InjectRepository(LaboratoryAdmin)
     private readonly legacyLaboratoryAdminRepository: Repository<LaboratoryAdmin>,
+    @InjectRepository(LaboratoryStaff)
+    private readonly laboratoryStaffRepository: Repository<LaboratoryStaff>,
   ) {}
 
   async resolve(user: User): Promise<IAuthRoutingResult> {
@@ -68,6 +72,10 @@ export class AuthRoutingService {
 
     if (roles.size === 1 && roles.has(UserRole.ADMIN)) {
       return this.full(AuthRoutingTarget.ADMIN_DASHBOARD);
+    }
+
+    if (roles.size === 1 && roles.has(UserRole.LAB_STAFF)) {
+      return this.resolveLaboratoryStaff(user.id);
     }
 
     if (
@@ -187,6 +195,39 @@ export class AuthRoutingService {
       AuthRoutingTarget.LABORATORY_VERIFICATION,
       laboratory.verification_status,
     );
+  }
+
+  private async resolveLaboratoryStaff(
+    userId: string,
+  ): Promise<IAuthRoutingResult> {
+    const staff = await this.laboratoryStaffRepository.findOne({
+      where: { user_id: userId },
+      relations: { organization: true },
+    });
+    if (!staff?.organization) {
+      return this.limited(AuthRoutingTarget.ACCOUNT_SETUP);
+    }
+    const organization = staff.organization;
+    if (
+      staff.status !== LaboratoryStaffStatus.ACTIVE ||
+      organization.organization_type !== OrganizationType.LABORATORY ||
+      !organization.is_active
+    ) {
+      return this.limited(
+        AuthRoutingTarget.ACCOUNT_RESTRICTED,
+        organization.verification_status,
+      );
+    }
+    return organization.verification_status ===
+      OrganizationVerificationStatus.APPROVED
+      ? this.full(
+          AuthRoutingTarget.LABORATORY_DASHBOARD,
+          organization.verification_status,
+        )
+      : this.limited(
+          AuthRoutingTarget.LABORATORY_VERIFICATION,
+          organization.verification_status,
+        );
   }
 
   private full(

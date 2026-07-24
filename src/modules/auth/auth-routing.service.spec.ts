@@ -1,6 +1,8 @@
 import { Repository } from 'typeorm';
 
 import { LaboratoryAdmin } from '../laboratory/entities/laboratory-admin.entity';
+import { LaboratoryStaff } from '../laboratory/entities/laboratory-staff.entity';
+import { LaboratoryStaffStatus } from '../laboratory/enums/laboratory-post-approval.enum';
 import { LaboratoryVerificationStatus } from '../laboratory/enums/laboratory-verification-status.enum';
 import { OrganizationAdmin } from '../organization/entities/organization-admin.entity';
 import { OrganizationType } from '../organization/enums/organization-type.enum';
@@ -19,10 +21,12 @@ describe('AuthRoutingService', () => {
   const professionalRepository = { findOne: jest.fn() };
   const organizationAdminRepository = { findOne: jest.fn() };
   const legacyLaboratoryAdminRepository = { findOne: jest.fn() };
+  const laboratoryStaffRepository = { findOne: jest.fn() };
   const service = new AuthRoutingService(
     professionalRepository as unknown as Repository<Professional>,
     organizationAdminRepository as unknown as Repository<OrganizationAdmin>,
     legacyLaboratoryAdminRepository as unknown as Repository<LaboratoryAdmin>,
+    laboratoryStaffRepository as unknown as Repository<LaboratoryStaff>,
   );
 
   const user = (role: UserRole[], isVerified = true) =>
@@ -36,6 +40,7 @@ describe('AuthRoutingService', () => {
     professionalRepository.findOne.mockReset();
     organizationAdminRepository.findOne.mockReset();
     legacyLaboratoryAdminRepository.findOne.mockReset();
+    laboratoryStaffRepository.findOne.mockReset();
   });
 
   it('routes unverified accounts to email verification before profile lookup', async () => {
@@ -257,6 +262,33 @@ describe('AuthRoutingService', () => {
       routing_target: AuthRoutingTarget.LABORATORY_DASHBOARD,
       access_level: AuthAccessLevel.FULL,
       verification_status: LaboratoryVerificationStatus.APPROVED,
+    });
+  });
+
+  it('routes active laboratory staff to the approved laboratory dashboard', async () => {
+    laboratoryStaffRepository.findOne.mockResolvedValue({
+      status: LaboratoryStaffStatus.ACTIVE,
+      organization: {
+        organization_type: OrganizationType.LABORATORY,
+        verification_status: OrganizationVerificationStatus.APPROVED,
+        is_active: true,
+      },
+    });
+
+    await expect(service.resolve(user([UserRole.LAB_STAFF]))).resolves.toEqual({
+      routing_target: AuthRoutingTarget.LABORATORY_DASHBOARD,
+      access_level: AuthAccessLevel.FULL,
+      verification_status: OrganizationVerificationStatus.APPROVED,
+    });
+  });
+
+  it('keeps unlinked laboratory staff in account setup', async () => {
+    laboratoryStaffRepository.findOne.mockResolvedValue(null);
+
+    await expect(service.resolve(user([UserRole.LAB_STAFF]))).resolves.toEqual({
+      routing_target: AuthRoutingTarget.ACCOUNT_SETUP,
+      access_level: AuthAccessLevel.LIMITED,
+      verification_status: null,
     });
   });
 
