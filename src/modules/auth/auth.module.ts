@@ -5,8 +5,13 @@ import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { EmailModule } from '../email/email.module';
+import { LaboratoryAdmin } from '../laboratory/entities/laboratory-admin.entity';
+import { LaboratoryStaff } from '../laboratory/entities/laboratory-staff.entity';
+import { OrganizationAdmin } from '../organization/entities/organization-admin.entity';
+import { Professional } from '../professional/entities/professional.entity';
 import { UserModule } from '../user/user.module';
 
+import { AuthRoutingService } from './auth-routing.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthSession } from './entities/auth.entity';
@@ -23,7 +28,14 @@ import { TwoFactorAuthService } from './two-factor-auth.service';
     EmailModule,
     UserModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
-    TypeOrmModule.forFeature([AuthSession, User2fa]),
+    TypeOrmModule.forFeature([
+      AuthSession,
+      User2fa,
+      Professional,
+      OrganizationAdmin,
+      LaboratoryAdmin,
+      LaboratoryStaff,
+    ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -35,6 +47,7 @@ import { TwoFactorAuthService } from './two-factor-auth.service';
   controllers: [AuthController, TwoFactorAuthController],
   providers: [
     AuthService,
+    AuthRoutingService,
     JwtStrategy,
     JwtAuthGuard,
     RolesGuard,

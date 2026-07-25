@@ -14,12 +14,16 @@ import { Logger } from 'winston';
 import { IRequestWithUser } from '../../common/types';
 import * as sysMsg from '../../constants/system.messages';
 import { EmailService } from '../email/email.service';
+import { ProfessionalVerificationStatus } from '../professional/entities/professional.entity';
+import { User } from '../user/entities/user.entity';
 import { UserRole } from '../user/enums/user-role.enum';
 import { UserService } from '../user/user.service';
 
+import { AuthRoutingService } from './auth-routing.service';
 import { AuthService } from './auth.service';
 import { ResendVerificationDto, VerifySignupDto } from './dto/auth.dto';
 import { AuthSession } from './entities/auth.entity';
+import { AuthAccessLevel, AuthRoutingTarget } from './enums/auth-routing.enum';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -76,6 +80,16 @@ describe('AuthService', () => {
     sendMail: jest.fn(),
   };
 
+  const defaultRouting = {
+    routing_target: AuthRoutingTarget.PATIENT_HOME,
+    access_level: AuthAccessLevel.FULL,
+    verification_status: null,
+  };
+
+  const mockAuthRoutingService = {
+    resolve: jest.fn().mockResolvedValue(defaultRouting),
+  };
+
   const mockLogger = {
     child: jest.fn().mockReturnThis(),
     info: jest.fn(),
@@ -107,6 +121,10 @@ describe('AuthService', () => {
         {
           provide: EmailService,
           useValue: mockEmailService,
+        },
+        {
+          provide: AuthRoutingService,
+          useValue: mockAuthRoutingService,
         },
         {
           provide: WINSTON_MODULE_PROVIDER,
@@ -174,6 +192,10 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('access_token', 'access-token');
       expect(result).toHaveProperty('refresh_token', 'refresh-token');
       expect(result).toHaveProperty('session_id');
+      expect(result).toMatchObject(defaultRouting);
+      expect(mockUserService.create).toHaveBeenCalledWith(
+        expect.objectContaining({ role: [UserRole.PATIENT] }),
+      );
       expect(mockLogger.info).toHaveBeenCalledWith(sysMsg.ACCOUNT_CREATED);
       expect(mockEmailService.sendMail).toHaveBeenCalled();
     });
@@ -191,6 +213,30 @@ describe('AuthService', () => {
         }),
       ).rejects.toThrow(ConflictException);
     });
+
+    it('should reject privileged and multiple-role signup attempts', async () => {
+      await expect(
+        service.signup({
+          first_name: 'Platform',
+          last_name: 'Admin',
+          email: 'admin@example.com',
+          password: 'Password123',
+          role: [UserRole.ADMIN],
+        }),
+      ).rejects.toThrow(sysMsg.INVALID_SIGNUP_ROLE);
+
+      await expect(
+        service.signup({
+          first_name: 'Multiple',
+          last_name: 'Roles',
+          email: 'roles@example.com',
+          password: 'Password123',
+          role: [UserRole.PATIENT, UserRole.DOCTOR],
+        }),
+      ).rejects.toThrow(sysMsg.INVALID_SIGNUP_ROLE);
+
+      expect(mockUserService.findByEmail).not.toHaveBeenCalled();
+    });
   });
 
   describe('login', () => {
@@ -203,6 +249,86 @@ describe('AuthService', () => {
           password: 'wrong-pass',
         }),
       ).rejects.toThrow(UnauthorizedException);
+    });
+
+    it('should return the persisted role and resolved routing target', async () => {
+      jest.spyOn(bcrypt, 'compare').mockImplementation(async () => true);
+      const user = {
+        id: 'user-id-1',
+        email: 'patient@example.com',
+        password: 'hashed-password',
+        first_name: 'Patient',
+        last_name: 'User',
+        role: [UserRole.PATIENT],
+        is_active: true,
+        is_verified: true,
+      } as User;
+      mockUserService.findByEmail.mockResolvedValue(user);
+      mockJwtService.signAsync
+        .mockResolvedValueOnce('access-token')
+        .mockResolvedValueOnce('refresh-token');
+      mockJwtService.decode.mockReturnValue({
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      });
+      mockSessionRepository.create.mockImplementation(
+        (payload: Partial<AuthSession>) => payload,
+      );
+      mockSessionRepository.save.mockImplementation(
+        async (payload: Partial<AuthSession>) => payload,
+      );
+
+      const result = await service.login({
+        email: user.email,
+        password: 'Password123',
+      });
+
+      expect(result.user.role).toEqual([UserRole.PATIENT]);
+      expect(result).toMatchObject(defaultRouting);
+      expect(mockAuthRoutingService.resolve).toHaveBeenCalledWith(user);
+    });
+  });
+
+  describe('issueAuthSession', () => {
+    it('should issue tokens and create a refresh session for an existing user', async () => {
+      const expiresAt = new Date('2026-07-11T16:16:13.000Z');
+      mockJwtService.signAsync
+        .mockResolvedValueOnce('access-token')
+        .mockResolvedValueOnce('refresh-token');
+      mockJwtService.decode.mockReturnValue({
+        exp: Math.floor(expiresAt.getTime() / 1000),
+      });
+      mockSessionRepository.create.mockImplementation(
+        (payload: Partial<AuthSession>) => ({
+          id: 'session-db-id',
+          ...payload,
+        }),
+      );
+      mockSessionRepository.save.mockImplementation(
+        async (payload: Partial<AuthSession>) => payload,
+      );
+
+      const result = await service.issueAuthSession({
+        id: 'user-id-1',
+        email: 'lab.admin@example.com',
+        role: [UserRole.LAB_ADMIN],
+      } as User);
+
+      expect(mockJwtService.signAsync).toHaveBeenCalledTimes(2);
+      expect(mockSessionRepository.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          session_id: expect.any(String),
+          user_id: 'user-id-1',
+          refresh_token_hash: expect.any(String),
+          revoked_at: null,
+        }),
+      );
+      expect(result).toEqual({
+        ...defaultRouting,
+        access_token: 'access-token',
+        refresh_token: 'refresh-token',
+        session_id: expect.any(String),
+        session_expires_at: expiresAt,
+      });
     });
   });
 
@@ -240,6 +366,87 @@ describe('AuthService', () => {
           refresh_token: 'refresh-token',
         }),
       ).rejects.toThrow(sysMsg.TOKEN_INVALID);
+    });
+
+    it('should issue tokens and routing from the current database user', async () => {
+      const expiresAt = new Date('2026-07-24T12:00:00.000Z');
+      const user = {
+        id: 'user-id-1',
+        email: 'current@example.com',
+        first_name: 'Current',
+        last_name: 'User',
+        role: [UserRole.DOCTOR],
+        is_active: true,
+        is_verified: true,
+      } as User;
+      mockJwtService.verifyAsync.mockResolvedValue({
+        sub: user.id,
+        email: user.email,
+        role: user.role,
+      });
+      mockSessionRepository.findOne.mockResolvedValue({
+        user_id: user.id,
+        revoked_at: null,
+      });
+      mockUserService.findById.mockResolvedValue(user);
+      mockJwtService.signAsync
+        .mockResolvedValueOnce('new-access-token')
+        .mockResolvedValueOnce('new-refresh-token');
+      mockJwtService.decode.mockReturnValue({
+        exp: Math.floor(expiresAt.getTime() / 1000),
+      });
+      mockSessionRepository.save.mockImplementation(
+        async (payload: Partial<AuthSession>) => payload,
+      );
+      mockSessionRepository.create.mockImplementation(
+        (payload: Partial<AuthSession>) => payload,
+      );
+      mockAuthRoutingService.resolve.mockResolvedValueOnce({
+        routing_target: AuthRoutingTarget.PROFESSIONAL_VERIFICATION,
+        access_level: AuthAccessLevel.LIMITED,
+        verification_status: ProfessionalVerificationStatus.PENDING,
+      });
+
+      const result = await service.refreshToken({
+        refresh_token: 'refresh-token',
+      });
+
+      expect(mockJwtService.signAsync).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({
+          email: user.email,
+          role: user.role,
+        }),
+        expect.any(Object),
+      );
+      expect(result.user.role).toEqual(user.role);
+      expect(result.routing_target).toBe(
+        AuthRoutingTarget.PROFESSIONAL_VERIFICATION,
+      );
+    });
+
+    it('should reject a refresh token whose role no longer matches the user', async () => {
+      mockJwtService.verifyAsync.mockResolvedValue({
+        sub: 'user-id-1',
+        email: 'user@example.com',
+        role: [UserRole.ADMIN],
+      });
+      mockSessionRepository.findOne.mockResolvedValue({
+        user_id: 'user-id-1',
+        revoked_at: null,
+      });
+      mockUserService.findById.mockResolvedValue({
+        id: 'user-id-1',
+        email: 'user@example.com',
+        role: [UserRole.PATIENT],
+        is_active: true,
+        is_verified: true,
+      });
+
+      await expect(
+        service.refreshToken({ refresh_token: 'refresh-token' }),
+      ).rejects.toThrow(sysMsg.TOKEN_INVALID);
+      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
     });
   });
 

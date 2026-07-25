@@ -40,6 +40,11 @@ async function bootstrap() {
     .addTag('Authentication', 'User authentication and authorization endpoints')
     .addTag('Specialities', 'Medical specialities management')
     .addTag('Professionals', 'Healthcare professionals management')
+    .addTag('Pharmacies', 'Pharmacy onboarding and partner registration')
+    .addTag(
+      'Organization Onboarding',
+      'Shared hospital, laboratory, and pharmacy onboarding',
+    )
     .addTag('Bookings', 'Appointment booking and management')
     .addBearerAuth({
       type: 'http',

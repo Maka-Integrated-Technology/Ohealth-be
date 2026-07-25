@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 import { UserRole } from '../../user/enums/user-role.enum';
+import { AuthAccessLevel, AuthRoutingTarget } from '../enums/auth-routing.enum';
 
 class UserDto {
   @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
@@ -33,7 +34,43 @@ export class TokensDto {
   refresh_token: string;
 }
 
-export class SignupResponseDto extends TokensDto {
+class RoutedAuthResponseDto extends TokensDto {
+  @ApiProperty({ type: UserDto })
+  user: UserDto;
+
+  @ApiProperty({
+    enum: AuthRoutingTarget,
+    example: AuthRoutingTarget.PATIENT_HOME,
+  })
+  routing_target: AuthRoutingTarget;
+
+  @ApiProperty({
+    enum: AuthAccessLevel,
+    example: AuthAccessLevel.FULL,
+  })
+  access_level: AuthAccessLevel;
+
+  @ApiProperty({
+    example: null,
+    nullable: true,
+    description: 'Current provider verification status, when applicable',
+  })
+  verification_status: string | null;
+}
+
+export class SignupResponseDto extends RoutedAuthResponseDto {
+  @ApiProperty({
+    enum: AuthRoutingTarget,
+    example: AuthRoutingTarget.EMAIL_VERIFICATION,
+  })
+  routing_target: AuthRoutingTarget;
+
+  @ApiProperty({
+    enum: AuthAccessLevel,
+    example: AuthAccessLevel.LIMITED,
+  })
+  access_level: AuthAccessLevel;
+
   @ApiProperty({
     example: '201',
     nullable: true,
@@ -46,9 +83,6 @@ export class SignupResponseDto extends TokensDto {
   })
   message?: string;
 
-  @ApiProperty({ type: UserDto })
-  user: UserDto;
-
   @ApiProperty({
     example: '550e8400-e29b-41d4-a716-446655440000',
     nullable: true,
@@ -62,7 +96,7 @@ export class SignupResponseDto extends TokensDto {
   session_expires_at?: Date;
 }
 
-export class LoginResponseDto extends TokensDto {
+export class LoginResponseDto extends RoutedAuthResponseDto {
   @ApiProperty({
     example: '200',
     nullable: true,
@@ -75,9 +109,6 @@ export class LoginResponseDto extends TokensDto {
   })
   message?: string;
 
-  @ApiProperty({ type: UserDto })
-  user: UserDto;
-
   @ApiProperty({
     example: '550e8400-e29b-41d4-a716-446655440000',
     nullable: true,
@@ -91,7 +122,7 @@ export class LoginResponseDto extends TokensDto {
   session_expires_at?: Date;
 }
 
-export class RefreshTokenResponseDto extends TokensDto {
+export class RefreshTokenResponseDto extends RoutedAuthResponseDto {
   @ApiProperty({
     example: '200',
     nullable: true,
@@ -103,6 +134,16 @@ export class RefreshTokenResponseDto extends TokensDto {
     nullable: true,
   })
   message?: string;
+
+  @ApiProperty({
+    example: '550e8400-e29b-41d4-a716-446655440000',
+  })
+  session_id: string;
+
+  @ApiProperty({
+    example: '2024-01-15T10:30:00Z',
+  })
+  session_expires_at: Date;
 }
 export class LogoutResponseDto {
   @ApiProperty({
