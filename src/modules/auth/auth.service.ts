@@ -25,6 +25,8 @@ import { User } from '../user/entities/user.entity';
 import { UserRole } from '../user/enums/user-role.enum';
 import { UserService } from '../user/user.service';
 
+import { AuthRoutingService } from './auth-routing.service';
+import { SELF_SERVICE_SIGNUP_ROLES } from './constants/self-service-signup-roles.constant';
 import {
   AuthDto,
   ChangePasswordDto,
@@ -38,6 +40,7 @@ import {
 } from './dto/auth.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthSession } from './entities/auth.entity';
+import { haveSameRoles } from './utils/auth-role.util';
 
 interface IRefreshPayload {
   sub: string;
@@ -57,6 +60,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
+    private readonly authRoutingService: AuthRoutingService,
     @Inject(WINSTON_MODULE_PROVIDER) logger: Logger,
   ) {
     this.logger = logger.child({ context: AuthService.name });
@@ -64,6 +68,14 @@ export class AuthService {
   }
 
   async signup(signupPayload: AuthDto) {
+    if (
+      !Array.isArray(signupPayload.role) ||
+      signupPayload.role.length !== 1 ||
+      !SELF_SERVICE_SIGNUP_ROLES.includes(signupPayload.role[0])
+    ) {
+      throw new BadRequestException(sysMsg.INVALID_SIGNUP_ROLE);
+    }
+
     const email = signupPayload.email.trim().toLowerCase();
     const existingUser = await this.userService.findByEmail(email);
     if (existingUser) {
@@ -85,19 +97,16 @@ export class AuthService {
       gender: signupPayload.gender ?? null,
       dob: signupPayload.dob ?? null,
       phone: signupPayload.phone ?? null,
-      role: signupPayload.role?.length
-        ? signupPayload.role
-        : [UserRole.PATIENT],
+      role: signupPayload.role,
       is_active: false,
       is_verified: false,
       verification_code: verificationCode,
       verification_code_expires_at: verificationExpiry,
     });
-    const tokens = await this.generateTokens(
-      savedUser.id,
-      savedUser.email,
-      savedUser.role,
-    );
+    const [tokens, routing] = await Promise.all([
+      this.generateTokens(savedUser.id, savedUser.email, savedUser.role),
+      this.authRoutingService.resolve(savedUser),
+    ]);
     const session = await this.createSession(
       savedUser.id,
       tokens.refresh_token,
@@ -109,6 +118,7 @@ export class AuthService {
     return {
       message: sysMsg.VERIFICATION_CODE_SENT,
       user: this.toUserResponse(savedUser),
+      ...routing,
       ...tokens,
       session_id: session.session_id,
       session_expires_at: session.expires_at,
@@ -135,7 +145,10 @@ export class AuthService {
       throw new UnauthorizedException(sysMsg.INVALID_CREDENTIALS);
     }
 
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    const [tokens, routing] = await Promise.all([
+      this.generateTokens(user.id, user.email, user.role),
+      this.authRoutingService.resolve(user),
+    ]);
     const session = await this.createSession(user.id, tokens.refresh_token);
 
     this.logger.info(sysMsg.LOGIN_SUCCESS);
@@ -143,6 +156,22 @@ export class AuthService {
     return {
       message: sysMsg.LOGIN_SUCCESS,
       user: this.toUserResponse(user),
+      ...routing,
+      ...tokens,
+      session_id: session.session_id,
+      session_expires_at: session.expires_at,
+    };
+  }
+
+  async issueAuthSession(user: User) {
+    const [tokens, routing] = await Promise.all([
+      this.generateTokens(user.id, user.email, user.role),
+      this.authRoutingService.resolve(user),
+    ]);
+    const session = await this.createSession(user.id, tokens.refresh_token);
+
+    return {
+      ...routing,
       ...tokens,
       session_id: session.session_id,
       session_expires_at: session.expires_at,
@@ -175,8 +204,18 @@ export class AuthService {
       throw new UnauthorizedException(sysMsg.TOKEN_INVALID);
     }
 
-    const roles = Array.isArray(payload.role) ? payload.role : [payload.role];
-    const tokens = await this.generateTokens(payload.sub, payload.email, roles);
+    const user = await this.userService.findById(payload.sub);
+    if (!user || !user.is_active || !user.is_verified) {
+      throw new UnauthorizedException(sysMsg.USER_INACTIVE);
+    }
+    if (!haveSameRoles(payload.role, user.role)) {
+      throw new UnauthorizedException(sysMsg.TOKEN_INVALID);
+    }
+
+    const [tokens, routing] = await Promise.all([
+      this.generateTokens(user.id, user.email, user.role),
+      this.authRoutingService.resolve(user),
+    ]);
 
     session.revoked_at = new Date();
     await this.sessionRepository.save(session);
@@ -189,6 +228,8 @@ export class AuthService {
 
     return {
       message: sysMsg.TOKEN_REFRESH_SUCCESS,
+      user: this.toUserResponse(user),
+      ...routing,
       ...tokens,
       session_id: newSession.session_id,
       session_expires_at: newSession.expires_at,
@@ -523,7 +564,10 @@ export class AuthService {
       }
     }
 
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    const [tokens, routing] = await Promise.all([
+      this.generateTokens(user.id, user.email, user.role),
+      this.authRoutingService.resolve(user),
+    ]);
     const session = await this.createSession(user.id, tokens.refresh_token);
 
     if (isNewUser) {
@@ -536,6 +580,7 @@ export class AuthService {
         ...this.toUserResponse(user),
         picture: payload.picture,
       },
+      ...routing,
       ...tokens,
       session_id: session.session_id,
       session_expires_at: session.expires_at,

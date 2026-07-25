@@ -27,6 +27,32 @@ export const INVALID_CURRENT_PASSWORD = 'current password is incorrect';
 export const UNAUTHORIZED = 'unauthorized';
 export const PERMISSION_DENIED = 'permission denied';
 export const VALIDATION_ERROR = 'validation error';
+export const INVALID_SIGNUP_ROLE =
+  'select exactly one supported role during signup';
+export const LABORATORY_APPROVED_ADMIN_REQUIRED =
+  'an active, approved laboratory administrator account is required';
+export const LABORATORY_OPERATING_HOURS_DUPLICATE_DAY =
+  'operating hours may only contain one entry per day';
+export const LABORATORY_OPERATING_HOURS_INVALID =
+  'open days require an opening time earlier than the closing time; closed days cannot include times';
+export const LABORATORY_TEST_ALREADY_EXISTS =
+  'a laboratory test with this name already exists';
+export const LABORATORY_TEST_NAME_REQUIRED = 'laboratory test name is required';
+export const LABORATORY_TEST_NOT_FOUND = 'laboratory test not found';
+export const LABORATORY_TEST_UPDATE_REQUIRED =
+  'provide at least one laboratory test field to update';
+export const LABORATORY_STAFF_ALREADY_EXISTS =
+  'a laboratory staff account or active invitation already exists for this email';
+export const LABORATORY_STAFF_NAME_REQUIRED =
+  'laboratory staff full name is required';
+export const LABORATORY_STAFF_INVITATION_INVALID =
+  'laboratory staff invitation is invalid or expired';
+export const LABORATORY_STAFF_INVITED =
+  'laboratory staff invitation sent successfully';
+export const LABORATORY_STAFF_INVITATION_SEND_FAILED =
+  'laboratory staff invitation could not be sent; try again';
+export const LABORATORY_STAFF_INVITATION_ACCEPTED =
+  'laboratory staff invitation accepted successfully';
 export const ACCOUNT_CREATION_EMAIL_SENT = 'account creation email sent';
 export const VERIFICATION_CODE_SENT = 'verification code sent';
 export const INVALID_VERIFICATION_CODE = 'invalid verification code';
@@ -56,6 +82,29 @@ export const SPECIALITY_ALREADY_EXISTS =
   'speciality with this name already exists';
 export const SPECIALITY_CREATED = 'speciality created successfully';
 export const SPECIALITY_UPDATED = 'speciality updated successfully';
+
+// Laboratory onboarding
+export const LABORATORY_ADMIN_SETUP_COMPLETED =
+  'laboratory administrator setup completed successfully';
+export const LABORATORY_ALREADY_EXISTS =
+  'laboratory with this registration or license number already exists';
+export const LABORATORY_ADMIN_ALREADY_EXISTS =
+  'laboratory administrator account already exists';
+export const LABORATORY_ADMIN_EMAIL_ALREADY_REGISTERED =
+  'this email is already registered to another account and cannot be used for a laboratory administrator';
+
+// Pharmacy onboarding
+export const PHARMACY_CREATED = 'pharmacy registration submitted successfully';
+export const PHARMACY_ALREADY_EXISTS =
+  'pharmacy with this registration number or license number already exists';
+
+// Shared organization onboarding
+export const ORGANIZATION_ADMIN_SETUP_COMPLETED =
+  'organization administrator setup completed successfully';
+export const ORGANIZATION_ALREADY_EXISTS =
+  'organization with this registration number already exists';
+export const ORGANIZATION_ADMIN_EMAIL_ALREADY_REGISTERED =
+  'this email is already registered and cannot be used for an organization administrator';
 
 // Professional admin
 export const PROFESSIONAL_ALREADY_EXISTS =
