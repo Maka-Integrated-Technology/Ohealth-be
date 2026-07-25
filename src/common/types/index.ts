@@ -13,3 +13,4 @@ export interface IRequestWithUser extends Request {
 
 export * from './base-response.interface';
 export * from './multer.types';
+export * from './verification-document.types';

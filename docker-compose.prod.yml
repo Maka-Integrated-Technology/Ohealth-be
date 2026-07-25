@@ -1,0 +1,62 @@
+# Production stack for OHealth (API + PostgreSQL).
+#
+# Two environments share one host via distinct compose project names:
+#   staging:    docker compose -p ohealth-staging --env-file .env.prod -f docker-compose.prod.yml up -d --build
+#   production: docker compose -p ohealth-prod    --env-file .env.prod -f docker-compose.prod.yml up -d --build
+#
+# --env-file .env.prod is required: ${VAR} interpolation below reads from it
+# (env_file: alone only injects into the container, not compose interpolation).
+#
+# The project name (-p) namespaces container/network/volume names, so the two
+# stacks never collide. Each environment directory keeps its own .env.prod
+# (different PORT + POSTGRES_* credentials).
+
+services:
+  app:
+    build:
+      context: .
+      target: runner
+    restart: always
+    env_file: .env.prod
+    environment:
+      NODE_ENV: production
+      PORT: ${PORT:-3000}
+      DB_HOST: postgres
+      DB_PORT: '5432'
+      DB_USER: ${POSTGRES_USER}
+      DB_PASS: ${POSTGRES_PASSWORD}
+      DB_NAME: ${POSTGRES_DB}
+      DB_SSL: 'false'
+    ports:
+      - '${PORT:-3000}:${PORT:-3000}'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD-SHELL',
+          "node -e \"require('http').get('http://127.0.0.1:'+(process.env.PORT||3000)+'/docs', r => process.exit(r.statusCode < 400 ? 0 : 1)).on('error', () => process.exit(1))\"",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pg_data:

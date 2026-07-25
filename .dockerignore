@@ -1,0 +1,17 @@
+node_modules
+dist
+.git
+.github
+.husky
+.vscode
+test
+logs
+tmp
+*.md
+.env
+.env.*
+!.env.prod.example
+dump.rdb
+.DS_Store
+docker-compose*.yml
+Dockerfile

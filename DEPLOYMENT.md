@@ -1,12 +1,30 @@
-# OHealth — EC2 Deployment Guide
+# OHealth — EC2 + Docker Deployment Guide
 
-Complete guide to deploy the OHealth NestJS API on AWS EC2 with GitHub Actions CI/CD.
+Deploy the OHealth NestJS API to AWS EC2 using Docker Compose and GitHub Actions CI/CD.
+
+## How it works
+
+- The API and PostgreSQL run as **Docker containers** defined in `docker-compose.prod.yml`.
+- The app image is built from the multi-stage `Dockerfile`. **Database migrations run automatically** on container start (baked into the image's start command), so a deploy is just "pull code, rebuild, recreate container."
+- **Nginx** sits in front as a reverse proxy and terminates TLS.
+- **GitHub Actions** (`.github/workflows/deploy.yml`) SSHes into the box and runs the compose command on every push.
+
+### One compose file, multiple environments
+
+Staging and production share the **same** `docker-compose.prod.yml`. They are separated by:
+
+- a distinct **compose project name** (`-p ohealth-staging` vs `-p ohealth-prod`) — this namespaces container, network, and volume names so the two stacks never collide;
+- their own **`.env.prod`** file (different `PORT` and `POSTGRES_*` credentials).
+
+> This guide documents both environments. You can run them on **separate instances** (recommended once production has real users) or **co-host both on one larger instance** (see [Running staging and production](#running-staging-and-production)). While OHealth is in development you may deploy **staging only** — just skip the production-specific steps.
+
+---
 
 ## Prerequisites
 
 - AWS account with EC2 access
-- GitHub repository with SSH access
-- Domain name (optional, can use EC2 public IP)
+- GitHub repository access (`git@github.com:Maka-Integrated-Technology/Ohealth-be.git`)
+- Domain name (optional, can use the EC2 public IP)
 
 ---
 
@@ -14,22 +32,24 @@ Complete guide to deploy the OHealth NestJS API on AWS EC2 with GitHub Actions C
 
 ### Instance Configuration
 
-| Setting          | Value                          |
-| ---------------- | ------------------------------ |
-| AMI              | Ubuntu 24.04 LTS              |
-| Instance type    | t3.small (2 vCPU, 2GB RAM)    |
-| Storage          | 20GB gp3                      |
-| Key pair         | Create or select an existing one |
+| Setting       | Value                                                        |
+| ------------- | ----------------------------------------------------------- |
+| AMI           | Ubuntu 24.04 LTS                                            |
+| Instance type | `t3.small` (single environment) / `t3.medium` (both on one box) |
+| Storage       | 20 GiB gp3 (enable encryption under **Advanced** if desired) |
+| Key pair      | Create or select an existing one                            |
 
 ### Security Group (Inbound Rules)
 
-| Port | Protocol | Source    | Purpose        |
-| ---- | -------- | --------- | -------------- |
-| 22   | TCP      | Your IP   | SSH access     |
-| 80   | TCP      | 0.0.0.0/0 | HTTP           |
-| 443  | TCP      | 0.0.0.0/0 | HTTPS          |
+| Port | Protocol | Source    | Purpose                          |
+| ---- | -------- | --------- | -------------------------------- |
+| 22   | TCP      | 0.0.0.0/0 | SSH (needed for GitHub Actions)  |
+| 80   | TCP      | 0.0.0.0/0 | HTTP                             |
+| 443  | TCP      | 0.0.0.0/0 | HTTPS                            |
 
-> **Tip**: Assign an Elastic IP to your instance so the public IP doesn't change on reboot.
+> **SSH source:** GitHub Actions runners use rotating IPs, so SSH must be reachable from anywhere for CI deploys to work. Keep it safe by relying on **key-only auth** — see [§3](#3-install-system-dependencies) for disabling password login.
+
+> **Tip:** Assign an **Elastic IP** so the public IP doesn't change on reboot.
 
 ---
 
@@ -43,275 +63,181 @@ ssh -i your-key.pem ubuntu@<EC2_PUBLIC_IP>
 
 ## 3. Install System Dependencies
 
+The Docker path needs only Docker, git, and Nginx — no Node, PostgreSQL, or PM2 on the host.
+
 ```bash
 # Update system
 sudo apt update && sudo apt upgrade -y
 
-# Install Node.js 24
-curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
-sudo apt install -y nodejs
+# git + Nginx
+sudo apt install -y git nginx
 
-# Install PostgreSQL
-sudo apt install -y postgresql postgresql-contrib
+# Docker Engine + Compose plugin (official convenience script)
+curl -fsSL https://get.docker.com | sudo sh
 
-# Install PM2
-sudo npm install -g pm2
+# Let the ubuntu user run docker without sudo (REQUIRED for GitHub Actions deploys)
+sudo usermod -aG docker ubuntu
 
-# Install Nginx
-sudo apt install -y nginx
+# Apply the new group in this shell (or just log out and back in)
+newgrp docker
 
-# Verify installations
-node -v && npm -v && psql --version && pm2 -v && nginx -v
+# Verify
+docker --version && docker compose version && git --version && nginx -v
+```
+
+> Adding `ubuntu` to the `docker` group is **required**: the CI deploy runs `docker compose ...` as the `ubuntu` user without `sudo`. Without group membership the deploy fails with a permission error.
+
+### Harden SSH (recommended, since port 22 is internet-facing)
+
+```bash
+sudo sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+sudo sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
+sudo systemctl restart ssh
 ```
 
 ---
 
 ## 4. Set Up SSH Key for GitHub (on the EC2 server)
 
-This allows the server to clone your private repo via SSH and allows GitHub Actions to SSH into the server.
+This lets the server clone/pull the private repo over SSH.
 
-### 4a. Generate SSH Key on EC2
+### 4a. Generate the key
 
 ```bash
 ssh-keygen -t ed25519 -C "ohealth-ec2" -f ~/.ssh/github_deploy -N ""
 ```
 
-This creates:
-- `~/.ssh/github_deploy` — private key (stays on server)
-- `~/.ssh/github_deploy.pub` — public key (goes to GitHub)
-
-### 4b. Configure SSH to Use This Key for GitHub
+### 4b. Configure SSH to use it for GitHub
 
 ```bash
-nano ~/.ssh/config
-```
-
-Add:
-
-```
+cat >> ~/.ssh/config <<'EOF'
 Host github.com
     HostName github.com
     User git
     IdentityFile ~/.ssh/github_deploy
     IdentitiesOnly yes
+EOF
+chmod 600 ~/.ssh/config ~/.ssh/github_deploy
 ```
 
-Set permissions:
-
-```bash
-chmod 600 ~/.ssh/config
-chmod 600 ~/.ssh/github_deploy
-chmod 644 ~/.ssh/github_deploy.pub
-```
-
-### 4c. Add the Public Key to GitHub
-
-Print the public key:
+### 4c. Add the public key to GitHub
 
 ```bash
 cat ~/.ssh/github_deploy.pub
 ```
 
-Then go to **GitHub → Repository → Settings → Deploy keys → Add deploy key**:
-- **Title**: `ohealth-ec2`
-- **Key**: Paste the public key output
-- **Allow write access**: Leave unchecked (read-only is fine for pulling)
+Go to **GitHub → Repository → Settings → Deploy keys → Add deploy key**, title `ohealth-ec2`, paste the key, leave **Allow write access** unchecked.
 
-### 4d. Test the Connection
+### 4d. Test
 
 ```bash
 ssh -T git@github.com
 ```
 
-Expected output:
-```
-Hi <your-username>! You've successfully authenticated, but GitHub does not provide shell access.
-```
+Expected: `Hi <username>! You've successfully authenticated, but GitHub does not provide shell access.`
 
 ---
 
-## 5. Set Up PostgreSQL
+## 5. Clone the Repository
+
+Each environment lives in its own directory. The branch determines the environment.
 
 ```bash
-sudo -u postgres psql
-```
-
-```sql
-CREATE USER ohealth WITH PASSWORD '<strong_password>';
-CREATE DATABASE ohealth_app_db OWNER ohealth;
-GRANT ALL PRIVILEGES ON DATABASE ohealth_app_db TO ohealth;
-\q
-```
-
----
-
-## 6. Prepare Branches (one-time setup from local machine)
-
-The `staging` and `main` branches are the deployment branches. Your working code lives on `dev`, so you need to merge it into both before deploying.
-
-Run this from your **local machine**:
-
-```bash
-# Merge dev into staging
-git checkout staging
-git merge dev
-git push origin staging
-
-# Merge dev into main
-git checkout main
-git merge dev
-git push origin main
-
-# Switch back to dev for daily work
-git checkout dev
-```
-
-### Going forward
-
-- **Daily development** → push to `dev`
-- **Ready to test** → merge `dev` into `staging`, push → auto-deploys to staging server
-- **Ready for production** → merge `staging` into `main`, push → auto-deploys to production server
-
----
-
-## 7. Clone the Repository on EC2 (via SSH)
-
-### If previously cloned (via HTTPS), remove and reclone
-
-```bash
-# Stop any running PM2 processes first
-pm2 stop all 2>/dev/null
-pm2 delete all 2>/dev/null
-
-# Remove old clones
-rm -rf /var/www/healthbridge/be/prod
-rm -rf /var/www/healthbridge/be/dev
-```
-
-### Clone fresh via SSH
-
-```bash
-sudo mkdir -p /var/www/healthbridge/be
-sudo chown -R ubuntu:ubuntu /var/www/healthbridge
-
-# Production (main branch)
-git clone -b main git@github.com:healthBridge01/healthBridge-be.git /var/www/healthbridge/be/prod
+sudo mkdir -p /var/www/ohealth/be
+sudo chown -R ubuntu:ubuntu /var/www/ohealth
 
 # Staging (staging branch)
-git clone -b staging git@github.com:healthBridge01/healthBridge-be.git /var/www/healthbridge/be/dev
+git clone -b staging git@github.com:Maka-Integrated-Technology/Ohealth-be.git /var/www/ohealth/be/staging
+
+# Production (main branch) — skip while staging-only
+git clone -b main git@github.com:Maka-Integrated-Technology/Ohealth-be.git /var/www/ohealth/be/prod
 ```
-
-### Verify remote is SSH and correct branch
-
-```bash
-cd /var/www/healthbridge/be/prod
-git remote -v
-git branch
-
-cd /var/www/healthbridge/be/dev
-git remote -v
-git branch
-```
-
-Expected:
-- `/prod` → `origin git@github.com:healthBridge01/healthBridge-be.git`, branch `* main`
-- `/dev` → `origin git@github.com:healthBridge01/healthBridge-be.git`, branch `* staging`
-
-> If you don't want to reclone, you can switch an existing clone from HTTPS to SSH:
-> ```bash
-> git remote set-url origin git@github.com:healthBridge01/healthBridge-be.git
-> ```
 
 ---
 
-## 8. Configure Environment Variables
+## 6. Configure Environment Variables
 
-### Production
+Each environment directory gets its own `.env.prod`, copied from the template.
 
-```bash
-nano /var/www/healthbridge/be/prod/.env
-```
-
-```env
-NODE_ENV=production
-PORT=3000
-APP_NAME=OHealth
-APP_SLUG=ohealth
-APP_DESCRIPTION=OHealth Application
-
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=ohealth_app_db
-DB_USER=ohealth
-DB_PASS=<your_db_password>
-DB_SSL=false
-
-JWT_SECRET=<run: openssl rand -hex 32>
-JWT_REFRESH_SECRET=<run: openssl rand -hex 32>
-TOKEN_ACCESS_DURATION=15m
-TOKEN_REFRESH_DURATION=7d
-
-HASH_SALT=10
-INVITE_EXPIRATION_DAYS=7
-```
+> **The file must be named `.env.prod`** — the deploy workflow passes `--env-file .env.prod`. This is the file Compose reads for `${VAR}` interpolation **and** injects into the app container.
 
 ### Staging
 
 ```bash
-cp /var/www/healthbridge/be/prod/.env /var/www/healthbridge/be/dev/.env
-nano /var/www/healthbridge/be/dev/.env
+cd /var/www/ohealth/be/staging
+cp .env.prod.example .env.prod
+nano .env.prod
 ```
 
-Change in staging:
+Fill in real values — at minimum:
+
 ```env
 NODE_ENV=staging
-PORT=3001
-DB_NAME=ohealth_staging_db
+PORT=3000
+
+POSTGRES_USER=ohealth
+POSTGRES_PASSWORD=<strong_password>
+POSTGRES_DB=ohealth_staging_db
+
+JWT_SECRET=<openssl rand -hex 32>
+JWT_REFRESH_SECRET=<openssl rand -hex 32>
 ```
 
-> Create the staging database too if you want isolation:
-> ```bash
-> sudo -u postgres psql -c "CREATE DATABASE ohealth_staging_db OWNER ohealth;"
-> ```
+Also set the mail, Cloudinary, Google, and OpenRouter values your build uses.
+
+### Production (skip while staging-only)
+
+```bash
+cd /var/www/ohealth/be/prod
+cp .env.prod.example .env.prod
+nano .env.prod
+```
+
+Use `NODE_ENV=production`, a separate `POSTGRES_DB` (e.g. `ohealth_app_db`), and **different secrets**. If co-hosting with staging on one box, set `PORT=3001` for staging and keep `PORT=3000` for production so they don't collide.
 
 ---
 
-## 9. First Manual Deploy
+## 7. First Manual Deploy
+
+Migrations run automatically as the container starts, so this single command builds the image, starts PostgreSQL, applies migrations, and launches the API.
+
+### Staging
 
 ```bash
-cd /var/www/healthbridge/be/prod
-npm ci --production=false
-npm run build
-npm run migration:run
-
-# Start with PM2
-pm2 start dist/src/main.js --name hb-api-prod
-pm2 save
-
-# Enable PM2 to start on reboot
-pm2 startup
-# Run the command it outputs (starts with sudo env PATH=...)
+cd /var/www/ohealth/be/staging
+docker compose -p ohealth-staging --env-file .env.prod -f docker-compose.prod.yml up -d --build
 ```
 
-Verify it's running:
+### Production (skip while staging-only)
+
 ```bash
-curl http://localhost:3000/docs
+cd /var/www/ohealth/be/prod
+docker compose -p ohealth-prod --env-file .env.prod -f docker-compose.prod.yml up -d --build
+```
+
+Verify (replace the port with your `PORT`):
+
+```bash
+docker compose -p ohealth-staging -f docker-compose.prod.yml ps
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3000/docs   # expect 200
 ```
 
 ---
 
-## 10. Configure Nginx Reverse Proxy
+## 8. Configure Nginx Reverse Proxy
 
-### Production
+Point Nginx at the container's published port (`PORT`).
+
+### Staging
 
 ```bash
-sudo nano /etc/nginx/sites-available/api.healthbridge
+sudo nano /etc/nginx/sites-available/api.staging.ohealth
 ```
 
 ```nginx
 server {
     listen 80;
-    server_name api.ohealthltd.com;
+    server_name api.staging.ohealthltd.com;
 
     location / {
         proxy_pass http://127.0.0.1:3000;
@@ -327,178 +253,77 @@ server {
 }
 ```
 
-### Staging
+### Production (skip while staging-only)
+
+Same block as above, but `server_name api.ohealthltd.com;` and `proxy_pass http://127.0.0.1:3000;` (or `:3001` if staging is co-hosted on the same box).
+
+### Enable
 
 ```bash
-sudo nano /etc/nginx/sites-available/api.staging.healthbridge
-```
-
-```nginx
-server {
-    listen 80;
-    server_name api.staging.ohealthltd.com;
-
-    location / {
-        proxy_pass http://127.0.0.1:3001;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
-```
-
-### Enable both sites
-
-```bash
-sudo ln -s /etc/nginx/sites-available/api.healthbridge /etc/nginx/sites-enabled/
-sudo ln -s /etc/nginx/sites-available/api.staging.healthbridge /etc/nginx/sites-enabled/
+sudo ln -s /etc/nginx/sites-available/api.staging.ohealth /etc/nginx/sites-enabled/
+# sudo ln -s /etc/nginx/sites-available/api.ohealth /etc/nginx/sites-enabled/   # production
 sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t
-sudo systemctl restart nginx
+sudo nginx -t && sudo systemctl restart nginx
 ```
 
 ---
 
-## 11. Configure GitHub Actions Secrets
+## 9. Configure GitHub Actions Secrets
 
-Your CI pipeline uses `appleboy/ssh-action` to SSH into the server. Using SSH key auth (recommended over password).
+`deploy.yml` uses `appleboy/ssh-action` to SSH in and run the compose command. It deploys on push:
 
-### 11a. Generate a Separate Key for GitHub Actions
+| Branch    | Deploys to                  | Compose project   |
+| --------- | --------------------------- | ----------------- |
+| `staging` | `/var/www/ohealth/be/staging`   | `ohealth-staging` |
+| `main`    | `/var/www/ohealth/be/prod`  | `ohealth-prod`    |
 
-On the EC2 server:
+### 9a. Generate a CI key on the server
 
 ```bash
 ssh-keygen -t ed25519 -C "github-actions-deploy" -f ~/.ssh/github_actions -N ""
-```
-
-Authorize it to SSH into the server:
-
-```bash
 cat ~/.ssh/github_actions.pub >> ~/.ssh/authorized_keys
+cat ~/.ssh/github_actions   # copy this private key
 ```
 
-Print the private key (you'll paste this into GitHub):
+### 9b. Add repository secrets
 
-```bash
-cat ~/.ssh/github_actions
-```
+**GitHub → Repository → Settings → Secrets and variables → Actions**:
 
-### 11b. Add Secrets to GitHub
+| Secret           | Value                                        |
+| ---------------- | -------------------------------------------- |
+| `SERVER_HOST`    | EC2 public IP (or Elastic IP)                |
+| `SERVER_USER`    | `ubuntu`                                      |
+| `SERVER_SSH_KEY` | Contents of `~/.ssh/github_actions` (private) |
 
-Go to **GitHub → Repository → Settings → Secrets and variables → Actions → New repository secret**:
-
-| Secret             | Value                                          |
-| ------------------ | ---------------------------------------------- |
-| `SERVER_HOST`      | Your EC2 public IP (or Elastic IP)             |
-| `SERVER_USER`      | `ubuntu`                                       |
-| `SERVER_SSH_KEY`   | Contents of `~/.ssh/github_actions` (private key) |
-
-### 11c. Update the CI Pipeline to Use SSH Key
-
-Update `.github/workflows/ci-pipeline.yml` — replace `password` with `key` in both deploy jobs:
-
-```yaml
-  deploy-staging:
-    needs: ci
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/staging' && github.event_name == 'push'
-
-    steps:
-      - name: Deploy to Staging
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            cd /var/www/healthbridge/be/dev
-            git pull origin staging
-            npm ci --production=false
-            npm run build
-            npm run migration:run
-            pm2 restart hb-api-staging || pm2 start dist/src/main.js --name hb-api-staging
-            pm2 save
-
-  deploy-production:
-    needs: ci
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
-    steps:
-      - name: Deploy to Production
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            cd /var/www/healthbridge/be/prod
-            git pull origin main
-            npm ci --production=false
-            npm run build
-            npm run migration:run
-            pm2 restart hb-api-prod || pm2 start dist/src/main.js --name hb-api-prod
-            pm2 save
-```
+Pushing to `staging` (or `main`) now triggers an automatic deploy. No changes to the workflow are needed.
 
 ---
 
-## 12. DNS Setup
+## 10. DNS Setup
 
-### Get Your EC2 Public IP
+Get your public IP (`curl -s http://checkip.amazonaws.com`) and add **A records** at your DNS provider for `ohealthltd.com`:
 
-From the **AWS Console**: EC2 → Instances → select your instance → Details tab → **Public IPv4 address**
-
-Or run on the EC2 server:
-
-```bash
-curl -s http://checkip.amazonaws.com
-```
-
-> **Important**: Assign an **Elastic IP** so the public IP doesn't change on reboot:
-> EC2 → Elastic IPs → Allocate Elastic IP address → Associate to your instance.
-
-### Configure DNS Records
-
-Go to your domain hosting provider (wherever `ohealthltd.com` is registered) and add these **A records**:
-
-| Type | Name          | Value            | TTL |
-| ---- | ------------- | ---------------- | --- |
-| A    | `api`         | `<EC2_PUBLIC_IP>` | 300 |
+| Type | Name          | Value             | TTL |
+| ---- | ------------- | ----------------- | --- |
 | A    | `api.staging` | `<EC2_PUBLIC_IP>` | 300 |
+| A    | `api`         | `<EC2_PUBLIC_IP>` | 300 |
 
-This maps:
-- `api.ohealthltd.com` → your EC2 instance (production)
-- `api.staging.ohealthltd.com` → your EC2 instance (staging)
-
-### Verify DNS Propagation
+Verify:
 
 ```bash
-nslookup api.ohealthltd.com
 nslookup api.staging.ohealthltd.com
 ```
 
-Both should resolve to your EC2 public IP. DNS propagation can take up to 24 hours but usually completes within minutes.
-
 ---
 
-## 13. SSL with Let's Encrypt (Optional)
+## 11. SSL with Let's Encrypt (Optional)
 
 ```bash
 sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d api.ohealthltd.com -d api.staging.ohealthltd.com
-sudo certbot --nginx --non-interactive --agree-tos --email healthbrigde33@gmail.com -d api.ohealthltd.com -d api.staging.ohealthltd.com
+sudo certbot --nginx -d api.staging.ohealthltd.com   # add -d api.ohealthltd.com for production
 ```
 
-Certbot auto-renews. Verify with:
-```bash
-sudo certbot renew --dry-run
-```
+Certbot auto-renews. Verify with `sudo certbot renew --dry-run`.
 
 ---
 
@@ -507,47 +332,47 @@ sudo certbot renew --dry-run
 ```
 dev (daily work)
   ↓ merge
-staging → push → GitHub Actions CI → SSH into EC2 → deploy to /dev (port 3001)
+staging → push → GitHub Actions → SSH into EC2 → docker compose up -d --build (ohealth-staging)
   ↓ merge
-main → push → GitHub Actions CI → SSH into EC2 → deploy to /prod (port 3000)
+main → push → GitHub Actions → SSH into EC2 → docker compose up -d --build (ohealth-prod)
 ```
 
-### Branch Strategy
+| Branch    | Purpose           | Deploys to       |
+| --------- | ----------------- | ---------------- |
+| `dev`     | Daily development | No auto-deploy   |
+| `staging` | Testing / QA      | Staging stack    |
+| `main`    | Production        | Production stack |
 
-| Branch    | Purpose              | Deploys To                          |
-| --------- | -------------------- | ----------------------------------- |
-| `dev`     | Daily development    | No auto-deploy                      |
-| `staging` | Testing/QA           | `/var/www/healthbridge/be/dev` :3001 |
-| `main`    | Production           | `/var/www/healthbridge/be/prod` :3000 |
+---
+
+## Running staging and production
+
+**Separate instances (recommended for live production).** Run each environment on its own EC2 box following this guide. A bad staging deploy, runaway query, or OOM can't affect production. Each box only runs one stack.
+
+**Co-hosted on one instance (cost-saving, dev stage only).** Both stacks can share a host because the compose **project name** isolates their containers, networks, and volumes (`ohealth-staging_pg_data` vs `ohealth-prod_pg_data`). If you do this:
+
+- Use a `t3.medium` (4 GB) — a `t3.small` will run out of memory under two apps + two databases + a build.
+- Give staging `PORT=3001` and production `PORT=3000` so the published ports don't collide.
+- Consider building images in CI and pulling them (instead of `--build` on the box) to avoid a staging build starving production of CPU.
+
+Once production has real users, move it to its own instance.
 
 ---
 
 ## Manual Deployment
 
-If you need to deploy without going through GitHub Actions (e.g. first deploy, hotfix, or CI is down).
-
-### Staging
+If you need to deploy without GitHub Actions (first deploy, hotfix, CI down):
 
 ```bash
-cd /var/www/healthbridge/be/dev
+# Staging
+cd /var/www/ohealth/be/staging
 git pull origin staging
-npm ci --production=false
-npm run build
-npm run migration:run
-pm2 restart hb-api-staging || pm2 start dist/src/main.js --name hb-api-staging
-pm2 save
-```
+docker compose -p ohealth-staging --env-file .env.prod -f docker-compose.prod.yml up -d --build
 
-### Production
-
-```bash
-cd /var/www/healthbridge/be/prod
+# Production
+cd /var/www/ohealth/be/prod
 git pull origin main
-npm ci --production=false
-npm run build
-npm run migration:run
-pm2 restart hb-api-prod || pm2 start dist/src/main.js --name hb-api-prod
-pm2 save
+docker compose -p ohealth-prod --env-file .env.prod -f docker-compose.prod.yml up -d --build
 ```
 
 ---
@@ -555,24 +380,21 @@ pm2 save
 ## Useful Commands
 
 ```bash
-# Check PM2 processes
-pm2 list
+# Status / logs (pass the matching -p project name)
+docker compose -p ohealth-staging -f docker-compose.prod.yml ps
+docker compose -p ohealth-staging -f docker-compose.prod.yml logs -f app
 
-# View logs
-pm2 logs hb-api-staging
-pm2 logs hb-api-prod
+# Restart just the app container
+docker compose -p ohealth-staging -f docker-compose.prod.yml restart app
 
-# Restart
-pm2 restart hb-api-staging
-pm2 restart hb-api-prod
+# Stop / remove the stack (keeps the DB volume)
+docker compose -p ohealth-staging -f docker-compose.prod.yml down
 
-# Check Nginx status
-sudo systemctl status nginx
+# Reclaim space from old images
+docker image prune -f
 
-# Check PostgreSQL status
-sudo systemctl status postgresql
-
-# View Nginx error logs
+# Nginx
+sudo nginx -t && sudo systemctl reload nginx
 sudo tail -f /var/log/nginx/error.log
 ```
 
@@ -580,18 +402,15 @@ sudo tail -f /var/log/nginx/error.log
 
 ## Checklist
 
-- [ ] EC2 instance launched with correct security group
-- [ ] Node.js 24, PostgreSQL, PM2, Nginx installed
-- [ ] SSH key generated on EC2 and added to GitHub as deploy key
-- [ ] `~/.ssh/config` configured for `github.com`
-- [ ] `ssh -T git@github.com` works
-- [ ] PostgreSQL database and user created
-- [ ] Repo cloned via SSH to `/var/www/healthbridge/be/prod` and `/dev`
-- [ ] `.env` configured in both directories
-- [ ] First build + migration successful
-- [ ] PM2 running and saved with startup enabled
-- [ ] Nginx reverse proxy configured
-- [ ] GitHub Actions SSH key generated and added to `authorized_keys`
-- [ ] GitHub secrets (`SERVER_HOST`, `SERVER_USER`, `SERVER_SSH_KEY`) added
-- [ ] CI pipeline updated to use `key` instead of `password`
+- [ ] EC2 instance launched with the security group above
+- [ ] Docker + Compose plugin, git, Nginx installed
+- [ ] `ubuntu` added to the `docker` group
+- [ ] SSH password login disabled
+- [ ] GitHub deploy key added; `ssh -T git@github.com` works
+- [ ] Repo cloned to `/var/www/ohealth/be/staging` (and `/prod` if running production)
+- [ ] `.env.prod` created in each environment directory with strong secrets
+- [ ] First manual `docker compose up -d --build` succeeds; `/docs` returns 200
+- [ ] Nginx reverse proxy configured and reloaded
+- [ ] GitHub Actions key in `authorized_keys`; `SERVER_HOST` / `SERVER_USER` / `SERVER_SSH_KEY` secrets set
+- [ ] DNS A records pointing at the instance
 - [ ] SSL certificate installed (if using a domain)

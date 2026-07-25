@@ -5,16 +5,18 @@ import {
   IsNotEmpty,
   IsEmail,
   IsString,
-  IsEnum,
   MinLength,
   Matches,
   IsJWT,
   IsUUID,
   IsOptional,
   ArrayNotEmpty,
+  ArrayMaxSize,
+  IsIn,
 } from 'class-validator';
 
 import { UserRole } from '../../user/enums/user-role.enum';
+import { SELF_SERVICE_SIGNUP_ROLES } from '../constants/self-service-signup-roles.constant';
 
 export class AuthDto {
   @ApiProperty({
@@ -79,17 +81,17 @@ export class AuthDto {
   phone?: string;
 
   @ApiProperty({
-    description: 'User roles',
-    enum: UserRole,
+    description: 'Single self-service account role selected during signup',
+    enum: SELF_SERVICE_SIGNUP_ROLES,
     isArray: true,
     example: [UserRole.PATIENT],
-    required: false,
+    required: true,
   })
-  @IsOptional()
   @IsArray()
   @ArrayNotEmpty()
-  @IsEnum(UserRole, { each: true })
-  role?: UserRole[];
+  @ArrayMaxSize(1)
+  @IsIn(SELF_SERVICE_SIGNUP_ROLES, { each: true })
+  role: UserRole[];
 
   @ApiProperty({
     description: 'User password (minimum 8 characters)',
@@ -191,6 +193,13 @@ export class AuthMeResponseDto {
   @ApiProperty({ example: '+1234567890' })
   phone: string;
 
+  @ApiProperty({
+    example: 'https://res.cloudinary.com/ohealth/image/upload/v123/avatar.png',
+    required: false,
+    nullable: true,
+  })
+  image?: string | null;
+
   @ApiProperty({ example: true })
   is_active: boolean;
 
@@ -220,6 +229,16 @@ export class VerifySignupDto {
   code: string;
 }
 
+export class ResendVerificationDto {
+  @ApiProperty({
+    example: 'user@example.com',
+    description: 'User email address',
+  })
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+}
+
 export class LogoutDto {
   @ApiProperty({
     example: 'session-id-123',
@@ -236,4 +255,101 @@ export class LogoutDto {
   @IsUUID()
   @IsNotEmpty()
   user_id: string;
+}
+
+export class UpdateProfileDto {
+  @ApiProperty({
+    description: 'User first name',
+    example: 'John',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  first_name?: string;
+
+  @ApiProperty({
+    description: 'User last name',
+    example: 'Doe',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  last_name?: string;
+
+  @ApiProperty({
+    description: 'User middle name',
+    example: 'Michael',
+    required: false,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  middle_name?: string | null;
+
+  @ApiProperty({
+    description: 'User gender',
+    example: 'Male',
+    enum: ['Male', 'Female', 'Other'],
+    required: false,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  gender?: string | null;
+
+  @ApiProperty({
+    description: 'Date of birth in YYYY-MM-DD format',
+    example: '2000-01-15',
+    required: false,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  dob?: string | null;
+
+  @ApiProperty({
+    description: 'User phone number',
+    example: '+1234567890',
+    required: false,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  phone?: string | null;
+
+  @ApiProperty({
+    description: 'User avatar image URL',
+    example: 'https://res.cloudinary.com/ohealth/image/upload/v123/avatar.png',
+    required: false,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  image?: string | null;
+}
+
+export class ChangePasswordDto {
+  @ApiProperty({
+    description: 'Current password',
+    example: 'OldPassword123!',
+  })
+  @IsString()
+  @IsNotEmpty()
+  currentPassword: string;
+
+  @ApiProperty({
+    description: 'New password',
+    example: 'NewPassword123!',
+    minLength: 8,
+  })
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(8, { message: 'Password must be at least 8 characters long' })
+  @Matches(/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
+    message:
+      'Password must contain at least one uppercase letter, one lowercase letter, and one number',
+  })
+  newPassword: string;
 }
