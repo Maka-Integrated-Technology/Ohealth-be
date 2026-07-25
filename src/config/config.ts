@@ -25,6 +25,7 @@ export default () => ({
     username: process.env.MAIL_USERNAME,
     password: process.env.MAIL_PASSWORD,
     encryption: process.env.MAIL_ENCRYPTION,
+    resendApiKey: process.env.RESEND_API_KEY,
     from: {
       address: process.env.MAIL_FROM_ADDRESS,
       name: process.env.MAIL_FROM_NAME,
@@ -48,6 +49,24 @@ export default () => ({
 
   frontend: {
     url: process.env.FRONTEND_URL,
+  },
+
+  invite: {
+    expirationDays: parseInt(process.env.INVITE_EXPIRATION_DAYS, 10) || 7,
+  },
+
+  storage: {
+    aws: {
+      region: process.env.AWS_REGION,
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      s3: {
+        privateBucket:
+          process.env.AWS_S3_PRIVATE_BUCKET || process.env.AWS_S3_BUCKET,
+        signedUrlTtlSeconds:
+          Number(process.env.AWS_S3_SIGNED_URL_TTL_SECONDS) || 300,
+      },
+    },
   },
 
   isTest(): boolean {

@@ -18,20 +18,25 @@ import { IRequestWithUser } from '../../common/types';
 import { AuthService } from './auth.service';
 import {
   ActivateAccountDocs,
+  ChangePasswordDocs,
   GetProfileDocs,
   GoogleLoginDocs,
   LoginDocs,
   LogoutDocs,
   RefreshTokenDocs,
   SignupDocs,
+  UpdateProfileDocs,
 } from './docs';
 import {
   AuthDto,
+  ChangePasswordDto,
   ForgotPasswordDto,
   LogoutDto,
   RefreshTokenDto,
+  ResendVerificationDto,
   ResetPasswordDto,
   GoogleLoginDto,
+  UpdateProfileDto,
   VerifySignupDto,
 } from './dto/auth.dto';
 import { LoginDto } from './dto/login.dto';
@@ -94,6 +99,13 @@ export class AuthController {
   }
 
   @Public()
+  @Post('verify/resend')
+  @HttpCode(HttpStatus.OK)
+  resendVerification(@Body() payload: ResendVerificationDto) {
+    return this.authService.resendVerification(payload);
+  }
+
+  @Public()
   @Patch('users/:user_id/activate')
   @HttpCode(HttpStatus.OK)
   @ActivateAccountDocs()
@@ -111,6 +123,28 @@ export class AuthController {
   @Get('me')
   async getProfile(@Req() req: IRequestWithUser) {
     return this.authService.getProfile(req);
+  }
+
+  @UpdateProfileDocs()
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @Patch('me')
+  async updateProfile(
+    @Req() req: IRequestWithUser,
+    @Body() updateProfileDto: UpdateProfileDto,
+  ) {
+    return this.authService.updateProfile(req, updateProfileDto);
+  }
+
+  @ChangePasswordDocs()
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @Post('change-password')
+  async changePassword(
+    @Req() req: IRequestWithUser,
+    @Body() changePasswordDto: ChangePasswordDto,
+  ) {
+    return this.authService.changePassword(req, changePasswordDto);
   }
 
   @Post('logout')

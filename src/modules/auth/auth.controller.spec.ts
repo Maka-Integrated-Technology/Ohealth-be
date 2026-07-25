@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { IRequestWithUser } from '../../common/types';
 import * as sysMsg from '../../constants/system.messages';
+import { UserRole } from '../user/enums/user-role.enum';
 
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
@@ -19,6 +20,7 @@ describe('AuthController', () => {
     forgotPassword: jest.fn(),
     resetPassword: jest.fn(),
     verifySignup: jest.fn(),
+    resendVerification: jest.fn(),
     activateUserAccount: jest.fn(),
     getProfile: jest.fn(),
     logout: jest.fn(),
@@ -50,6 +52,7 @@ describe('AuthController', () => {
       last_name: 'Okeke',
       email: 'grace@example.com',
       password: 'Password123',
+      role: [UserRole.PATIENT],
     };
     const expected = { message: sysMsg.ACCOUNT_CREATED };
     mockAuthService.signup.mockResolvedValue(expected);
@@ -105,6 +108,17 @@ describe('AuthController', () => {
     const result = await controller.verifySignup(payload);
 
     expect(authService.verifySignup).toHaveBeenCalledWith(payload);
+    expect(result).toEqual(expected);
+  });
+
+  it('should call resendVerification on auth service', async () => {
+    const payload = { email: 'user@example.com' };
+    const expected = { message: sysMsg.VERIFICATION_CODE_SENT };
+    mockAuthService.resendVerification.mockResolvedValue(expected);
+
+    const result = await controller.resendVerification(payload);
+
+    expect(authService.resendVerification).toHaveBeenCalledWith(payload);
     expect(result).toEqual(expected);
   });
 });

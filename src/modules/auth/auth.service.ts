@@ -25,16 +25,22 @@ import { User } from '../user/entities/user.entity';
 import { UserRole } from '../user/enums/user-role.enum';
 import { UserService } from '../user/user.service';
 
+import { AuthRoutingService } from './auth-routing.service';
+import { SELF_SERVICE_SIGNUP_ROLES } from './constants/self-service-signup-roles.constant';
 import {
   AuthDto,
+  ChangePasswordDto,
   ForgotPasswordDto,
   LogoutDto,
   RefreshTokenDto,
+  ResendVerificationDto,
   ResetPasswordDto,
+  UpdateProfileDto,
   VerifySignupDto,
 } from './dto/auth.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthSession } from './entities/auth.entity';
+import { haveSameRoles } from './utils/auth-role.util';
 
 interface IRefreshPayload {
   sub: string;
@@ -54,6 +60,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
+    private readonly authRoutingService: AuthRoutingService,
     @Inject(WINSTON_MODULE_PROVIDER) logger: Logger,
   ) {
     this.logger = logger.child({ context: AuthService.name });
@@ -61,6 +68,14 @@ export class AuthService {
   }
 
   async signup(signupPayload: AuthDto) {
+    if (
+      !Array.isArray(signupPayload.role) ||
+      signupPayload.role.length !== 1 ||
+      !SELF_SERVICE_SIGNUP_ROLES.includes(signupPayload.role[0])
+    ) {
+      throw new BadRequestException(sysMsg.INVALID_SIGNUP_ROLE);
+    }
+
     const email = signupPayload.email.trim().toLowerCase();
     const existingUser = await this.userService.findByEmail(email);
     if (existingUser) {
@@ -82,19 +97,16 @@ export class AuthService {
       gender: signupPayload.gender ?? null,
       dob: signupPayload.dob ?? null,
       phone: signupPayload.phone ?? null,
-      role: signupPayload.role?.length
-        ? signupPayload.role
-        : [UserRole.PATIENT],
+      role: signupPayload.role,
       is_active: false,
       is_verified: false,
       verification_code: verificationCode,
       verification_code_expires_at: verificationExpiry,
     });
-    const tokens = await this.generateTokens(
-      savedUser.id,
-      savedUser.email,
-      savedUser.role,
-    );
+    const [tokens, routing] = await Promise.all([
+      this.generateTokens(savedUser.id, savedUser.email, savedUser.role),
+      this.authRoutingService.resolve(savedUser),
+    ]);
     const session = await this.createSession(
       savedUser.id,
       tokens.refresh_token,
@@ -106,6 +118,7 @@ export class AuthService {
     return {
       message: sysMsg.VERIFICATION_CODE_SENT,
       user: this.toUserResponse(savedUser),
+      ...routing,
       ...tokens,
       session_id: session.session_id,
       session_expires_at: session.expires_at,
@@ -132,7 +145,10 @@ export class AuthService {
       throw new UnauthorizedException(sysMsg.INVALID_CREDENTIALS);
     }
 
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    const [tokens, routing] = await Promise.all([
+      this.generateTokens(user.id, user.email, user.role),
+      this.authRoutingService.resolve(user),
+    ]);
     const session = await this.createSession(user.id, tokens.refresh_token);
 
     this.logger.info(sysMsg.LOGIN_SUCCESS);
@@ -140,6 +156,22 @@ export class AuthService {
     return {
       message: sysMsg.LOGIN_SUCCESS,
       user: this.toUserResponse(user),
+      ...routing,
+      ...tokens,
+      session_id: session.session_id,
+      session_expires_at: session.expires_at,
+    };
+  }
+
+  async issueAuthSession(user: User) {
+    const [tokens, routing] = await Promise.all([
+      this.generateTokens(user.id, user.email, user.role),
+      this.authRoutingService.resolve(user),
+    ]);
+    const session = await this.createSession(user.id, tokens.refresh_token);
+
+    return {
+      ...routing,
       ...tokens,
       session_id: session.session_id,
       session_expires_at: session.expires_at,
@@ -172,8 +204,18 @@ export class AuthService {
       throw new UnauthorizedException(sysMsg.TOKEN_INVALID);
     }
 
-    const roles = Array.isArray(payload.role) ? payload.role : [payload.role];
-    const tokens = await this.generateTokens(payload.sub, payload.email, roles);
+    const user = await this.userService.findById(payload.sub);
+    if (!user || !user.is_active || !user.is_verified) {
+      throw new UnauthorizedException(sysMsg.USER_INACTIVE);
+    }
+    if (!haveSameRoles(payload.role, user.role)) {
+      throw new UnauthorizedException(sysMsg.TOKEN_INVALID);
+    }
+
+    const [tokens, routing] = await Promise.all([
+      this.generateTokens(user.id, user.email, user.role),
+      this.authRoutingService.resolve(user),
+    ]);
 
     session.revoked_at = new Date();
     await this.sessionRepository.save(session);
@@ -186,6 +228,8 @@ export class AuthService {
 
     return {
       message: sysMsg.TOKEN_REFRESH_SUCCESS,
+      user: this.toUserResponse(user),
+      ...routing,
       ...tokens,
       session_id: newSession.session_id,
       session_expires_at: newSession.expires_at,
@@ -287,6 +331,30 @@ export class AuthService {
     return { message: sysMsg.ACCOUNT_VERIFIED };
   }
 
+  async resendVerification(
+    payload: ResendVerificationDto,
+  ): Promise<{ message: string }> {
+    const email = payload.email.trim().toLowerCase();
+    const user = await this.userService.findByEmail(email);
+
+    if (!user) {
+      return { message: sysMsg.VERIFICATION_CODE_SENT };
+    }
+
+    if (user.is_verified) {
+      throw new BadRequestException(sysMsg.ACCOUNT_ALREADY_VERIFIED);
+    }
+
+    const verificationCode = this.generateVerificationCode();
+    user.verification_code = verificationCode;
+    user.verification_code_expires_at = new Date(Date.now() + 10 * 60 * 1000);
+    await this.userService.save(user);
+
+    void this.sendVerificationEmail(user, verificationCode, 10);
+
+    return { message: sysMsg.VERIFICATION_CODE_SENT };
+  }
+
   async getProfile(req: IRequestWithUser) {
     const userId = req.user?.id ?? req.user?.userId;
     if (!userId) {
@@ -309,10 +377,90 @@ export class AuthService {
       gender: user.gender,
       dob: user.dob,
       phone: user.phone,
+      image: user.image,
       is_active: user.is_active,
       created_at: user.created_at,
       updated_at: user.updated_at,
     };
+  }
+
+  async updateProfile(req: IRequestWithUser, dto: UpdateProfileDto) {
+    const userId = req.user?.id ?? req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedException(sysMsg.TOKEN_INVALID);
+    }
+
+    const user = await this.userService.findById(userId);
+    if (!user) {
+      this.logger.warn(sysMsg.USER_NOT_FOUND);
+      throw new UnauthorizedException(sysMsg.USER_NOT_FOUND);
+    }
+
+    if (dto.first_name !== undefined) {
+      user.first_name = dto.first_name.trim();
+    }
+    if (dto.last_name !== undefined) {
+      user.last_name = dto.last_name.trim();
+    }
+    if (dto.middle_name !== undefined) {
+      user.middle_name = dto.middle_name?.trim() || null;
+    }
+    if (dto.gender !== undefined) {
+      user.gender = dto.gender;
+    }
+    if (dto.dob !== undefined) {
+      user.dob = dto.dob;
+    }
+    if (dto.phone !== undefined) {
+      user.phone = dto.phone;
+    }
+    if (dto.image !== undefined) {
+      user.image = dto.image;
+    }
+
+    const saved = await this.userService.save(user);
+    this.logger.info(`Profile updated for user ${user.id}`);
+
+    return this.getProfile({
+      ...req,
+      user: { ...req.user, id: saved.id },
+    } as IRequestWithUser);
+  }
+
+  async changePassword(req: IRequestWithUser, dto: ChangePasswordDto) {
+    const userId = req.user?.id ?? req.user?.userId;
+    if (!userId) {
+      throw new UnauthorizedException(sysMsg.TOKEN_INVALID);
+    }
+
+    const user = await this.userService.findById(userId);
+    if (!user) {
+      this.logger.warn(sysMsg.USER_NOT_FOUND);
+      throw new UnauthorizedException(sysMsg.USER_NOT_FOUND);
+    }
+
+    const isCurrentPasswordValid = await bcrypt.compare(
+      dto.currentPassword,
+      user.password,
+    );
+    if (!isCurrentPasswordValid) {
+      throw new UnauthorizedException(sysMsg.INVALID_CURRENT_PASSWORD);
+    }
+
+    user.password = await bcrypt.hash(dto.newPassword, this.saltRounds);
+    await this.userService.save(user);
+
+    await this.sessionRepository
+      .createQueryBuilder()
+      .update(AuthSession)
+      .set({ revoked_at: new Date() })
+      .where('user_id = :userId', { userId: user.id })
+      .andWhere('revoked_at IS NULL')
+      .execute();
+
+    this.logger.info(`Password changed for user ${user.id}`);
+
+    return { message: sysMsg.PASSWORD_CHANGED };
   }
 
   async logout(logoutPayload: LogoutDto) {
@@ -416,7 +564,10 @@ export class AuthService {
       }
     }
 
-    const tokens = await this.generateTokens(user.id, user.email, user.role);
+    const [tokens, routing] = await Promise.all([
+      this.generateTokens(user.id, user.email, user.role),
+      this.authRoutingService.resolve(user),
+    ]);
     const session = await this.createSession(user.id, tokens.refresh_token);
 
     if (isNewUser) {
@@ -429,6 +580,7 @@ export class AuthService {
         ...this.toUserResponse(user),
         picture: payload.picture,
       },
+      ...routing,
       ...tokens,
       session_id: session.session_id,
       session_expires_at: session.expires_at,

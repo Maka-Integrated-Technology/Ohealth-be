@@ -1,10 +1,12 @@
 import {
   Column,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   OneToMany,
   OneToOne,
+  Unique,
 } from 'typeorm';
 
 import { BaseEntity } from '../../../entities/base-entity';
@@ -13,6 +15,7 @@ import { Speciality } from '../../speciality/entities/speciality.entity';
 import { User } from '../../user/entities/user.entity';
 
 import { ProfessionalAvailability } from './professional-availability.entity';
+import { ProfessionalReview } from './professional-review.entity';
 
 export enum ConsultationType {
   CHAT = 'chat',
@@ -20,6 +23,15 @@ export enum ConsultationType {
   BOTH = 'both',
 }
 
+export enum ProfessionalVerificationStatus {
+  PENDING = 'pending',
+  VERIFIED = 'verified',
+  REJECTED = 'rejected',
+}
+
+/** Each user may only have one professional profile. */
+@Unique(['user_id'])
+@Index(['speciality_id'])
 @Entity('professionals')
 export class Professional extends BaseEntity {
   @OneToOne(() => User)
@@ -41,6 +53,9 @@ export class Professional extends BaseEntity {
 
   @Column({ type: 'text', nullable: true })
   about?: string;
+
+  @Column({ nullable: true })
+  license_number?: string;
 
   @Column({ type: 'int', default: 0 })
   years_of_experience: number;
@@ -67,6 +82,15 @@ export class Professional extends BaseEntity {
   @Column({ default: true })
   is_active: boolean;
 
+  @Column({
+    type: 'varchar',
+    default: ProfessionalVerificationStatus.PENDING,
+  })
+  verification_status: ProfessionalVerificationStatus;
+
+  @Column({ default: false })
+  profile_setup_completed: boolean;
+
   @OneToMany(
     () => ProfessionalAvailability,
     (availability) => availability.professional,
@@ -75,4 +99,7 @@ export class Professional extends BaseEntity {
 
   @OneToMany(() => Booking, (booking) => booking.professional)
   bookings: Booking[];
+
+  @OneToMany(() => ProfessionalReview, (review) => review.professional)
+  reviews: ProfessionalReview[];
 }
