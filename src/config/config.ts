@@ -10,6 +10,7 @@ export default () => ({
   },
 
   database: {
+    url: process.env.DATABASE_URL,
     host: process.env.DB_HOST,
     port: parseInt(process.env.DB_PORT, 10),
     user: process.env.DB_USER,
@@ -49,6 +50,13 @@ export default () => ({
 
   frontend: {
     url: process.env.FRONTEND_URL,
+  },
+
+  cors: {
+    origins: (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || '')
+      .split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean),
   },
 
   invite: {

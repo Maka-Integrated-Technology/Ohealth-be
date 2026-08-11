@@ -30,17 +30,23 @@ import { SpecialityModule } from './modules/speciality/speciality.module';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        host: config.get<string>('DB_HOST'),
-        port: config.get<number>('DB_PORT'),
-        username: config.get<string>('DB_USER'),
-        password: String(config.get<string>('DB_PASS') || 'postgres'),
-        database: config.get<string>('DB_NAME'),
-        autoLoadEntities: true,
-        migrationsRun: false,
-        synchronize: false,
-      }),
+      useFactory: (config: ConfigService) => {
+        const ssl = config.get<boolean>('database.ssl');
+
+        return {
+          type: 'postgres',
+          url: config.get<string>('database.url'),
+          host: config.get<string>('DB_HOST'),
+          port: config.get<number>('DB_PORT'),
+          username: config.get<string>('DB_USER'),
+          password: String(config.get<string>('DB_PASS') || 'postgres'),
+          database: config.get<string>('DB_NAME'),
+          ssl: ssl ? { rejectUnauthorized: false } : false,
+          autoLoadEntities: true,
+          migrationsRun: false,
+          synchronize: false,
+        };
+      },
     }),
     AuthModule,
     SpecialityModule,
