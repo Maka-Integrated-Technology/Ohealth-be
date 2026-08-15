@@ -37,6 +37,11 @@ import {
 } from './dto/professional-dashboard-response.dto';
 import { ProfessionalMeResponseDto } from './dto/professional-me-response.dto';
 import {
+  ProfessionalPatientDetailResponseDto,
+  ProfessionalPatientRecordsResponseDto,
+  ProfessionalPatientSortBy,
+} from './dto/professional-patient-response.dto';
+import {
   ProfessionalDetailResponseDto,
   ProfessionalResponseDto,
 } from './dto/professional-response.dto';
@@ -130,6 +135,82 @@ export class ProfessionalController {
     @Query('date') date?: string,
   ): Promise<ProfessionalDashboardResponseDto> {
     return this.professionalService.getMyDashboard(user.id, date);
+  }
+
+  @Get('me/patients')
+  @UseGuards(RolesGuard)
+  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @ApiOperation({ summary: 'Search and list current professional patients' })
+  @ApiQuery({
+    name: 'search',
+    required: false,
+    description: 'Search by patient name, email, or phone number.',
+  })
+  @ApiQuery({
+    name: 'condition',
+    required: false,
+    description: 'Filter patients by condition text.',
+  })
+  @ApiQuery({
+    name: 'sort_by',
+    required: false,
+    enum: ProfessionalPatientSortBy,
+    description: 'Sort patients by a table column.',
+  })
+  @ApiQuery({
+    name: 'sort_order',
+    required: false,
+    enum: ['asc', 'desc'],
+    description: 'Sort direction.',
+  })
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    description: 'Page number. Defaults to 1.',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    description:
+      'Records per page. Defaults to 9 to match the dashboard table.',
+  })
+  @ApiResponse({ status: 200, type: ProfessionalPatientRecordsResponseDto })
+  getMyPatients(
+    @CurrentUser() user: IRequestWithUser['user'],
+    @Query('search') search?: string,
+    @Query('condition') condition?: string,
+    @Query('sort_by') sortBy?: ProfessionalPatientSortBy,
+    @Query('sort_order') sortOrder?: 'asc' | 'desc',
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ): Promise<ProfessionalPatientRecordsResponseDto> {
+    return this.professionalService.getMyPatients(user.id, {
+      search,
+      condition,
+      sort_by: sortBy,
+      sort_order: sortOrder,
+      page,
+      limit,
+    });
+  }
+
+  @Get('me/patients/:patientId')
+  @UseGuards(RolesGuard)
+  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @ApiOperation({
+    summary: 'Get one patient profile with consultation history',
+  })
+  @ApiParam({ name: 'patientId', description: 'Patient user UUID' })
+  @ApiResponse({ status: 200, type: ProfessionalPatientDetailResponseDto })
+  @ApiResponse({
+    status: 404,
+    description: 'Patient not found for this professional',
+  })
+  getMyPatientProfile(
+    @CurrentUser() user: IRequestWithUser['user'],
+    @Param('patientId') patientId: string,
+  ): Promise<ProfessionalPatientDetailResponseDto> {
+    return this.professionalService.getMyPatientProfile(user.id, patientId);
   }
 
   @Patch('me/bookings/:bookingId/accept')
