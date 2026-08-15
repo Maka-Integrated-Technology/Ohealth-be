@@ -568,11 +568,19 @@ describe('ProfessionalService patient dashboard APIs', () => {
       has_next: true,
       has_previous: false,
     });
+
+    const defaultPageResult = await service.getMyPatientConsultations(
+      'professional-user-id-1',
+      patient.id,
+    );
+
+    expect(defaultPageResult.meta.limit).toBe(100);
+    expect(defaultPageResult.records).toHaveLength(2);
   });
 
   it('paginates one patient notes for the view all action', async () => {
     const bookings = [
-      booking({ id: 'booking-id-1', patient, booking_date: '2026-08-16' }),
+      booking({ id: 'booking-id-1', patient, booking_date: '2999-08-16' }),
     ];
     const note = patientNote({
       id: 'note-id-2',
@@ -584,14 +592,25 @@ describe('ProfessionalService patient dashboard APIs', () => {
     const result = await service.getMyPatientNotes(
       'professional-user-id-1',
       patient.id,
-      { page: '2', limit: '1' },
     );
 
     expect(patientNoteRepository.findAndCount).toHaveBeenCalledWith({
       where: { professional_id: professional.id, patient_id: patient.id },
       order: { created_at: 'DESC' },
-      skip: 1,
-      take: 1,
+      skip: 0,
+      take: 20,
+    });
+    expect(result.profile).toMatchObject({
+      full_name: 'Tunde Adebayo',
+      patient_reference: '#HB-00398',
+      allergies: ['Peanuts'],
+    });
+    expect(result.summary).toEqual({
+      total_consultations: 1,
+      total_notes: 3,
+      completed_consultations: 0,
+      upcoming_appointments: 1,
+      last_visit_date: '2999-08-16',
     });
     expect(result.records).toEqual([
       {
@@ -599,18 +618,31 @@ describe('ProfessionalService patient dashboard APIs', () => {
         professional_id: professional.id,
         patient_id: patient.id,
         content: 'Blood pressure slightly elevated during consultation.',
+        date_label: 'Mar 3, 2026',
         created_at: note.created_at,
         updated_at: note.updated_at,
       },
     ]);
     expect(result.meta).toEqual({
-      page: 2,
-      limit: 1,
+      page: 1,
+      limit: 20,
       total: 3,
-      total_pages: 3,
+      total_pages: 1,
       showing: 1,
-      has_next: true,
-      has_previous: true,
+      has_next: false,
+      has_previous: false,
+    });
+
+    await service.getMyPatientNotes('professional-user-id-1', patient.id, {
+      page: '2',
+      limit: '1',
+    });
+
+    expect(patientNoteRepository.findAndCount).toHaveBeenLastCalledWith({
+      where: { professional_id: professional.id, patient_id: patient.id },
+      order: { created_at: 'DESC' },
+      skip: 1,
+      take: 1,
     });
   });
 

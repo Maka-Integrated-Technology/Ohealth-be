@@ -393,19 +393,30 @@ export class ProfessionalService {
     query: { page?: string; limit?: string } = {},
   ): Promise<ProfessionalPatientNotesResponseDto> {
     const professional = await this.findProfessionalByUserOrThrow(userId);
-    await this.findProfessionalPatientBookingsOrThrow(
+    const bookings = await this.findProfessionalPatientBookingsOrThrow(
       professional.id,
       patientId,
     );
-    const pagination = this.normalizePagination(query.page, query.limit);
-    const [notes, total] = await this.patientNoteRepository.findAndCount({
-      where: { professional_id: professional.id, patient_id: patientId },
-      order: { created_at: 'DESC' },
-      skip: (pagination.page - 1) * pagination.limit,
-      take: pagination.limit,
-    });
+    const pagination = this.normalizePagination(query.page, query.limit, 20);
+    const [profile, [notes, total]] = await Promise.all([
+      this.patientProfileRepository.findOne({
+        where: { user_id: patientId },
+      }),
+      this.patientNoteRepository.findAndCount({
+        where: { professional_id: professional.id, patient_id: patientId },
+        order: { created_at: 'DESC' },
+        skip: (pagination.page - 1) * pagination.limit,
+        take: pagination.limit,
+      }),
+    ]);
+    const patientProfile = this.toPatientProfileDto(
+      bookings[0].patient,
+      profile,
+    );
 
     return {
+      profile: patientProfile,
+      summary: this.toPatientSummary(bookings, total),
       records: notes.map(this.toPatientNoteDto),
       meta: this.toPaginationMeta(
         pagination.page,
@@ -1270,9 +1281,34 @@ export class ProfessionalService {
     professional_id: note.professional_id,
     patient_id: note.patient_id,
     content: note.content,
+    date_label: this.toDisplayDateLabel(note.created_at),
     created_at: note.created_at,
     updated_at: note.updated_at,
   });
+
+  private toDisplayDateLabel(value: Date | string): string {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return String(value);
+    }
+
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    return `${months[date.getUTCMonth()]} ${date.getUTCDate()}, ${date.getUTCFullYear()}`;
+  }
 
   private calculatePercentChange(current: number, previous: number): number {
     if (previous === 0) return current > 0 ? 100 : 0;
