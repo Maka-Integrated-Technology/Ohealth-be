@@ -7,6 +7,7 @@ import { SpecialityModule } from '../speciality/speciality.module';
 import { User } from '../user/entities/user.entity';
 
 import { ProfessionalAvailability } from './entities/professional-availability.entity';
+import { ProfessionalPatientNote } from './entities/professional-patient-note.entity';
 import { ProfessionalReview } from './entities/professional-review.entity';
 import { Professional } from './entities/professional.entity';
 import { ProfessionalController } from './professional.controller';
@@ -21,6 +22,7 @@ import { ProfessionalService } from './professional.service';
       User,
       Booking,
       PatientProfile,
+      ProfessionalPatientNote,
     ]),
     SpecialityModule,
   ],

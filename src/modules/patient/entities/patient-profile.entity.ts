@@ -26,6 +26,15 @@ export class PatientProfile extends BaseEntity {
   @Column({ nullable: true })
   blood_group?: string | null;
 
+  @Column({ type: 'int', nullable: true })
+  height_cm?: number | null;
+
+  @Column({ type: 'float', nullable: true })
+  weight_kg?: number | null;
+
+  @Column({ nullable: true })
+  genotype?: string | null;
+
   @Column({ nullable: true })
   emergency_contact_name?: string | null;
 

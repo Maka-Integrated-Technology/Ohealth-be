@@ -14,6 +14,19 @@ describe('ProfessionalController access', () => {
       'getMyPatientProfile',
       ProfessionalController.prototype.getMyPatientProfile,
     ],
+    [
+      'getMyPatientConsultations',
+      ProfessionalController.prototype.getMyPatientConsultations,
+    ],
+    ['getMyPatientNotes', ProfessionalController.prototype.getMyPatientNotes],
+    [
+      'createMyPatientNote',
+      ProfessionalController.prototype.createMyPatientNote,
+    ],
+    [
+      'updateMyPatientNote',
+      ProfessionalController.prototype.updateMyPatientNote,
+    ],
   ])('restricts %s to professional roles', (_name, handler) => {
     const roles = reflector.get<UserRole[]>(ROLES_KEY, handler);
 

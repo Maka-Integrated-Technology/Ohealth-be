@@ -9,6 +9,7 @@ import { User } from '../user/entities/user.entity';
 
 import { ProfessionalPatientSortBy } from './dto/professional-patient-response.dto';
 import { ProfessionalAvailability } from './entities/professional-availability.entity';
+import { ProfessionalPatientNote } from './entities/professional-patient-note.entity';
 import { ProfessionalReview } from './entities/professional-review.entity';
 import { Professional } from './entities/professional.entity';
 import { ProfessionalService } from './professional.service';
@@ -34,6 +35,7 @@ describe('ProfessionalService patient dashboard APIs', () => {
     image: 'https://example.com/tunde.png',
     gender: 'Male',
     dob: '1994-05-10',
+    created_at: new Date('2025-12-01T09:00:00.000Z'),
   } as User;
 
   const secondPatient = {
@@ -45,6 +47,7 @@ describe('ProfessionalService patient dashboard APIs', () => {
     image: null,
     gender: null,
     dob: null,
+    created_at: new Date('2026-01-02T09:00:00.000Z'),
   } as User;
 
   const booking = (
@@ -64,12 +67,30 @@ describe('ProfessionalService patient dashboard APIs', () => {
       ...overrides,
     }) as Booking;
 
+  const patientNote = (
+    overrides: Partial<ProfessionalPatientNote> &
+      Pick<ProfessionalPatientNote, 'id' | 'content'>,
+  ) =>
+    ({
+      professional_id: professional.id,
+      patient_id: patient.id,
+      created_at: new Date('2026-03-03T10:00:00.000Z'),
+      updated_at: new Date('2026-03-03T10:00:00.000Z'),
+      ...overrides,
+    }) as ProfessionalPatientNote;
+
   let service: ProfessionalService;
   let professionalRepository: jest.Mocked<Partial<Repository<Professional>>>;
   let bookingRepository: jest.Mocked<Partial<Repository<Booking>>>;
   let patientProfileRepository: jest.Mocked<
     Partial<Repository<PatientProfile>>
   >;
+  let patientNoteRepository: {
+    findAndCount: jest.Mock;
+    findOne: jest.Mock;
+    create: jest.Mock;
+    save: jest.Mock;
+  };
 
   const createQueryBuilder = (bookings: Booking[]) => {
     const queryBuilder = {
@@ -99,6 +120,9 @@ describe('ProfessionalService patient dashboard APIs', () => {
           medical_conditions: ['Asthma'],
           allergies: ['Peanuts'],
           blood_group: 'O+',
+          height_cm: 168,
+          weight_kg: 70,
+          genotype: 'AS',
           emergency_contact_name: 'Tola Adebayo',
           emergency_contact_phone: '+2348099999999',
         },
@@ -108,6 +132,9 @@ describe('ProfessionalService patient dashboard APIs', () => {
           medical_conditions: ['Migraine', 'Anxiety'],
           allergies: null,
           blood_group: null,
+          height_cm: null,
+          weight_kg: null,
+          genotype: null,
           emergency_contact_name: null,
           emergency_contact_phone: null,
         },
@@ -118,9 +145,52 @@ describe('ProfessionalService patient dashboard APIs', () => {
         medical_conditions: ['Asthma'],
         allergies: ['Peanuts'],
         blood_group: 'O+',
+        height_cm: 168,
+        weight_kg: 70,
+        genotype: 'AS',
         emergency_contact_name: 'Tola Adebayo',
         emergency_contact_phone: '+2348099999999',
       }),
+    };
+    patientNoteRepository = {
+      findAndCount: jest.fn().mockResolvedValue([
+        [
+          patientNote({
+            id: 'note-id-1',
+            content:
+              'Patient reports recurring headaches over the past two weeks.',
+          }),
+          patientNote({
+            id: 'note-id-2',
+            content: 'Blood pressure slightly elevated during consultation.',
+            created_at: new Date('2026-02-21T10:00:00.000Z'),
+            updated_at: new Date('2026-02-21T10:00:00.000Z'),
+          }),
+          patientNote({
+            id: 'note-id-3',
+            content:
+              'Patient experiencing mild anxiety related to work stress.',
+            created_at: new Date('2026-02-10T10:00:00.000Z'),
+            updated_at: new Date('2026-02-10T10:00:00.000Z'),
+          }),
+        ],
+        3,
+      ]),
+      findOne: jest.fn().mockResolvedValue(
+        patientNote({
+          id: 'note-id-1',
+          content: 'Original patient note',
+        }),
+      ),
+      create: jest.fn((payload: Partial<ProfessionalPatientNote>) =>
+        patientNote({
+          id: 'note-id-new',
+          content: payload.content ?? '',
+          professional_id: payload.professional_id,
+          patient_id: payload.patient_id,
+        }),
+      ),
+      save: jest.fn(async (note) => note),
     };
 
     service = new ProfessionalService(
@@ -130,6 +200,7 @@ describe('ProfessionalService patient dashboard APIs', () => {
       {} as Repository<User>,
       bookingRepository as Repository<Booking>,
       patientProfileRepository as Repository<PatientProfile>,
+      patientNoteRepository as unknown as Repository<ProfessionalPatientNote>,
       {} as never,
       {} as DataSource,
       {
@@ -193,9 +264,14 @@ describe('ProfessionalService patient dashboard APIs', () => {
           image: patient.image,
           gender: patient.gender,
           dob: patient.dob,
+          age: expect.any(Number),
+          registered_at: patient.created_at,
           medical_conditions: ['Asthma'],
           allergies: ['Peanuts'],
           blood_group: 'O+',
+          height_cm: 168,
+          weight_kg: 70,
+          genotype: 'AS',
           emergency_contact_name: 'Tola Adebayo',
           emergency_contact_phone: '+2348099999999',
           condition: 'Asthma',
@@ -215,9 +291,14 @@ describe('ProfessionalService patient dashboard APIs', () => {
           image: null,
           gender: null,
           dob: null,
+          age: null,
+          registered_at: secondPatient.created_at,
           medical_conditions: ['Migraine', 'Anxiety'],
           allergies: [],
           blood_group: null,
+          height_cm: null,
+          weight_kg: null,
+          genotype: null,
           emergency_contact_name: null,
           emergency_contact_phone: null,
           condition: 'Migraine, Anxiety',
@@ -314,7 +395,7 @@ describe('ProfessionalService patient dashboard APIs', () => {
     ).rejects.toThrow(BadRequestException);
   });
 
-  it('returns one patient profile with consultation history and lab results placeholder', async () => {
+  it('returns one patient profile with consultation history and notes preview', async () => {
     const bookings = [
       booking({
         id: 'booking-id-1',
@@ -341,6 +422,7 @@ describe('ProfessionalService patient dashboard APIs', () => {
       where: {
         professional_id: professional.id,
         patient_id: patient.id,
+        status: expect.anything(),
       },
       relations: ['patient', 'professional', 'professional.user'],
       order: { booking_date: 'DESC', booking_time: 'DESC' },
@@ -348,14 +430,38 @@ describe('ProfessionalService patient dashboard APIs', () => {
     expect(result.profile.full_name).toBe('Tunde Adebayo');
     expect(result.profile).toMatchObject({
       patient_reference: '#HB-00398',
+      age: expect.any(Number),
+      registered_at: patient.created_at,
       medical_conditions: ['Asthma'],
       allergies: ['Peanuts'],
       blood_group: 'O+',
+      height_cm: 168,
+      weight_kg: 70,
+      genotype: 'AS',
       emergency_contact_name: 'Tola Adebayo',
       emergency_contact_phone: '+2348099999999',
     });
+    expect(result.personal_information).toEqual({
+      full_name: 'Tunde Adebayo',
+      dob: '1994-05-10',
+      gender: 'Male',
+      email: 'tunde@example.com',
+      registered_at: patient.created_at,
+      patient_reference: '#HB-00398',
+    });
+    expect(result.medical_information).toEqual({
+      height_cm: 168,
+      weight_kg: 70,
+      blood_group: 'O+',
+      genotype: 'AS',
+      medical_conditions: ['Asthma'],
+      allergies: ['Peanuts'],
+      primary_condition: 'Asthma',
+      primary_allergy: 'Peanuts',
+    });
     expect(result.summary).toEqual({
       total_consultations: 2,
+      total_notes: 3,
       completed_consultations: 1,
       upcoming_appointments: 1,
       last_visit_date: '2999-08-15',
@@ -368,7 +474,192 @@ describe('ProfessionalService patient dashboard APIs', () => {
       professional_id: professional.id,
       booking_date: '2999-08-15',
     });
+    expect(patientNoteRepository.findAndCount).toHaveBeenCalledWith({
+      where: { professional_id: professional.id, patient_id: patient.id },
+      order: { created_at: 'DESC' },
+      take: 3,
+    });
+    expect(result.notes).toHaveLength(3);
+    expect(result.notes[0]).toMatchObject({
+      id: 'note-id-1',
+      professional_id: professional.id,
+      patient_id: patient.id,
+      content: 'Patient reports recurring headaches over the past two weeks.',
+    });
     expect(result.lab_results).toEqual([]);
+  });
+
+  it('paginates one patient consultation history for the view all action', async () => {
+    const bookings = [
+      booking({ id: 'booking-id-1', patient, booking_date: '2026-08-16' }),
+      booking({
+        id: 'booking-id-2',
+        patient,
+        booking_date: '2026-08-01',
+        booking_time: '11:00:00',
+      }),
+    ];
+    bookingRepository.find!.mockResolvedValue(bookings);
+
+    const result = await service.getMyPatientConsultations(
+      'professional-user-id-1',
+      patient.id,
+      { page: '2', limit: '1' },
+    );
+
+    expect(result.records).toHaveLength(1);
+    expect(result.records[0]).toMatchObject({
+      id: 'booking-id-2',
+      patient_id: patient.id,
+      booking_date: '2026-08-01',
+    });
+    expect(result.meta).toEqual({
+      page: 2,
+      limit: 1,
+      total: 2,
+      total_pages: 2,
+      showing: 1,
+      has_next: false,
+      has_previous: true,
+    });
+  });
+
+  it('paginates one patient notes for the view all action', async () => {
+    const bookings = [
+      booking({ id: 'booking-id-1', patient, booking_date: '2026-08-16' }),
+    ];
+    const note = patientNote({
+      id: 'note-id-2',
+      content: 'Blood pressure slightly elevated during consultation.',
+    });
+    bookingRepository.find!.mockResolvedValue(bookings);
+    patientNoteRepository.findAndCount!.mockResolvedValue([[note], 3]);
+
+    const result = await service.getMyPatientNotes(
+      'professional-user-id-1',
+      patient.id,
+      { page: '2', limit: '1' },
+    );
+
+    expect(patientNoteRepository.findAndCount).toHaveBeenCalledWith({
+      where: { professional_id: professional.id, patient_id: patient.id },
+      order: { created_at: 'DESC' },
+      skip: 1,
+      take: 1,
+    });
+    expect(result.records).toEqual([
+      {
+        id: 'note-id-2',
+        professional_id: professional.id,
+        patient_id: patient.id,
+        content: 'Blood pressure slightly elevated during consultation.',
+        created_at: note.created_at,
+        updated_at: note.updated_at,
+      },
+    ]);
+    expect(result.meta).toEqual({
+      page: 2,
+      limit: 1,
+      total: 3,
+      total_pages: 3,
+      showing: 1,
+      has_next: true,
+      has_previous: true,
+    });
+  });
+
+  it('creates a trimmed patient note after verifying professional access', async () => {
+    bookingRepository.find!.mockResolvedValue([
+      booking({ id: 'booking-id-1', patient }),
+    ]);
+
+    const result = await service.createMyPatientNote(
+      'professional-user-id-1',
+      patient.id,
+      { content: '  Hydration and lower screen time recommended.  ' },
+    );
+
+    expect(patientNoteRepository.create).toHaveBeenCalledWith({
+      professional_id: professional.id,
+      patient_id: patient.id,
+      content: 'Hydration and lower screen time recommended.',
+    });
+    expect(patientNoteRepository.save).toHaveBeenCalled();
+    expect(result).toMatchObject({
+      id: 'note-id-new',
+      professional_id: professional.id,
+      patient_id: patient.id,
+      content: 'Hydration and lower screen time recommended.',
+    });
+  });
+
+  it('updates only a note owned by the professional patient relationship', async () => {
+    bookingRepository.find!.mockResolvedValue([
+      booking({ id: 'booking-id-1', patient }),
+    ]);
+
+    const result = await service.updateMyPatientNote(
+      'professional-user-id-1',
+      patient.id,
+      'note-id-1',
+      { content: '  Updated patient note after follow up.  ' },
+    );
+
+    expect(patientNoteRepository.findOne).toHaveBeenCalledWith({
+      where: {
+        id: 'note-id-1',
+        professional_id: professional.id,
+        patient_id: patient.id,
+      },
+    });
+    expect(patientNoteRepository.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'note-id-1',
+        content: 'Updated patient note after follow up.',
+      }),
+    );
+    expect(result.content).toBe('Updated patient note after follow up.');
+  });
+
+  it('rejects blank and oversized patient notes', async () => {
+    bookingRepository.find!.mockResolvedValue([
+      booking({ id: 'booking-id-1', patient }),
+    ]);
+
+    await expect(
+      service.createMyPatientNote('professional-user-id-1', patient.id, {
+        content: '   ',
+      }),
+    ).rejects.toThrow(BadRequestException);
+    await expect(
+      service.createMyPatientNote('professional-user-id-1', patient.id, {
+        content: 'x'.repeat(2001),
+      }),
+    ).rejects.toThrow(BadRequestException);
+  });
+
+  it('rejects updates to notes outside the professional patient relationship', async () => {
+    bookingRepository.find!.mockResolvedValue([
+      booking({ id: 'booking-id-1', patient }),
+    ]);
+    patientNoteRepository.findOne!.mockResolvedValue(null);
+
+    await expect(
+      service.updateMyPatientNote(
+        'professional-user-id-1',
+        patient.id,
+        'missing-note-id',
+        { content: 'Updated patient note' },
+      ),
+    ).rejects.toThrow(NotFoundException);
+    await expect(
+      service.updateMyPatientNote(
+        'professional-user-id-1',
+        patient.id,
+        'missing-note-id',
+        { content: 'Updated patient note' },
+      ),
+    ).rejects.toThrow(sysMsg.PATIENT_NOTE_NOT_FOUND);
   });
 
   it('rejects patient profile access when the patient has no bookings with the professional', async () => {
