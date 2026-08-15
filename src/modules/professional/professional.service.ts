@@ -35,8 +35,9 @@ import {
   UpdateProfessionalPatientNoteDto,
 } from './dto/professional-patient-note.dto';
 import {
-  ProfessionalPatientDetailResponseDto,
   ProfessionalPatientConsultationsResponseDto,
+  ProfessionalPatientConsultationHistoryItemDto,
+  ProfessionalPatientDetailResponseDto,
   ProfessionalPatientListItemDto,
   ProfessionalPatientMedicalInformationDto,
   ProfessionalPatientNoteResponseDto,
@@ -339,7 +340,9 @@ export class ProfessionalService {
       personal_information: this.toPatientPersonalInformation(patientProfile),
       medical_information: this.toPatientMedicalInformation(patientProfile),
       summary: this.toPatientSummary(bookings, totalNotes),
-      consultation_history: bookings.slice(0, 2).map(this.toAppointmentDto),
+      consultation_history: bookings
+        .slice(0, 2)
+        .map(this.toPatientConsultationHistoryDto),
       notes: recentNotes.map(this.toPatientNoteDto),
       lab_results: [],
     };
@@ -355,12 +358,26 @@ export class ProfessionalService {
       professional.id,
       patientId,
     );
-    const pagination = this.normalizePagination(query.page, query.limit);
+    const [profile, totalNotes] = await Promise.all([
+      this.patientProfileRepository.findOne({
+        where: { user_id: patientId },
+      }),
+      this.patientNoteRepository.count({
+        where: { professional_id: professional.id, patient_id: patientId },
+      }),
+    ]);
+    const patientProfile = this.toPatientProfileDto(
+      bookings[0].patient,
+      profile,
+    );
+    const pagination = this.normalizePagination(query.page, query.limit, 100);
     const start = (pagination.page - 1) * pagination.limit;
     const paginated = bookings.slice(start, start + pagination.limit);
 
     return {
-      records: paginated.map(this.toAppointmentDto),
+      profile: patientProfile,
+      summary: this.toPatientSummary(bookings, totalNotes),
+      records: paginated.map(this.toPatientConsultationHistoryDto),
       meta: this.toPaginationMeta(
         pagination.page,
         pagination.limit,
@@ -994,9 +1011,10 @@ export class ProfessionalService {
   private normalizePagination(
     page?: string,
     limit?: string,
+    defaultLimit = 9,
   ): { page: number; limit: number } {
     const parsedPage = page === undefined ? 1 : Number(page);
-    const parsedLimit = limit === undefined ? 9 : Number(limit);
+    const parsedLimit = limit === undefined ? defaultLimit : Number(limit);
 
     if (
       !Number.isInteger(parsedPage) ||
@@ -1144,6 +1162,92 @@ export class ProfessionalService {
       ).length,
       last_visit_date: bookings[0]?.booking_date ?? null,
     };
+  }
+
+  private toPatientConsultationHistoryDto = (
+    booking: Booking,
+  ): ProfessionalPatientConsultationHistoryItemDto => {
+    const dateParts = this.toConsultationDateParts(booking.booking_date);
+    const timeLabel = this.toConsultationTimeLabel(booking.booking_time);
+
+    return {
+      ...this.toAppointmentDto(booking),
+      date_day: dateParts.day,
+      date_month_year: dateParts.monthYear,
+      consultation_label: this.toConsultationLabel(booking.consultation_type),
+      time_label: timeLabel,
+      schedule_label: dateParts.weekday
+        ? `${dateParts.weekday}, ${dateParts.day} • ${timeLabel}`
+        : timeLabel,
+      description: booking.notes?.trim() || null,
+    };
+  };
+
+  private toConsultationDateParts(date: string): {
+    day: string;
+    monthYear: string;
+    weekday: string;
+  } {
+    const parsed = new Date(`${date}T00:00:00.000Z`);
+    if (Number.isNaN(parsed.getTime())) {
+      return {
+        day: date,
+        monthYear: date,
+        weekday: '',
+      };
+    }
+
+    const months = [
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC',
+    ];
+    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    return {
+      day: String(parsed.getUTCDate()),
+      monthYear: `${months[parsed.getUTCMonth()]} ${parsed.getUTCFullYear()}`,
+      weekday: weekdays[parsed.getUTCDay()],
+    };
+  }
+
+  private toConsultationTimeLabel(time: string): string {
+    const [hourPart, minutePart = '00'] = time.split(':');
+    const hour = Number(hourPart);
+    const minute = Number(minutePart);
+    if (
+      !Number.isInteger(hour) ||
+      !Number.isInteger(minute) ||
+      hour < 0 ||
+      hour > 23 ||
+      minute < 0 ||
+      minute > 59
+    ) {
+      return time;
+    }
+
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+
+    return `${displayHour}:${String(minute).padStart(2, '0')} ${period}`;
+  }
+
+  private toConsultationLabel(consultationType: string): string {
+    const label = consultationType
+      .split('_')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+
+    return `${label} consultation`;
   }
 
   private normalizePatientNoteContent(content?: string): string {
