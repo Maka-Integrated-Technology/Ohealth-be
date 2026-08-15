@@ -233,7 +233,7 @@ export class ProfessionalController {
   @ApiQuery({
     name: 'limit',
     required: false,
-    description: 'Records per page. Defaults to 9.',
+    description: 'Records per page. Defaults to 100 for the full history view.',
   })
   @ApiResponse({
     status: 200,

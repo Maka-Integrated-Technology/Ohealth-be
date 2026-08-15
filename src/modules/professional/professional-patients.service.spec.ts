@@ -3,7 +3,11 @@ import { DataSource, Repository } from 'typeorm';
 import { Logger } from 'winston';
 
 import * as sysMsg from '../../constants/system.messages';
-import { Booking, BookingStatus } from '../booking/entities/booking.entity';
+import {
+  Booking,
+  BookingStatus,
+  ConsultationType,
+} from '../booking/entities/booking.entity';
 import { PatientProfile } from '../patient/entities/patient-profile.entity';
 import { User } from '../user/entities/user.entity';
 
@@ -87,6 +91,7 @@ describe('ProfessionalService patient dashboard APIs', () => {
   >;
   let patientNoteRepository: {
     findAndCount: jest.Mock;
+    count: jest.Mock;
     findOne: jest.Mock;
     create: jest.Mock;
     save: jest.Mock;
@@ -176,6 +181,7 @@ describe('ProfessionalService patient dashboard APIs', () => {
         ],
         3,
       ]),
+      count: jest.fn().mockResolvedValue(3),
       findOne: jest.fn().mockResolvedValue(
         patientNote({
           id: 'note-id-1',
@@ -473,6 +479,11 @@ describe('ProfessionalService patient dashboard APIs', () => {
       patient_name: 'Tunde Adebayo',
       professional_id: professional.id,
       booking_date: '2999-08-15',
+      date_day: '15',
+      date_month_year: 'AUG 2999',
+      consultation_label: 'Video consultation',
+      time_label: '9:00 AM',
+      description: null,
     });
     expect(patientNoteRepository.findAndCount).toHaveBeenCalledWith({
       where: { professional_id: professional.id, patient_id: patient.id },
@@ -491,12 +502,22 @@ describe('ProfessionalService patient dashboard APIs', () => {
 
   it('paginates one patient consultation history for the view all action', async () => {
     const bookings = [
-      booking({ id: 'booking-id-1', patient, booking_date: '2026-08-16' }),
+      booking({
+        id: 'booking-id-1',
+        patient,
+        booking_date: '2026-03-15',
+        booking_time: '14:00:00',
+        consultation_type: ConsultationType.CHAT,
+        notes:
+          'Patient reports recurring headaches over the past two weeks, especially in the evenings.',
+      }),
       booking({
         id: 'booking-id-2',
         patient,
-        booking_date: '2026-08-01',
-        booking_time: '11:00:00',
+        booking_date: '2026-03-14',
+        booking_time: '10:30:00',
+        consultation_type: ConsultationType.VIDEO,
+        notes: 'Patient experiencing mild anxiety related to work stress.',
       }),
     ];
     bookingRepository.find!.mockResolvedValue(bookings);
@@ -504,23 +525,48 @@ describe('ProfessionalService patient dashboard APIs', () => {
     const result = await service.getMyPatientConsultations(
       'professional-user-id-1',
       patient.id,
-      { page: '2', limit: '1' },
+      { page: '1', limit: '1' },
     );
 
+    expect(patientProfileRepository.findOne).toHaveBeenCalledWith({
+      where: { user_id: patient.id },
+    });
+    expect(patientNoteRepository.count).toHaveBeenCalledWith({
+      where: { professional_id: professional.id, patient_id: patient.id },
+    });
+    expect(result.profile).toMatchObject({
+      full_name: 'Tunde Adebayo',
+      patient_reference: '#HB-00398',
+      allergies: ['Peanuts'],
+    });
+    expect(result.summary).toEqual({
+      total_consultations: 2,
+      total_notes: 3,
+      completed_consultations: 0,
+      upcoming_appointments: 0,
+      last_visit_date: '2026-03-15',
+    });
     expect(result.records).toHaveLength(1);
     expect(result.records[0]).toMatchObject({
-      id: 'booking-id-2',
+      id: 'booking-id-1',
       patient_id: patient.id,
-      booking_date: '2026-08-01',
+      booking_date: '2026-03-15',
+      date_day: '15',
+      date_month_year: 'MAR 2026',
+      consultation_label: 'Chat consultation',
+      time_label: '2:00 PM',
+      description:
+        'Patient reports recurring headaches over the past two weeks, especially in the evenings.',
     });
+    expect(result.records[0].schedule_label).toContain('2:00 PM');
     expect(result.meta).toEqual({
-      page: 2,
+      page: 1,
       limit: 1,
       total: 2,
       total_pages: 2,
       showing: 1,
-      has_next: false,
-      has_previous: true,
+      has_next: true,
+      has_previous: false,
     });
   });
 

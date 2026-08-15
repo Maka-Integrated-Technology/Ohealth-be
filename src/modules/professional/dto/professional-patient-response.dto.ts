@@ -224,6 +224,26 @@ export class ProfessionalPatientNoteResponseDto {
   updated_at: Date;
 }
 
+export class ProfessionalPatientConsultationHistoryItemDto extends ProfessionalAppointmentResponseDto {
+  @ApiProperty()
+  date_day: string;
+
+  @ApiProperty()
+  date_month_year: string;
+
+  @ApiProperty()
+  consultation_label: string;
+
+  @ApiProperty()
+  time_label: string;
+
+  @ApiProperty()
+  schedule_label: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  description: string | null;
+}
+
 export class ProfessionalPatientDetailResponseDto {
   @ApiProperty({ type: ProfessionalPatientProfileDto })
   profile: ProfessionalPatientProfileDto;
@@ -237,8 +257,8 @@ export class ProfessionalPatientDetailResponseDto {
   @ApiProperty({ type: ProfessionalPatientSummaryDto })
   summary: ProfessionalPatientSummaryDto;
 
-  @ApiProperty({ type: [ProfessionalAppointmentResponseDto] })
-  consultation_history: ProfessionalAppointmentResponseDto[];
+  @ApiProperty({ type: [ProfessionalPatientConsultationHistoryItemDto] })
+  consultation_history: ProfessionalPatientConsultationHistoryItemDto[];
 
   @ApiProperty({ type: [ProfessionalPatientNoteResponseDto] })
   notes: ProfessionalPatientNoteResponseDto[];
@@ -248,8 +268,14 @@ export class ProfessionalPatientDetailResponseDto {
 }
 
 export class ProfessionalPatientConsultationsResponseDto {
-  @ApiProperty({ type: [ProfessionalAppointmentResponseDto] })
-  records: ProfessionalAppointmentResponseDto[];
+  @ApiProperty({ type: ProfessionalPatientProfileDto })
+  profile: ProfessionalPatientProfileDto;
+
+  @ApiProperty({ type: ProfessionalPatientSummaryDto })
+  summary: ProfessionalPatientSummaryDto;
+
+  @ApiProperty({ type: [ProfessionalPatientConsultationHistoryItemDto] })
+  records: ProfessionalPatientConsultationHistoryItemDto[];
 
   @ApiProperty({ type: ProfessionalPatientsPaginationMetaDto })
   meta: ProfessionalPatientsPaginationMetaDto;
