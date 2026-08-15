@@ -126,3 +126,4 @@ export const REVIEW_INVALID_BOOKING =
 export const BOOKING_INVALID_DATE = 'booking date cannot be in the past';
 export const BOOKING_INVALID_TIME = 'booking time must be in HH:MM format';
 export const PATIENT_NOT_FOUND = 'patient not found for this professional';
+export const PATIENT_NOTE_NOT_FOUND = 'patient note not found';
