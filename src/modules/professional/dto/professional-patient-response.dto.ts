@@ -218,6 +218,9 @@ export class ProfessionalPatientNoteResponseDto {
   content: string;
 
   @ApiProperty()
+  date_label: string;
+
+  @ApiProperty()
   created_at: Date;
 
   @ApiProperty()
@@ -282,6 +285,12 @@ export class ProfessionalPatientConsultationsResponseDto {
 }
 
 export class ProfessionalPatientNotesResponseDto {
+  @ApiProperty({ type: ProfessionalPatientProfileDto })
+  profile: ProfessionalPatientProfileDto;
+
+  @ApiProperty({ type: ProfessionalPatientSummaryDto })
+  summary: ProfessionalPatientSummaryDto;
+
   @ApiProperty({ type: [ProfessionalPatientNoteResponseDto] })
   records: ProfessionalPatientNoteResponseDto[];
 
