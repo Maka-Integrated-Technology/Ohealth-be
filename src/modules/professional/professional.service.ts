@@ -8,11 +8,12 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Not, Repository } from 'typeorm';
 import { Logger } from 'winston';
 
 import * as sysMsg from '../../constants/system.messages';
 import { Booking, BookingStatus } from '../booking/entities/booking.entity';
+import { PatientProfile } from '../patient/entities/patient-profile.entity';
 import { SpecialityService } from '../speciality/speciality.service';
 import { User } from '../user/entities/user.entity';
 import { UserRole } from '../user/enums/user-role.enum';
@@ -30,6 +31,24 @@ import {
   ProfessionalSetupStatus,
 } from './dto/professional-me-response.dto';
 import {
+  CreateProfessionalPatientNoteDto,
+  UpdateProfessionalPatientNoteDto,
+} from './dto/professional-patient-note.dto';
+import {
+  ProfessionalPatientConsultationsResponseDto,
+  ProfessionalPatientConsultationHistoryItemDto,
+  ProfessionalPatientDetailResponseDto,
+  ProfessionalPatientListItemDto,
+  ProfessionalPatientMedicalInformationDto,
+  ProfessionalPatientNoteResponseDto,
+  ProfessionalPatientNotesResponseDto,
+  ProfessionalPatientPersonalInformationDto,
+  ProfessionalPatientProfileDto,
+  ProfessionalPatientRecordsResponseDto,
+  ProfessionalPatientSortBy,
+  ProfessionalPatientSummaryDto,
+} from './dto/professional-patient-response.dto';
+import {
   ProfessionalDetailResponseDto,
   ProfessionalResponseDto,
 } from './dto/professional-response.dto';
@@ -37,6 +56,7 @@ import { ReviewResponseDto } from './dto/review-response.dto';
 import { UpdateProfessionalDto } from './dto/update-professional.dto';
 import { UpsertProfessionalProfileDto } from './dto/upsert-professional-profile.dto';
 import { ProfessionalAvailability } from './entities/professional-availability.entity';
+import { ProfessionalPatientNote } from './entities/professional-patient-note.entity';
 import { ProfessionalReview } from './entities/professional-review.entity';
 import {
   Professional,
@@ -66,6 +86,10 @@ export class ProfessionalService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Booking)
     private readonly bookingRepository: Repository<Booking>,
+    @InjectRepository(PatientProfile)
+    private readonly patientProfileRepository: Repository<PatientProfile>,
+    @InjectRepository(ProfessionalPatientNote)
+    private readonly patientNoteRepository: Repository<ProfessionalPatientNote>,
     private readonly specialityService: SpecialityService,
     private readonly dataSource: DataSource,
     @Inject(WINSTON_MODULE_PROVIDER) logger: Logger,
@@ -253,6 +277,205 @@ export class ProfessionalService {
     };
   }
 
+  async getMyPatients(
+    userId: string,
+    query: {
+      search?: string;
+      condition?: string;
+      sort_by?: ProfessionalPatientSortBy;
+      sort_order?: 'asc' | 'desc';
+      page?: string;
+      limit?: string;
+    } = {},
+  ): Promise<ProfessionalPatientRecordsResponseDto> {
+    const professional = await this.findProfessionalByUserOrThrow(userId);
+    const bookings = await this.findPatientBookingsForProfessional(
+      professional.id,
+    );
+    const profiles = await this.findPatientProfiles(bookings);
+    const records = this.toPatientListItems(bookings, profiles);
+    const filtered = this.filterPatientRecords(records, query);
+    const sorted = this.sortPatientRecords(filtered, query);
+    const pagination = this.normalizePagination(query.page, query.limit);
+    const start = (pagination.page - 1) * pagination.limit;
+    const paginated = sorted.slice(start, start + pagination.limit);
+
+    return {
+      records: paginated,
+      meta: this.toPaginationMeta(
+        pagination.page,
+        pagination.limit,
+        sorted.length,
+        paginated.length,
+      ),
+    };
+  }
+
+  async getMyPatientProfile(
+    userId: string,
+    patientId: string,
+  ): Promise<ProfessionalPatientDetailResponseDto> {
+    const professional = await this.findProfessionalByUserOrThrow(userId);
+    const bookings = await this.findProfessionalPatientBookingsOrThrow(
+      professional.id,
+      patientId,
+    );
+    const [profile, [recentNotes, totalNotes]] = await Promise.all([
+      this.patientProfileRepository.findOne({
+        where: { user_id: patientId },
+      }),
+      this.patientNoteRepository.findAndCount({
+        where: { professional_id: professional.id, patient_id: patientId },
+        order: { created_at: 'DESC' },
+        take: 3,
+      }),
+    ]);
+    const patientProfile = this.toPatientProfileDto(
+      bookings[0].patient,
+      profile,
+    );
+
+    return {
+      profile: patientProfile,
+      personal_information: this.toPatientPersonalInformation(patientProfile),
+      medical_information: this.toPatientMedicalInformation(patientProfile),
+      summary: this.toPatientSummary(bookings, totalNotes),
+      consultation_history: bookings
+        .slice(0, 2)
+        .map(this.toPatientConsultationHistoryDto),
+      notes: recentNotes.map(this.toPatientNoteDto),
+      lab_results: [],
+    };
+  }
+
+  async getMyPatientConsultations(
+    userId: string,
+    patientId: string,
+    query: { page?: string; limit?: string } = {},
+  ): Promise<ProfessionalPatientConsultationsResponseDto> {
+    const professional = await this.findProfessionalByUserOrThrow(userId);
+    const bookings = await this.findProfessionalPatientBookingsOrThrow(
+      professional.id,
+      patientId,
+    );
+    const [profile, totalNotes] = await Promise.all([
+      this.patientProfileRepository.findOne({
+        where: { user_id: patientId },
+      }),
+      this.patientNoteRepository.count({
+        where: { professional_id: professional.id, patient_id: patientId },
+      }),
+    ]);
+    const patientProfile = this.toPatientProfileDto(
+      bookings[0].patient,
+      profile,
+    );
+    const pagination = this.normalizePagination(query.page, query.limit, 100);
+    const start = (pagination.page - 1) * pagination.limit;
+    const paginated = bookings.slice(start, start + pagination.limit);
+
+    return {
+      profile: patientProfile,
+      summary: this.toPatientSummary(bookings, totalNotes),
+      records: paginated.map(this.toPatientConsultationHistoryDto),
+      meta: this.toPaginationMeta(
+        pagination.page,
+        pagination.limit,
+        bookings.length,
+        paginated.length,
+      ),
+    };
+  }
+
+  async getMyPatientNotes(
+    userId: string,
+    patientId: string,
+    query: { page?: string; limit?: string } = {},
+  ): Promise<ProfessionalPatientNotesResponseDto> {
+    const professional = await this.findProfessionalByUserOrThrow(userId);
+    const bookings = await this.findProfessionalPatientBookingsOrThrow(
+      professional.id,
+      patientId,
+    );
+    const pagination = this.normalizePagination(query.page, query.limit, 20);
+    const [profile, [notes, total]] = await Promise.all([
+      this.patientProfileRepository.findOne({
+        where: { user_id: patientId },
+      }),
+      this.patientNoteRepository.findAndCount({
+        where: { professional_id: professional.id, patient_id: patientId },
+        order: { created_at: 'DESC' },
+        skip: (pagination.page - 1) * pagination.limit,
+        take: pagination.limit,
+      }),
+    ]);
+    const patientProfile = this.toPatientProfileDto(
+      bookings[0].patient,
+      profile,
+    );
+
+    return {
+      profile: patientProfile,
+      summary: this.toPatientSummary(bookings, total),
+      records: notes.map(this.toPatientNoteDto),
+      meta: this.toPaginationMeta(
+        pagination.page,
+        pagination.limit,
+        total,
+        notes.length,
+      ),
+    };
+  }
+
+  async createMyPatientNote(
+    userId: string,
+    patientId: string,
+    dto: CreateProfessionalPatientNoteDto,
+  ): Promise<ProfessionalPatientNoteResponseDto> {
+    const professional = await this.findProfessionalByUserOrThrow(userId);
+    await this.findProfessionalPatientBookingsOrThrow(
+      professional.id,
+      patientId,
+    );
+    const note = this.patientNoteRepository.create({
+      professional_id: professional.id,
+      patient_id: patientId,
+      content: this.normalizePatientNoteContent(dto.content),
+    });
+    const saved = await this.patientNoteRepository.save(note);
+
+    return this.toPatientNoteDto(saved);
+  }
+
+  async updateMyPatientNote(
+    userId: string,
+    patientId: string,
+    noteId: string,
+    dto: UpdateProfessionalPatientNoteDto,
+  ): Promise<ProfessionalPatientNoteResponseDto> {
+    const professional = await this.findProfessionalByUserOrThrow(userId);
+    await this.findProfessionalPatientBookingsOrThrow(
+      professional.id,
+      patientId,
+    );
+    const note = await this.patientNoteRepository.findOne({
+      where: {
+        id: noteId,
+        professional_id: professional.id,
+        patient_id: patientId,
+      },
+    });
+
+    if (!note) {
+      throw new NotFoundException(sysMsg.PATIENT_NOTE_NOT_FOUND);
+    }
+
+    note.content = this.normalizePatientNoteContent(dto.content);
+    const saved = await this.patientNoteRepository.save(note);
+
+    return this.toPatientNoteDto(saved);
+  }
+
   async acceptMyBooking(
     userId: string,
     bookingId: string,
@@ -266,7 +489,9 @@ export class ProfessionalService {
 
     booking.status = BookingStatus.CONFIRMED;
     const saved = await this.bookingRepository.save(booking);
-    this.logger.info(`Booking accepted: ${bookingId} by professional ${userId}`);
+    this.logger.info(
+      `Booking accepted: ${bookingId} by professional ${userId}`,
+    );
 
     return this.toAppointmentDto(saved);
   }
@@ -296,7 +521,9 @@ export class ProfessionalService {
 
       return updated;
     });
-    this.logger.info(`Booking rejected: ${bookingId} by professional ${userId}`);
+    this.logger.info(
+      `Booking rejected: ${bookingId} by professional ${userId}`,
+    );
 
     return this.toAppointmentDto(saved);
   }
@@ -624,6 +851,463 @@ export class ProfessionalService {
       .getRawOne<{ count: string }>();
 
     return parseInt(result?.count ?? '0', 10);
+  }
+
+  private async findPatientBookingsForProfessional(
+    professionalId: string,
+  ): Promise<Booking[]> {
+    return this.bookingRepository
+      .createQueryBuilder('booking')
+      .leftJoinAndSelect('booking.patient', 'patient')
+      .where('booking.professional_id = :professionalId', { professionalId })
+      .andWhere('booking.status != :cancelled', {
+        cancelled: BookingStatus.CANCELLED,
+      })
+      .orderBy('booking.booking_date', 'DESC')
+      .addOrderBy('booking.booking_time', 'DESC')
+      .getMany();
+  }
+
+  private async findProfessionalPatientBookingsOrThrow(
+    professionalId: string,
+    patientId: string,
+  ): Promise<Booking[]> {
+    const bookings = await this.bookingRepository.find({
+      where: {
+        professional_id: professionalId,
+        patient_id: patientId,
+        status: Not(BookingStatus.CANCELLED),
+      },
+      relations: ['patient', 'professional', 'professional.user'],
+      order: { booking_date: 'DESC', booking_time: 'DESC' },
+    });
+
+    if (!bookings.length || !bookings[0].patient) {
+      throw new NotFoundException(sysMsg.PATIENT_NOT_FOUND);
+    }
+
+    return bookings;
+  }
+
+  private async findPatientProfiles(
+    bookings: Booking[],
+  ): Promise<Map<string, PatientProfile>> {
+    const patientIds = Array.from(
+      new Set(bookings.map((booking) => booking.patient_id)),
+    );
+    if (!patientIds.length) {
+      return new Map();
+    }
+
+    const profiles = await this.patientProfileRepository.find({
+      where: { user_id: In(patientIds) },
+    });
+
+    return new Map(profiles.map((profile) => [profile.user_id, profile]));
+  }
+
+  private toPatientListItems(
+    bookings: Booking[],
+    profiles: Map<string, PatientProfile>,
+  ): ProfessionalPatientListItemDto[] {
+    const patients = new Map<string, ProfessionalPatientListItemDto>();
+
+    for (const booking of bookings) {
+      if (!booking.patient) continue;
+
+      const existing = patients.get(booking.patient_id);
+      if (existing) {
+        existing.total_consultations += 1;
+        continue;
+      }
+
+      const profile = profiles.get(booking.patient_id) ?? null;
+      patients.set(booking.patient_id, {
+        ...this.toPatientProfileDto(booking.patient, profile),
+        condition: this.toConditionSummary(profile),
+        total_consultations: 1,
+        last_visit_date: booking.booking_date,
+        last_booking_id: booking.id,
+        last_booking_status: booking.status,
+      });
+    }
+
+    return Array.from(patients.values());
+  }
+
+  private filterPatientRecords(
+    records: ProfessionalPatientListItemDto[],
+    query: { search?: string; condition?: string },
+  ): ProfessionalPatientListItemDto[] {
+    const search = query.search?.trim().toLowerCase();
+    const condition = query.condition?.trim().toLowerCase();
+
+    return records.filter((record) => {
+      const matchesSearch =
+        !search ||
+        record.full_name.toLowerCase().includes(search) ||
+        record.email.toLowerCase().includes(search) ||
+        record.patient_reference.toLowerCase().includes(search) ||
+        (record.phone?.toLowerCase().includes(search) ?? false) ||
+        record.condition.toLowerCase().includes(search);
+      const matchesCondition =
+        !condition || record.condition.toLowerCase().includes(condition);
+
+      return matchesSearch && matchesCondition;
+    });
+  }
+
+  private sortPatientRecords(
+    records: ProfessionalPatientListItemDto[],
+    query: {
+      sort_by?: ProfessionalPatientSortBy;
+      sort_order?: 'asc' | 'desc';
+    },
+  ): ProfessionalPatientListItemDto[] {
+    const sortBy = this.normalizePatientSortBy(query.sort_by);
+    const sortOrder = this.normalizePatientSortOrder(query.sort_order);
+    const direction = sortOrder === 'asc' ? 1 : -1;
+
+    return [...records].sort((a, b) => {
+      const aValue = this.getPatientSortValue(a, sortBy);
+      const bValue = this.getPatientSortValue(b, sortBy);
+
+      return aValue.localeCompare(bValue) * direction;
+    });
+  }
+
+  private normalizePatientSortBy(
+    sortBy?: ProfessionalPatientSortBy,
+  ): ProfessionalPatientSortBy {
+    if (!sortBy) {
+      return ProfessionalPatientSortBy.LAST_VISIT;
+    }
+    if (!Object.values(ProfessionalPatientSortBy).includes(sortBy)) {
+      throw new BadRequestException(
+        'sort_by must be one of patient, id, condition, last_visit',
+      );
+    }
+    return sortBy;
+  }
+
+  private normalizePatientSortOrder(
+    sortOrder?: 'asc' | 'desc',
+  ): 'asc' | 'desc' {
+    if (!sortOrder) {
+      return 'desc';
+    }
+    if (!['asc', 'desc'].includes(sortOrder)) {
+      throw new BadRequestException('sort_order must be asc or desc');
+    }
+    return sortOrder;
+  }
+
+  private getPatientSortValue(
+    record: ProfessionalPatientListItemDto,
+    sortBy: ProfessionalPatientSortBy,
+  ): string {
+    switch (sortBy) {
+      case ProfessionalPatientSortBy.PATIENT:
+        return record.full_name.toLowerCase();
+      case ProfessionalPatientSortBy.ID:
+        return record.patient_reference.toLowerCase();
+      case ProfessionalPatientSortBy.CONDITION:
+        return record.condition.toLowerCase();
+      case ProfessionalPatientSortBy.LAST_VISIT:
+      default:
+        return record.last_visit_date ?? '';
+    }
+  }
+
+  private normalizePagination(
+    page?: string,
+    limit?: string,
+    defaultLimit = 9,
+  ): { page: number; limit: number } {
+    const parsedPage = page === undefined ? 1 : Number(page);
+    const parsedLimit = limit === undefined ? defaultLimit : Number(limit);
+
+    if (
+      !Number.isInteger(parsedPage) ||
+      parsedPage < 1 ||
+      !Number.isInteger(parsedLimit) ||
+      parsedLimit < 1 ||
+      parsedLimit > 100
+    ) {
+      throw new BadRequestException(
+        'page must be >= 1 and limit must be between 1 and 100',
+      );
+    }
+
+    return { page: parsedPage, limit: parsedLimit };
+  }
+
+  private toPaginationMeta(
+    page: number,
+    limit: number,
+    total: number,
+    showing: number,
+  ) {
+    return {
+      page,
+      limit,
+      total,
+      total_pages: Math.ceil(total / limit),
+      showing,
+      has_next: page * limit < total,
+      has_previous: page > 1,
+    };
+  }
+
+  private toPatientProfileDto(
+    patient: User,
+    profile?: PatientProfile | null,
+  ): ProfessionalPatientProfileDto {
+    return {
+      id: patient.id,
+      first_name: patient.first_name,
+      last_name: patient.last_name,
+      full_name: `${patient.first_name} ${patient.last_name}`,
+      patient_reference:
+        profile?.patient_reference ?? this.toPatientReference(patient.id),
+      email: patient.email,
+      phone: patient.phone ?? null,
+      image: patient.image ?? null,
+      gender: patient.gender ?? null,
+      dob: patient.dob ?? null,
+      age: this.toAge(patient.dob),
+      registered_at: patient.created_at ?? null,
+      medical_conditions: this.cleanList(profile?.medical_conditions),
+      allergies: this.cleanList(profile?.allergies),
+      blood_group: profile?.blood_group ?? null,
+      height_cm: profile?.height_cm ?? null,
+      weight_kg: profile?.weight_kg ?? null,
+      genotype: profile?.genotype ?? null,
+      emergency_contact_name: profile?.emergency_contact_name ?? null,
+      emergency_contact_phone: profile?.emergency_contact_phone ?? null,
+    };
+  }
+
+  private toPatientPersonalInformation(
+    profile: ProfessionalPatientProfileDto,
+  ): ProfessionalPatientPersonalInformationDto {
+    return {
+      full_name: profile.full_name,
+      dob: profile.dob,
+      gender: profile.gender,
+      email: profile.email,
+      registered_at: profile.registered_at,
+      patient_reference: profile.patient_reference,
+    };
+  }
+
+  private toPatientMedicalInformation(
+    profile: ProfessionalPatientProfileDto,
+  ): ProfessionalPatientMedicalInformationDto {
+    return {
+      height_cm: profile.height_cm,
+      weight_kg: profile.weight_kg,
+      blood_group: profile.blood_group,
+      genotype: profile.genotype,
+      medical_conditions: profile.medical_conditions,
+      allergies: profile.allergies,
+      primary_condition: profile.medical_conditions[0] ?? null,
+      primary_allergy: profile.allergies[0] ?? null,
+    };
+  }
+
+  private toAge(dob?: string | null): number | null {
+    if (!dob) {
+      return null;
+    }
+
+    const birthDate = new Date(`${dob}T00:00:00.000Z`);
+    if (Number.isNaN(birthDate.getTime())) {
+      return null;
+    }
+
+    const today = new Date();
+    let age = today.getUTCFullYear() - birthDate.getUTCFullYear();
+    const monthDelta = today.getUTCMonth() - birthDate.getUTCMonth();
+    const birthdayHasNotPassed =
+      monthDelta < 0 ||
+      (monthDelta === 0 && today.getUTCDate() < birthDate.getUTCDate());
+
+    if (birthdayHasNotPassed) {
+      age -= 1;
+    }
+
+    return age >= 0 ? age : null;
+  }
+
+  private toConditionSummary(profile?: PatientProfile | null): string {
+    const conditions = this.cleanList(profile?.medical_conditions);
+    return conditions.length ? conditions.join(', ') : 'Not specified';
+  }
+
+  private cleanList(value?: string[] | null): string[] {
+    return (value ?? []).map((item) => item.trim()).filter(Boolean);
+  }
+
+  private toPatientReference(patientId: string): string {
+    const compact = patientId.replace(/-/g, '').slice(-5).toUpperCase();
+    return `#HB-${compact || '00000'}`;
+  }
+
+  private toPatientSummary(
+    bookings: Booking[],
+    totalNotes = 0,
+  ): ProfessionalPatientSummaryDto {
+    const today = new Date().toISOString().slice(0, 10);
+
+    return {
+      total_consultations: bookings.length,
+      total_notes: totalNotes,
+      completed_consultations: bookings.filter(
+        (booking) => booking.status === BookingStatus.COMPLETED,
+      ).length,
+      upcoming_appointments: bookings.filter(
+        (booking) =>
+          booking.status === BookingStatus.CONFIRMED &&
+          booking.booking_date >= today,
+      ).length,
+      last_visit_date: bookings[0]?.booking_date ?? null,
+    };
+  }
+
+  private toPatientConsultationHistoryDto = (
+    booking: Booking,
+  ): ProfessionalPatientConsultationHistoryItemDto => {
+    const dateParts = this.toConsultationDateParts(booking.booking_date);
+    const timeLabel = this.toConsultationTimeLabel(booking.booking_time);
+
+    return {
+      ...this.toAppointmentDto(booking),
+      date_day: dateParts.day,
+      date_month_year: dateParts.monthYear,
+      consultation_label: this.toConsultationLabel(booking.consultation_type),
+      time_label: timeLabel,
+      schedule_label: dateParts.weekday
+        ? `${dateParts.weekday}, ${dateParts.day} • ${timeLabel}`
+        : timeLabel,
+      description: booking.notes?.trim() || null,
+    };
+  };
+
+  private toConsultationDateParts(date: string): {
+    day: string;
+    monthYear: string;
+    weekday: string;
+  } {
+    const parsed = new Date(`${date}T00:00:00.000Z`);
+    if (Number.isNaN(parsed.getTime())) {
+      return {
+        day: date,
+        monthYear: date,
+        weekday: '',
+      };
+    }
+
+    const months = [
+      'JAN',
+      'FEB',
+      'MAR',
+      'APR',
+      'MAY',
+      'JUN',
+      'JUL',
+      'AUG',
+      'SEP',
+      'OCT',
+      'NOV',
+      'DEC',
+    ];
+    const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    return {
+      day: String(parsed.getUTCDate()),
+      monthYear: `${months[parsed.getUTCMonth()]} ${parsed.getUTCFullYear()}`,
+      weekday: weekdays[parsed.getUTCDay()],
+    };
+  }
+
+  private toConsultationTimeLabel(time: string): string {
+    const [hourPart, minutePart = '00'] = time.split(':');
+    const hour = Number(hourPart);
+    const minute = Number(minutePart);
+    if (
+      !Number.isInteger(hour) ||
+      !Number.isInteger(minute) ||
+      hour < 0 ||
+      hour > 23 ||
+      minute < 0 ||
+      minute > 59
+    ) {
+      return time;
+    }
+
+    const period = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+
+    return `${displayHour}:${String(minute).padStart(2, '0')} ${period}`;
+  }
+
+  private toConsultationLabel(consultationType: string): string {
+    const label = consultationType
+      .split('_')
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(' ');
+
+    return `${label} consultation`;
+  }
+
+  private normalizePatientNoteContent(content?: string): string {
+    const trimmed = content?.trim();
+    if (!trimmed) {
+      throw new BadRequestException('note content is required');
+    }
+    if (trimmed.length > 2000) {
+      throw new BadRequestException(
+        'note content must not exceed 2000 characters',
+      );
+    }
+    return trimmed;
+  }
+
+  private toPatientNoteDto = (
+    note: ProfessionalPatientNote,
+  ): ProfessionalPatientNoteResponseDto => ({
+    id: note.id,
+    professional_id: note.professional_id,
+    patient_id: note.patient_id,
+    content: note.content,
+    date_label: this.toDisplayDateLabel(note.created_at),
+    created_at: note.created_at,
+    updated_at: note.updated_at,
+  });
+
+  private toDisplayDateLabel(value: Date | string): string {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return String(value);
+    }
+
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+
+    return `${months[date.getUTCMonth()]} ${date.getUTCDate()}, ${date.getUTCFullYear()}`;
   }
 
   private calculatePercentChange(current: number, previous: number): number {
