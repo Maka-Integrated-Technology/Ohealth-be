@@ -1,10 +1,18 @@
-import { Column, Entity, OneToMany, OneToOne } from 'typeorm';
+import { Check, Column, Entity, OneToMany, OneToOne } from 'typeorm';
 
 import { BaseEntity } from '../../../entities/base-entity';
 import { AuthSession } from '../../auth/entities/auth.entity';
 import { User2fa } from '../../auth/entities/user-2fa.entity';
+import { LegalAcceptance } from '../../identity/entities/legal-acceptance.entity';
+import { UserPersona } from '../../identity/entities/user-persona.entity';
+import { OrganizationMembership } from '../../organization/entities/organization-membership.entity';
+import { AccountStatus } from '../enums/account-status.enum';
 import { UserRole } from '../enums/user-role.enum';
 
+@Check(
+  'CHK_users_account_status',
+  `"account_status" IN ('pending_verification', 'active', 'suspended', 'deactivated')`,
+)
 @Entity('users')
 export class User extends BaseEntity {
   @Column({ unique: true })
@@ -43,6 +51,15 @@ export class User extends BaseEntity {
   @Column({ default: false })
   is_verified: boolean;
 
+  @Column({
+    type: 'varchar',
+    default: AccountStatus.PENDING_VERIFICATION,
+  })
+  account_status: AccountStatus;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  email_verified_at?: Date | null;
+
   @Column({ nullable: true })
   verification_code?: string | null;
 
@@ -60,6 +77,15 @@ export class User extends BaseEntity {
 
   @OneToMany(() => AuthSession, (session) => session.user)
   sessions: AuthSession[];
+
+  @OneToMany(() => UserPersona, (persona) => persona.user)
+  personas: UserPersona[];
+
+  @OneToMany(() => OrganizationMembership, (membership) => membership.user)
+  organization_memberships: OrganizationMembership[];
+
+  @OneToMany(() => LegalAcceptance, (acceptance) => acceptance.user)
+  legal_acceptances: LegalAcceptance[];
 
   @OneToOne(() => User2fa, (user2fa) => user2fa.user)
   twoFa?: User2fa;
