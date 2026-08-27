@@ -463,11 +463,13 @@ export class AuthService {
     return { message: sysMsg.PASSWORD_CHANGED };
   }
 
-  async logout(logoutPayload: LogoutDto) {
+  // `userId` is always the authenticated caller. Trusting a user id from the
+  // request body let anyone revoke another account's session.
+  async logout(userId: string, logoutPayload: LogoutDto) {
     const session = await this.sessionRepository.findOne({
       where: {
         session_id: logoutPayload.session_id,
-        user_id: logoutPayload.user_id,
+        user_id: userId,
         revoked_at: IsNull(),
       },
     });

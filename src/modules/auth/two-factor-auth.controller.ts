@@ -1,30 +1,41 @@
-import { Controller, Post, HttpCode, HttpStatus, Param } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Controller, Post, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger';
 
+import { IAuthUser } from '../../common/types';
+
+import { CurrentUser } from './decorators/current-user.decorator';
 import {
   TwoFactorAuthService,
   IEnable2faResponse,
 } from './two-factor-auth.service';
 
 @ApiTags('2FA')
+@ApiBearerAuth()
 @Controller('auth/2fa')
 export class TwoFactorAuthController {
   constructor(private readonly twoFactorAuthService: TwoFactorAuthService) {}
 
-  @Post('enable/:userId')
+  // The factor is always enrolled for the caller. Taking the user from a path
+  // parameter let anyone mint a factor — and read its secret — for any account.
+  @Post('enable')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Enable two-factor authentication' })
+  @ApiOperation({
+    summary: 'Enable two-factor authentication for the current user',
+  })
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Returns secret, QR code, and backup codes',
   })
   @ApiResponse({
-    status: HttpStatus.NOT_FOUND,
-    description: 'User not found',
+    status: HttpStatus.UNAUTHORIZED,
+    description: 'A valid access token is required',
   })
-  async enable2fa(
-    @Param('userId') userId: string,
-  ): Promise<IEnable2faResponse> {
-    return this.twoFactorAuthService.enable2fa(userId);
+  async enable2fa(@CurrentUser() user: IAuthUser): Promise<IEnable2faResponse> {
+    return this.twoFactorAuthService.enable2fa(user.id);
   }
 }

@@ -9,6 +9,10 @@ dotenv.config();
 import { DataSource } from 'typeorm';
 
 import { initializeDataSource } from 'src/database/data-source';
+import { LegalAcceptance } from 'src/modules/identity/entities/legal-acceptance.entity';
+import { UserPersona } from 'src/modules/identity/entities/user-persona.entity';
+import { OrganizationMembership } from 'src/modules/organization/entities/organization-membership.entity';
+import { Organization } from 'src/modules/organization/entities/organization.entity';
 import { ProfessionalAvailability } from 'src/modules/professional/entities/professional-availability.entity';
 import { ProfessionalReview } from 'src/modules/professional/entities/professional-review.entity';
 import { Professional } from 'src/modules/professional/entities/professional.entity';
@@ -20,6 +24,11 @@ import {
   AVAILABILITY_SLOTS,
   DEMO_PATIENT,
   DEMO_SEED_PASSWORD,
+  IUserSeedData,
+  SEED_LEGAL_DOCUMENT_VERSIONS,
+  SEED_ORGANIZATION_MEMBERSHIPS,
+  SEED_ORGANIZATION_USERS,
+  SEED_ORGANIZATIONS,
   SEED_PROFESSIONALS,
   SEED_REVIEWERS,
   SEED_REVIEWS,
@@ -27,7 +36,11 @@ import {
 } from './data/booking-seed.data';
 import {
   addDays,
+  ensureLegalAcceptance,
+  ensureOrganizationMembership,
+  ensureUserPersona,
   findOrCreateAvailability,
+  findOrCreateOrganization,
   findOrCreateProfessional,
   findOrCreateReview,
   findOrCreateSpeciality,
@@ -79,6 +92,10 @@ export async function runBookingFlowSeed(): Promise<void> {
 
 async function seedBookingFlow(ds: DataSource): Promise<void> {
   const userRepo = ds.getRepository(User);
+  const personaRepo = ds.getRepository(UserPersona);
+  const legalAcceptanceRepo = ds.getRepository(LegalAcceptance);
+  const organizationRepo = ds.getRepository(Organization);
+  const membershipRepo = ds.getRepository(OrganizationMembership);
   const specialityRepo = ds.getRepository(Speciality);
   const professionalRepo = ds.getRepository(Professional);
   const availabilityRepo = ds.getRepository(ProfessionalAvailability);
@@ -91,9 +108,46 @@ async function seedBookingFlow(ds: DataSource): Promise<void> {
     availabilities: 0,
     reviewUsers: 0,
     reviews: 0,
+    organizationUsers: 0,
+    personas: 0,
+    legalAcceptances: 0,
+    organizations: 0,
+    memberships: 0,
   };
 
   const skipped: string[] = [];
+  const userByEmail = new Map<string, User>();
+
+  // Every seeded human gets their personas and versioned legal acceptances, so
+  // the identity tables are populated the same way registration will populate
+  // them (docs/02-identity-and-access.md).
+  async function seedIdentityFor(
+    user: User,
+    seed: Pick<IUserSeedData, 'personas'>,
+  ): Promise<void> {
+    userByEmail.set(user.email, user);
+
+    for (const personaType of seed.personas) {
+      const { created } = await ensureUserPersona(personaRepo, {
+        user_id: user.id,
+        persona_type: personaType,
+      });
+      if (created) {
+        stats.personas++;
+      }
+    }
+
+    for (const document of SEED_LEGAL_DOCUMENT_VERSIONS) {
+      const { created } = await ensureLegalAcceptance(legalAcceptanceRepo, {
+        user_id: user.id,
+        document_type: document.document_type,
+        document_version: document.document_version,
+      });
+      if (created) {
+        stats.legalAcceptances++;
+      }
+    }
+  }
 
   // ── 1. Demo patient ────────────────────────────────────────────────────────
   console.log('[seed] Seeding demo patient…');
@@ -107,6 +161,7 @@ async function seedBookingFlow(ds: DataSource): Promise<void> {
   if (!patientCreated) {
     skipped.push(`Existing user reused: ${patient.email}`);
   }
+  await seedIdentityFor(patient, DEMO_PATIENT);
 
   // ── 2. Specialities ────────────────────────────────────────────────────────
   console.log('[seed] Seeding specialities…');
@@ -133,6 +188,7 @@ async function seedBookingFlow(ds: DataSource): Promise<void> {
       password_plain: DEMO_SEED_PASSWORD,
     });
     reviewerMap.set(entity.email, entity);
+    await seedIdentityFor(entity, data);
     if (created) {
       stats.reviewUsers++;
     } else {
@@ -152,6 +208,7 @@ async function seedBookingFlow(ds: DataSource): Promise<void> {
         password_plain: DEMO_SEED_PASSWORD,
       },
     );
+    await seedIdentityFor(profUser, entry.user);
     if (userCreated) {
       stats.professionalUsers++;
     } else {
@@ -231,7 +288,61 @@ async function seedBookingFlow(ds: DataSource): Promise<void> {
     }
   }
 
-  // ── 7. Recalculate denormalized ratings ────────────────────────────────────
+  // ── 7. Organizations, organization users, and memberships ─────────────────
+  console.log('[seed] Seeding organizations and memberships…');
+  const organizationMap = new Map<string, Organization>(); // key = reg. number
+  for (const data of SEED_ORGANIZATIONS) {
+    const { entity, created } = await findOrCreateOrganization(
+      organizationRepo,
+      data,
+    );
+    organizationMap.set(entity.registration_number, entity);
+    if (created) {
+      stats.organizations++;
+    } else {
+      skipped.push(`Existing organization reused: ${entity.name}`);
+    }
+  }
+
+  for (const data of SEED_ORGANIZATION_USERS) {
+    const { entity, created } = await findOrCreateUser(userRepo, {
+      ...data,
+      password_plain: DEMO_SEED_PASSWORD,
+    });
+    await seedIdentityFor(entity, data);
+    if (created) {
+      stats.organizationUsers++;
+    } else {
+      skipped.push(`Existing user reused: ${entity.email}`);
+    }
+  }
+
+  for (const data of SEED_ORGANIZATION_MEMBERSHIPS) {
+    const user = userByEmail.get(data.user_email);
+    if (!user) {
+      console.warn(`[seed] Membership user not seeded: ${data.user_email}`);
+      continue;
+    }
+    const organization = organizationMap.get(
+      data.organization_registration_number,
+    );
+    if (!organization) {
+      console.warn(
+        `[seed] Membership organization not seeded: ${data.organization_registration_number}`,
+      );
+      continue;
+    }
+    const { created } = await ensureOrganizationMembership(membershipRepo, {
+      organization_id: organization.id,
+      user_id: user.id,
+      role: data.role,
+    });
+    if (created) {
+      stats.memberships++;
+    }
+  }
+
+  // ── 8. Recalculate denormalized ratings ────────────────────────────────────
   console.log('[seed] Recalculating professional ratings…');
   for (const professional of professionalProfileMap.values()) {
     await recalculateProfessionalRating(
@@ -241,7 +352,7 @@ async function seedBookingFlow(ds: DataSource): Promise<void> {
     );
   }
 
-  // ── 8. Summary ─────────────────────────────────────────────────────────────
+  // ── 9. Summary ─────────────────────────────────────────────────────────────
   if (skipped.length > 0) {
     console.log('\nSkipped (already exist):');
     for (const msg of skipped) {
@@ -251,15 +362,23 @@ async function seedBookingFlow(ds: DataSource): Promise<void> {
 
   console.log(`
 Seed complete:
-  - Specialities:        ${stats.specialities}
-  - Professional users:  ${stats.professionalUsers}
-  - Professionals:       ${stats.professionals}
-  - Availability slots:  ${stats.availabilities}
-  - Review users:        ${stats.reviewUsers}
-  - Reviews:             ${stats.reviews}
+  - Specialities:         ${stats.specialities}
+  - Professional users:   ${stats.professionalUsers}
+  - Professionals:        ${stats.professionals}
+  - Availability slots:   ${stats.availabilities}
+  - Review users:         ${stats.reviewUsers}
+  - Reviews:              ${stats.reviews}
+  - Organizations:        ${stats.organizations}
+  - Organization users:   ${stats.organizationUsers}
+  - Memberships:          ${stats.memberships}
+  - User personas:        ${stats.personas}
+  - Legal acceptances:    ${stats.legalAcceptances}
 
 Demo patient:
   email:    ${patient.email}
   password: ${DEMO_SEED_PASSWORD}
+
+All seeded accounts share the same password and are created in the "active"
+account status with email verification already recorded.
 `);
 }

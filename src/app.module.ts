@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { AppController } from './app.controller';
@@ -11,6 +11,7 @@ import { LoggerModule } from './common/logger.module';
 import configuration from './config/config';
 import { LoggingInterceptor } from './middleware/logging.interceptor';
 import { AuthModule } from './modules/auth/auth.module';
+import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { BookingModule } from './modules/booking/booking.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { IdentityModule } from './modules/identity/identity.module';
@@ -65,6 +66,13 @@ import { SpecialityModule } from './modules/speciality/speciality.module';
   providers: [
     AppService,
     LoggingInterceptor,
+    // Authentication is deny-by-default: every route requires a valid access
+    // token unless it is explicitly marked with @Public(). Without this, a
+    // route that simply forgets @UseGuards is silently unauthenticated.
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
     {
       provide: APP_INTERCEPTOR,
       useClass: TransformInterceptor,
