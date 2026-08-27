@@ -496,14 +496,38 @@ describe('AuthService', () => {
         async (payload: Partial<AuthSession>) => payload,
       );
 
-      const result = await service.logout({
-        user_id: 'user-id-1',
+      const result = await service.logout('user-id-1', {
         session_id: 'session-id-1',
       });
 
       expect(result).toEqual({ message: sysMsg.LOGOUT_SUCCESS });
       expect(mockSessionRepository.save).toHaveBeenCalled();
       expect(mockLogger.info).toHaveBeenCalledWith(sysMsg.LOGOUT_SUCCESS);
+    });
+
+    it('should scope the session lookup to the authenticated caller', async () => {
+      mockSessionRepository.findOne.mockResolvedValue(null);
+
+      await service.logout('caller-user-id', {
+        session_id: 'session-id-1',
+      });
+
+      expect(mockSessionRepository.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ user_id: 'caller-user-id' }),
+        }),
+      );
+    });
+
+    it('should not revoke anything when the session belongs to another user', async () => {
+      mockSessionRepository.findOne.mockResolvedValue(null);
+
+      const result = await service.logout('caller-user-id', {
+        session_id: 'session-owned-by-someone-else',
+      });
+
+      expect(mockSessionRepository.save).not.toHaveBeenCalled();
+      expect(result).toEqual({ message: sysMsg.LOGOUT_SUCCESS });
     });
   });
 

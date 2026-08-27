@@ -21,7 +21,7 @@ export class OutboxEvent extends BaseEntity {
   @Column({ type: 'varchar' })
   event_type: string;
 
-  @Column({ type: 'jsonb', default: () => "'{}'::jsonb" })
+  @Column({ type: 'jsonb', default: () => "'{}'" })
   payload: Record<string, unknown>;
 
   @Column({ type: 'varchar', default: OutboxEventStatus.PENDING })

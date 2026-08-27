@@ -68,7 +68,7 @@ export class OrganizationMembership extends BaseEntity {
   })
   status: OrganizationMembershipStatus;
 
-  @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
+  @Column({ type: 'jsonb', default: () => "'[]'" })
   permission_overrides: string[];
 
   @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })

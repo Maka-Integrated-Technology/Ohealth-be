@@ -247,14 +247,6 @@ export class LogoutDto {
   @IsUUID()
   @IsNotEmpty()
   session_id: string;
-
-  @ApiProperty({
-    example: 'user-id-123',
-    description: 'User id',
-  })
-  @IsUUID()
-  @IsNotEmpty()
-  user_id: string;
 }
 
 export class UpdateProfileDto {

@@ -15,6 +15,25 @@ changes.
 - Registration-intent and authentication-challenge DTO contracts.
 - Architecture documentation and repository agent guide.
 
+## Schema baseline
+
+The incremental migration history was collapsed into a single pre-production
+baseline, `InitialSchema1787870806542`, generated from the entity definitions.
+The incremental backfill that previously derived personas and account status
+from legacy roles and profile rows no longer exists in the repository: the
+baseline creates the identity tables empty.
+
+Consequences:
+
+- Every environment starts from an empty schema. An environment that already ran
+  the retired migrations must be rebuilt, not migrated forward — the baseline
+  creates tables that already exist there and will fail.
+- Any future deployment that must preserve existing identities needs a fresh,
+  purpose-written backfill migration. The migration-safety rules below apply to
+  that migration in full.
+- The baseline is now an applied migration. Change the schema by adding a new
+  migration, never by editing the baseline.
+
 ## Implementation order
 
 ### 1. Infrastructure
