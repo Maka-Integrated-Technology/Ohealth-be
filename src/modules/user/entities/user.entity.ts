@@ -40,6 +40,9 @@ export class User extends BaseEntity {
   phone?: string | null;
 
   @Column({ nullable: true })
+  country?: string | null;
+
+  @Column({ nullable: true })
   image?: string | null;
 
   @Column({ type: 'simple-array', default: UserRole.PATIENT })
