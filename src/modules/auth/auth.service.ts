@@ -377,6 +377,7 @@ export class AuthService {
       gender: user.gender,
       dob: user.dob,
       phone: user.phone,
+      country: user.country,
       image: user.image,
       is_active: user.is_active,
       created_at: user.created_at,
@@ -413,6 +414,9 @@ export class AuthService {
     }
     if (dto.phone !== undefined) {
       user.phone = dto.phone;
+    }
+    if (dto.country !== undefined) {
+      user.country = dto.country;
     }
     if (dto.image !== undefined) {
       user.image = dto.image;

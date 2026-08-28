@@ -312,6 +312,16 @@ export class UpdateProfileDto {
   phone?: string | null;
 
   @ApiProperty({
+    description: 'User country of residence',
+    example: 'Nigeria',
+    required: false,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  country?: string | null;
+
+  @ApiProperty({
     description: 'User avatar image URL',
     example: 'https://res.cloudinary.com/ohealth/image/upload/v123/avatar.png',
     required: false,
