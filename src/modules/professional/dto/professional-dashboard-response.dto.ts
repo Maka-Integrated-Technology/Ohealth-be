@@ -56,7 +56,16 @@ class ProfessionalDashboardStatsDto {
   todays_appointments: number;
 
   @ApiProperty()
+  completed_todays_appointments: number;
+
+  @ApiProperty()
+  remaining_todays_appointments: number;
+
+  @ApiProperty()
   pending_appointments: number;
+
+  @ApiProperty()
+  pending_appointments_tomorrow: number;
 }
 
 class ProfessionalActivityResponseDto {
@@ -85,6 +94,12 @@ export class ProfessionalDashboardResponseDto {
 
   @ApiProperty({ type: [ProfessionalAppointmentResponseDto] })
   appointment_requests: ProfessionalAppointmentResponseDto[];
+
+  @ApiPropertyOptional({
+    type: ProfessionalAppointmentResponseDto,
+    nullable: true,
+  })
+  next_appointment: ProfessionalAppointmentResponseDto | null;
 
   @ApiProperty({ type: [ProfessionalActivityResponseDto] })
   activities: ProfessionalActivityResponseDto[];

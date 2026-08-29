@@ -213,10 +213,14 @@ export class ProfessionalService {
   ): Promise<ProfessionalDashboardResponseDto> {
     const professional = await this.findProfessionalByUserOrThrow(userId);
     const dashboardDate = this.normalizeDate(date);
+    const tomorrowDate = this.shiftDate(dashboardDate, 1);
 
     const [
       todaysAppointments,
       appointmentRequests,
+      pendingAppointmentCount,
+      pendingAppointmentsTomorrowCount,
+      nextAppointment,
       patientCount,
       currentPeriodPatientCount,
       previousPeriodPatientCount,
@@ -226,7 +230,7 @@ export class ProfessionalService {
         where: {
           professional_id: professional.id,
           booking_date: dashboardDate,
-          status: BookingStatus.CONFIRMED,
+          status: In([BookingStatus.CONFIRMED, BookingStatus.COMPLETED]),
         },
         relations: ['patient', 'professional', 'professional.user'],
         order: { booking_time: 'ASC' },
@@ -240,6 +244,20 @@ export class ProfessionalService {
         order: { created_at: 'DESC' },
         take: 10,
       }),
+      this.bookingRepository.count({
+        where: {
+          professional_id: professional.id,
+          status: BookingStatus.PENDING,
+        },
+      }),
+      this.bookingRepository.count({
+        where: {
+          professional_id: professional.id,
+          booking_date: tomorrowDate,
+          status: BookingStatus.PENDING,
+        },
+      }),
+      this.findNextAppointment(professional.id, dashboardDate),
       this.countDistinctPatients(professional.id),
       this.countDistinctPatientsInRange(
         professional.id,
@@ -257,6 +275,12 @@ export class ProfessionalService {
     ]);
 
     const setup = this.toSetupStatus(professional, availabilityCount);
+    const completedTodaysAppointments = todaysAppointments.filter(
+      (appointment) => appointment.status === BookingStatus.COMPLETED,
+    ).length;
+    const remainingTodaysAppointments = todaysAppointments.filter(
+      (appointment) => appointment.status === BookingStatus.CONFIRMED,
+    ).length;
 
     return {
       date: dashboardDate,
@@ -268,10 +292,16 @@ export class ProfessionalService {
           previousPeriodPatientCount,
         ),
         todays_appointments: todaysAppointments.length,
-        pending_appointments: appointmentRequests.length,
+        completed_todays_appointments: completedTodaysAppointments,
+        remaining_todays_appointments: remainingTodaysAppointments,
+        pending_appointments: pendingAppointmentCount,
+        pending_appointments_tomorrow: pendingAppointmentsTomorrowCount,
       },
       todays_appointments: todaysAppointments.map(this.toAppointmentDto),
       appointment_requests: appointmentRequests.map(this.toAppointmentDto),
+      next_appointment: nextAppointment
+        ? this.toAppointmentDto(nextAppointment)
+        : null,
       activities: this.buildDashboardActivities(professional),
       setup,
     };
@@ -851,6 +881,37 @@ export class ProfessionalService {
       .getRawOne<{ count: string }>();
 
     return parseInt(result?.count ?? '0', 10);
+  }
+
+  private async findNextAppointment(
+    professionalId: string,
+    dashboardDate: string,
+  ): Promise<Booking | null> {
+    const now = new Date();
+    const currentDate = now.toISOString().slice(0, 10);
+    const lowerBoundDate =
+      dashboardDate < currentDate ? currentDate : dashboardDate;
+    const lowerBoundTime =
+      lowerBoundDate === currentDate
+        ? now.toISOString().slice(11, 19)
+        : '00:00:00';
+
+    return this.bookingRepository
+      .createQueryBuilder('booking')
+      .leftJoinAndSelect('booking.patient', 'patient')
+      .leftJoinAndSelect('booking.professional', 'professional')
+      .leftJoinAndSelect('professional.user', 'professionalUser')
+      .where('booking.professional_id = :professionalId', { professionalId })
+      .andWhere('booking.status = :status', {
+        status: BookingStatus.CONFIRMED,
+      })
+      .andWhere(
+        '(booking.booking_date > :lowerBoundDate OR (booking.booking_date = :lowerBoundDate AND booking.booking_time >= :lowerBoundTime))',
+        { lowerBoundDate, lowerBoundTime },
+      )
+      .orderBy('booking.booking_date', 'ASC')
+      .addOrderBy('booking.booking_time', 'ASC')
+      .getOne();
   }
 
   private async findPatientBookingsForProfessional(

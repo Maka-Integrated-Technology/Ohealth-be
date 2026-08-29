@@ -19,6 +19,7 @@ describe('ProfessionalController access', () => {
       ProfessionalController.prototype.getMyPatientConsultations,
     ],
     ['getMyPatientNotes', ProfessionalController.prototype.getMyPatientNotes],
+    ['getMyDashboard', ProfessionalController.prototype.getMyDashboard],
     [
       'createMyPatientNote',
       ProfessionalController.prototype.createMyPatientNote,
