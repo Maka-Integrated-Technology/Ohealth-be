@@ -498,6 +498,7 @@ export class AuthService {
 
     let payload: {
       email?: string;
+      email_verified?: boolean;
       sub?: string;
       given_name?: string;
       family_name?: string;
@@ -515,7 +516,7 @@ export class AuthService {
       throw new UnauthorizedException(sysMsg.INVALID_GOOGLE_TOKEN);
     }
 
-    if (!payload?.email || !payload.sub) {
+    if (!payload?.email || !payload.sub || !payload.email_verified) {
       throw new UnauthorizedException(sysMsg.INVALID_GOOGLE_TOKEN);
     }
 
