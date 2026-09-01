@@ -89,6 +89,8 @@ a short-lived signed URL is issued.
 
 ## API principles
 
+- The HTTP API is mounted under `/api`. Do not add a version segment to the
+  route prefix; this service exposes one current contract.
 - Public DTOs never expose writable role, permission, verification, ownership,
   or account-status fields.
 - Authentication responses describe available contexts rather than frontend

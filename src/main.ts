@@ -18,10 +18,8 @@ async function bootstrap() {
   });
 
   const apiPrefix = configService.get<string>('API_PREFIX', 'api');
-  const apiVersion = configService.get<string>('API_VERSION', 'v1');
-  const globalPrefix = `${apiPrefix}/${apiVersion}`;
 
-  app.setGlobalPrefix(globalPrefix, {
+  app.setGlobalPrefix(apiPrefix, {
     exclude: ['docs', 'health'],
   });
 
