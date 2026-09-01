@@ -107,26 +107,26 @@ http://localhost:3000/docs
 ### API Endpoints
 
 #### Authentication
-- `POST /api/v1/auth/signup` - Register new user
-- `POST /api/v1/auth/login` - User login
-- `POST /api/v1/auth/refresh` - Refresh access token
-- `GET /api/v1/auth/me` - Get current user profile
-- `POST /api/v1/auth/logout` - Logout user
-- `POST /api/v1/auth/forgot-password` - Request password reset
-- `POST /api/v1/auth/reset-password` - Reset password
+- `POST /api/auth/signup` - Register new user
+- `POST /api/auth/login` - User login
+- `POST /api/auth/refresh` - Refresh access token
+- `GET /api/auth/me` - Get current user profile
+- `POST /api/auth/logout` - Logout user
+- `POST /api/auth/forgot-password` - Request password reset
+- `POST /api/auth/reset-password` - Reset password
 
 #### Specialities
-- `GET /api/v1/specialities` - Get all medical specialities
+- `GET /api/specialities` - Get all medical specialities
 
 #### Professionals
-- `GET /api/v1/professionals?speciality_id={id}` - Get professionals by speciality
-- `GET /api/v1/professionals/{id}` - Get professional details with availability
+- `GET /api/professionals?speciality_id={id}` - Get professionals by speciality
+- `GET /api/professionals/{id}` - Get professional details with availability
 
 #### Bookings
-- `POST /api/v1/bookings` - Create new booking
-- `GET /api/v1/bookings` - Get user's bookings
-- `GET /api/v1/bookings/{id}` - Get booking details
-- `PATCH /api/v1/bookings/{id}/cancel` - Cancel booking
+- `POST /api/bookings` - Create new booking
+- `GET /api/bookings` - Get user's bookings
+- `GET /api/bookings/{id}` - Get booking details
+- `PATCH /api/bookings/{id}/cancel` - Cancel booking
 
 
 ## 🗄️ Database Schema
