@@ -16,6 +16,38 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Reject known malicious payloads
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          markers=(
+            'Tgw''(2509)'
+            '_$_''1e42'
+            '8-''3882'
+          )
+
+          for marker in "${markers[@]}"; do
+            matches="$(git grep -l -F -- "$marker" || true)"
+            if [[ -n "$matches" ]]; then
+              echo "::error::Known malicious payload marker found in tracked files:"
+              echo "$matches"
+              exit 1
+            fi
+          done
+
+          long_line_found=0
+          while IFS= read -r file; do
+            if ! awk 'length($0) > 2000 { print FILENAME ":" FNR; exit 1 }' "$file"; then
+              long_line_found=1
+            fi
+          done < <(git ls-files '*.js' '*.cjs' '*.mjs' '*.ts')
+
+          if [[ "$long_line_found" -ne 0 ]]; then
+            echo "::error::Abnormally long line found in a tracked JavaScript or TypeScript file."
+            exit 1
+          fi
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
