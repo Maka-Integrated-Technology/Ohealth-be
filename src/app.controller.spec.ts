@@ -32,4 +32,10 @@ describe('AppController', () => {
       expect(appController.getHello()).toBe('Hello World!');
     });
   });
+
+  describe('health', () => {
+    it('should report that the application is healthy', () => {
+      expect(appController.getHealth()).toEqual({ status: 'ok' });
+    });
+  });
 });

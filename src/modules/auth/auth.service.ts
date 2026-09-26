@@ -377,6 +377,7 @@ export class AuthService {
       gender: user.gender,
       dob: user.dob,
       phone: user.phone,
+      country: user.country,
       image: user.image,
       is_active: user.is_active,
       created_at: user.created_at,
@@ -413,6 +414,9 @@ export class AuthService {
     }
     if (dto.phone !== undefined) {
       user.phone = dto.phone;
+    }
+    if (dto.country !== undefined) {
+      user.country = dto.country;
     }
     if (dto.image !== undefined) {
       user.image = dto.image;
@@ -463,11 +467,13 @@ export class AuthService {
     return { message: sysMsg.PASSWORD_CHANGED };
   }
 
-  async logout(logoutPayload: LogoutDto) {
+  // `userId` is always the authenticated caller. Trusting a user id from the
+  // request body let anyone revoke another account's session.
+  async logout(userId: string, logoutPayload: LogoutDto) {
     const session = await this.sessionRepository.findOne({
       where: {
         session_id: logoutPayload.session_id,
-        user_id: logoutPayload.user_id,
+        user_id: userId,
         revoked_at: IsNull(),
       },
     });
@@ -492,6 +498,7 @@ export class AuthService {
 
     let payload: {
       email?: string;
+      email_verified?: boolean;
       sub?: string;
       given_name?: string;
       family_name?: string;
@@ -509,7 +516,7 @@ export class AuthService {
       throw new UnauthorizedException(sysMsg.INVALID_GOOGLE_TOKEN);
     }
 
-    if (!payload?.email || !payload.sub) {
+    if (!payload?.email || !payload.sub || !payload.email_verified) {
       throw new UnauthorizedException(sysMsg.INVALID_GOOGLE_TOKEN);
     }
 
