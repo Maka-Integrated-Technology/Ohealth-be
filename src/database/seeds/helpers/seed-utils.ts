@@ -1,6 +1,16 @@
 import * as bcrypt from 'bcrypt';
 import { Repository } from 'typeorm';
 
+import { LegalAcceptance } from 'src/modules/identity/entities/legal-acceptance.entity';
+import { UserPersona } from 'src/modules/identity/entities/user-persona.entity';
+import { LegalDocumentType } from 'src/modules/identity/enums/legal-document-type.enum';
+import { UserPersonaType } from 'src/modules/identity/enums/user-persona-type.enum';
+import { OrganizationMembership } from 'src/modules/organization/entities/organization-membership.entity';
+import { Organization } from 'src/modules/organization/entities/organization.entity';
+import { OrganizationMembershipRole } from 'src/modules/organization/enums/organization-membership-role.enum';
+import { OrganizationMembershipStatus } from 'src/modules/organization/enums/organization-membership-status.enum';
+import { OrganizationType } from 'src/modules/organization/enums/organization-type.enum';
+import { OrganizationVerificationStatus } from 'src/modules/organization/enums/organization-verification-status.enum';
 import { ProfessionalAvailability } from 'src/modules/professional/entities/professional-availability.entity';
 import { ProfessionalReview } from 'src/modules/professional/entities/professional-review.entity';
 import {
@@ -9,6 +19,7 @@ import {
 } from 'src/modules/professional/entities/professional.entity';
 import { Speciality } from 'src/modules/speciality/entities/speciality.entity';
 import { User } from 'src/modules/user/entities/user.entity';
+import { AccountStatus } from 'src/modules/user/enums/account-status.enum';
 import { UserRole } from 'src/modules/user/enums/user-role.enum';
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
@@ -41,6 +52,10 @@ interface IFindOrCreateResult<T> {
   created: boolean;
 }
 
+// Seeded accounts skip the verification challenge and land directly in the
+// `active` lifecycle state. `is_active`/`is_verified` are legacy mirrors of
+// `account_status` and are written only so the legacy guards keep working
+// until they are removed (docs/05-rework-plan.md, step 7).
 export async function findOrCreateUser(
   repo: Repository<User>,
   data: {
@@ -51,21 +66,142 @@ export async function findOrCreateUser(
     role: UserRole[];
   },
 ): Promise<IFindOrCreateResult<User>> {
-  const existing = await repo.findOne({ where: { email: data.email } });
+  const email = data.email.trim().toLowerCase();
+  const existing = await repo.findOne({ where: { email } });
   if (existing) {
     return { entity: existing, created: false };
   }
   const password = await hashPassword(data.password_plain);
   const user = repo.create({
-    email: data.email,
+    email,
     password,
     first_name: data.first_name,
     last_name: data.last_name,
     role: data.role,
+    account_status: AccountStatus.ACTIVE,
+    email_verified_at: new Date(),
     is_active: true,
     is_verified: true,
   });
   const saved = await repo.save(user);
+  return { entity: saved, created: true };
+}
+
+// ── Identity helpers ──────────────────────────────────────────────────────────
+
+// Personas describe how a human uses OHealth. They are not authorization roles
+// and never imply organization access (docs/03-domain-model.md).
+export async function ensureUserPersona(
+  repo: Repository<UserPersona>,
+  data: { user_id: string; persona_type: UserPersonaType },
+): Promise<IFindOrCreateResult<UserPersona>> {
+  const existing = await repo.findOne({
+    where: { user_id: data.user_id, persona_type: data.persona_type },
+  });
+  if (existing) {
+    return { entity: existing, created: false };
+  }
+  const persona = repo.create({
+    user_id: data.user_id,
+    persona_type: data.persona_type,
+    is_active: true,
+  });
+  const saved = await repo.save(persona);
+  return { entity: saved, created: true };
+}
+
+// Legal acceptance is versioned evidence, not a boolean on the signup request.
+export async function ensureLegalAcceptance(
+  repo: Repository<LegalAcceptance>,
+  data: {
+    user_id: string;
+    document_type: LegalDocumentType;
+    document_version: string;
+  },
+): Promise<IFindOrCreateResult<LegalAcceptance>> {
+  const existing = await repo.findOne({
+    where: {
+      user_id: data.user_id,
+      document_type: data.document_type,
+      document_version: data.document_version,
+    },
+  });
+  if (existing) {
+    return { entity: existing, created: false };
+  }
+  const acceptance = repo.create({
+    user_id: data.user_id,
+    document_type: data.document_type,
+    document_version: data.document_version,
+    accepted_at: new Date(),
+    ip_address: null,
+    user_agent: 'ohealth-seed',
+  });
+  const saved = await repo.save(acceptance);
+  return { entity: saved, created: true };
+}
+
+// ── Organization helpers ──────────────────────────────────────────────────────
+
+export async function findOrCreateOrganization(
+  repo: Repository<Organization>,
+  data: {
+    organization_type: OrganizationType;
+    name: string;
+    registration_number: string;
+    location: string;
+    contact_email: string;
+    contact_phone: string;
+    verification_status: OrganizationVerificationStatus;
+  },
+): Promise<IFindOrCreateResult<Organization>> {
+  const existing = await repo.findOne({
+    where: { registration_number: data.registration_number },
+  });
+  if (existing) {
+    return { entity: existing, created: false };
+  }
+  const organization = repo.create({
+    organization_type: data.organization_type,
+    name: data.name,
+    registration_number: data.registration_number,
+    location: data.location,
+    contact_email: data.contact_email,
+    contact_phone: data.contact_phone,
+    verification_status: data.verification_status,
+    rejection_reason: null,
+    is_active: true,
+  });
+  const saved = await repo.save(organization);
+  return { entity: saved, created: true };
+}
+
+// Organization access is always scoped to one organization through a
+// membership — never through a global user role.
+export async function ensureOrganizationMembership(
+  repo: Repository<OrganizationMembership>,
+  data: {
+    organization_id: string;
+    user_id: string;
+    role: OrganizationMembershipRole;
+  },
+): Promise<IFindOrCreateResult<OrganizationMembership>> {
+  const existing = await repo.findOne({
+    where: { organization_id: data.organization_id, user_id: data.user_id },
+  });
+  if (existing) {
+    return { entity: existing, created: false };
+  }
+  const membership = repo.create({
+    organization_id: data.organization_id,
+    user_id: data.user_id,
+    role: data.role,
+    status: OrganizationMembershipStatus.ACTIVE,
+    permission_overrides: [],
+    invited_by_user_id: null,
+    joined_at: new Date(),
+  });
+  const saved = await repo.save(membership);
   return { entity: saved, created: true };
 }
 

@@ -27,4 +27,4 @@ EXPOSE 3000
 
 # Apply pending migrations against the compiled data-source, then start the API.
 # typeorm + dotenv are runtime deps, so they survive `npm prune --omit=dev`.
-CMD ["sh", "-c", "node node_modules/typeorm/cli.js migration:run -d dist/database/data-source.js && node dist/main"]
+CMD ["sh", "-c", "npm run migration:run:prod && exec npm run start:prod"]

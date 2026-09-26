@@ -8,6 +8,7 @@ dotenv.config();
 const { database } = config();
 const dataSource = new DataSource({
   type: 'postgres',
+  url: database.url,
   host: database.host,
   port: database.port || parseInt('5432'),
   username: database.user,

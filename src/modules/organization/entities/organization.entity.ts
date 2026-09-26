@@ -5,6 +5,7 @@ import { OrganizationType } from '../enums/organization-type.enum';
 import { OrganizationVerificationStatus } from '../enums/organization-verification-status.enum';
 
 import { OrganizationAdmin } from './organization-admin.entity';
+import { OrganizationMembership } from './organization-membership.entity';
 import { OrganizationStatusHistory } from './organization-status-history.entity';
 
 @Unique('UQ_organizations_registration_number', ['registration_number'])
@@ -56,6 +57,12 @@ export class Organization extends BaseEntity {
 
   @OneToMany(() => OrganizationAdmin, (admin) => admin.organization)
   administrators: OrganizationAdmin[];
+
+  @OneToMany(
+    () => OrganizationMembership,
+    (membership) => membership.organization,
+  )
+  memberships: OrganizationMembership[];
 
   @OneToMany(() => OrganizationStatusHistory, (history) => history.organization)
   status_history: OrganizationStatusHistory[];

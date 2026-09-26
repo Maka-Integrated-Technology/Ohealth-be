@@ -1,7 +1,25 @@
+import { LegalDocumentType } from 'src/modules/identity/enums/legal-document-type.enum';
+import { UserPersonaType } from 'src/modules/identity/enums/user-persona-type.enum';
+import { OrganizationMembershipRole } from 'src/modules/organization/enums/organization-membership-role.enum';
+import { OrganizationType } from 'src/modules/organization/enums/organization-type.enum';
+import { OrganizationVerificationStatus } from 'src/modules/organization/enums/organization-verification-status.enum';
 import { ConsultationType } from 'src/modules/professional/entities/professional.entity';
 import { UserRole } from 'src/modules/user/enums/user-role.enum';
 
 export const DEMO_SEED_PASSWORD = 'Password123!';
+
+// Versions recorded against every seeded account, so the legal-acceptance
+// evidence trail is populated the same way registration will populate it.
+export const SEED_LEGAL_DOCUMENT_VERSIONS: ReadonlyArray<{
+  document_type: LegalDocumentType;
+  document_version: string;
+}> = [
+  {
+    document_type: LegalDocumentType.TERMS_OF_SERVICE,
+    document_version: '1.0',
+  },
+  { document_type: LegalDocumentType.PRIVACY_POLICY, document_version: '1.0' },
+];
 
 export interface ISpecialitySeedData {
   name: string;
@@ -14,6 +32,9 @@ export interface IUserSeedData {
   email: string;
   first_name: string;
   last_name: string;
+  // Authoritative under the reworked identity model.
+  personas: UserPersonaType[];
+  // Legacy role array, retained only while the legacy guards still read it.
   role: UserRole[];
 }
 
@@ -51,6 +72,7 @@ export const DEMO_PATIENT: IUserSeedData = {
   email: 'patient.demo@healthbridge.test',
   first_name: 'Olivia',
   last_name: 'Jane',
+  personas: [UserPersonaType.PATIENT],
   role: [UserRole.PATIENT],
 };
 
@@ -88,9 +110,9 @@ export const SEED_SPECIALITIES: ISpecialitySeedData[] = [
 ];
 
 // ── Professional users + profiles ─────────────────────────────────────────────
-// Note: the Nurse speciality uses LAB_PROFESSIONAL as the user role because
-// UserRole has no NURSE variant. The speciality name "Nurse" is separate from
-// the user account role.
+// Every entry carries the healthcare-professional persona; the discipline lives
+// in the speciality, never in the persona or the legacy role. The legacy role
+// values below exist only to satisfy the role guards that are still in place.
 
 export const SEED_PROFESSIONALS: IProfessionalEntrySeedData[] = [
   // ── General Doctor ────────────────────────────────────────────────────────
@@ -99,6 +121,7 @@ export const SEED_PROFESSIONALS: IProfessionalEntrySeedData[] = [
       email: 'pro.general.adebayo@healthbridge.test',
       first_name: 'Adebayo',
       last_name: 'Okafor',
+      personas: [UserPersonaType.HEALTHCARE_PROFESSIONAL],
       role: [UserRole.DOCTOR],
     },
     profile: {
@@ -118,6 +141,7 @@ export const SEED_PROFESSIONALS: IProfessionalEntrySeedData[] = [
       email: 'pro.general.aisha@healthbridge.test',
       first_name: 'Aisha',
       last_name: 'Bello',
+      personas: [UserPersonaType.HEALTHCARE_PROFESSIONAL],
       role: [UserRole.DOCTOR],
     },
     profile: {
@@ -137,6 +161,7 @@ export const SEED_PROFESSIONALS: IProfessionalEntrySeedData[] = [
       email: 'pro.general.chisom@healthbridge.test',
       first_name: 'Chisom',
       last_name: 'Obi',
+      personas: [UserPersonaType.HEALTHCARE_PROFESSIONAL],
       role: [UserRole.DOCTOR],
     },
     profile: {
@@ -151,12 +176,13 @@ export const SEED_PROFESSIONALS: IProfessionalEntrySeedData[] = [
     },
     speciality_name: 'General Doctor',
   },
-  // ── Nurse (LAB_PROFESSIONAL role — UserRole has no NURSE variant) ─────────
+  // ── Nurse (legacy role LAB_PROFESSIONAL — UserRole has no NURSE variant) ──
   {
     user: {
       email: 'pro.nurse.fatima@healthbridge.test',
       first_name: 'Fatima',
       last_name: 'Bello',
+      personas: [UserPersonaType.HEALTHCARE_PROFESSIONAL],
       role: [UserRole.LAB_PROFESSIONAL],
     },
     profile: {
@@ -176,6 +202,7 @@ export const SEED_PROFESSIONALS: IProfessionalEntrySeedData[] = [
       email: 'pro.nurse.daniel@healthbridge.test',
       first_name: 'Daniel',
       last_name: 'Mensah',
+      personas: [UserPersonaType.HEALTHCARE_PROFESSIONAL],
       role: [UserRole.LAB_PROFESSIONAL],
     },
     profile: {
@@ -196,6 +223,7 @@ export const SEED_PROFESSIONALS: IProfessionalEntrySeedData[] = [
       email: 'pro.nutritionist.ngozi@healthbridge.test',
       first_name: 'Ngozi',
       last_name: 'Eze',
+      personas: [UserPersonaType.HEALTHCARE_PROFESSIONAL],
       role: [UserRole.DOCTOR],
     },
     profile: {
@@ -215,6 +243,7 @@ export const SEED_PROFESSIONALS: IProfessionalEntrySeedData[] = [
       email: 'pro.nutritionist.maya@healthbridge.test',
       first_name: 'Maya',
       last_name: 'Okonkwo',
+      personas: [UserPersonaType.HEALTHCARE_PROFESSIONAL],
       role: [UserRole.THERAPIST],
     },
     profile: {
@@ -235,6 +264,7 @@ export const SEED_PROFESSIONALS: IProfessionalEntrySeedData[] = [
       email: 'pro.counsellor.emeka@healthbridge.test',
       first_name: 'Emeka',
       last_name: 'Nwosu',
+      personas: [UserPersonaType.HEALTHCARE_PROFESSIONAL],
       role: [UserRole.COUNSELLOR],
     },
     profile: {
@@ -254,6 +284,7 @@ export const SEED_PROFESSIONALS: IProfessionalEntrySeedData[] = [
       email: 'pro.counsellor.tola@healthbridge.test',
       first_name: 'Tola',
       last_name: 'Adeyemi',
+      personas: [UserPersonaType.HEALTHCARE_PROFESSIONAL],
       role: [UserRole.COUNSELLOR],
     },
     profile: {
@@ -277,18 +308,21 @@ export const SEED_REVIEWERS: IUserSeedData[] = [
     email: 'reviewer.amara@healthbridge.test',
     first_name: 'Amara',
     last_name: 'Osei',
+    personas: [UserPersonaType.PATIENT],
     role: [UserRole.PATIENT],
   },
   {
     email: 'reviewer.john@healthbridge.test',
     first_name: 'John',
     last_name: 'Taiwo',
+    personas: [UserPersonaType.PATIENT],
     role: [UserRole.PATIENT],
   },
   {
     email: 'reviewer.zainab@healthbridge.test',
     first_name: 'Zainab',
     last_name: 'Musa',
+    personas: [UserPersonaType.PATIENT],
     role: [UserRole.PATIENT],
   },
 ];
@@ -440,3 +474,115 @@ export const SEED_REVIEWS: IReviewSeedData[] = [
     comment: 'Great experience, very helpful session.',
   },
 ];
+
+// ── Organizations and memberships ─────────────────────────────────────────────
+// Organization access is modelled purely through memberships. The seeded
+// organization users deliberately include a human who holds both personas and
+// belongs to two organizations with different roles — the case the rework must
+// support without a second account (docs/03-domain-model.md).
+
+export interface IOrganizationSeedData {
+  organization_type: OrganizationType;
+  name: string;
+  registration_number: string;
+  location: string;
+  contact_email: string;
+  contact_phone: string;
+  verification_status: OrganizationVerificationStatus;
+}
+
+export interface IOrganizationMembershipSeedData {
+  user_email: string;
+  organization_registration_number: string;
+  role: OrganizationMembershipRole;
+}
+
+export const DEMO_HOSPITAL_REGISTRATION_NUMBER = 'RC-SEED-HOSPITAL-001';
+export const DEMO_LABORATORY_REGISTRATION_NUMBER = 'RC-SEED-LAB-001';
+
+export const SEED_ORGANIZATIONS: IOrganizationSeedData[] = [
+  {
+    organization_type: OrganizationType.HOSPITAL,
+    name: 'Healthbridge General Hospital',
+    registration_number: DEMO_HOSPITAL_REGISTRATION_NUMBER,
+    location: '14 Marina Road, Lagos Island, Lagos',
+    contact_email: 'contact@hospital.healthbridge.test',
+    contact_phone: '+2348000000001',
+    verification_status: OrganizationVerificationStatus.APPROVED,
+  },
+  {
+    organization_type: OrganizationType.LABORATORY,
+    name: 'Healthbridge Diagnostics Laboratory',
+    registration_number: DEMO_LABORATORY_REGISTRATION_NUMBER,
+    location: '8 Awolowo Way, Ikeja, Lagos',
+    contact_email: 'contact@lab.healthbridge.test',
+    contact_phone: '+2348000000002',
+    verification_status: OrganizationVerificationStatus.APPROVED,
+  },
+];
+
+// The hospital owner administers an organization without holding any healthcare
+// persona — organization role and persona are independent dimensions.
+export const SEED_ORGANIZATION_USERS: IUserSeedData[] = [
+  {
+    email: 'org.owner.hospital@healthbridge.test',
+    first_name: 'Ifeoma',
+    last_name: 'Nwachukwu',
+    personas: [],
+    role: [UserRole.HOSPITAL_ADMIN],
+  },
+  {
+    email: 'org.admin.hospital@healthbridge.test',
+    first_name: 'Samuel',
+    last_name: 'Adeleke',
+    personas: [],
+    role: [UserRole.HOSPITAL_ADMIN],
+  },
+  {
+    email: 'org.owner.lab@healthbridge.test',
+    first_name: 'Grace',
+    last_name: 'Adekunle',
+    personas: [],
+    role: [UserRole.LAB_ADMIN],
+  },
+  // Dual persona, two organizations, two different membership roles.
+  {
+    email: 'multi.persona@healthbridge.test',
+    first_name: 'Chidera',
+    last_name: 'Umeh',
+    personas: [
+      UserPersonaType.PATIENT,
+      UserPersonaType.HEALTHCARE_PROFESSIONAL,
+    ],
+    role: [UserRole.DOCTOR],
+  },
+];
+
+export const SEED_ORGANIZATION_MEMBERSHIPS: IOrganizationMembershipSeedData[] =
+  [
+    {
+      user_email: 'org.owner.hospital@healthbridge.test',
+      organization_registration_number: DEMO_HOSPITAL_REGISTRATION_NUMBER,
+      role: OrganizationMembershipRole.OWNER,
+    },
+    {
+      user_email: 'org.admin.hospital@healthbridge.test',
+      organization_registration_number: DEMO_HOSPITAL_REGISTRATION_NUMBER,
+      role: OrganizationMembershipRole.ADMIN,
+    },
+    {
+      user_email: 'org.owner.lab@healthbridge.test',
+      organization_registration_number: DEMO_LABORATORY_REGISTRATION_NUMBER,
+      role: OrganizationMembershipRole.OWNER,
+    },
+    {
+      user_email: 'multi.persona@healthbridge.test',
+      organization_registration_number: DEMO_HOSPITAL_REGISTRATION_NUMBER,
+      role: OrganizationMembershipRole.MEMBER,
+    },
+    {
+      user_email: 'multi.persona@healthbridge.test',
+      organization_registration_number: DEMO_LABORATORY_REGISTRATION_NUMBER,
+      role: OrganizationMembershipRole.ADMIN,
+    },
+  ];
