@@ -9,6 +9,7 @@ import { User } from '../user/entities/user.entity';
 
 import { OrganizationAdmin } from './entities/organization-admin.entity';
 import { OrganizationDocument } from './entities/organization-document.entity';
+import { OrganizationMembership } from './entities/organization-membership.entity';
 import { OrganizationStatusHistory } from './entities/organization-status-history.entity';
 import { Organization } from './entities/organization.entity';
 import { OrganizationApprovedGuard } from './guards/organization-approved.guard';
@@ -26,6 +27,7 @@ import { OrganizationController } from './organization.controller';
       Organization,
       OrganizationAdmin,
       OrganizationDocument,
+      OrganizationMembership,
       OrganizationStatusHistory,
       User,
     ]),
@@ -39,6 +41,7 @@ import { OrganizationController } from './organization.controller';
     OrganizationApprovedGuard,
   ],
   exports: [
+    TypeOrmModule,
     OrganizationOnboardingService,
     OrganizationVerificationService,
     OrganizationApprovedGuard,

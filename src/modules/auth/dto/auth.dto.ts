@@ -247,14 +247,6 @@ export class LogoutDto {
   @IsUUID()
   @IsNotEmpty()
   session_id: string;
-
-  @ApiProperty({
-    example: 'user-id-123',
-    description: 'User id',
-  })
-  @IsUUID()
-  @IsNotEmpty()
-  user_id: string;
 }
 
 export class UpdateProfileDto {
@@ -318,6 +310,16 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   phone?: string | null;
+
+  @ApiProperty({
+    description: 'User country of residence',
+    example: 'Nigeria',
+    required: false,
+    nullable: true,
+  })
+  @IsOptional()
+  @IsString()
+  country?: string | null;
 
   @ApiProperty({
     description: 'User avatar image URL',

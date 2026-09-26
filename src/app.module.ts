@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { APP_FILTER, APP_INTERCEPTOR } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { AppController } from './app.controller';
@@ -11,11 +11,14 @@ import { LoggerModule } from './common/logger.module';
 import configuration from './config/config';
 import { LoggingInterceptor } from './middleware/logging.interceptor';
 import { AuthModule } from './modules/auth/auth.module';
+import { JwtAuthGuard } from './modules/auth/guards/jwt-auth.guard';
 import { BookingModule } from './modules/booking/booking.module';
 import { ChatModule } from './modules/chat/chat.module';
+import { IdentityModule } from './modules/identity/identity.module';
 import { LaboratoryModule } from './modules/laboratory/laboratory.module';
 import { OrganizationModule } from './modules/organization/organization.module';
 import { PharmacyModule } from './modules/pharmacy/pharmacy.module';
+import { PlatformEventsModule } from './modules/platform-events/platform-events.module';
 import { ProfessionalModule } from './modules/professional/professional.module';
 import { SpecialityModule } from './modules/speciality/speciality.module';
 
@@ -30,31 +33,46 @@ import { SpecialityModule } from './modules/speciality/speciality.module';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        type: 'postgres',
-        host: config.get<string>('DB_HOST'),
-        port: config.get<number>('DB_PORT'),
-        username: config.get<string>('DB_USER'),
-        password: String(config.get<string>('DB_PASS') || 'postgres'),
-        database: config.get<string>('DB_NAME'),
-        autoLoadEntities: true,
-        migrationsRun: false,
-        synchronize: false,
-      }),
+      useFactory: (config: ConfigService) => {
+        const ssl = config.get<boolean>('database.ssl');
+
+        return {
+          type: 'postgres',
+          url: config.get<string>('database.url'),
+          host: config.get<string>('DB_HOST'),
+          port: config.get<number>('DB_PORT'),
+          username: config.get<string>('DB_USER'),
+          password: String(config.get<string>('DB_PASS') || 'postgres'),
+          database: config.get<string>('DB_NAME'),
+          ssl: ssl ? { rejectUnauthorized: false } : false,
+          autoLoadEntities: true,
+          migrationsRun: false,
+          synchronize: false,
+        };
+      },
     }),
     AuthModule,
     SpecialityModule,
     ProfessionalModule,
     BookingModule,
     ChatModule,
+    IdentityModule,
     LaboratoryModule,
     OrganizationModule,
     PharmacyModule,
+    PlatformEventsModule,
   ],
   controllers: [AppController],
   providers: [
     AppService,
     LoggingInterceptor,
+    // Authentication is deny-by-default: every route requires a valid access
+    // token unless it is explicitly marked with @Public(). Without this, a
+    // route that simply forgets @UseGuards is silently unauthenticated.
+    {
+      provide: APP_GUARD,
+      useClass: JwtAuthGuard,
+    },
     {
       provide: APP_INTERCEPTOR,
       useClass: TransformInterceptor,

@@ -10,12 +10,13 @@ import {
   UseGuards,
   Req,
 } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import { Public } from '../../common/decorators/public.decorator';
-import { IRequestWithUser } from '../../common/types';
+import { IAuthUser, IRequestWithUser } from '../../common/types';
 
 import { AuthService } from './auth.service';
+import { CurrentUser } from './decorators/current-user.decorator';
 import {
   ActivateAccountDocs,
   ChangePasswordDocs,
@@ -147,10 +148,12 @@ export class AuthController {
     return this.authService.changePassword(req, changePasswordDto);
   }
 
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @LogoutDocs()
-  async logout(@Body() logoutDto: LogoutDto) {
-    return this.authService.logout(logoutDto);
+  async logout(@CurrentUser() user: IAuthUser, @Body() logoutDto: LogoutDto) {
+    return this.authService.logout(user.id, logoutDto);
   }
 }
