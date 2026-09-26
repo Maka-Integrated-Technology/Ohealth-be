@@ -1,6 +1,8 @@
 name: CI Pipeline
 
 on:
+  push:
+    branches: [dev, staging, main]
   pull_request:
     branches: [dev, staging, main]
 
@@ -14,42 +16,20 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
-      - name: Reject known malicious payloads
+      - name: Run supply-chain security scan
         shell: bash
-        run: |
-          set -euo pipefail
+        run: bash scripts/security/supply-chain-scan.sh
 
-          markers=(
-            'Tgw''(2509)'
-            '_$_''1e42'
-            '8-''3882'
-          )
-
-          for marker in "${markers[@]}"; do
-            matches="$(git grep -l -F -- "$marker" || true)"
-            if [[ -n "$matches" ]]; then
-              echo "::error::Known malicious payload marker found in tracked files:"
-              echo "$matches"
-              exit 1
-            fi
-          done
-
-          long_line_found=0
-          while IFS= read -r file; do
-            if ! awk 'length($0) > 2000 { print FILENAME ":" FNR; exit 1 }' "$file"; then
-              long_line_found=1
-            fi
-          done < <(git ls-files '*.js' '*.cjs' '*.mjs' '*.ts')
-
-          if [[ "$long_line_found" -ne 0 ]]; then
-            echo "::error::Abnormally long line found in a tracked JavaScript or TypeScript file."
-            exit 1
-          fi
+      - name: Verify supply-chain scanner controls
+        shell: bash
+        run: bash scripts/security/supply-chain-scan.test.sh
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
           cache: 'npm'
