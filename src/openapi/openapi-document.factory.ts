@@ -5,6 +5,13 @@ import {
 } from '@nestjs/swagger';
 
 import {
+  ApiErrorResponseDto,
+  ApiSuccessResponseDto,
+} from '../common/dto/response.dto';
+
+import { transformOpenApiDocument } from './openapi-document.transformer';
+import { assertOpenApiDocumentComplete } from './openapi-document.validator';
+import {
   OPENAPI_DOCUMENT_DESCRIPTION,
   OPENAPI_DOCUMENT_TITLE,
   OPENAPI_DOCUMENT_VERSION,
@@ -35,7 +42,15 @@ export function createOpenApiDocument(app: INestApplication): OpenAPIObject {
     })
     .build();
 
-  return SwaggerModule.createDocument(app, configuration);
+  const document = SwaggerModule.createDocument(app, configuration, {
+    extraModels: [ApiSuccessResponseDto, ApiErrorResponseDto],
+    operationIdFactory: (controllerKey, methodKey) =>
+      `${controllerKey}_${methodKey}`,
+  });
+
+  transformOpenApiDocument(document);
+  assertOpenApiDocumentComplete(document);
+  return document;
 }
 
 export function mountOpenApiDocumentation(

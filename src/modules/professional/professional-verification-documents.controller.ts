@@ -15,18 +15,24 @@ import {
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
+  ApiBadRequestResponse,
   ApiBearerAuth,
+  ApiBody,
+  ApiConsumes,
   ApiOperation,
   ApiParam,
+  ApiPayloadTooLargeResponse,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
 
+import { ApiMessageResponseDto } from '../../common/dto/response.dto';
 import { IMulterFile, IRequestWithUser } from '../../common/types';
 import {
   ALLOWED_PROFESSIONAL_VERIFICATION_DOCUMENT_MIME_TYPES,
   MAX_PROFESSIONAL_VERIFICATION_DOCUMENT_SIZE,
 } from '../../constants/file-upload.constants';
+import { createFileUploadSchema } from '../../openapi/openapi-upload-schema';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -87,6 +93,13 @@ export class ProfessionalVerificationDocumentsController {
   )
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Upload a professional verification document' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: createFileUploadSchema({
+      allowedMimeTypes: ALLOWED_PROFESSIONAL_VERIFICATION_DOCUMENT_MIME_TYPES,
+      maxSizeBytes: MAX_PROFESSIONAL_VERIFICATION_DOCUMENT_SIZE,
+    }),
+  })
   @ApiParam({
     name: 'documentType',
     enum: ProfessionalVerificationDocumentType,
@@ -95,6 +108,8 @@ export class ProfessionalVerificationDocumentsController {
     status: 200,
     type: ProfessionalVerificationDocumentResponseDto,
   })
+  @ApiBadRequestResponse({ description: 'Invalid document type or file' })
+  @ApiPayloadTooLargeResponse({ description: 'File exceeds size limit' })
   uploadMyDocument(
     @CurrentUser() user: IRequestWithUser['user'],
     @Param(
@@ -154,6 +169,7 @@ export class ProfessionalVerificationDocumentsController {
   @Delete('me/verification-documents/:documentType')
   @Roles(...PROFESSIONAL_ACCESS_ROLES)
   @ApiOperation({ summary: 'Delete an uploaded verification document' })
+  @ApiResponse({ status: 200, type: ApiMessageResponseDto })
   @ApiParam({
     name: 'documentType',
     enum: ProfessionalVerificationDocumentType,

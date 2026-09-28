@@ -12,7 +12,17 @@ import {
   ApiPayloadTooLargeResponse,
 } from '@nestjs/swagger';
 
-import { LaboratoryVerificationDocumentResponseDto } from '../dto/laboratory-verification-document-response.dto';
+import { ApiMessageResponseDto } from '../../../common/dto/response.dto';
+import {
+  ALLOWED_LAB_VERIFICATION_DOCUMENT_MIME_TYPES,
+  MAX_LAB_VERIFICATION_DOCUMENT_SIZE,
+} from '../../../constants/file-upload.constants';
+import { createFileUploadSchema } from '../../../openapi/openapi-upload-schema';
+import {
+  LaboratoryVerificationDocumentDownloadDto,
+  LaboratoryVerificationDocumentResponseDto,
+  LaboratoryVerificationDocumentsStatusDto,
+} from '../dto/laboratory-verification-document-response.dto';
 import { LaboratoryVerificationDocumentType } from '../enums/laboratory-verification-document-type.enum';
 
 export const UploadLaboratoryVerificationDocumentDocs = () =>
@@ -27,16 +37,10 @@ export const UploadLaboratoryVerificationDocumentDocs = () =>
     }),
     ApiConsumes('multipart/form-data'),
     ApiBody({
-      schema: {
-        type: 'object',
-        required: ['file'],
-        properties: {
-          file: {
-            type: 'string',
-            format: 'binary',
-          },
-        },
-      },
+      schema: createFileUploadSchema({
+        allowedMimeTypes: ALLOWED_LAB_VERIFICATION_DOCUMENT_MIME_TYPES,
+        maxSizeBytes: MAX_LAB_VERIFICATION_DOCUMENT_SIZE,
+      }),
     }),
     ApiOkResponse({ type: LaboratoryVerificationDocumentResponseDto }),
     ApiBadRequestResponse({ description: 'Invalid document type or file' }),
@@ -56,6 +60,7 @@ export const ListMyLaboratoryVerificationDocumentsDocs = () =>
     ApiOkResponse({
       description:
         'Returns uploaded documents plus required document types still missing.',
+      type: LaboratoryVerificationDocumentsStatusDto,
     }),
   );
 
@@ -69,7 +74,10 @@ export const DownloadMyLaboratoryVerificationDocumentDocs = () =>
       name: 'documentType',
       enum: LaboratoryVerificationDocumentType,
     }),
-    ApiOkResponse({ description: 'Signed download URL created' }),
+    ApiOkResponse({
+      description: 'Signed download URL created',
+      type: LaboratoryVerificationDocumentDownloadDto,
+    }),
     ApiNotFoundResponse({ description: 'Document not found' }),
   );
 
@@ -83,7 +91,10 @@ export const DeleteMyLaboratoryVerificationDocumentDocs = () =>
       name: 'documentType',
       enum: LaboratoryVerificationDocumentType,
     }),
-    ApiOkResponse({ description: 'Document deleted' }),
+    ApiOkResponse({
+      description: 'Document deleted',
+      type: ApiMessageResponseDto,
+    }),
     ApiForbiddenResponse({
       description:
         'Document changes are not allowed after the application enters review',
@@ -100,6 +111,7 @@ export const ListLaboratoryVerificationDocumentsForAdminDocs = () =>
     ApiOkResponse({
       description:
         'Returns uploaded documents plus required document types still missing.',
+      type: LaboratoryVerificationDocumentsStatusDto,
     }),
   );
 
@@ -114,6 +126,9 @@ export const DownloadLaboratoryVerificationDocumentForAdminDocs = () =>
       name: 'documentType',
       enum: LaboratoryVerificationDocumentType,
     }),
-    ApiOkResponse({ description: 'Signed download URL created' }),
+    ApiOkResponse({
+      description: 'Signed download URL created',
+      type: LaboratoryVerificationDocumentDownloadDto,
+    }),
     ApiNotFoundResponse({ description: 'Document not found' }),
   );

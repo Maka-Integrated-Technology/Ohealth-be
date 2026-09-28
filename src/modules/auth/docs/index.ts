@@ -7,3 +7,5 @@ export * from './activate-account.doc';
 export * from './logout.doc';
 export * from './update-profile.doc';
 export * from './change-password.doc';
+
+export * from './account-verification.doc';
