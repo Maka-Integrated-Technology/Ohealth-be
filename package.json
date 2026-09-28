@@ -27,7 +27,9 @@
     "migration:show": "typeorm-ts-node-commonjs migration:show -d src/database/data-source.ts",
     "seed": "ts-node -r tsconfig-paths/register src/database/seeds/index.ts",
     "seed:booking": "ts-node -r tsconfig-paths/register src/database/seeds/seed-booking-flow.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "contract:generate": "ts-node -r tsconfig-paths/register src/openapi/generate-openapi.ts --write",
+    "contract:check": "ts-node -r tsconfig-paths/register src/openapi/generate-openapi.ts --check"
   },
   "lint-staged": {
     "*.ts": [
