@@ -1,37 +1,55 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-// This is a base App Response DTO can be updated later when we finalize the app responses, I just needed it to finish my work
-export class ApiResponseDto {
-  @ApiProperty()
-  success: boolean;
-
-  @ApiProperty()
+export class ApiMessageResponseDto {
+  @ApiProperty({ example: 'Operation completed successfully' })
   message: string;
 }
 
-export class ApiSuccessResponseDto<T = undefined> extends ApiResponseDto {
-  @ApiProperty({ required: false, type: Object })
-  data?: T;
+export class ApiSuccessResponseDto {
+  @ApiProperty({ type: 'integer', example: 200 })
+  status_code: number;
 
-  @ApiProperty()
-  message: string;
+  @ApiProperty({ example: null, nullable: true, type: String })
+  message: string | null;
 
-  constructor(message: string, data?: T) {
-    super();
-    this.success = true;
-    if (data !== undefined) this.data = data;
-    this.message = message;
-  }
+  @ApiProperty({ nullable: true, type: Object })
+  data: unknown | null;
+
+  @ApiPropertyOptional({ type: Object })
+  meta?: unknown;
 }
 
-export class ApiErrorResponseDto extends ApiResponseDto {
-  @ApiProperty({ required: false })
-  error?: string;
+export class ApiErrorResponseDto {
+  @ApiProperty({ type: 'integer', example: 400 })
+  status_code: number;
 
-  constructor(error: string, message = 'failed') {
-    super();
-    this.success = false;
-    this.error = error;
-    this.message = message;
-  }
+  @ApiProperty({
+    oneOf: [
+      { type: 'string', example: 'Validation failed' },
+      {
+        type: 'array',
+        items: { type: 'string' },
+        example: ['email must be an email'],
+      },
+    ],
+  })
+  message: string | string[];
+
+  @ApiProperty({ example: 'Bad Request', nullable: true, type: String })
+  error: string | null;
+
+  @ApiProperty({ example: null, nullable: true, type: Object })
+  data: null;
+
+  @ApiProperty({ example: '2026-01-15T10:30:00.000Z', format: 'date-time' })
+  timestamp: string;
+
+  @ApiProperty({ example: '/api/auth/login' })
+  path: string;
+
+  @ApiProperty({ example: 'POST' })
+  method: string;
+
+  @ApiPropertyOptional({ description: 'Development environments only' })
+  stack?: string;
 }
