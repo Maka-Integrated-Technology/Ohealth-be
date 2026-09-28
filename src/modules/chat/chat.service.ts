@@ -4,6 +4,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import axios from 'axios';
 import { Repository } from 'typeorm';
 
+import {
+  ChatHistoryResponseDto,
+  SendChatMessageResponseDto,
+} from './dto/chat-response.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { Chat } from './entities/chat.entity';
 import { Message } from './entities/message.entity';
@@ -34,7 +38,10 @@ export class ChatService {
     private configService: ConfigService,
   ) {}
 
-  async sendMessage(userId: string, dto: SendMessageDto) {
+  async sendMessage(
+    userId: string,
+    dto: SendMessageDto,
+  ): Promise<SendChatMessageResponseDto> {
     // Find or create chat
     let chat: Chat | null = null;
 
@@ -108,15 +115,39 @@ export class ChatService {
     }
   }
 
-  async getHistory(userId: string) {
+  async getHistory(userId: string): Promise<ChatHistoryResponseDto> {
     const chats = await this.chatRepo.find({
       where: { user: { id: userId } },
-      relations: ['user'],
     });
     const messages = await this.messageRepo.find({
       where: { chat: { user: { id: userId } } },
       relations: ['chat'],
     });
-    return { chats, messages };
+    return {
+      chats: chats.map(
+        ({ id, created_at: createdAt, updated_at: updatedAt }) => ({
+          id,
+          created_at: createdAt,
+          updated_at: updatedAt,
+        }),
+      ),
+      messages: messages.map(
+        ({
+          id,
+          chat,
+          sender,
+          content,
+          created_at: createdAt,
+          updated_at: updatedAt,
+        }) => ({
+          id,
+          chat_id: chat.id,
+          sender,
+          content,
+          created_at: createdAt,
+          updated_at: updatedAt,
+        }),
+      ),
+    };
   }
 }
