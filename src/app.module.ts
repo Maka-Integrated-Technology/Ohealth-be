@@ -21,12 +21,14 @@ import { PharmacyModule } from './modules/pharmacy/pharmacy.module';
 import { PlatformEventsModule } from './modules/platform-events/platform-events.module';
 import { ProfessionalModule } from './modules/professional/professional.module';
 import { SpecialityModule } from './modules/speciality/speciality.module';
+import { isOpenApiContractGenerationEnabled } from './openapi/openapi-generation-context';
 
 @Module({
   imports: [
     LoggerModule,
     ConfigModule.forRoot({
       isGlobal: true,
+      ignoreEnvFile: isOpenApiContractGenerationEnabled(),
       load: [configuration],
     }),
 

@@ -1,11 +1,15 @@
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 import { AppModule } from './app.module';
 import { LoggingInterceptor } from './middleware/logging.interceptor';
+import {
+  createOpenApiDocument,
+  mountOpenApiDocumentation,
+} from './openapi/openapi-document.factory';
+import { OPENAPI_API_PREFIX } from './openapi/openapi.constants';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -17,7 +21,7 @@ async function bootstrap() {
     credentials: true,
   });
 
-  const apiPrefix = configService.get<string>('API_PREFIX', 'api');
+  const apiPrefix = configService.get<string>('API_PREFIX', OPENAPI_API_PREFIX);
 
   app.setGlobalPrefix(apiPrefix, {
     exclude: ['docs', 'health'],
@@ -32,39 +36,8 @@ async function bootstrap() {
     }),
   );
 
-  // Swagger setup
-  const config = new DocumentBuilder()
-    .setTitle('OHealth API')
-    .setDescription(
-      'API documentation for OHealth - A comprehensive healthcare booking platform',
-    )
-    .setVersion('1.0')
-    .addTag('Authentication', 'User authentication and authorization endpoints')
-    .addTag('Specialities', 'Medical specialities management')
-    .addTag('Professionals', 'Healthcare professionals management')
-    .addTag('Pharmacies', 'Pharmacy onboarding and partner registration')
-    .addTag(
-      'Organization Onboarding',
-      'Shared hospital, laboratory, and pharmacy onboarding',
-    )
-    .addTag('Bookings', 'Appointment booking and management')
-    .addBearerAuth({
-      type: 'http',
-      scheme: 'bearer',
-      bearerFormat: 'JWT',
-      description:
-        'Enter JWT token obtained from the login endpoint. Format: Bearer <token>',
-    })
-    .build();
-
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('docs', app, document, {
-    swaggerOptions: {
-      persistAuthorization: true,
-      tagsSorter: 'alpha',
-      operationsSorter: 'alpha',
-    },
-  });
+  const openApiDocument = createOpenApiDocument(app);
+  mountOpenApiDocumentation(app, openApiDocument);
 
   // Use Winston logger globally
   app.useLogger(app.get(WINSTON_MODULE_NEST_PROVIDER));
