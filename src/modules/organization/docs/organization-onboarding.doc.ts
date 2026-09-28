@@ -11,6 +11,12 @@ import {
   ApiOperation,
 } from '@nestjs/swagger';
 
+import { ApiMessageResponseDto } from '../../../common/dto/response.dto';
+import {
+  ALLOWED_ORGANIZATION_DOCUMENT_MIME_TYPES,
+  MAX_ORGANIZATION_DOCUMENT_SIZE,
+} from '../../../constants/file-upload.constants';
+import { createFileUploadSchema } from '../../../openapi/openapi-upload-schema';
 import { SetupOrganizationResponseDto } from '../dto/organization-response.dto';
 import {
   OrganizationDocumentChecklistDto,
@@ -38,11 +44,10 @@ export const UploadOrganizationDocumentDocs = () =>
     ApiOperation({ summary: 'Upload or replace an onboarding document' }),
     ApiConsumes('multipart/form-data'),
     ApiBody({
-      schema: {
-        type: 'object',
-        required: ['file'],
-        properties: { file: { type: 'string', format: 'binary' } },
-      },
+      schema: createFileUploadSchema({
+        allowedMimeTypes: ALLOWED_ORGANIZATION_DOCUMENT_MIME_TYPES,
+        maxSizeBytes: MAX_ORGANIZATION_DOCUMENT_SIZE,
+      }),
     }),
     ApiOkResponse({ type: OrganizationDocumentResponseDto }),
     ApiBadRequestResponse({
@@ -70,7 +75,10 @@ export const DownloadOrganizationDocumentDocs = () =>
 export const DeleteOrganizationDocumentDocs = () =>
   applyDecorators(
     ApiOperation({ summary: 'Delete an onboarding document before review' }),
-    ApiOkResponse({ description: 'Organization document deleted' }),
+    ApiOkResponse({
+      description: 'Organization document deleted',
+      type: ApiMessageResponseDto,
+    }),
     ApiBadRequestResponse({
       description: 'Documents are locked after review starts',
     }),

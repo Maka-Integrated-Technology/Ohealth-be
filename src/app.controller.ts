@@ -1,4 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
+import { ApiExcludeEndpoint } from '@nestjs/swagger';
 
 import { AppService } from './app.service';
 import { Public } from './common/decorators/public.decorator';
@@ -7,6 +8,7 @@ import { Public } from './common/decorators/public.decorator';
 export class AppController {
   constructor(private readonly appService: AppService) {}
 
+  @ApiExcludeEndpoint()
   @Public()
   @Get()
   getHello(): string {
@@ -15,6 +17,7 @@ export class AppController {
 
   // Probed by the container healthcheck and the platform load balancer, so it
   // must stay reachable without a token.
+  @ApiExcludeEndpoint()
   @Public()
   @Get('health')
   getHealth(): { status: string } {

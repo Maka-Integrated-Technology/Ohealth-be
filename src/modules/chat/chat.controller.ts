@@ -1,15 +1,20 @@
-import { Controller, Post, Body, UseGuards, Get } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
 import {
-  ApiTags,
+  ApiBadGatewayResponse,
   ApiBearerAuth,
   ApiOperation,
   ApiResponse,
+  ApiTags,
 } from '@nestjs/swagger';
 
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 import { ChatService } from './chat.service';
+import {
+  ChatHistoryResponseDto,
+  SendChatMessageResponseDto,
+} from './dto/chat-response.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 
 interface IAuthenticatedUser {
@@ -25,18 +30,29 @@ export class ChatController {
 
   @Post('send')
   @ApiOperation({ summary: 'Send a message to the AI' })
-  @ApiResponse({ status: 201, description: 'AI response returned.' })
+  @ApiResponse({
+    status: 201,
+    description: 'AI response returned.',
+    type: SendChatMessageResponseDto,
+  })
+  @ApiBadGatewayResponse({ description: 'AI provider request failed' })
   async sendMessage(
     @CurrentUser() user: IAuthenticatedUser,
     @Body() dto: SendMessageDto,
-  ) {
+  ): Promise<SendChatMessageResponseDto> {
     return this.chatService.sendMessage(user.id, dto);
   }
 
   @Get('history')
   @ApiOperation({ summary: 'Get chat history for the logged-in user' })
-  @ApiResponse({ status: 200, description: 'Chat history returned.' })
-  async getHistory(@CurrentUser() user: IAuthenticatedUser) {
+  @ApiResponse({
+    status: 200,
+    description: 'Chat history returned.',
+    type: ChatHistoryResponseDto,
+  })
+  async getHistory(
+    @CurrentUser() user: IAuthenticatedUser,
+  ): Promise<ChatHistoryResponseDto> {
     return this.chatService.getHistory(user.id);
   }
 }

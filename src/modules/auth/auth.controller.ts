@@ -19,14 +19,18 @@ import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import {
   ActivateAccountDocs,
+  ForgotPasswordDocs,
   ChangePasswordDocs,
   GetProfileDocs,
   GoogleLoginDocs,
   LoginDocs,
   LogoutDocs,
   RefreshTokenDocs,
+  ResendVerificationDocs,
+  ResetPasswordDocs,
   SignupDocs,
   UpdateProfileDocs,
+  VerifySignupDocs,
 } from './docs';
 import {
   AuthDto,
@@ -80,18 +84,21 @@ export class AuthController {
     return this.authService.refreshToken(refreshToken);
   }
 
+  @ForgotPasswordDocs()
   @Public()
   @Post('forgot-password')
   forgotPassword(@Body() payload: ForgotPasswordDto) {
     return this.authService.forgotPassword(payload);
   }
 
+  @ResetPasswordDocs()
   @Public()
   @Post('reset-password')
   resetPassword(@Body() payload: ResetPasswordDto) {
     return this.authService.resetPassword(payload);
   }
 
+  @VerifySignupDocs()
   @Public()
   @Post('verify')
   @HttpCode(HttpStatus.OK)
@@ -99,6 +106,7 @@ export class AuthController {
     return this.authService.verifySignup(payload);
   }
 
+  @ResendVerificationDocs()
   @Public()
   @Post('verify/resend')
   @HttpCode(HttpStatus.OK)
