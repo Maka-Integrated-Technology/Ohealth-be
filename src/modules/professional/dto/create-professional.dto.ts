@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEnum,
   IsInt,
@@ -55,7 +55,10 @@ export class CreateProfessionalDto {
   @Min(0)
   consultation_fee: number;
 
-  @ApiProperty({ enum: ConsultationType, default: ConsultationType.BOTH })
+  @ApiPropertyOptional({
+    enum: ConsultationType,
+    default: ConsultationType.BOTH,
+  })
   @IsEnum(ConsultationType)
   @IsOptional()
   consultation_type?: ConsultationType;
