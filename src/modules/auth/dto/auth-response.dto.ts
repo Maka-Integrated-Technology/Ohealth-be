@@ -72,7 +72,7 @@ export class SignupResponseDto extends RoutedAuthResponseDto {
   access_level: AuthAccessLevel;
 
   @ApiProperty({
-    example: '201',
+    example: 201,
     nullable: true,
   })
   status_code?: number;
@@ -98,7 +98,7 @@ export class SignupResponseDto extends RoutedAuthResponseDto {
 
 export class LoginResponseDto extends RoutedAuthResponseDto {
   @ApiProperty({
-    example: '200',
+    example: 200,
     nullable: true,
   })
   status_code?: number;
@@ -124,7 +124,7 @@ export class LoginResponseDto extends RoutedAuthResponseDto {
 
 export class RefreshTokenResponseDto extends RoutedAuthResponseDto {
   @ApiProperty({
-    example: '200',
+    example: 200,
     nullable: true,
   })
   status_code?: number;
@@ -147,7 +147,7 @@ export class RefreshTokenResponseDto extends RoutedAuthResponseDto {
 }
 export class LogoutResponseDto {
   @ApiProperty({
-    example: '200',
+    example: 200,
     nullable: true,
   })
   status_code?: number;
