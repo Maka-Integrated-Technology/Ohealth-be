@@ -731,8 +731,7 @@
         "required": [
           "user_id",
           "speciality_id",
-          "consultation_fee",
-          "consultation_type"
+          "consultation_fee"
         ],
         "type": "object"
       },
@@ -1657,7 +1656,7 @@
             "type": "string"
           },
           "status_code": {
-            "example": "200",
+            "example": 200,
             "nullable": true,
             "type": "number"
           },
@@ -1778,7 +1777,7 @@
             "type": "string"
           },
           "status_code": {
-            "example": "200",
+            "example": 200,
             "nullable": true,
             "type": "number"
           }
@@ -3589,7 +3588,7 @@
             "type": "string"
           },
           "status_code": {
-            "example": "200",
+            "example": 200,
             "nullable": true,
             "type": "number"
           },
@@ -3983,7 +3982,7 @@
             "type": "string"
           },
           "status_code": {
-            "example": "201",
+            "example": 201,
             "nullable": true,
             "type": "number"
           },
