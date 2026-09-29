@@ -5,20 +5,34 @@ on:
     branches: [dev, staging, main]
   pull_request:
     branches: [dev, staging, main]
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled]
+  pull_request_review:
+    types: [submitted, dismissed]
+
+permissions:
+  contents: read
+  pull-requests: read
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   ci:
+    if: >-
+      github.event_name != 'pull_request_review' ||
+      github.event.pull_request.base.ref == 'dev' ||
+      github.event.pull_request.base.ref == 'staging' ||
+      github.event.pull_request.base.ref == 'main'
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          fetch-depth: 0
           persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Run supply-chain security scan
         shell: bash
@@ -35,10 +49,48 @@ jobs:
           cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Security Audit
         run: npm audit --audit-level=high
+
+      - name: Check generated contract drift
+        run: npm run contract:check
+
+      - name: Install pinned API compatibility checker
+        env:
+          OASDIFF_INSTALL_DIR: ${{ runner.temp }}/oasdiff/bin
+        run: |
+          bash scripts/openapi/install-oasdiff.sh
+          echo "${OASDIFF_INSTALL_DIR}" >> "${GITHUB_PATH}"
+
+      - name: Validate canonical API contract
+        run: npm run contract:validate
+
+      - name: Verify contract compatibility controls
+        run: npm run contract:compatibility:test
+
+      - name: Analyze API contract changes
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review'
+        id: contract_compatibility
+        env:
+          BASE_CONTRACT: ${{ github.event.pull_request.base.sha }}:contracts/openapi.json
+          CONTRACT_REPORT: ${{ runner.temp }}/api-contract-report.md
+        run: |
+          bash scripts/openapi/analyze-contract-change.sh \
+            "${BASE_CONTRACT}" \
+            contracts/openapi.json \
+            "${CONTRACT_REPORT}"
+
+      - name: Enforce breaking-change approval
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review'
+        env:
+          APPROVAL_LABEL_PRESENT: ${{ contains(github.event.pull_request.labels.*.name, 'api-breaking-change-approved') }}
+          BREAKING_CHANGES: ${{ steps.contract_compatibility.outputs.breaking_changes }}
+          CONTRACT_REPORT: ${{ runner.temp }}/api-contract-report.md
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: bash scripts/openapi/enforce-breaking-approval.sh
 
       - name: Run ESLint
         run: npm run lint
