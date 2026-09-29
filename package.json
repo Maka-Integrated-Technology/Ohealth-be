@@ -29,7 +29,9 @@
     "seed:booking": "ts-node -r tsconfig-paths/register src/database/seeds/seed-booking-flow.ts",
     "prepare": "husky",
     "contract:generate": "ts-node -r tsconfig-paths/register src/openapi/generate-openapi.ts --write",
-    "contract:check": "ts-node -r tsconfig-paths/register src/openapi/generate-openapi.ts --check"
+    "contract:check": "ts-node -r tsconfig-paths/register src/openapi/generate-openapi.ts --check",
+    "contract:validate": "oasdiff validate contracts/openapi.json --fail-on WARN --allow-external-refs=false",
+    "contract:compatibility:test": "bash scripts/openapi/contract-compatibility.test.sh"
   },
   "lint-staged": {
     "*.ts": [
