@@ -125,7 +125,7 @@
     "@angular-devkit/core": {
       "ajv": "8.18.0"
     },
-    "fast-uri": "^3.1.2",
+    "fast-uri": "^3.1.7",
     "qs": "^6.15.2",
     "uuid": "^11.1.1",
     "multer": "^2.2.0"
