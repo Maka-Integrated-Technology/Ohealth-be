@@ -1,3 +1,4 @@
+import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsEnum,
@@ -8,7 +9,6 @@ import {
   IsUUID,
   Min,
 } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
 
 import { ConsultationType } from '../entities/professional.entity';
 
