@@ -87,49 +87,106 @@ done < <(git ls-files -z '*.woff' '*.woff2' '*.otf' '*.ttf')
 grep -Eq '^ignore-scripts=true$' .npmrc ||
   fail '.npmrc must disable dependency lifecycle scripts.'
 
-if ! jq -e '
-  type == "object" and
-  (
-    (.scripts // {}) as $scripts |
-    ($scripts | type == "object") and
-    all(
-      [
-        "preinstall",
-        "install",
-        "postinstall",
-        "prepublish",
-        "preprepare",
-        "postprepare",
-        "dependencies"
-      ][];
-      ($scripts[.]? // "") == ""
-    ) and
-    (($scripts.prepare? // "") == "" or $scripts.prepare == "husky")
-  )
-' package.json >/dev/null; then
-  fail 'package.json is malformed or contains an unapproved install lifecycle script.'
-fi
+validate_manifest() {
+  local manifest_path="$1"
+  local expected_name="$2"
+  local allow_husky_prepare="$3"
 
-if ! jq -e '
-  type == "object" and
-  .lockfileVersion == 3 and
-  (.packages | type == "object") and
-  (.packages | has("")) and
+  jq -e --arg expected_name "$expected_name" --argjson allow_husky_prepare "$allow_husky_prepare" '
+    type == "object" and
+    (.name | type == "string" and length > 0) and
+    (.version | type == "string" and length > 0) and
+    ($expected_name == "" or .name == $expected_name) and
+    (
+      (.scripts // {}) as $scripts |
+      ($scripts | type == "object") and
+      all(
+        [
+          "preinstall",
+          "install",
+          "postinstall",
+          "prepublish",
+          "preprepare",
+          "postprepare",
+          "dependencies"
+        ][];
+        ($scripts[.]? // "") == ""
+      ) and
+      (
+        ($scripts.prepare? // "") == "" or
+        ($allow_husky_prepare and $scripts.prepare == "husky")
+      )
+    )
+  ' "$manifest_path" >/dev/null ||
+    fail "$manifest_path is malformed or contains an unapproved install lifecycle script."
+}
+
+validate_manifest package.json '' true
+
+if ! jq -e -s '
+  def safe_workspace_path:
+    . as $path |
+    ($path | type == "string") and
+    ($path | length > 0) and
+    ($path | startswith("/") | not) and
+    all(
+      $path | split("/")[];
+      . != "" and . != "." and . != ".." and
+      test("^[A-Za-z0-9._-]+$")
+    );
+
+  .[0] as $manifest |
+  .[1] as $lock |
+  ($manifest.workspaces // []) as $workspaces |
+  ($lock.packages[""].workspaces // []) as $locked_workspaces |
+  ($manifest | type == "object") and
+  ($workspaces | type == "array") and
+  all($workspaces[]; safe_workspace_path) and
+  ($lock | type == "object") and
+  ($lock.lockfileVersion == 3) and
+  ($lock.packages | type == "object") and
+  ($lock.packages | has("")) and
+  ($locked_workspaces == $workspaces) and
   all(
-    .packages | to_entries[];
-    if .key == "" then
-      (.value | type == "object")
+    $lock.packages | to_entries[];
+    . as $entry |
+    if $entry.key == "" then
+      ($entry.value | type == "object")
+    elif ($workspaces | index($entry.key)) != null then
+      ($entry.value | type == "object") and
+      ($entry.value.name | type == "string" and length > 0) and
+      ($entry.value.version | type == "string" and length > 0) and
+      ($entry.value | has("resolved") | not) and
+      ($entry.value | has("integrity") | not) and
+      (($entry.value.link? // false) == false)
+    elif ($entry.value.link? // false) == true then
+      ($entry.value.resolved // null) as $target |
+      ($target | type == "string") and
+      (($workspaces | index($target)) != null) and
+      ($lock.packages[$target].name | type == "string") and
+      ($entry.key == ("node_modules/" + $lock.packages[$target].name)) and
+      ($entry.value | has("integrity") | not)
     else
-      (.value | type == "object") and
-      (.value.resolved | type == "string") and
-      (.value.resolved | startswith("https://registry.npmjs.org/")) and
-      (.value.integrity | type == "string") and
-      (.value.integrity | length > 0)
+      ($entry.value | type == "object") and
+      ($entry.value.resolved | type == "string") and
+      ($entry.value.resolved | startswith("https://registry.npmjs.org/")) and
+      ($entry.value.integrity | type == "string") and
+      ($entry.value.integrity | length > 0)
     end
   )
-' package-lock.json >/dev/null; then
+' package.json package-lock.json >/dev/null; then
   fail 'package-lock.json is malformed or contains untrusted or incomplete dependency metadata.'
 fi
+
+while IFS= read -r workspace_path; do
+  workspace_manifest="$workspace_path/package.json"
+  [[ -f "$workspace_manifest" ]] ||
+    fail "Declared workspace manifest is missing: $workspace_manifest"
+  workspace_name=$(jq -r --arg workspace_path "$workspace_path" '.packages[$workspace_path].name // empty' package-lock.json)
+  [[ -n "$workspace_name" ]] ||
+    fail "Workspace lock metadata is missing a package name: $workspace_path"
+  validate_manifest "$workspace_manifest" "$workspace_name" false
+done < <(jq -r '.workspaces[]?' package.json)
 
 long_line_found=0
 while IFS= read -r -d '' source_file; do
