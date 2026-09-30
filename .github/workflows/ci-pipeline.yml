@@ -25,7 +25,6 @@ jobs:
       github.event.pull_request.base.ref == 'staging' ||
       github.event.pull_request.base.ref == 'main'
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -69,6 +68,9 @@ jobs:
 
       - name: Verify contract compatibility controls
         run: npm run contract:compatibility:test
+
+      - name: Verify generated API client
+        run: npm run api-client:test
 
       - name: Analyze API contract changes
         if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review'
