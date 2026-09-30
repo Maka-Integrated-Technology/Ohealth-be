@@ -41,8 +41,10 @@
     "api-client:test": "node scripts/api-client/verify-api-client.mjs"
   },
   "lint-staged": {
+    "src/**/*.ts": [
+      "eslint --fix"
+    ],
     "*.ts": [
-      "eslint --fix",
       "prettier --write"
     ],
     "*.json": [
