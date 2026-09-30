@@ -4,6 +4,9 @@
   "description": "OHealth backend service",
   "author": "",
   "private": true,
+  "workspaces": [
+    "packages/api-client"
+  ],
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
@@ -31,7 +34,11 @@
     "contract:generate": "ts-node -r tsconfig-paths/register src/openapi/generate-openapi.ts --write",
     "contract:check": "ts-node -r tsconfig-paths/register src/openapi/generate-openapi.ts --check",
     "contract:validate": "oasdiff validate contracts/openapi.json --fail-on WARN --allow-external-refs=false",
-    "contract:compatibility:test": "bash scripts/openapi/contract-compatibility.test.sh"
+    "contract:compatibility:test": "bash scripts/openapi/contract-compatibility.test.sh",
+    "api-client:generate": "node scripts/api-client/generate-api-client.mjs --write",
+    "api-client:check": "node scripts/api-client/generate-api-client.mjs --check",
+    "api-client:build": "npm run build --workspace @ohealth/api-client",
+    "api-client:test": "node scripts/api-client/verify-api-client.mjs"
   },
   "lint-staged": {
     "*.ts": [
@@ -68,7 +75,7 @@
     "google-auth-library": "^10.5.0",
     "morgan": "^1.10.1",
     "nest-winston": "^1.10.2",
-    "nodemailer": "^9.0.1",
+    "nodemailer": "10.0.13",
     "nunjucks": "^3.2.4",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
@@ -113,6 +120,7 @@
     "husky": "^9.1.7",
     "jest": "^30.2.0",
     "lint-staged": "^16.2.6",
+    "openapi-typescript": "7.13.0",
     "prettier": "^3.4.0",
     "source-map-support": "^0.5.21",
     "supertest": "^7.0.0",
@@ -126,6 +134,9 @@
     "picomatch": "4.0.4",
     "@angular-devkit/core": {
       "ajv": "8.18.0"
+    },
+    "@nestjs/swagger": {
+      "js-yaml": "5.4.2"
     },
     "fast-uri": "^3.1.7",
     "qs": "^6.15.2",
