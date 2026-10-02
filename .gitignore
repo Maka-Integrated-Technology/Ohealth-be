@@ -1,5 +1,6 @@
 # compiled output
 /dist
+/packages/*/dist
 /node_modules
 *.tsbuildinfo
 
@@ -40,6 +41,3 @@ lerna-debug.log*
 .env.prod
 .env.setup.backup.*
 logs/
-branch_structure.json
-temp_auto_push.bat
-temp_interactive_push.bat

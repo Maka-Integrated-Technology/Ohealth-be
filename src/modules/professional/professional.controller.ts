@@ -25,12 +25,12 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
-import { ProfessionalAvailability } from '../professional/entities/professional-availability.entity';
 import { UserRole } from '../user/enums/user-role.enum';
 
 import { BulkCreateAvailabilityDto } from './dto/create-professional-availability.dto';
 import { CreateProfessionalDto } from './dto/create-professional.dto';
 import { CreateReviewDto } from './dto/create-review.dto';
+import { ProfessionalAvailabilityResponseDto } from './dto/professional-availability-response.dto';
 import {
   ProfessionalAppointmentResponseDto,
   ProfessionalDashboardResponseDto,
@@ -117,13 +117,13 @@ export class ProfessionalController {
   @ApiOperation({ summary: 'Add availability slots for current professional' })
   @ApiResponse({
     status: 201,
-    description:
-      'Slots created. Returns array of created ProfessionalAvailability records.',
+    description: 'Slots created.',
+    type: [ProfessionalAvailabilityResponseDto],
   })
   createMyAvailabilities(
     @CurrentUser() user: IRequestWithUser['user'],
     @Body() dto: BulkCreateAvailabilityDto,
-  ): Promise<ProfessionalAvailability[]> {
+  ): Promise<ProfessionalAvailabilityResponseDto[]> {
     return this.professionalService.createMyAvailabilities(user.id, dto);
   }
 
@@ -433,15 +433,15 @@ export class ProfessionalController {
   @ApiParam({ name: 'id', description: 'Professional UUID' })
   @ApiResponse({
     status: 201,
-    description:
-      'Slots created. Returns array of created ProfessionalAvailability records.',
+    description: 'Slots created.',
+    type: [ProfessionalAvailabilityResponseDto],
   })
   @ApiResponse({ status: 404, description: 'Professional not found' })
   @ApiResponse({ status: 409, description: 'One or more slots already exist' })
   createAvailabilities(
     @Param('id') id: string,
     @Body() dto: BulkCreateAvailabilityDto,
-  ): Promise<ProfessionalAvailability[]> {
+  ): Promise<ProfessionalAvailabilityResponseDto[]> {
     return this.professionalService.createAvailabilities(id, dto);
   }
 }

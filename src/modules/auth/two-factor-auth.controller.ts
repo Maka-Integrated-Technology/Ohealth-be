@@ -1,17 +1,18 @@
-import { Controller, Post, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import {
-  ApiTags,
+  ApiBearerAuth,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
+  ApiTags,
 } from '@nestjs/swagger';
 
 import { IAuthUser } from '../../common/types';
 
 import { CurrentUser } from './decorators/current-user.decorator';
+import { EnableTwoFactorAuthDataDto } from './dto/two-factor-auth-response.dto';
 import {
-  TwoFactorAuthService,
   IEnable2faResponse,
+  TwoFactorAuthService,
 } from './two-factor-auth.service';
 
 @ApiTags('2FA')
@@ -21,7 +22,7 @@ export class TwoFactorAuthController {
   constructor(private readonly twoFactorAuthService: TwoFactorAuthService) {}
 
   // The factor is always enrolled for the caller. Taking the user from a path
-  // parameter let anyone mint a factor — and read its secret — for any account.
+  // parameter let anyone mint a factor - and read its secret - for any account.
   @Post('enable')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
@@ -30,6 +31,7 @@ export class TwoFactorAuthController {
   @ApiResponse({
     status: HttpStatus.OK,
     description: 'Returns secret, QR code, and backup codes',
+    type: EnableTwoFactorAuthDataDto,
   })
   @ApiResponse({
     status: HttpStatus.UNAUTHORIZED,

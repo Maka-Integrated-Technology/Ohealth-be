@@ -77,6 +77,33 @@ update_json() {
   mv "$replacement" "$file"
 }
 
+add_workspace() {
+  local fixture="$1"
+  local workspace="$fixture/packages/client"
+
+  mkdir -p "$workspace"
+  cat >"$workspace/package.json" <<'JSON'
+{
+  "name": "@example/client",
+  "version": "1.0.0",
+  "scripts": {}
+}
+JSON
+  update_json "$fixture/package.json" '.workspaces = ["packages/client"]'
+  update_json "$fixture/package-lock.json" '
+    .packages[""].workspaces = ["packages/client"] |
+    .packages["packages/client"] = {
+      "name": "@example/client",
+      "version": "1.0.0"
+    } |
+    .packages["node_modules/@example/client"] = {
+      "resolved": "packages/client",
+      "link": true
+    }
+  '
+  git -C "$fixture" add package.json package-lock.json packages/client/package.json
+}
+
 expect_pass() {
   local fixture="$1"
   local label="$2"
@@ -97,6 +124,30 @@ expect_fail() {
 
 clean_fixture=$(create_fixture clean)
 expect_pass "$clean_fixture" 'reviewed package metadata'
+
+workspace_fixture=$(create_fixture workspace)
+add_workspace "$workspace_fixture"
+expect_pass "$workspace_fixture" 'reviewed local workspace metadata'
+
+workspace_hook_fixture=$(create_fixture workspace-hook)
+add_workspace "$workspace_hook_fixture"
+update_json "$workspace_hook_fixture/packages/client/package.json" '.scripts.postinstall = "malicious-command"'
+expect_fail "$workspace_hook_fixture" 'workspace lifecycle hook'
+
+missing_workspace_fixture=$(create_fixture missing-workspace)
+add_workspace "$missing_workspace_fixture"
+rm "$missing_workspace_fixture/packages/client/package.json"
+expect_fail "$missing_workspace_fixture" 'missing workspace manifest'
+
+unsafe_workspace_path_fixture=$(create_fixture unsafe-workspace-path)
+update_json "$unsafe_workspace_path_fixture/package.json" '.workspaces = ["../outside"]'
+update_json "$unsafe_workspace_path_fixture/package-lock.json" '.packages[""].workspaces = ["../outside"]'
+expect_fail "$unsafe_workspace_path_fixture" 'unsafe workspace path'
+
+forged_workspace_link_fixture=$(create_fixture forged-workspace-link)
+add_workspace "$forged_workspace_link_fixture"
+update_json "$forged_workspace_link_fixture/package-lock.json" '.packages["node_modules/@example/client"].resolved = "packages/other"'
+expect_fail "$forged_workspace_link_fixture" 'forged workspace link'
 
 legitimate_indentation_fixture=$(create_fixture legitimate-indentation)
 printf '%80sconst visible = true;\n' '' \

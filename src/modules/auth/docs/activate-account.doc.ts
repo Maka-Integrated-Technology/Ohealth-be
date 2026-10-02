@@ -8,12 +8,14 @@ import {
 } from '@nestjs/swagger';
 
 import * as sysMsg from '../../../constants/system.messages';
+import { ActivateAccountResponseDto } from '../dto/activate-account-response.dto';
 
 export const ActivateAccountDocs = () =>
   applyDecorators(
     ApiOperation({ summary: sysMsg.ACTIVATE_ACCOUNT }),
     ApiOkResponse({
       description: sysMsg.USER_ACTIVATED,
+      type: ActivateAccountResponseDto,
     }),
     ApiNotFoundResponse({
       description: sysMsg.USER_NOT_FOUND,
