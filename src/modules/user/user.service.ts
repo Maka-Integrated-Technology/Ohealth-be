@@ -8,10 +8,10 @@ import { DeepPartial, Repository } from 'typeorm';
 
 import * as sysMsg from '../../constants/system.messages';
 import { AccountAccessPolicyService } from '../auth/account-access-policy.service';
-import { UserAccountStatusHistory } from './entities/user-account-status-history.entity';
-import { AccountStatus } from './enums/account-status.enum';
 
+import { UserAccountStatusHistory } from './entities/user-account-status-history.entity';
 import { User } from './entities/user.entity';
+import { AccountStatus } from './enums/account-status.enum';
 
 @Injectable()
 export class UserService {

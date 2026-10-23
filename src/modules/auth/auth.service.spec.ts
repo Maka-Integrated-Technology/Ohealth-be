@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
+import { LoginTicket, OAuth2Client } from 'google-auth-library';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
 
@@ -150,7 +151,7 @@ describe('AuthService', () => {
   });
 
   describe('signup', () => {
-    it('should create a user, issue tokens, and open a session', async () => {
+    it('creates a pending user with no access, refresh, or session credentials', async () => {
       jest
         .spyOn(bcrypt, 'hash')
         .mockImplementation(async () => 'hashed-password');
@@ -193,9 +194,11 @@ describe('AuthService', () => {
 
       expect(result.message).toBe(sysMsg.VERIFICATION_CODE_SENT);
       expect(result.user.email).toBe('tunde@example.com');
-      expect(result).toHaveProperty('access_token', 'access-token');
-      expect(result).toHaveProperty('refresh_token', 'refresh-token');
-      expect(result).toHaveProperty('session_id');
+      expect(result).not.toHaveProperty('access_token');
+      expect(result).not.toHaveProperty('refresh_token');
+      expect(result).not.toHaveProperty('session_id');
+      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+      expect(mockSessionRepository.save).not.toHaveBeenCalled();
       expect(result).toMatchObject(defaultRouting);
       expect(mockUserService.create).toHaveBeenCalledWith(
         expect.objectContaining({ role: [UserRole.PATIENT] }),
@@ -300,14 +303,14 @@ describe('AuthService', () => {
     AccountStatus.DEACTIVATED,
   ])(
     'denies password login for %s even if legacy flags say active',
-    async (account_status) => {
+    async (accountStatus) => {
       jest.spyOn(bcrypt, 'compare').mockImplementation(async () => true);
       mockUserService.findByEmail.mockResolvedValue({
         id: 'blocked-user',
         email: 'blocked@example.com',
         password: 'hash',
         role: [UserRole.PATIENT],
-        account_status,
+        account_status: accountStatus,
         email_verified_at: new Date(),
         is_active: true,
         is_verified: true,
@@ -493,7 +496,7 @@ describe('AuthService', () => {
     AccountStatus.DEACTIVATED,
   ])(
     'rejects refresh for %s even if legacy flags say active',
-    async (account_status) => {
+    async (accountStatus) => {
       mockJwtService.verifyAsync.mockResolvedValue({
         sub: 'blocked-user',
         email: 'blocked@example.com',
@@ -506,7 +509,7 @@ describe('AuthService', () => {
       mockUserService.findById.mockResolvedValue({
         id: 'blocked-user',
         role: [UserRole.PATIENT],
-        account_status,
+        account_status: accountStatus,
         email_verified_at: new Date(),
         is_active: true,
         is_verified: true,
@@ -667,20 +670,144 @@ describe('AuthService', () => {
         email: payload.email,
         first_name: 'Tunde',
         last_name: 'Adebayo',
+        role: [UserRole.PATIENT],
         is_active: true,
         is_verified: true,
         account_status: AccountStatus.ACTIVE,
         email_verified_at: new Date(),
       });
+      mockJwtService.signAsync
+        .mockReset()
+        .mockResolvedValueOnce('first-access-token')
+        .mockResolvedValueOnce('first-refresh-token');
+      mockJwtService.decode.mockReturnValue({
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      });
+      mockSessionRepository.create.mockImplementation(
+        (details: Partial<AuthSession>) => details,
+      );
+      mockSessionRepository.save.mockImplementation(async (details) => details);
 
       const result = await service.verifySignup(payload);
 
-      expect(result).toEqual({ message: sysMsg.ACCOUNT_VERIFIED });
+      expect(result).toMatchObject({
+        message: sysMsg.ACCOUNT_VERIFIED,
+        access_token: 'first-access-token',
+        refresh_token: 'first-refresh-token',
+        user: expect.objectContaining({ email: payload.email }),
+      });
+      expect(mockSessionRepository.save).toHaveBeenCalledTimes(1);
       expect(mockUserService.verifyEmailWithCode).toHaveBeenCalledWith(
         payload.email,
         payload.code,
       );
       expect(mockEmailService.sendMail).toHaveBeenCalled();
+    });
+  });
+
+  describe('Google OAuth canonical account states', () => {
+    beforeEach(() => {
+      const ticket = {
+        getPayload: () => ({
+          email: 'google@example.com',
+          sub: 'google-id-1',
+          email_verified: true,
+          given_name: 'Google',
+          family_name: 'Person',
+        }),
+      } as unknown as LoginTicket;
+      jest
+        .spyOn(OAuth2Client.prototype, 'verifyIdToken')
+        .mockImplementation(async () => ticket);
+    });
+
+    it.each([
+      AccountStatus.PENDING_VERIFICATION,
+      AccountStatus.SUSPENDED,
+      AccountStatus.DEACTIVATED,
+    ])(
+      'rejects %s even when legacy flags claim verified',
+      async (accountStatus) => {
+        mockUserService.findByEmail.mockResolvedValue({
+          id: 'blocked-google-user',
+          email: 'google@example.com',
+          account_status: accountStatus,
+          email_verified_at: new Date(),
+          is_active: true,
+          is_verified: true,
+          role: [UserRole.PATIENT],
+        });
+        await expect(service.googleLogin('google-test-token')).rejects.toThrow(
+          UnauthorizedException,
+        );
+        expect(mockUserService.save).not.toHaveBeenCalled();
+        expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+        expect(mockSessionRepository.save).not.toHaveBeenCalled();
+      },
+    );
+
+    it('rejects an active account lacking verification evidence', async () => {
+      mockUserService.findByEmail.mockResolvedValue({
+        id: 'active-no-proof',
+        email: 'google@example.com',
+        account_status: AccountStatus.ACTIVE,
+        email_verified_at: null,
+        is_active: true,
+        is_verified: true,
+        role: [UserRole.PATIENT],
+      });
+      await expect(service.googleLogin('google-test-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('rejects a mismatched linked Google identity', async () => {
+      mockUserService.findByEmail.mockResolvedValue({
+        id: 'linked-user',
+        email: 'google@example.com',
+        google_id: 'another-google-id',
+        account_status: AccountStatus.ACTIVE,
+        email_verified_at: new Date(),
+        is_active: true,
+        is_verified: true,
+        role: [UserRole.PATIENT],
+      });
+      await expect(service.googleLogin('google-test-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(mockUserService.save).not.toHaveBeenCalled();
+    });
+
+    it('allows a verified active account to receive credentials', async () => {
+      mockUserService.findByEmail.mockResolvedValue({
+        id: 'verified-user',
+        email: 'google@example.com',
+        google_id: 'google-id-1',
+        account_status: AccountStatus.ACTIVE,
+        email_verified_at: new Date(),
+        is_active: true,
+        is_verified: true,
+        role: [UserRole.PATIENT],
+        first_name: 'Google',
+        last_name: 'Person',
+      });
+      mockJwtService.signAsync
+        .mockReset()
+        .mockResolvedValueOnce('oauth-access')
+        .mockResolvedValueOnce('oauth-refresh');
+      mockJwtService.decode.mockReturnValue({
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      });
+      mockSessionRepository.create.mockImplementation(
+        (details: Partial<AuthSession>) => details,
+      );
+      mockSessionRepository.save.mockImplementation(async (details) => details);
+
+      const response = await service.googleLogin('google-test-token');
+      expect(response.access_token).toBe('oauth-access');
+      expect(response.refresh_token).toBe('oauth-refresh');
+      expect(mockSessionRepository.save).toHaveBeenCalledTimes(1);
     });
   });
 });

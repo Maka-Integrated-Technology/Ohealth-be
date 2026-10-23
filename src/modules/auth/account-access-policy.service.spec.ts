@@ -12,27 +12,30 @@ import { AccountAccessPolicyService } from './account-access-policy.service';
 
 describe('AccountAccessPolicyService canonical state matrix', () => {
   const policy = new AccountAccessPolicyService();
-  const user = (account_status: AccountStatus, verified = true) =>
+  const user = (status: AccountStatus, verified = true) =>
     ({
-      account_status,
+      account_status: status,
       email_verified_at: verified ? new Date('2026-01-01') : null,
       // Deliberately contradictory legacy flags: they are not authoritative.
-      is_active: account_status !== AccountStatus.ACTIVE,
+      is_active: status !== AccountStatus.ACTIVE,
       is_verified: !verified,
     }) as User;
 
-  it.each(Object.values(AccountStatus))(
-    'refuses credentials for %s unless active',
-    (status) => {
-      if (status === AccountStatus.ACTIVE) {
-        expect(() => policy.assertCanAuthenticate(user(status))).not.toThrow();
-      } else {
-        expect(() => policy.assertCanAuthenticate(user(status))).toThrow(
-          UnauthorizedException,
-        );
-      }
-    },
-  );
+  it('allows active accounts only when verification evidence exists', () => {
+    expect(() =>
+      policy.assertCanAuthenticate(user(AccountStatus.ACTIVE)),
+    ).not.toThrow();
+  });
+
+  it.each([
+    AccountStatus.PENDING_VERIFICATION,
+    AccountStatus.SUSPENDED,
+    AccountStatus.DEACTIVATED,
+  ])('denies credentials for %s', (status) => {
+    expect(() => policy.assertCanAuthenticate(user(status))).toThrow(
+      UnauthorizedException,
+    );
+  });
 
   it('rejects active users without a verified contact timestamp', () => {
     expect(() =>

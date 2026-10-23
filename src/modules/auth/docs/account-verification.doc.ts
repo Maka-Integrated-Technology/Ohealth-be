@@ -8,6 +8,7 @@ import {
 } from '@nestjs/swagger';
 
 import { ApiMessageResponseDto } from '../../../common/dto/response.dto';
+import { VerifySignupResponseDto } from '../dto/auth-response.dto';
 
 export const ForgotPasswordDocs = () =>
   applyDecorators(
@@ -25,8 +26,10 @@ export const ResetPasswordDocs = () =>
 
 export const VerifySignupDocs = () =>
   applyDecorators(
-    ApiOperation({ summary: 'Verify a newly registered email address' }),
-    ApiOkResponse({ type: ApiMessageResponseDto }),
+    ApiOperation({
+      summary: 'Verify email ownership and create first authenticated session',
+    }),
+    ApiOkResponse({ type: VerifySignupResponseDto }),
     ApiBadRequestResponse({
       description: 'Verification code is invalid or expired',
     }),

@@ -4,7 +4,9 @@ import * as bcrypt from 'bcrypt';
 import { DataSource, Repository } from 'typeorm';
 import { Logger } from 'winston';
 
+import { AuthService } from '../auth/auth.service';
 import { User } from '../user/entities/user.entity';
+import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserRole } from '../user/enums/user-role.enum';
 
 import { SetupOrganizationDto } from './dto/organization-setup.dto';
@@ -28,6 +30,7 @@ describe('OrganizationOnboardingService', () => {
     create: jest.fn((value) => value),
     save: jest.fn(),
   };
+  const authService = { sendProvisionedVerification: jest.fn() };
   const dataSource = {
     transaction: jest.fn(async (callback) =>
       callback({ withRepository: (repository: unknown) => repository }),
@@ -62,6 +65,7 @@ describe('OrganizationOnboardingService', () => {
       users as unknown as Repository<User>,
       dataSource as unknown as DataSource,
       { get: jest.fn().mockReturnValue('10') } as unknown as ConfigService,
+      authService as unknown as AuthService,
       logger as unknown as Logger,
     );
     jest.clearAllMocks();
@@ -103,8 +107,12 @@ describe('OrganizationOnboardingService', () => {
           email: 'admin@hospital.test',
           password: 'hashed',
           role: [role],
-          is_active: true,
-          is_verified: true,
+          is_active: false,
+          is_verified: false,
+          account_status: AccountStatus.PENDING_VERIFICATION,
+          email_verified_at: null,
+          verification_code: expect.any(String),
+          verification_code_expires_at: expect.any(Date),
         }),
       );
       expect(administrators.create).toHaveBeenCalledWith(
@@ -116,6 +124,12 @@ describe('OrganizationOnboardingService', () => {
       );
       expect(result.organization.organization_type).toBe(type);
       expect(result).not.toHaveProperty('access_token');
+      expect(authService.sendProvisionedVerification).toHaveBeenCalledWith(
+        expect.objectContaining({
+          account_status: AccountStatus.PENDING_VERIFICATION,
+          email: 'admin@hospital.test',
+        }),
+      );
     },
   );
 
@@ -126,6 +140,7 @@ describe('OrganizationOnboardingService', () => {
       ConflictException,
     );
     expect(organizations.save).not.toHaveBeenCalled();
+    expect(authService.sendProvisionedVerification).not.toHaveBeenCalled();
   });
 
   it('rejects a duplicate registration number', async () => {

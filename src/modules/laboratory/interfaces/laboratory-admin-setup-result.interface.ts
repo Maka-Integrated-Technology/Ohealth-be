@@ -28,8 +28,5 @@ export interface ILaboratoryAdminSetupResult {
     role: UserRole[];
     is_primary: boolean;
   };
-  access_token: string;
-  refresh_token: string;
-  session_id: string;
-  session_expires_at: Date;
+  verification_required: boolean;
 }

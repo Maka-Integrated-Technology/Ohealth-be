@@ -8,6 +8,7 @@ import { Logger } from 'winston';
 
 import * as sysMsg from '../../constants/system.messages';
 import { AuthService } from '../auth/auth.service';
+import { generateVerificationChallenge } from '../auth/utils/verification-challenge.util';
 import { User } from '../user/entities/user.entity';
 import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserRole } from '../user/enums/user-role.enum';
@@ -63,7 +64,7 @@ export class LaboratoryAuthService {
         parsedName,
         password,
       );
-    const authSession = await this.authService.issueAuthSession(user);
+    this.authService.sendProvisionedVerification(user);
 
     this.logger.info(sysMsg.LABORATORY_ADMIN_SETUP_COMPLETED, {
       laboratory_id: laboratory.id,
@@ -97,7 +98,7 @@ export class LaboratoryAuthService {
         role: user.role,
         is_primary: administrator.is_primary,
       },
-      ...authSession,
+      verification_required: true,
     };
   }
 
@@ -111,6 +112,7 @@ export class LaboratoryAuthService {
     administrator: LaboratoryAdmin;
     user: User;
   }> {
+    const challenge = generateVerificationChallenge();
     try {
       return await this.dataSource.transaction(async (manager) => {
         const laboratoryRepository = manager.withRepository(
@@ -165,10 +167,11 @@ export class LaboratoryAuthService {
             middle_name: parsedName.middleName,
             phone: administratorPayload.phone,
             role: [UserRole.LAB_ADMIN],
-            is_active: true,
-            is_verified: true,
-            account_status: AccountStatus.ACTIVE,
-            email_verified_at: new Date(),
+            is_active: false,
+            is_verified: false,
+            account_status: AccountStatus.PENDING_VERIFICATION,
+            email_verified_at: null,
+            ...challenge,
           }),
         );
 

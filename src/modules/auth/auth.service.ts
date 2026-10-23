@@ -107,14 +107,8 @@ export class AuthService {
       verification_code: verificationCode,
       verification_code_expires_at: verificationExpiry,
     });
-    const [tokens, routing] = await Promise.all([
-      this.generateTokens(savedUser.id, savedUser.email, savedUser.role),
-      this.authRoutingService.resolve(savedUser),
-    ]);
-    const session = await this.createSession(
-      savedUser.id,
-      tokens.refresh_token,
-    );
+    // Pending users must never receive access or refresh credentials.
+    const routing = await this.authRoutingService.resolve(savedUser);
 
     this.logger.info(sysMsg.ACCOUNT_CREATED);
     void this.sendVerificationEmail(savedUser, verificationCode, 10);
@@ -123,9 +117,6 @@ export class AuthService {
       message: sysMsg.VERIFICATION_CODE_SENT,
       user: this.toUserResponse(savedUser),
       ...routing,
-      ...tokens,
-      session_id: session.session_id,
-      session_expires_at: session.expires_at,
     };
   }
 
@@ -295,9 +286,34 @@ export class AuthService {
       email,
       payload.code,
     );
+    // First token/session issuance happens only after the email proof is stored.
+    const session = await this.issueAuthSession(verifiedUser);
     void this.sendWelcomeEmail(verifiedUser);
 
-    return { message: sysMsg.ACCOUNT_VERIFIED };
+    return {
+      message: sysMsg.ACCOUNT_VERIFIED,
+      user: this.toUserResponse(verifiedUser),
+      ...session,
+    };
+  }
+
+  /**
+   * Send the challenge created inside the provisioner's database transaction.
+   * This method never issues a session or promotes account state.
+   */
+  sendProvisionedVerification(user: User): void {
+    if (
+      user.account_status !== AccountStatus.PENDING_VERIFICATION ||
+      user.email_verified_at ||
+      !user.verification_code ||
+      !user.verification_code_expires_at ||
+      user.verification_code_expires_at <= new Date()
+    ) {
+      throw new BadRequestException(
+        'A pending verification challenge is required.',
+      );
+    }
+    void this.sendVerificationEmail(user, user.verification_code, 10);
   }
 
   async resendVerification(

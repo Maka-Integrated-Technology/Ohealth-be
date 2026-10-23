@@ -23,16 +23,26 @@ State `disabled` from the issue is implemented as the existing `deactivated`
 value, which is a permanent disabled state. Introducing a new string value is
 an explicit future migration, not an implicit alias.
 
-Existing password signup retains its current response contract (including
-initial onboarding tokens), but pending accounts cannot refresh those tokens or
-use them on protected endpoints. Contact verification remains a public,
-rate-limit-protected action; product/API owners should remove unnecessary
-signup tokens in a separate compatibility-reviewed contract change.
+Password signup now returns only the pending user, verification routing and a
+message. **No JWT, refresh token or session is issued before email proof.**
+Successful `POST /auth/verify` consumes the code and activates the account
+transactionally, then returns the **first** authenticated session and routing
+data. After verification, clients should store the returned tokens. This is an
+intentional client contract change requiring coordinated consumer releases.
 
-New Google-verified users and organization/laboratory-created verified users
-are recorded as active with `email_verified_at` in the same insert. Google
-login **does not** silently reactivate a pending/suspended/deactivated existing
-account. Account linking also refuses an existing, different Google subject.
+New Google accounts can be marked verified only on successful validation of a
+Google-signed ID token containing a verified email claim. Existing pending,
+suspended or deactivated accounts cannot be activated via Google login.
+Subject mismatch during Google account linking is rejected.
+
+Laboratory and organization administrators are created as
+`pending_verification` with `email_verified_at = NULL`, an expiring
+purpose-bound email verification code, and **no credentials**. The challenge
+is emailed after the creation transaction. Their first session is returned
+only after proving email ownership via `POST /auth/verify`.
+Existing laboratory staff invitation acceptance remains a distinct
+purpose-bound token flow; possession of the emailed invitation token is the
+required contact proof for accepting the invite.
 
 ## Authorized transitions and audit
 
@@ -53,12 +63,21 @@ reason, and timestamp; the migration records changed legacy rows too.
 
 Apply new migration `1792750000000-CanonicalAccountLifecycle` on staging with
 a database backup first. Do not edit `1787870806542-InitialSchema.ts`.
-Backfill rules, in order: preserve explicit `suspended`/`deactivated`;
-verified + active legacy flags -> active; verified + inactive -> deactivated;
-all others -> pending. Verified timestamp backfilled from existing timestamps.
-Review false-positive deactivations before production migration.
+Backfill rules: preserve explicit `suspended`/`deactivated`; a legacy account
+can be active or deactivated only if both its old verified flag and an
+**existing non-null email verification timestamp** support that state. Never
+fabricate verification timestamps from `created_at`/`updated_at` or
+administrative account creation. Accounts with no recorded proof become
+`pending_verification` even if old flags claimed verified. This may require
+existing users and administrators to resend/complete verification. Back up and
+review the affected account counts before production deployment.
 The migration rejects unknown status values and prevents subsequent drift.
 Its automatic rollback intentionally fails because the backfill is lossy.
+
+The CI integration suite exercises the **actual PostgreSQL migration SQL**
+with historical flag combinations, status audit, constraints, invalid values,
+and one-time code consumption. This is synthetic integration data, **not**
+evidence that the migration has been tested on a staging copy of production.
 
 Verification checklist on staging PostgreSQL:
 - Run migrations on a copied database containing every status/legacy combination.

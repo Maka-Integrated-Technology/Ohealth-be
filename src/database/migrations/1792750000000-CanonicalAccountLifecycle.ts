@@ -47,22 +47,22 @@ export class CanonicalAccountLifecycle1792750000000 implements MigrationInterfac
         SELECT "id", "account_status" FROM "users"
     `);
 
-    // Preserve explicit suspension/deactivation. Resolve legacy, contradictory
-    // flags conservatively: never promote an unverified/inactive account.
+    // Preserve explicit suspension/deactivation. Historical flags are not
+    // proof of mailbox possession; never invent a verification timestamp.
+    // An account without recorded proof remains pending until email verification.
     await queryRunner.query(`
       UPDATE "users" SET
         "account_status" = CASE
           WHEN "account_status" IN ('suspended', 'deactivated')
             THEN "account_status"
-          WHEN "is_verified" = true AND "is_active" = true
-            THEN 'active'
-          WHEN "is_verified" = true AND "is_active" = false
-            THEN 'deactivated'
+          WHEN "is_verified" = true AND "email_verified_at" IS NOT NULL
+            AND "is_active" = true THEN 'active'
+          WHEN "is_verified" = true AND "email_verified_at" IS NOT NULL
+            AND "is_active" = false THEN 'deactivated'
           ELSE 'pending_verification'
         END,
         "email_verified_at" = CASE
-          WHEN "is_verified" = true THEN
-            COALESCE("email_verified_at", "updated_at", "created_at", now())
+          WHEN "is_verified" = true THEN "email_verified_at"
           ELSE NULL
         END
     `);
@@ -82,6 +82,11 @@ export class CanonicalAccountLifecycle1792750000000 implements MigrationInterfac
       WHERE old."account_status" IS DISTINCT FROM u."account_status"
     `);
 
+    // New pending accounts must also default to inactive in the database.
+    await queryRunner.query(
+      `ALTER TABLE "users" ALTER COLUMN "is_active" SET DEFAULT false`,
+    );
+
     // During deprecation, reject application writes that drift the legacy flags.
     await queryRunner.query(`
       ALTER TABLE "users" ADD CONSTRAINT "CHK_users_canonical_account_access"
@@ -96,6 +101,7 @@ export class CanonicalAccountLifecycle1792750000000 implements MigrationInterfac
   }
 
   public async down(_queryRunner: QueryRunner): Promise<void> {
+    void _queryRunner;
     // Backfilled verification timestamps and lifecycle audit history must not
     // be silently destroyed. A rollback needs an explicit, reviewed migration.
     throw new Error(

@@ -184,7 +184,7 @@ export interface paths {
     };
     readonly get?: never;
     readonly put?: never;
-    /** Verify a newly registered email address */
+    /** Verify email ownership and create first authenticated session */
     readonly post: operations['AuthController_verifySignup'];
     readonly delete?: never;
     readonly options?: never;
@@ -1736,36 +1736,24 @@ export interface components {
       readonly laboratory: components['schemas']['LaboratorySetupDto'];
     };
     readonly LaboratoryAdminSetupResponseDto: {
-      /** @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9... */
-      readonly access_token: string;
       readonly administrator: components['schemas']['LaboratoryAdministratorSetupResponseDto'];
       readonly laboratory: components['schemas']['LaboratorySetupResponseDto'];
       /** @example laboratory administrator setup completed successfully */
       readonly message: string;
-      /** @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9... */
-      readonly refresh_token: string;
       /**
-       * Format: date-time
-       * @example 2026-07-18T10:30:00.000Z
+       * @description Administrator must verify their email before receiving credentials.
+       * @example true
        */
-      readonly session_expires_at: string;
-      /** @example 550e8400-e29b-41d4-a716-446655440003 */
-      readonly session_id: string;
+      readonly verification_required: boolean;
     };
     readonly LaboratoryAdminSetupResponseDtoData: {
-      /** @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9... */
-      readonly access_token: string;
       readonly administrator: components['schemas']['LaboratoryAdministratorSetupResponseDto'];
       readonly laboratory: components['schemas']['LaboratorySetupResponseDto'];
-      /** @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9... */
-      readonly refresh_token: string;
       /**
-       * Format: date-time
-       * @example 2026-07-18T10:30:00.000Z
+       * @description Administrator must verify their email before receiving credentials.
+       * @example true
        */
-      readonly session_expires_at: string;
-      /** @example 550e8400-e29b-41d4-a716-446655440003 */
-      readonly session_id: string;
+      readonly verification_required: boolean;
     };
     readonly LaboratoryOperatingHourResponseDto: {
       /** @example 18:00 */
@@ -2712,35 +2700,18 @@ export interface components {
        * @enum {string}
        */
       readonly access_level: LoginResponseDtoAccess_level;
-      /**
-       * @description JWT access token with 15 minutes expiration
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-       */
-      readonly access_token: string;
       /** @example account created */
       readonly message: string | null;
-      /**
-       * @description JWT refresh token with 7 days expiration
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-       */
-      readonly refresh_token: string;
       /**
        * @example email_verification
        * @enum {string}
        */
       readonly routing_target: LoginResponseDtoRouting_target;
-      /**
-       * Format: date-time
-       * @example 2024-01-15T10:30:00Z
-       */
-      readonly session_expires_at: string | null;
-      /** @example 550e8400-e29b-41d4-a716-446655440000 */
-      readonly session_id: string | null;
       /** @example 201 */
       readonly status_code: number | null;
       readonly user: components['schemas']['UserDto'];
       /**
-       * @description Current provider verification status, when applicable
+       * @description Current provider verification state; signup grants no session.
        * @example null
        */
       readonly verification_status: string | null;
@@ -2752,30 +2723,13 @@ export interface components {
        */
       readonly access_level: LoginResponseDtoAccess_level;
       /**
-       * @description JWT access token with 15 minutes expiration
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-       */
-      readonly access_token: string;
-      /**
-       * @description JWT refresh token with 7 days expiration
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-       */
-      readonly refresh_token: string;
-      /**
        * @example email_verification
        * @enum {string}
        */
       readonly routing_target: LoginResponseDtoRouting_target;
-      /**
-       * Format: date-time
-       * @example 2024-01-15T10:30:00Z
-       */
-      readonly session_expires_at: string | null;
-      /** @example 550e8400-e29b-41d4-a716-446655440000 */
-      readonly session_id: string | null;
       readonly user: components['schemas']['UserDto'];
       /**
-       * @description Current provider verification status, when applicable
+       * @description Current provider verification state; signup grants no session.
        * @example null
        */
       readonly verification_status: string | null;
@@ -2929,6 +2883,80 @@ export interface components {
        * @example user@example.com
        */
       readonly email: string;
+    };
+    readonly VerifySignupResponseDto: {
+      /**
+       * @example full
+       * @enum {string}
+       */
+      readonly access_level: LoginResponseDtoAccess_level;
+      /**
+       * @description JWT access token with 15 minutes expiration
+       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+       */
+      readonly access_token: string;
+      /** @example account verified */
+      readonly message: string | null;
+      /**
+       * @description JWT refresh token with 7 days expiration
+       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+       */
+      readonly refresh_token: string;
+      /**
+       * @example patient_home
+       * @enum {string}
+       */
+      readonly routing_target: LoginResponseDtoRouting_target;
+      /**
+       * Format: date-time
+       * @example 2024-01-15T10:30:00Z
+       */
+      readonly session_expires_at: string | null;
+      /** @example 550e8400-e29b-41d4-a716-446655440000 */
+      readonly session_id: string | null;
+      /** @example 200 */
+      readonly status_code: number | null;
+      readonly user: components['schemas']['UserDto'];
+      /**
+       * @description Current provider verification status, when applicable
+       * @example null
+       */
+      readonly verification_status: string | null;
+    };
+    readonly VerifySignupResponseDtoData: {
+      /**
+       * @example full
+       * @enum {string}
+       */
+      readonly access_level: LoginResponseDtoAccess_level;
+      /**
+       * @description JWT access token with 15 minutes expiration
+       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+       */
+      readonly access_token: string;
+      /**
+       * @description JWT refresh token with 7 days expiration
+       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+       */
+      readonly refresh_token: string;
+      /**
+       * @example patient_home
+       * @enum {string}
+       */
+      readonly routing_target: LoginResponseDtoRouting_target;
+      /**
+       * Format: date-time
+       * @example 2024-01-15T10:30:00Z
+       */
+      readonly session_expires_at: string | null;
+      /** @example 550e8400-e29b-41d4-a716-446655440000 */
+      readonly session_id: string | null;
+      readonly user: components['schemas']['UserDto'];
+      /**
+       * @description Current provider verification status, when applicable
+       * @example null
+       */
+      readonly verification_status: string | null;
     };
   };
   responses: never;
@@ -3499,8 +3527,7 @@ export interface operations {
         };
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
-            /** @example null */
-            readonly data: unknown;
+            readonly data: components['schemas']['VerifySignupResponseDtoData'];
           };
         };
       };

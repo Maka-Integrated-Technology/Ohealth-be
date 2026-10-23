@@ -2,11 +2,11 @@ import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import * as sysMsg from '../../../constants/system.messages';
+import { AccountStatus } from '../../user/enums/account-status.enum';
 import { UserRole } from '../../user/enums/user-role.enum';
 import { UserService } from '../../user/user.service';
-
 import { AccountAccessPolicyService } from '../account-access-policy.service';
-import { AccountStatus } from '../../user/enums/account-status.enum';
+
 import { JwtStrategy } from './jwt.strategy';
 
 describe('JwtStrategy', () => {
@@ -92,12 +92,12 @@ describe('JwtStrategy', () => {
     AccountStatus.DEACTIVATED,
   ])(
     'rejects %s even when legacy flags allow access',
-    async (account_status) => {
+    async (accountStatus) => {
       userService.findById.mockResolvedValue({
         id: 'user-id',
         email: 'current@example.com',
         role: [UserRole.PATIENT],
-        account_status,
+        account_status: accountStatus,
         email_verified_at: new Date(),
         is_active: true,
         is_verified: true,
