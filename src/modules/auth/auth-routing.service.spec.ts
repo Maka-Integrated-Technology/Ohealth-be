@@ -12,8 +12,10 @@ import {
   ProfessionalVerificationStatus,
 } from '../professional/entities/professional.entity';
 import { User } from '../user/entities/user.entity';
+import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserRole } from '../user/enums/user-role.enum';
 
+import { AccountAccessPolicyService } from './account-access-policy.service';
 import { AuthRoutingService } from './auth-routing.service';
 import { AuthAccessLevel, AuthRoutingTarget } from './enums/auth-routing.enum';
 
@@ -27,6 +29,7 @@ describe('AuthRoutingService', () => {
     organizationAdminRepository as unknown as Repository<OrganizationAdmin>,
     legacyLaboratoryAdminRepository as unknown as Repository<LaboratoryAdmin>,
     laboratoryStaffRepository as unknown as Repository<LaboratoryStaff>,
+    new AccountAccessPolicyService(),
   );
 
   const user = (role: UserRole[], isVerified = true) =>
@@ -34,6 +37,10 @@ describe('AuthRoutingService', () => {
       id: 'user-id',
       role,
       is_verified: isVerified,
+      account_status: isVerified
+        ? AccountStatus.ACTIVE
+        : AccountStatus.PENDING_VERIFICATION,
+      email_verified_at: isVerified ? new Date() : null,
     }) as User;
 
   beforeEach(() => {

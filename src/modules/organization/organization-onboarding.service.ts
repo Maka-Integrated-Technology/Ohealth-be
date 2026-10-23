@@ -13,6 +13,7 @@ import { Logger } from 'winston';
 
 import * as sysMsg from '../../constants/system.messages';
 import { User } from '../user/entities/user.entity';
+import { AccountStatus } from '../user/enums/account-status.enum';
 
 import { ORGANIZATION_ADMIN_ROLE } from './constants/organization-role.constant';
 import { SetupOrganizationResponseDto } from './dto/organization-response.dto';
@@ -159,6 +160,8 @@ export class OrganizationOnboardingService {
             role: [ORGANIZATION_ADMIN_ROLE[organization.organization_type]],
             is_active: true,
             is_verified: true,
+            account_status: AccountStatus.ACTIVE,
+            email_verified_at: new Date(),
           }),
         );
         const administrator = await administrators.save(

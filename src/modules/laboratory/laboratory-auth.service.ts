@@ -9,6 +9,7 @@ import { Logger } from 'winston';
 import * as sysMsg from '../../constants/system.messages';
 import { AuthService } from '../auth/auth.service';
 import { User } from '../user/entities/user.entity';
+import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserRole } from '../user/enums/user-role.enum';
 
 import { LaboratoryAdminSetupDto } from './dto/laboratory-admin-setup.dto';
@@ -166,6 +167,8 @@ export class LaboratoryAuthService {
             role: [UserRole.LAB_ADMIN],
             is_active: true,
             is_verified: true,
+            account_status: AccountStatus.ACTIVE,
+            email_verified_at: new Date(),
           }),
         );
 

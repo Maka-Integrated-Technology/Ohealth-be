@@ -6,6 +6,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import * as sysMsg from '../../../constants/system.messages';
 import { UserRole } from '../../user/enums/user-role.enum';
 import { UserService } from '../../user/user.service';
+import { AccountAccessPolicyService } from '../account-access-policy.service';
 import { haveSameRoles } from '../utils/auth-role.util';
 
 interface IJwtPayload {
@@ -19,6 +20,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     private readonly configService: ConfigService,
     private readonly userService: UserService,
+    private readonly accountAccessPolicy: AccountAccessPolicyService,
   ) {
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
@@ -29,7 +31,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
 
   async validate(payload: IJwtPayload) {
     const user = await this.userService.findById(payload.sub);
-    if (!user || !user.is_active || !user.is_verified) {
+    this.accountAccessPolicy.assertCanAuthenticate(user);
+    if (!user) {
       throw new UnauthorizedException(sysMsg.USER_INACTIVE);
     }
 

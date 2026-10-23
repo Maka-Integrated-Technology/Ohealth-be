@@ -16,9 +16,11 @@ import * as sysMsg from '../../constants/system.messages';
 import { EmailService } from '../email/email.service';
 import { ProfessionalVerificationStatus } from '../professional/entities/professional.entity';
 import { User } from '../user/entities/user.entity';
+import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserRole } from '../user/enums/user-role.enum';
 import { UserService } from '../user/user.service';
 
+import { AccountAccessPolicyService } from './account-access-policy.service';
 import { AuthRoutingService } from './auth-routing.service';
 import { AuthService } from './auth.service';
 import { ResendVerificationDto, VerifySignupDto } from './dto/auth.dto';
@@ -34,6 +36,7 @@ describe('AuthService', () => {
     findByResetToken: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
+    verifyEmailWithCode: jest.fn(),
   };
 
   const mockSessionRepository = {
@@ -102,6 +105,7 @@ describe('AuthService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
+        AccountAccessPolicyService,
         {
           provide: UserService,
           useValue: mockUserService,
@@ -262,6 +266,8 @@ describe('AuthService', () => {
         role: [UserRole.PATIENT],
         is_active: true,
         is_verified: true,
+        account_status: AccountStatus.ACTIVE,
+        email_verified_at: new Date(),
       } as User;
       mockUserService.findByEmail.mockResolvedValue(user);
       mockJwtService.signAsync
@@ -288,6 +294,31 @@ describe('AuthService', () => {
     });
   });
 
+  it.each([
+    AccountStatus.PENDING_VERIFICATION,
+    AccountStatus.SUSPENDED,
+    AccountStatus.DEACTIVATED,
+  ])(
+    'denies password login for %s even if legacy flags say active',
+    async (account_status) => {
+      jest.spyOn(bcrypt, 'compare').mockImplementation(async () => true);
+      mockUserService.findByEmail.mockResolvedValue({
+        id: 'blocked-user',
+        email: 'blocked@example.com',
+        password: 'hash',
+        role: [UserRole.PATIENT],
+        account_status,
+        email_verified_at: new Date(),
+        is_active: true,
+        is_verified: true,
+      });
+      await expect(
+        service.login({ email: 'blocked@example.com', password: 'test' }),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+    },
+  );
+
   describe('issueAuthSession', () => {
     it('should issue tokens and create a refresh session for an existing user', async () => {
       const expiresAt = new Date('2026-07-11T16:16:13.000Z');
@@ -311,6 +342,8 @@ describe('AuthService', () => {
         id: 'user-id-1',
         email: 'lab.admin@example.com',
         role: [UserRole.LAB_ADMIN],
+        account_status: AccountStatus.ACTIVE,
+        email_verified_at: new Date(),
       } as User);
 
       expect(mockJwtService.signAsync).toHaveBeenCalledTimes(2);
@@ -378,6 +411,8 @@ describe('AuthService', () => {
         role: [UserRole.DOCTOR],
         is_active: true,
         is_verified: true,
+        account_status: AccountStatus.ACTIVE,
+        email_verified_at: new Date(),
       } as User;
       mockJwtService.verifyAsync.mockResolvedValue({
         sub: user.id,
@@ -441,6 +476,8 @@ describe('AuthService', () => {
         role: [UserRole.PATIENT],
         is_active: true,
         is_verified: true,
+        account_status: AccountStatus.ACTIVE,
+        email_verified_at: new Date(),
       });
 
       await expect(
@@ -449,6 +486,37 @@ describe('AuthService', () => {
       expect(mockJwtService.signAsync).not.toHaveBeenCalled();
     });
   });
+
+  it.each([
+    AccountStatus.PENDING_VERIFICATION,
+    AccountStatus.SUSPENDED,
+    AccountStatus.DEACTIVATED,
+  ])(
+    'rejects refresh for %s even if legacy flags say active',
+    async (account_status) => {
+      mockJwtService.verifyAsync.mockResolvedValue({
+        sub: 'blocked-user',
+        email: 'blocked@example.com',
+        role: [UserRole.PATIENT],
+      });
+      mockSessionRepository.findOne.mockResolvedValue({
+        user_id: 'blocked-user',
+        revoked_at: null,
+      });
+      mockUserService.findById.mockResolvedValue({
+        id: 'blocked-user',
+        role: [UserRole.PATIENT],
+        account_status,
+        email_verified_at: new Date(),
+        is_active: true,
+        is_verified: true,
+      });
+      await expect(
+        service.refreshToken({ refresh_token: 'existing-token' }),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+    },
+  );
 
   describe('getProfile', () => {
     it('should return the authenticated user profile', async () => {
@@ -539,6 +607,8 @@ describe('AuthService', () => {
         email: payload.email,
         first_name: 'Tunde',
         is_verified: false,
+        account_status: AccountStatus.PENDING_VERIFICATION,
+        email_verified_at: null,
         verification_code: 'old-code',
         verification_code_expires_at: new Date(Date.now() - 1000),
       };
@@ -576,6 +646,8 @@ describe('AuthService', () => {
         id: 'user-id-2',
         email: 'verified@example.com',
         is_verified: true,
+        account_status: AccountStatus.ACTIVE,
+        email_verified_at: new Date(),
       });
 
       await expect(
@@ -590,24 +662,24 @@ describe('AuthService', () => {
         email: 'tunde@example.com',
         code: '123456',
       };
-      mockUserService.findByEmail.mockResolvedValue({
+      mockUserService.verifyEmailWithCode.mockResolvedValue({
         id: 'user-id-1',
         email: payload.email,
         first_name: 'Tunde',
         last_name: 'Adebayo',
-        is_active: false,
-        is_verified: false,
-        verification_code: '123456',
-        verification_code_expires_at: new Date(Date.now() + 60000),
+        is_active: true,
+        is_verified: true,
+        account_status: AccountStatus.ACTIVE,
+        email_verified_at: new Date(),
       });
-      mockUserService.save.mockImplementation(
-        async (u: Record<string, unknown>) => u,
-      );
 
       const result = await service.verifySignup(payload);
 
       expect(result).toEqual({ message: sysMsg.ACCOUNT_VERIFIED });
-      expect(mockUserService.save).toHaveBeenCalled();
+      expect(mockUserService.verifyEmailWithCode).toHaveBeenCalledWith(
+        payload.email,
+        payload.code,
+      );
       expect(mockEmailService.sendMail).toHaveBeenCalled();
     });
   });

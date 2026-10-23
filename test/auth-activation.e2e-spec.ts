@@ -5,10 +5,12 @@ import { PassportModule } from '@nestjs/passport';
 import { Test, TestingModule } from '@nestjs/testing';
 import * as request from 'supertest';
 
+import { AccountAccessPolicyService } from '../src/modules/auth/account-access-policy.service';
 import { AuthController } from '../src/modules/auth/auth.controller';
 import { AuthService } from '../src/modules/auth/auth.service';
 import { JwtAuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
 import { JwtStrategy } from '../src/modules/auth/strategies/jwt.strategy';
+import { AccountStatus } from '../src/modules/user/enums/account-status.enum';
 import { UserRole } from '../src/modules/user/enums/user-role.enum';
 import { UserService } from '../src/modules/user/user.service';
 
@@ -28,6 +30,8 @@ describe('Retired account activation (isolated e2e)', () => {
       role: [UserRole.PATIENT],
       is_active: true,
       is_verified: true,
+      account_status: AccountStatus.ACTIVE,
+      email_verified_at: new Date(),
     });
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -39,6 +43,7 @@ describe('Retired account activation (isolated e2e)', () => {
       providers: [
         JwtAuthGuard,
         JwtStrategy,
+        AccountAccessPolicyService,
         { provide: AuthService, useValue: {} },
         {
           provide: ConfigService,
