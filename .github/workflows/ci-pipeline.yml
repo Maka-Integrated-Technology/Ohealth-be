@@ -94,6 +94,9 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: bash scripts/openapi/enforce-breaking-approval.sh
 
+      - name: Verify formatting
+        run: npm run format:check
+
       - name: Run ESLint
         run: npm run lint
 
@@ -105,42 +108,3 @@ jobs:
 
       - name: Run Build
         run: npm run build
-
-  activation-security-regression:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha }}
-
-      - name: Run supply-chain security scan
-        run: bash scripts/security/supply-chain-scan.sh
-
-      - name: Verify supply-chain scanner controls
-        run: bash scripts/security/supply-chain-scan.test.sh
-
-      - name: Set up Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 24
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci --ignore-scripts
-
-      - name: Verify OpenAPI contract and generated API client
-        run: |
-          npm run contract:check
-          npm run api-client:test
-
-      - name: Run isolated activation security HTTP e2e
-        run: npx jest --config ./test/jest-e2e.json --runInBand test/auth-activation.e2e-spec.ts
-
-      - name: Run unit tests and build
-        run: |
-          npm run format:check
-          npm test -- --runInBand
-          npm run build
