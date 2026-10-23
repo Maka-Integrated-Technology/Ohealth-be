@@ -25,7 +25,6 @@ const HTTP_METHODS = [
 ] as const;
 
 const PUBLIC_OPERATION_IDS = new Set([
-  'AuthController_activateAccount',
   'AuthController_forgotPassword',
   'AuthController_googleLogin',
   'AuthController_login',

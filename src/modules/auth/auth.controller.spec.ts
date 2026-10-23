@@ -1,4 +1,4 @@
-import { HttpStatus } from '@nestjs/common';
+import { ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { IRequestWithUser } from '../../common/types';
@@ -21,7 +21,6 @@ describe('AuthController', () => {
     resetPassword: jest.fn(),
     verifySignup: jest.fn(),
     resendVerification: jest.fn(),
-    activateUserAccount: jest.fn(),
     getProfile: jest.fn(),
     logout: jest.fn(),
   };
@@ -63,18 +62,8 @@ describe('AuthController', () => {
     expect(result).toEqual(expected);
   });
 
-  it('should return status and message on account activation', async () => {
-    mockAuthService.activateUserAccount.mockResolvedValue(
-      sysMsg.USER_ACTIVATED,
-    );
-
-    const result = await controller.activateAccount('user-id-1');
-
-    expect(authService.activateUserAccount).toHaveBeenCalledWith('user-id-1');
-    expect(result).toEqual({
-      status: HttpStatus.OK,
-      message: sysMsg.USER_ACTIVATED,
-    });
+  it('permanently denies the deprecated account activation command', () => {
+    expect(() => controller.activateAccount()).toThrow(ForbiddenException);
   });
 
   it('should return profile for authenticated request', async () => {

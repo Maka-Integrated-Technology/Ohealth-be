@@ -49,35 +49,6 @@
         ],
         "type": "object"
       },
-      "ActivateAccountResponseDto": {
-        "properties": {
-          "message": {
-            "example": "User account activated successfully",
-            "type": "string"
-          },
-          "status": {
-            "example": 200,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "status",
-          "message"
-        ],
-        "type": "object"
-      },
-      "ActivateAccountResponseDtoData": {
-        "properties": {
-          "status": {
-            "example": 200,
-            "type": "integer"
-          }
-        },
-        "required": [
-          "status"
-        ],
-        "type": "object"
-      },
       "ApiErrorResponseDto": {
         "properties": {
           "data": {
@@ -5203,92 +5174,6 @@
           }
         },
         "summary": "Register a new user",
-        "tags": [
-          "Authentication"
-        ]
-      }
-    },
-    "/api/auth/users/{user_id}/activate": {
-      "patch": {
-        "operationId": "AuthController_activateAccount",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "user_id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/ActivateAccountResponseDtoData"
-                        }
-                      },
-                      "required": [
-                        "data"
-                      ],
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "user account activated"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
-                }
-              }
-            },
-            "description": "token invalid"
-          },
-          "403": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
-                }
-              }
-            },
-            "description": "permission denied"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
-                }
-              }
-            },
-            "description": "user not found"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
-                }
-              }
-            },
-            "description": "Internal server error"
-          }
-        },
-        "summary": "activate account",
         "tags": [
           "Authentication"
         ]

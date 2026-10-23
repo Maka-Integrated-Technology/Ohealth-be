@@ -100,5 +100,8 @@ jobs:
       - name: Run Tests
         run: npm test
 
+      - name: Verify denied legacy activation (isolated e2e)
+        run: npx jest --config ./test/jest-e2e.json --runInBand test/auth-activation.e2e-spec.ts
+
       - name: Run Build
         run: npm run build

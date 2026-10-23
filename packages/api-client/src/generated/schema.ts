@@ -175,23 +175,6 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
-  readonly '/api/auth/users/{user_id}/activate': {
-    readonly parameters: {
-      readonly query?: never;
-      readonly header?: never;
-      readonly path?: never;
-      readonly cookie?: never;
-    };
-    readonly get?: never;
-    readonly put?: never;
-    readonly post?: never;
-    readonly delete?: never;
-    readonly options?: never;
-    readonly head?: never;
-    /** activate account */
-    readonly patch: operations['AuthController_activateAccount'];
-    readonly trace?: never;
-  };
   readonly '/api/auth/verify': {
     readonly parameters: {
       readonly query?: never;
@@ -1362,16 +1345,6 @@ export interface components {
     };
     readonly AcceptLaboratoryStaffInvitationResponseDtoData: {
       readonly staff: components['schemas']['LaboratoryStaffResponseDto'];
-    };
-    readonly ActivateAccountResponseDto: {
-      /** @example User account activated successfully */
-      readonly message: string;
-      /** @example 200 */
-      readonly status: number;
-    };
-    readonly ActivateAccountResponseDtoData: {
-      /** @example 200 */
-      readonly status: number;
     };
     readonly ApiErrorResponseDto: {
       /** @example null */
@@ -3489,66 +3462,6 @@ export interface operations {
       };
       /** @description account already exists */
       readonly 409: {
-        headers: {
-          readonly [name: string]: unknown;
-        };
-        content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
-        };
-      };
-      /** @description Internal server error */
-      readonly 500: {
-        headers: {
-          readonly [name: string]: unknown;
-        };
-        content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
-        };
-      };
-    };
-  };
-  readonly AuthController_activateAccount: {
-    readonly parameters: {
-      readonly query?: never;
-      readonly header?: never;
-      readonly path: {
-        readonly user_id: string;
-      };
-      readonly cookie?: never;
-    };
-    readonly requestBody?: never;
-    readonly responses: {
-      /** @description user account activated */
-      readonly 200: {
-        headers: {
-          readonly [name: string]: unknown;
-        };
-        content: {
-          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
-            readonly data: components['schemas']['ActivateAccountResponseDtoData'];
-          };
-        };
-      };
-      /** @description token invalid */
-      readonly 401: {
-        headers: {
-          readonly [name: string]: unknown;
-        };
-        content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
-        };
-      };
-      /** @description permission denied */
-      readonly 403: {
-        headers: {
-          readonly [name: string]: unknown;
-        };
-        content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
-        };
-      };
-      /** @description user not found */
-      readonly 404: {
         headers: {
           readonly [name: string]: unknown;
         };

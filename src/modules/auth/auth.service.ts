@@ -286,21 +286,6 @@ export class AuthService {
     };
   }
 
-  async activateUserAccount(id: string) {
-    const user = await this.userService.findById(id);
-    if (!user) {
-      throw new NotFoundException(sysMsg.USER_NOT_FOUND);
-    }
-
-    if (user.is_active) {
-      return sysMsg.USER_IS_ACTIVATED;
-    }
-
-    user.is_active = true;
-    await this.userService.save(user);
-    return sysMsg.USER_ACTIVATED;
-  }
-
   async verifySignup(payload: VerifySignupDto) {
     const email = payload.email.trim().toLowerCase();
     const user = await this.userService.findByEmail(email);

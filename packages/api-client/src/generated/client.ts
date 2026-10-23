@@ -7,20 +7,6 @@ import { createCoreClient } from '../core/client.js';
 import type { ApiClientConfig, ApiHeaders } from '../core/types.js';
 import type { operations } from './schema.js';
 
-export type AuthController_activateAccountRequest = Readonly<{
-  readonly path: NonNullable<
-    operations['AuthController_activateAccount']['parameters']['path']
-  >;
-  readonly headers?: ApiHeaders;
-}>;
-export type AuthController_activateAccountResponse =
-  operations['AuthController_activateAccount']['responses'][200]['content']['application/json'];
-export type AuthController_activateAccountError =
-  | operations['AuthController_activateAccount']['responses'][401]['content']['application/json']
-  | operations['AuthController_activateAccount']['responses'][403]['content']['application/json']
-  | operations['AuthController_activateAccount']['responses'][404]['content']['application/json']
-  | operations['AuthController_activateAccount']['responses'][500]['content']['application/json'];
-
 export type AuthController_changePasswordRequest = Readonly<{
   readonly body: NonNullable<
     operations['AuthController_changePassword']['requestBody']
@@ -1212,9 +1198,6 @@ export type TwoFactorAuthController_enable2faError =
   | operations['TwoFactorAuthController_enable2fa']['responses'][500]['content']['application/json'];
 
 export interface ApiClient {
-  readonly AuthController_activateAccount: (
-    request: AuthController_activateAccountRequest,
-  ) => Promise<AuthController_activateAccountResponse>;
   readonly AuthController_changePassword: (
     request: AuthController_changePasswordRequest,
   ) => Promise<AuthController_changePasswordResponse>;
@@ -1491,18 +1474,6 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
   const core = createCoreClient(config);
 
   return {
-    AuthController_activateAccount: (request) =>
-      core.request<
-        AuthController_activateAccountResponse,
-        AuthController_activateAccountError
-      >(
-        {
-          operationId: 'AuthController_activateAccount',
-          method: 'PATCH',
-          path: '/api/auth/users/{user_id}/activate',
-        },
-        request,
-      ),
     AuthController_changePassword: (request) =>
       core.request<
         AuthController_changePasswordResponse,

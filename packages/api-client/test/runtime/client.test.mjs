@@ -50,7 +50,7 @@ test('exposes every canonical operationId exactly once', async () => {
     transport: async () => ({ status: 200, data: {} }),
   });
 
-  assert.equal(operationIds.length, 91);
+  assert.equal(operationIds.length, 90);
   assert.deepEqual(Object.keys(client).sort(), operationIds);
 });
 
@@ -71,8 +71,8 @@ test('uses injected transport and resolves current authorization headers', async
     },
   });
 
-  await client.AuthController_activateAccount({
-    path: { user_id: 'user/42' },
+  await client.BookingController_findOne({
+    path: { id: 'booking/42' },
     headers: { 'X-Request-ID': 'request-1' },
   });
   accessToken = 'second-token';
@@ -80,9 +80,9 @@ test('uses injected transport and resolves current authorization headers', async
 
   assert.equal(requests.length, 2);
   assert.deepEqual(requests[0], {
-    operationId: 'AuthController_activateAccount',
-    method: 'PATCH',
-    url: 'https://api.ohealth.example/api/auth/users/user%2F42/activate',
+    operationId: 'BookingController_findOne',
+    method: 'GET',
+    url: 'https://api.ohealth.example/api/bookings/booking%2F42',
     headers: {
       Authorization: 'Bearer first-token',
       'X-Request-ID': 'request-1',
@@ -165,7 +165,7 @@ test('rejects invalid configuration and missing path parameters', async () => {
     transport: async () => ({ status: 200, data: {} }),
   });
   await assert.rejects(
-    client.AuthController_activateAccount({}),
-    /Missing path parameter: user_id/,
+    client.BookingController_findOne({}),
+    /Missing path parameter: id/,
   );
 });
