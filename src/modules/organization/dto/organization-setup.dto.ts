@@ -9,10 +9,10 @@ import {
   IsString,
   Matches,
   MaxLength,
-  MinLength,
   ValidateNested,
 } from 'class-validator';
 
+import { isSecurePassword } from '../../auth/password-policy/is-secure-password.decorator';
 import { OrganizationType } from '../enums/organization-type.enum';
 
 export class OrganizationDetailsDto {
@@ -73,12 +73,7 @@ export class OrganizationAdministratorDto {
 
   @ApiProperty({ example: 'SecurePassword123', minLength: 8 })
   @IsString()
-  @MinLength(8)
-  @MaxLength(128)
-  @Matches(/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
-    message:
-      'password must contain at least one uppercase letter, one lowercase letter, and one number',
-  })
+  @isSecurePassword()
   password: string;
 }
 

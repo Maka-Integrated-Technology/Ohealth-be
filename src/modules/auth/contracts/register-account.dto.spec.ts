@@ -10,7 +10,7 @@ const validRegistration = {
   first_name: 'Ada',
   last_name: 'Okafor',
   email: 'ada@example.com',
-  password: 'a-long-passphrase',
+  password: 'ALongPassphrase123',
   intent: SignupIntent.PATIENT,
   accepted_terms_version: '2026-08-01',
   accepted_privacy_version: '2026-08-01',

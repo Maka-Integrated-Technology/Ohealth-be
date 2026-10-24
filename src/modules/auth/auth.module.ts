@@ -18,6 +18,7 @@ import { AuthSession } from './entities/auth.entity';
 import { User2fa } from './entities/user-2fa.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { PasswordCredentialsService } from './password-policy/password-credentials.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { TwoFactorAuthController } from './two-factor-auth.controller';
 import { TwoFactorAuthService } from './two-factor-auth.service';
@@ -48,11 +49,12 @@ import { TwoFactorAuthService } from './two-factor-auth.service';
   providers: [
     AuthService,
     AuthRoutingService,
+    PasswordCredentialsService,
     JwtStrategy,
     JwtAuthGuard,
     RolesGuard,
     TwoFactorAuthService,
   ],
-  exports: [AuthService, JwtAuthGuard, RolesGuard],
+  exports: [AuthService, PasswordCredentialsService, JwtAuthGuard, RolesGuard],
 })
 export class AuthModule {}

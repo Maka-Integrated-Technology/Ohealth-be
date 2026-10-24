@@ -1,7 +1,5 @@
 import { ConflictException, Inject, Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import * as bcrypt from 'bcrypt';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { DataSource, Repository } from 'typeorm';
 import { Logger } from 'winston';
@@ -28,7 +26,6 @@ import { IParsedFullName } from './interfaces/parsed-full-name.interface';
 @Injectable()
 export class LaboratoryAuthService {
   private readonly logger: Logger;
-  private readonly saltRounds: number;
 
   constructor(
     @InjectRepository(Laboratory)
@@ -39,11 +36,9 @@ export class LaboratoryAuthService {
     private readonly userRepository: Repository<User>,
     private readonly dataSource: DataSource,
     private readonly authService: AuthService,
-    private readonly configService: ConfigService,
     @Inject(WINSTON_MODULE_PROVIDER) logger: Logger,
   ) {
     this.logger = logger.child({ context: LaboratoryAuthService.name });
-    this.saltRounds = Number(this.configService.get<string>('HASH_SALT', '10'));
   }
 
   async setupAdministrator(
@@ -52,9 +47,8 @@ export class LaboratoryAuthService {
     const laboratoryPayload = this.normalizeLaboratoryPayload(dto);
     const administratorPayload = this.normalizeAdministratorPayload(dto);
     const parsedName = this.parseFullName(administratorPayload.fullName);
-    const password = await bcrypt.hash(
+    const password = await this.authService.hashNewPassword(
       administratorPayload.password,
-      this.saltRounds,
     );
 
     const { laboratory, administrator, user } =
