@@ -18,12 +18,14 @@ import { AuthSession } from './entities/auth.entity';
 import { User2fa } from './entities/user-2fa.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { AuthSecurityAuditModule } from './security-audit/auth-security-audit.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { TwoFactorAuthController } from './two-factor-auth.controller';
 import { TwoFactorAuthService } from './two-factor-auth.service';
 
 @Module({
   imports: [
+    AuthSecurityAuditModule,
     ConfigModule,
     EmailModule,
     UserModule,
