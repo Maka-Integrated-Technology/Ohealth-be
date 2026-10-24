@@ -1,63 +1,59 @@
-# Credential sign-in and shared password policy (#76)
+# OHealth credential sign-in and password policy (#76)
 
-## Disclosure and login work
+## Login privacy
 
-- Unknown email and wrong password return the same HTTP 401 and the same
-  `invalid credentials` message. No account status is inspected before a
-  correct password is proved.
-- Every syntactically valid credential login performs bcrypt comparison.
-  Unknown, absent-password, and corrupt-hash accounts compare against the
-  same static dummy bcrypt hash. That dummy hash is public, not a real account
-  secret; it should be regenerated only if the configured bcrypt cost changes
-  significantly. This reduces missing-user timing differences but does not
-  guarantee identical wall-clock latency (database lookup/cache and existing
-  hash costs can differ).
-- Only *after* successful password proof does the existing canonical account
-  policy (#74) decide whether login is allowed. A valid password for a
-  suspended, deactivated, or unverified account remains denied. Never reveal
-  that status on an invalid password.
-- Credential login logs only generic success; password values, bearer tokens,
-  reset codes, dummy hash, and request bodies are not logged.
-- Login input is bounded at **1024 UTF-8 bytes** before bcrypt. Oversized
-  input produces the same generic 401 regardless of whether the email exists.
+- Unknown identities and incorrect passwords return the same generic 401.
+- Account-state information is disclosed only after successful password proof.
+- Login passwords are bounded to 1024 UTF-8 bytes **before database lookup**.
+- For bounded input, every login uses one bcrypt comparison, including
+  nonexistent accounts, invalid stored hashes, and legacy/modern accounts.
+- A dummy hash is prepared during Nest initialization with the configured
+  HASH_SALT (cost 10 through 14); it is not a user credential.
+- Historical account hashes at different cost factors can still have different
+  timings. Rate limiting (#75) and gradual rehash-on-credential-change are
+  important deployment follow-ups.
+- No passwords, reset codes, bearer tokens, or request payloads in auth logs.
 
-## Password-setting contract
+## Password setting
 
-One reusable `PasswordCredentialsService` and `IsSecurePassword`
-DTO validator enforce the same policy for legacy signup, intent-based
-registration contracts (#78), laboratory/organization administrator setup,
-reset completion (#75), and authenticated password change (#77).
+- Single-factor passwords require **15 Unicode code points** minimum, counted
+  after NFC normalization, and permit **at least 64 characters**.
+- The current upper bound is 1024 UTF-8 bytes after normalization.
+- No composition rules, trimming, or silent truncation.
+- A local whole-password blocklist rejects common and context-specific
+  passwords. **Security review follow-up:** expand and maintain this seed
+  blocklist using an appropriately sourced, updated breached-password dataset
+  before treating compromised-password protection as complete.
+- DTO validation and PasswordCredentialsService use the same policy across
+  patient/professional signup, intent-based registration DTOs, laboratory and
+  organization administration, lab staff invitations, reset, and change.
 
-- Minimum **8 characters** for existing client compatibility.
-- Maximum **72 UTF-8 bytes** (bcrypt's effective input boundary).
-- At least one ASCII uppercase letter, lowercase letter, and number.
-- No automatic trimming, normalization, or silent truncation.
-- User-input policy validation happens **before hashing**; direct service
-  calls cannot bypass DTO validation.
-- Bcrypt work factor remains controlled by `HASH_SALT`, validated to be
-  an integer between 10 and 14 (default 10).
-- Server-generated random OAuth placeholder credentials use the same
-  hashing boundary but are exempt from the user password-complexity rule.
+## Versioned hashing and migration
 
-Changing the configured bcrypt rounds may affect the exact timing resistance
-of the precomputed dummy hash, currently cost 10. Keep it in sync with
-production work factor; existing account hashes of different costs are
-not perfectly timing-equivalent. Do not introduce password logging to
-diagnose authentication failures.
+- New user-chosen passwords are stored in version
+  `ohealth$bcrypt-sha256$v1$` followed by a normal bcrypt hash.
+- Before bcrypt, the complete NFC-normalized password is SHA-256 hashed with
+  a domain-separation label and the unique bcrypt salt. The 43-character
+  base64url digest fits bcrypt without losing any original password bytes.
+- Existing `$2a$`, `$2b$` and `$2y$` bcrypt hashes remain accepted for
+  passwords of up to 72 UTF-8 bytes, without accepting input that matches
+  solely due to bcrypt truncation beyond byte 72.
+- Reset/change-password writes the versioned format and is the migration path.
+  Do not silently switch legacy accounts at login without a documented
+  transactional migration, session strategy, and audit trail.
+- Server-generated OAuth placeholder secrets may remain legacy bcrypt.
+- Performance of work factor 10–14 and existing mixed-cost legacy hashes
+  must be validated in deployment conditions.
 
-## Scope boundaries
+## Remaining security work and release criteria
 
-- Issue #75 owns challenge storage, delivery, reset flow and rate limiting.
-- Issue #77 owns session rotation, revocation and security events.
-- Issue #78 owns transactionally orchestrated, intent-based registration.
-- This PR exposes the reusable policy for those issues without attempting
-  to implement their larger flows.
-
-## Test evidence to review
-
-- Unit tests cover identical missing-account/wrong-password error semantics,
-  bcrypt comparison path, limits, Unicode byte overflow and every DTO.
-- Isolated HTTP tests check identical 401 bodies, account state disclosure only
-  after correct password, pathological inputs, and no secret logging.
-- All existing unit, activation-security and PostgreSQL migration tests should
-  remain green. CI security audit and signed-commit approval remain mandatory.
+- Add a maintained sufficiently large compromised-password source to the seed
+  blocklist, with regression coverage and an operational update process.
+- Document frontend/API changes: signup, reset, change, laboratory staff,
+  and all other password forms now enforce 15+ characters.
+- Finish #75 request-rate limits/recovery, #77 session security, and #78
+  full registration orchestration separately; do not accidentally expand #76.
+- Regenerate/check OpenAPI and client contracts, run unit/e2e/integration
+  checks, formatter, linter, audit, and independent security re-review.
+- Do not merge or deploy while tests, blocklist coverage, or approval
+  requirements are outstanding.

@@ -29,6 +29,12 @@ describe('Credential enumeration resistance (isolated HTTP e2e)', () => {
     error: jest.fn(),
   };
   const address = '/api/auth/login';
+  const allLoggerCalls = () =>
+    JSON.stringify(
+      [logger.child, logger.info, logger.warn, logger.error].flatMap(
+        (level) => level.mock.calls,
+      ),
+    );
 
   beforeAll(async () => {
     const existingHash = await bcrypt.hash('Password123', 10);
@@ -84,6 +90,7 @@ describe('Credential enumeration resistance (isolated HTTP e2e)', () => {
     logger.info.mockClear();
     logger.warn.mockClear();
     logger.error.mockClear();
+    logger.child.mockClear();
   });
 
   it('does not disclose account existence or state for an incorrect password', async () => {
@@ -111,11 +118,14 @@ describe('Credential enumeration resistance (isolated HTTP e2e)', () => {
   });
 
   it('rejects pathological password input before expensive database or bcrypt work', async () => {
+    const compare = jest.spyOn(bcrypt, 'compare');
     await request(app.getHttpServer())
       .post(address)
       .send({ email: 'missing@example.com', password: 'A'.repeat(2048) })
       .expect(401);
-    expect(logger.info).not.toHaveBeenCalled();
+    expect(findByEmail).not.toHaveBeenCalled();
+    expect(compare).not.toHaveBeenCalled();
+    compare.mockRestore();
   });
 
   it('does not log credentials or tokens on rejection', async () => {
@@ -124,7 +134,13 @@ describe('Credential enumeration resistance (isolated HTTP e2e)', () => {
       .post(address)
       .send({ email: 'missing@example.com', password: secret })
       .expect(401);
-    expect(JSON.stringify(logger)).not.toContain(secret);
+    expect(allLoggerCalls()).not.toContain(secret);
+    expect(allLoggerCalls()).not.toContain('missing@example.com');
+    expect(allLoggerCalls()).not.toContain('access_token');
+    expect(allLoggerCalls()).not.toContain('refresh_token');
     expect(logger.info).not.toHaveBeenCalled();
+    // Negative control proves the assertion detects a leaked secret.
+    logger.warn(secret);
+    expect(() => expect(allLoggerCalls()).not.toContain(secret)).toThrow();
   });
 });

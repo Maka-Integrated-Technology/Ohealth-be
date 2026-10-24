@@ -96,8 +96,8 @@ export class AuthDto {
 
   @ApiProperty({
     description:
-      'Password: 8+ characters, upper/lowercase and number, at most 72 UTF-8 bytes',
-    example: 'SecurePassword123!',
+      'Password: 15+ Unicode characters, no composition rule, max 1024 UTF-8 bytes',
+    example: 'a memorable patient passphrase',
     minLength: PASSWORD_MIN_LENGTH,
   })
   @IsString()
@@ -135,8 +135,8 @@ export class ResetPasswordDto {
   token: string;
 
   @ApiProperty({
-    example: 'NewPassword123!',
-    description: 'New password: 8+ characters, at most 72 UTF-8 bytes',
+    example: 'a memorable patient passphrase',
+    description: 'New password: 15+ Unicode characters, max 1024 UTF-8 bytes',
   })
   @IsString()
   @IsNotEmpty()

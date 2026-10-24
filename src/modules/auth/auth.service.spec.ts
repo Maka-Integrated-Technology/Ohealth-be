@@ -190,7 +190,7 @@ describe('AuthService', () => {
         first_name: 'Tunde',
         last_name: 'Adebayo',
         email: 'tunde@example.com',
-        password: 'Password123',
+        password: 'a memorable patient passphrase',
         role: [UserRole.PATIENT],
       });
 

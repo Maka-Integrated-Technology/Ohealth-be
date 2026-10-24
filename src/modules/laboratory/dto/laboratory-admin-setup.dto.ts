@@ -9,6 +9,7 @@ import {
 } from 'class-validator';
 
 import { isSecurePassword } from '../../auth/password-policy/is-secure-password.decorator';
+import { PASSWORD_MIN_LENGTH } from '../../auth/password-policy/password-policy';
 
 export class LaboratorySetupDto {
   @ApiProperty({ example: 'MedCheck Diagnostics' })
@@ -69,7 +70,10 @@ export class LaboratoryAdministratorSetupDto {
   })
   phone: string;
 
-  @ApiProperty({ example: 'SecurePassword123', minLength: 8 })
+  @ApiProperty({
+    example: 'a memorable patient passphrase',
+    minLength: PASSWORD_MIN_LENGTH,
+  })
   @IsString()
   @IsNotEmpty()
   @isSecurePassword()

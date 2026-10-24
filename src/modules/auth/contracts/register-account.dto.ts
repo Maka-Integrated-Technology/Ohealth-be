@@ -38,7 +38,7 @@ export class RegisterAccountDto {
     format: 'password',
     minLength: PASSWORD_MIN_LENGTH,
     description:
-      '8+ characters, upper/lowercase and number, no more than 72 UTF-8 bytes',
+      '15+ Unicode characters, no composition rule, max 1024 UTF-8 bytes',
   })
   @IsString()
   @isSecurePassword()

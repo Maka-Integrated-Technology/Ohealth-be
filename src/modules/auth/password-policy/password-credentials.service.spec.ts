@@ -15,73 +15,101 @@ describe('Shared password policy and credential boundary', () => {
   } as unknown as ConfigService;
   let credentials: PasswordCredentialsService;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     credentials = new PasswordCredentialsService(config);
+    await credentials.onModuleInit();
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
   });
 
-  it('provides stable length limits without bcrypt truncation', () => {
-    expect(PASSWORD_MIN_LENGTH).toBe(8);
-    expect(PASSWORD_MAX_UTF8_BYTES).toBe(72);
-    expect(meetsPasswordPolicy('Password123')).toBe(true);
-    expect(meetsPasswordPolicy('Abcdefg1' + 'x'.repeat(64))).toBe(true);
-    expect(meetsPasswordPolicy('Abcdefg1' + 'x'.repeat(65))).toBe(false);
-    expect(meetsPasswordPolicy('Abcdefg1' + 'é'.repeat(33))).toBe(false);
+  it('supports long Unicode passwords without composition rules', () => {
+    expect(PASSWORD_MIN_LENGTH).toBe(15);
+    expect(PASSWORD_MAX_UTF8_BYTES).toBe(1024);
+    expect(meetsPasswordPolicy('Password1')).toBe(false);
+    expect(meetsPasswordPolicy('password123456789')).toBe(false);
+    expect(meetsPasswordPolicy('a memorable patient passphrase')).toBe(true);
+    expect(meetsPasswordPolicy('a'.repeat(80))).toBe(true);
+    expect(meetsPasswordPolicy('é'.repeat(65))).toBe(true);
+    expect(meetsPasswordPolicy('A'.repeat(1025))).toBe(false);
   });
 
-  it.each([
-    null,
-    123,
-    '',
-    'short1A',
-    'onlylowercase123',
-    'UPPERCASE123',
-    'NoNumbersHere',
-    'Abcdefg1' + 'é'.repeat(33),
-    'Abcdefg1' + 'a'.repeat(10000),
-  ])(
-    'rejects unsafe password setting input %# before bcrypt',
+  it.each([null, 123, '', 'Password1', 'password123456789', 'A'.repeat(1025)])(
+    'rejects unsafe setting input %# before hashing',
     async (input) => {
-      const hashSpy = jest.spyOn(bcrypt, 'hash');
+      const hash = jest.spyOn(bcrypt, 'hash');
       await expect(
         credentials.hashNewPassword(input as string),
       ).rejects.toBeInstanceOf(BadRequestException);
-      expect(hashSpy).not.toHaveBeenCalled();
+      expect(hash).not.toHaveBeenCalled();
     },
   );
 
-  it('hashes and checks the same valid password using bcrypt', async () => {
-    const hash = await credentials.hashNewPassword('Password123');
-    expect(hash).toMatch(/^\$2b\$10\$/);
-    await expect(credentials.verify('Password123', hash)).resolves.toBe(true);
-    await expect(credentials.verify('WrongPass123', hash)).resolves.toBe(false);
+  it('uses a versioned prehash and compares every byte of long passwords', async () => {
+    const password = 'Very long chosen passphrase ' + 'é'.repeat(60);
+    const another = password.slice(0, -1) + 'a';
+    const hash = await credentials.hashNewPassword(password);
+    expect(hash.startsWith('ohealth$bcrypt-sha256$v1$')).toBe(true);
+    expect(hash.slice('ohealth$bcrypt-sha256$v1$'.length)).toMatch(
+      /^\$2b\$10\$/,
+    );
+    await expect(credentials.verify(password, hash)).resolves.toBe(true);
+    await expect(credentials.verify(another, hash)).resolves.toBe(false);
+    await expect(credentials.verifyForLogin(password, hash)).resolves.toBe(
+      true,
+    );
+    await expect(credentials.verifyForLogin(another, hash)).resolves.toBe(
+      false,
+    );
   });
 
-  it('does exactly one full bcrypt comparison for both missing and existing users', async () => {
-    const hash = await credentials.hashNewPassword('Password123');
-    const compare = jest.spyOn(bcrypt, 'compare');
+  it('accepts legacy bcrypt passwords but rejects 72-byte collisions', async () => {
+    const original = 'OldPassword123!';
+    const legacyHash = await bcrypt.hash(original, 10);
+    await expect(credentials.verify(original, legacyHash)).resolves.toBe(true);
     await expect(
-      credentials.verifyForLogin('WrongPass123', null),
-    ).resolves.toBe(false);
-    await expect(
-      credentials.verifyForLogin('WrongPass123', hash),
-    ).resolves.toBe(false);
-    expect(compare).toHaveBeenCalledTimes(2);
-    expect(compare.mock.calls[0][1]).toMatch(/^\$2b\$10\$/);
-    expect(compare.mock.calls[1][1]).toBe(hash);
+      credentials.verifyForLogin(original, legacyHash),
+    ).resolves.toBe(true);
+    const long = original + 'x'.repeat(100);
+    await expect(credentials.verify(long, legacyHash)).resolves.toBe(false);
+    await expect(credentials.verifyForLogin(long, legacyHash)).resolves.toBe(
+      false,
+    );
   });
 
-  it('rejects oversized input and invalid stored hashes without expensive work', async () => {
+  it.each([10, 11, 12, 13, 14])(
+    'matches the missing-account bcrypt cost %i',
+    async (cost) => {
+      const configured = new PasswordCredentialsService({
+        get: () => String(cost),
+      } as unknown as ConfigService);
+      await configured.onModuleInit();
+      const existingHash = await bcrypt.hash('OldPassword123!', cost);
+      const compare = jest.spyOn(bcrypt, 'compare');
+      await expect(
+        configured.verifyForLogin('WrongPass123', null),
+      ).resolves.toBe(false);
+      await expect(
+        configured.verifyForLogin('WrongPass123', existingHash),
+      ).resolves.toBe(false);
+      expect(compare).toHaveBeenCalledTimes(2);
+      const prefix = ['$2b', String(cost).padStart(2, '0'), ''].join('$');
+      expect(String(compare.mock.calls[0][1]).slice(0, 7)).toBe(prefix);
+      expect(String(compare.mock.calls[1][1]).slice(0, 7)).toBe(prefix);
+      compare.mockRestore();
+    },
+    30000,
+  );
+
+  it('rejects oversized login input without expensive work', async () => {
     const compare = jest.spyOn(bcrypt, 'compare');
     await expect(
       credentials.verifyForLogin('A'.repeat(2000), null),
     ).resolves.toBe(false);
     expect(compare).not.toHaveBeenCalled();
     await expect(
-      credentials.verifyForLogin('Password123', 'invalid-hash'),
+      credentials.verifyForLogin('Valid-but-not-in-database', 'invalid-hash'),
     ).resolves.toBe(false);
     expect(compare).toHaveBeenCalledTimes(1);
   });

@@ -13,6 +13,7 @@ import {
 } from 'class-validator';
 
 import { isSecurePassword } from '../../auth/password-policy/is-secure-password.decorator';
+import { PASSWORD_MIN_LENGTH } from '../../auth/password-policy/password-policy';
 import { OrganizationType } from '../enums/organization-type.enum';
 
 export class OrganizationDetailsDto {
@@ -71,7 +72,10 @@ export class OrganizationAdministratorDto {
   })
   phone: string;
 
-  @ApiProperty({ example: 'SecurePassword123', minLength: 8 })
+  @ApiProperty({
+    example: 'a memorable patient passphrase',
+    minLength: PASSWORD_MIN_LENGTH,
+  })
   @IsString()
   @isSecurePassword()
   password: string;

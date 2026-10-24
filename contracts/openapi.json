@@ -4,7 +4,8 @@
       "AcceptLaboratoryStaffInvitationDto": {
         "properties": {
           "password": {
-            "example": "SecurePassword123",
+            "example": "a memorable patient passphrase",
+            "minLength": 15,
             "type": "string"
           },
           "phone": {
@@ -192,9 +193,9 @@
             "type": "string"
           },
           "password": {
-            "description": "Password: 8+ characters, upper/lowercase and number, at most 72 UTF-8 bytes",
-            "example": "SecurePassword123!",
-            "minLength": 8,
+            "description": "Password: 15+ Unicode characters, no composition rule, max 1024 UTF-8 bytes",
+            "example": "a memorable patient passphrase",
+            "minLength": 15,
             "type": "string"
           },
           "phone": {
@@ -451,7 +452,7 @@
           "newPassword": {
             "description": "New password",
             "example": "NewPassword123!",
-            "minLength": 8,
+            "minLength": 15,
             "type": "string"
           }
         },
@@ -963,8 +964,8 @@
             "type": "string"
           },
           "password": {
-            "example": "SecurePassword123",
-            "minLength": 8,
+            "example": "a memorable patient passphrase",
+            "minLength": 15,
             "type": "string"
           },
           "phone": {
@@ -1740,8 +1741,8 @@
             "type": "string"
           },
           "password": {
-            "example": "SecurePassword123",
-            "minLength": 8,
+            "example": "a memorable patient passphrase",
+            "minLength": 15,
             "type": "string"
           },
           "phone": {
@@ -3679,8 +3680,8 @@
       "ResetPasswordDto": {
         "properties": {
           "newPassword": {
-            "description": "New password: 8+ characters, at most 72 UTF-8 bytes",
-            "example": "NewPassword123!",
+            "description": "New password: 15+ Unicode characters, max 1024 UTF-8 bytes",
+            "example": "a memorable patient passphrase",
             "type": "string"
           },
           "token": {

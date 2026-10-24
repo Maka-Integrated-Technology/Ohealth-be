@@ -1331,7 +1331,7 @@ export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
     readonly AcceptLaboratoryStaffInvitationDto: {
-      /** @example SecurePassword123 */
+      /** @example a memorable patient passphrase */
       readonly password: string;
       /** @example +2348012345678 */
       readonly phone?: string;
@@ -1417,8 +1417,8 @@ export interface components {
        */
       readonly middle_name?: string;
       /**
-       * @description Password: 8+ characters, upper/lowercase and number, at most 72 UTF-8 bytes
-       * @example SecurePassword123!
+       * @description Password: 15+ Unicode characters, no composition rule, max 1024 UTF-8 bytes
+       * @example a memorable patient passphrase
        */
       readonly password: string;
       /**
@@ -1706,7 +1706,7 @@ export interface components {
       readonly email: string;
       /** @example Tunde Adebayo */
       readonly full_name: string;
-      /** @example SecurePassword123 */
+      /** @example a memorable patient passphrase */
       readonly password: string;
       /** @example +2348098765432 */
       readonly phone: string;
@@ -2041,7 +2041,7 @@ export interface components {
       readonly email: string;
       /** @example Tunde Adebayo */
       readonly full_name: string;
-      /** @example SecurePassword123 */
+      /** @example a memorable patient passphrase */
       readonly password: string;
       /** @example +2348098765432 */
       readonly phone: string;
@@ -2621,8 +2621,8 @@ export interface components {
     };
     readonly ResetPasswordDto: {
       /**
-       * @description New password: 8+ characters, at most 72 UTF-8 bytes
-       * @example NewPassword123!
+       * @description New password: 15+ Unicode characters, max 1024 UTF-8 bytes
+       * @example a memorable patient passphrase
        */
       readonly newPassword: string;
       /**

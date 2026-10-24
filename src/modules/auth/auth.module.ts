@@ -55,6 +55,6 @@ import { TwoFactorAuthService } from './two-factor-auth.service';
     RolesGuard,
     TwoFactorAuthService,
   ],
-  exports: [AuthService, JwtAuthGuard, RolesGuard],
+  exports: [AuthService, PasswordCredentialsService, JwtAuthGuard, RolesGuard],
 })
 export class AuthModule {}
