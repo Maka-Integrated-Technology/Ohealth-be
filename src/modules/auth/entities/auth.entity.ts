@@ -15,6 +15,12 @@ export class AuthSession extends BaseEntity {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
+  @Column({ default: 1 })
+  credential_version: number;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  last_used_at?: Date | null;
+
   @Column()
   refresh_token_hash: string;
 
