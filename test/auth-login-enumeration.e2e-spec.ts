@@ -21,6 +21,7 @@ import { UserService } from '../src/modules/user/user.service';
 
 describe('Credential enumeration resistance (isolated HTTP e2e)', () => {
   let app: INestApplication;
+  let normalizedPasswordHash: string;
   const findByEmail = jest.fn();
   const logger = {
     child: jest.fn().mockReturnThis(),
@@ -38,18 +39,29 @@ describe('Credential enumeration resistance (isolated HTTP e2e)', () => {
 
   beforeAll(async () => {
     const existingHash = await bcrypt.hash('Password123', 10);
-    findByEmail.mockImplementation(async (email: string) =>
-      email === 'suspended@example.com'
-        ? {
-            id: 'suspended-user',
-            email,
-            password: existingHash,
-            role: [UserRole.PATIENT],
-            account_status: AccountStatus.SUSPENDED,
-            email_verified_at: new Date(),
-          }
-        : null,
-    );
+    findByEmail.mockImplementation(async (email: string) => {
+      if (email === 'normalized@example.com') {
+        return {
+          id: 'normalized-user',
+          email,
+          password: normalizedPasswordHash,
+          role: [UserRole.PATIENT],
+          account_status: AccountStatus.SUSPENDED,
+          email_verified_at: new Date(),
+        };
+      }
+      if (email === 'suspended@example.com') {
+        return {
+          id: 'suspended-user',
+          email,
+          password: existingHash,
+          role: [UserRole.PATIENT],
+          account_status: AccountStatus.SUSPENDED,
+          email_verified_at: new Date(),
+        };
+      }
+      return null;
+    });
     const module = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
@@ -73,6 +85,9 @@ describe('Credential enumeration resistance (isolated HTTP e2e)', () => {
       ],
     }).compile();
 
+    normalizedPasswordHash = await module
+      .get(PasswordCredentialsService)
+      .hashNewPassword('é'.repeat(512));
     app = module.createNestApplication();
     app.setGlobalPrefix('api');
     app.useGlobalPipes(
@@ -126,6 +141,20 @@ describe('Credential enumeration resistance (isolated HTTP e2e)', () => {
     expect(findByEmail).not.toHaveBeenCalled();
     expect(compare).not.toHaveBeenCalled();
     compare.mockRestore();
+  });
+
+  it('accepts an NFC-equivalent decomposed password before database lookup', async () => {
+    const composed = 'é'.repeat(512);
+    const decomposed = 'e\u0301'.repeat(512);
+    for (const password of [composed, decomposed]) {
+      const response = await request(app.getHttpServer())
+        .post(address)
+        .send({ email: 'normalized@example.com', password })
+        .expect(401);
+      // Successful password proof reaches account-state enforcement.
+      expect(response.body.message).toBe('user account is inactive');
+    }
+    expect(findByEmail).toHaveBeenCalledTimes(2);
   });
 
   it('does not log credentials or tokens on rejection', async () => {

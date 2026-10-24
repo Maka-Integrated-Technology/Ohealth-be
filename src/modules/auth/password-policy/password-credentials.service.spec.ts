@@ -46,6 +46,51 @@ describe('Shared password policy and credential boundary', () => {
     },
   );
 
+  it('blocks compromised whole passwords and predictable suffix variants', () => {
+    expect(meetsPasswordPolicy('passwordpassword1')).toBe(false);
+    expect(meetsPasswordPolicy('qwertyuiopasdfgh1')).toBe(false);
+    // This entry comes from the pinned NCSC corpus, not from local seeds.
+    expect(meetsPasswordPolicy('1q2w3e4r5t6y7u8i9o0p')).toBe(false);
+    // Words inside an otherwise unique passphrase are allowed.
+    expect(meetsPasswordPolicy('my private password is unique here')).toBe(
+      true,
+    );
+  });
+
+  it('accepts canonically equivalent Unicode up to 1024 bytes after NFC', async () => {
+    const composed = 'é'.repeat(512);
+    const decomposed = 'e\u0301'.repeat(512);
+    expect(Buffer.byteLength(composed, 'utf8')).toBe(1024);
+    expect(Buffer.byteLength(decomposed, 'utf8')).toBe(1536);
+    expect(meetsPasswordPolicy(decomposed)).toBe(true);
+    const storedHash = await credentials.hashNewPassword(composed);
+    await expect(credentials.verify(composed, storedHash)).resolves.toBe(true);
+    await expect(credentials.verify(decomposed, storedHash)).resolves.toBe(
+      true,
+    );
+    await expect(
+      credentials.verifyForLogin(decomposed, storedHash),
+    ).resolves.toBe(true);
+    await expect(
+      credentials.verifyForLogin('e\u0301'.repeat(513), storedHash),
+    ).resolves.toBe(false);
+  });
+
+  it('preserves raw-byte legacy-bcrypt verification', async () => {
+    const original = 'é'.repeat(30);
+    const legacyHash = await bcrypt.hash(original, 10);
+    await expect(credentials.verify(original, legacyHash)).resolves.toBe(true);
+    await expect(
+      credentials.verifyForLogin(original, legacyHash),
+    ).resolves.toBe(true);
+    await expect(
+      credentials.verify('e\u0301'.repeat(30), legacyHash),
+    ).resolves.toBe(false);
+    await expect(
+      credentials.verifyForLogin('e\u0301'.repeat(30), legacyHash),
+    ).resolves.toBe(false);
+  });
+
   it('uses a versioned prehash and compares every byte of long passwords', async () => {
     const password = 'Very long chosen passphrase ' + 'é'.repeat(60);
     const another = password.slice(0, -1) + 'a';

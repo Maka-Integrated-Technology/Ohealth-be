@@ -4,7 +4,12 @@
 
 - Unknown identities and incorrect passwords return the same generic 401.
 - Account-state information is disclosed only after successful password proof.
-- Login passwords are bounded to 1024 UTF-8 bytes **before database lookup**.
+- The login boundary applies its 1024-byte limit **after NFC normalization**
+  before the database lookup, with an additional 8192-byte raw-input guard
+  against pathological requests. Composed/decomposed equivalents of a valid
+  versioned password authenticate identically.
+- Legacy bcrypt verification continues to use **raw**, unnormalized bytes
+  and a strict 72-byte limit; no legacy password is silently migrated.
 - For bounded input, every login uses one bcrypt comparison, including
   nonexistent accounts, invalid stored hashes, and legacy/modern accounts.
 - A dummy hash is prepared during Nest initialization with the configured
@@ -20,10 +25,17 @@
   after NFC normalization, and permit **at least 64 characters**.
 - The current upper bound is 1024 UTF-8 bytes after normalization.
 - No composition rules, trimming, or silent truncation.
-- A local whole-password blocklist rejects common and context-specific
-  passwords. **Security review follow-up:** expand and maintain this seed
-  blocklist using an appropriately sourced, updated breached-password dataset
-  before treating compromised-password protection as complete.
+- A reproducibly generated whole-password blocklist rejects compromised,
+  common and context-specific credentials. Its source is the published UK
+  NCSC 100k-most-used password corpus distributed by MIT-licensed SecLists,
+  pinned to Git blob `38eb37702244f55fda75cab281eb2145cd7685b6`.
+  Values meeting the 15-character rule, bounded common whole-password
+  suffix variants, and reviewed OHealth context entries are compared against
+  the entire normalized candidate (never a substring).
+- Source, generator and generated module are versioned in this repository.
+  `npm run password-blocklist:check` is required by CI, and checks the
+  pinned source fingerprint and deterministic generated output; see
+  `security/password-blocklist/README.md` for the update procedure.
 - DTO validation and PasswordCredentialsService use the same policy across
   patient/professional signup, intent-based registration DTOs, laboratory and
   organization administration, lab staff invitations, reset, and change.
@@ -47,8 +59,9 @@
 
 ## Remaining security work and release criteria
 
-- Add a maintained sufficiently large compromised-password source to the seed
-  blocklist, with regression coverage and an operational update process.
+- Maintain/review NCSC source updates and contextual blocked values using the
+  documented reproducible workflow; review list breadth periodically and
+  consider additional trusted breach corpora when newly available.
 - Document frontend/API changes: signup, reset, change, laboratory staff,
   and all other password forms now enforce 15+ characters.
 - Finish #75 request-rate limits/recovery, #77 session security, and #78

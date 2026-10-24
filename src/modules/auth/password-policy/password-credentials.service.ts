@@ -5,7 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 
 import {
-  LOGIN_PASSWORD_MAX_UTF8_BYTES,
+  isLoginPasswordWithinLimit,
   meetsPasswordPolicy,
   PASSWORD_POLICY_MESSAGE,
 } from './password-policy';
@@ -71,10 +71,7 @@ export class PasswordCredentialsService implements OnModuleInit {
   }
 
   async verify(password: string, storedHash: string): Promise<boolean> {
-    if (
-      typeof password !== 'string' ||
-      Buffer.byteLength(password, 'utf8') > LOGIN_PASSWORD_MAX_UTF8_BYTES
-    ) {
+    if (!isLoginPasswordWithinLimit(password)) {
       return false;
     }
     const modern = storedHash.startsWith(HASH_PREFIX);
@@ -96,10 +93,7 @@ export class PasswordCredentialsService implements OnModuleInit {
     password: string,
     storedHash: string | null,
   ): Promise<boolean> {
-    if (
-      typeof password !== 'string' ||
-      Buffer.byteLength(password, 'utf8') > LOGIN_PASSWORD_MAX_UTF8_BYTES
-    ) {
+    if (!isLoginPasswordWithinLimit(password)) {
       return false;
     }
     const modern = Boolean(storedHash?.startsWith(HASH_PREFIX));
