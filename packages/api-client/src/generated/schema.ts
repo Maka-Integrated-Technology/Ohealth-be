@@ -1417,7 +1417,7 @@ export interface components {
        */
       readonly middle_name?: string;
       /**
-       * @description User password (minimum 8 characters)
+       * @description Password: 8+ characters, upper/lowercase and number, at most 72 UTF-8 bytes
        * @example SecurePassword123!
        */
       readonly password: string;
@@ -2621,7 +2621,7 @@ export interface components {
     };
     readonly ResetPasswordDto: {
       /**
-       * @description New password
+       * @description New password: 8+ characters, at most 72 UTF-8 bytes
        * @example NewPassword123!
        */
       readonly newPassword: string;

@@ -49,6 +49,7 @@ describe('LaboratoryAuthService', () => {
   const mockAuthService = {
     issueAuthSession: jest.fn(),
     sendProvisionedVerification: jest.fn(),
+    hashNewPassword: jest.fn().mockResolvedValue('hashed-password'),
   };
 
   const mockConfigService = {
@@ -167,7 +168,9 @@ describe('LaboratoryAuthService', () => {
     );
     const result = await service.setupAdministrator(payload);
 
-    expect(bcrypt.hash).toHaveBeenCalledWith('SecurePassword123', 10);
+    expect(mockAuthService.hashNewPassword).toHaveBeenCalledWith(
+      'SecurePassword123',
+    );
     expect(mockUserRepository.findOne).toHaveBeenCalledWith({
       where: { email: 'tunde@medcheck.example' },
     });
