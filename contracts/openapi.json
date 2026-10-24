@@ -5,6 +5,7 @@
         "properties": {
           "password": {
             "example": "SecurePassword123",
+            "minLength": 8,
             "type": "string"
           },
           "phone": {

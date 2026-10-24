@@ -2,6 +2,7 @@ import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 
 import { LaboratoryAdministratorSetupDto } from '../../laboratory/dto/laboratory-admin-setup.dto';
+import { AcceptLaboratoryStaffInvitationDto } from '../../laboratory/dto/laboratory-post-approval.dto';
 import { OrganizationAdministratorDto } from '../../organization/dto/organization-setup.dto';
 import { UserRole } from '../../user/enums/user-role.enum';
 import { RegisterAccountDto } from '../contracts/register-account.dto';
@@ -56,6 +57,11 @@ describe('One password policy across all account intents', () => {
         phone: '+2348012345678',
       },
     },
+    {
+      type: AcceptLaboratoryStaffInvitationDto,
+      field: 'password',
+      base: { token: 'a'.repeat(64) },
+    },
   ] as const;
 
   it.each(testCases)(
@@ -78,6 +84,7 @@ describe('One password policy across all account intents', () => {
         'SHORT1A',
         'Abcdefg1' + 'X'.repeat(10000),
         'Abcdefg1' + 'é'.repeat(33),
+        'Abcdefg1' + 'x'.repeat(65),
       ]) {
         const dto = plainToInstance(type as new () => object, {
           ...base,

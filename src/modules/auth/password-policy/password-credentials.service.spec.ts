@@ -74,6 +74,30 @@ describe('Shared password policy and credential boundary', () => {
     expect(compare.mock.calls[1][1]).toBe(hash);
   });
 
+  it.each([10, 11, 12, 13, 14])(
+    'uses the configured bcrypt cost %i for missing-account work',
+    async (cost) => {
+      const configured = new PasswordCredentialsService({
+        get: () => String(cost),
+      } as unknown as ConfigService);
+      await configured.onModuleInit();
+      const existingHash = await bcrypt.hash('Password123', cost);
+      const compare = jest.spyOn(bcrypt, 'compare');
+      await expect(
+        configured.verifyForLogin('WrongPass123', null),
+      ).resolves.toBe(false);
+      await expect(
+        configured.verifyForLogin('WrongPass123', existingHash),
+      ).resolves.toBe(false);
+      expect(compare).toHaveBeenCalledTimes(2);
+      const prefix = ['$2b', String(cost).padStart(2, '0'), ''].join('$');
+      expect(String(compare.mock.calls[0][1]).slice(0, 7)).toBe(prefix);
+      expect(String(compare.mock.calls[1][1]).slice(0, 7)).toBe(prefix);
+      compare.mockRestore();
+    },
+    30000,
+  );
+
   it('rejects oversized input and invalid stored hashes without expensive work', async () => {
     const compare = jest.spyOn(bcrypt, 'compare');
     await expect(

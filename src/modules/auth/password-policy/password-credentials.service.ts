@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 
@@ -8,17 +8,15 @@ import {
   PASSWORD_POLICY_MESSAGE,
 } from './password-policy';
 
-// A valid cost-10 bcrypt hash. Never tied to an actual user or password.
-// Its only purpose is to do normal password work for a missing identity.
-// Precomputed to avoid a first-request or cold-start timing discrepancy.
-const MISSING_ACCOUNT_HASH =
-  '$2b$10$Ftuis5NCxsw77LLSIKVzjeUkDSRtIyEo5rbKum.IUIwxXu3agTMjy';
+// Fixed dummy input; never a user credential.
+const DUMMY_PASSWORD = 'ohealth-missing-account-work-v1';
 const STORED_BCRYPT_HASH =
   /^\$2[aby]\$(0[4-9]|[12][0-9]|3[01])\$[./A-Za-z0-9]{53}$/;
 
 @Injectable()
-export class PasswordCredentialsService {
+export class PasswordCredentialsService implements OnModuleInit {
   private readonly saltRounds: number;
+  private missingAccountHash: string | undefined;
 
   constructor(config: ConfigService) {
     const saltRounds = Number(config.get<string>('HASH_SALT', '10'));
@@ -26,6 +24,14 @@ export class PasswordCredentialsService {
       throw new Error('HASH_SALT must be an integer between 10 and 14.');
     }
     this.saltRounds = saltRounds;
+  }
+
+  // Nest waits for this hook before accepting HTTP requests.
+  async onModuleInit(): Promise<void> {
+    this.missingAccountHash = await bcrypt.hash(
+      DUMMY_PASSWORD,
+      this.saltRounds,
+    );
   }
 
   async hashNewPassword(password: string): Promise<string> {
@@ -61,10 +67,18 @@ export class PasswordCredentialsService {
     const hash =
       storedHash && STORED_BCRYPT_HASH.test(storedHash)
         ? storedHash
-        : MISSING_ACCOUNT_HASH;
+        : await this.getMissingAccountHash();
     const matched = await bcrypt.compare(password, hash);
     return Boolean(
       storedHash && STORED_BCRYPT_HASH.test(storedHash) && matched,
     );
+  }
+
+  private async getMissingAccountHash(): Promise<string> {
+    // The lazy path is only for service consumers outside Nest initialization.
+    if (!this.missingAccountHash) {
+      await this.onModuleInit();
+    }
+    return this.missingAccountHash!;
   }
 }

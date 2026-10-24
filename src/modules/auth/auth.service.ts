@@ -41,6 +41,7 @@ import {
 import { LoginDto } from './dto/login.dto';
 import { AuthSession } from './entities/auth.entity';
 import { PasswordCredentialsService } from './password-policy/password-credentials.service';
+import { LOGIN_PASSWORD_MAX_UTF8_BYTES } from './password-policy/password-policy';
 import { haveSameRoles } from './utils/auth-role.util';
 
 interface IRefreshPayload {
@@ -119,6 +120,14 @@ export class AuthService {
   }
 
   async login(loginPayload: LoginDto) {
+    // Reject pathological passwords before querying account existence.
+    if (
+      typeof loginPayload.password !== 'string' ||
+      Buffer.byteLength(loginPayload.password, 'utf8') >
+        LOGIN_PASSWORD_MAX_UTF8_BYTES
+    ) {
+      throw new UnauthorizedException(sysMsg.INVALID_CREDENTIALS);
+    }
     const email = loginPayload.email.trim().toLowerCase();
     const user = await this.userService.findByEmail(email);
 
