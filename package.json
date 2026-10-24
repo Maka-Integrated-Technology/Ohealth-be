@@ -133,6 +133,9 @@
     "typescript": "^5.7.0"
   },
   "overrides": {
+    "follow-redirects": "1.16.1",
+    "handlebars": "4.7.10",
+    "proxy-addr": "2.0.8",
     "picomatch": "4.0.4",
     "@angular-devkit/core": {
       "ajv": "8.18.0"
