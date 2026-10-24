@@ -2,8 +2,10 @@ import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import * as sysMsg from '../../../constants/system.messages';
+import { AccountStatus } from '../../user/enums/account-status.enum';
 import { UserRole } from '../../user/enums/user-role.enum';
 import { UserService } from '../../user/user.service';
+import { AccountAccessPolicyService } from '../account-access-policy.service';
 
 import { JwtStrategy } from './jwt.strategy';
 
@@ -15,6 +17,7 @@ describe('JwtStrategy', () => {
   const strategy = new JwtStrategy(
     configService as unknown as ConfigService,
     userService as unknown as UserService,
+    new AccountAccessPolicyService(),
   );
 
   beforeEach(() => jest.clearAllMocks());
@@ -26,6 +29,8 @@ describe('JwtStrategy', () => {
       role: [UserRole.DOCTOR, UserRole.COUNSELLOR],
       is_active: true,
       is_verified: true,
+      account_status: AccountStatus.ACTIVE,
+      email_verified_at: new Date(),
     });
 
     await expect(
@@ -49,6 +54,8 @@ describe('JwtStrategy', () => {
       role: [UserRole.PATIENT],
       is_active: true,
       is_verified: true,
+      account_status: AccountStatus.ACTIVE,
+      email_verified_at: new Date(),
     });
 
     await expect(
@@ -66,12 +73,58 @@ describe('JwtStrategy', () => {
       role: [UserRole.PATIENT],
       is_active: false,
       is_verified: true,
+      account_status: AccountStatus.DEACTIVATED,
+      email_verified_at: new Date(),
     });
 
     await expect(
       strategy.validate({
         sub: 'user-id',
         email: 'user@example.com',
+        role: [UserRole.PATIENT],
+      }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it.each([
+    AccountStatus.PENDING_VERIFICATION,
+    AccountStatus.SUSPENDED,
+    AccountStatus.DEACTIVATED,
+  ])(
+    'rejects %s even when legacy flags allow access',
+    async (accountStatus) => {
+      userService.findById.mockResolvedValue({
+        id: 'user-id',
+        email: 'current@example.com',
+        role: [UserRole.PATIENT],
+        account_status: accountStatus,
+        email_verified_at: new Date(),
+        is_active: true,
+        is_verified: true,
+      });
+      await expect(
+        strategy.validate({
+          sub: 'user-id',
+          email: 'current@example.com',
+          role: [UserRole.PATIENT],
+        }),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    },
+  );
+
+  it('denies active accounts without proof-of-contact timestamp', async () => {
+    userService.findById.mockResolvedValue({
+      id: 'user-id',
+      role: [UserRole.PATIENT],
+      account_status: AccountStatus.ACTIVE,
+      email_verified_at: null,
+      is_active: true,
+      is_verified: true,
+    });
+    await expect(
+      strategy.validate({
+        sub: 'user-id',
+        email: 'current@example.com',
         role: [UserRole.PATIENT],
       }),
     ).rejects.toBeInstanceOf(UnauthorizedException);

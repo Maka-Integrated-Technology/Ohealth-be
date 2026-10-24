@@ -907,10 +907,6 @@
       },
       "LaboratoryAdminSetupResponseDto": {
         "properties": {
-          "access_token": {
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-            "type": "string"
-          },
           "administrator": {
             "$ref": "#/components/schemas/LaboratoryAdministratorSetupResponseDto"
           },
@@ -921,64 +917,38 @@
             "example": "laboratory administrator setup completed successfully",
             "type": "string"
           },
-          "refresh_token": {
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-            "type": "string"
-          },
-          "session_expires_at": {
-            "example": "2026-07-18T10:30:00.000Z",
-            "format": "date-time",
-            "type": "string"
-          },
-          "session_id": {
-            "example": "550e8400-e29b-41d4-a716-446655440003",
-            "type": "string"
+          "verification_required": {
+            "description": "Administrator must verify their email before receiving credentials.",
+            "example": true,
+            "type": "boolean"
           }
         },
         "required": [
           "message",
           "laboratory",
           "administrator",
-          "access_token",
-          "refresh_token",
-          "session_id",
-          "session_expires_at"
+          "verification_required"
         ],
         "type": "object"
       },
       "LaboratoryAdminSetupResponseDtoData": {
         "properties": {
-          "access_token": {
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-            "type": "string"
-          },
           "administrator": {
             "$ref": "#/components/schemas/LaboratoryAdministratorSetupResponseDto"
           },
           "laboratory": {
             "$ref": "#/components/schemas/LaboratorySetupResponseDto"
           },
-          "refresh_token": {
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-            "type": "string"
-          },
-          "session_expires_at": {
-            "example": "2026-07-18T10:30:00.000Z",
-            "format": "date-time",
-            "type": "string"
-          },
-          "session_id": {
-            "example": "550e8400-e29b-41d4-a716-446655440003",
-            "type": "string"
+          "verification_required": {
+            "description": "Administrator must verify their email before receiving credentials.",
+            "example": true,
+            "type": "boolean"
           }
         },
         "required": [
           "laboratory",
           "administrator",
-          "access_token",
-          "refresh_token",
-          "session_id",
-          "session_expires_at"
+          "verification_required"
         ],
         "type": "object"
       },
@@ -3907,19 +3877,9 @@
             "example": "limited",
             "type": "string"
           },
-          "access_token": {
-            "description": "JWT access token with 15 minutes expiration",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-            "type": "string"
-          },
           "message": {
             "example": "account created",
             "nullable": true,
-            "type": "string"
-          },
-          "refresh_token": {
-            "description": "JWT refresh token with 7 days expiration",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
             "type": "string"
           },
           "routing_target": {
@@ -3941,17 +3901,6 @@
             "example": "email_verification",
             "type": "string"
           },
-          "session_expires_at": {
-            "example": "2024-01-15T10:30:00Z",
-            "format": "date-time",
-            "nullable": true,
-            "type": "string"
-          },
-          "session_id": {
-            "example": "550e8400-e29b-41d4-a716-446655440000",
-            "nullable": true,
-            "type": "string"
-          },
           "status_code": {
             "example": 201,
             "nullable": true,
@@ -3961,23 +3910,19 @@
             "$ref": "#/components/schemas/UserDto"
           },
           "verification_status": {
-            "description": "Current provider verification status, when applicable",
+            "description": "Current provider verification state; signup grants no session.",
             "example": null,
             "nullable": true,
             "type": "string"
           }
         },
         "required": [
-          "access_token",
-          "refresh_token",
           "user",
+          "verification_status",
           "routing_target",
           "access_level",
-          "verification_status",
           "status_code",
-          "message",
-          "session_id",
-          "session_expires_at"
+          "message"
         ],
         "type": "object"
       },
@@ -3991,16 +3936,6 @@
             "example": "limited",
             "type": "string"
           },
-          "access_token": {
-            "description": "JWT access token with 15 minutes expiration",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-            "type": "string"
-          },
-          "refresh_token": {
-            "description": "JWT refresh token with 7 days expiration",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-            "type": "string"
-          },
           "routing_target": {
             "enum": [
               "email_verification",
@@ -4020,36 +3955,21 @@
             "example": "email_verification",
             "type": "string"
           },
-          "session_expires_at": {
-            "example": "2024-01-15T10:30:00Z",
-            "format": "date-time",
-            "nullable": true,
-            "type": "string"
-          },
-          "session_id": {
-            "example": "550e8400-e29b-41d4-a716-446655440000",
-            "nullable": true,
-            "type": "string"
-          },
           "user": {
             "$ref": "#/components/schemas/UserDto"
           },
           "verification_status": {
-            "description": "Current provider verification status, when applicable",
+            "description": "Current provider verification state; signup grants no session.",
             "example": null,
             "nullable": true,
             "type": "string"
           }
         },
         "required": [
-          "access_token",
-          "refresh_token",
           "user",
-          "routing_target",
-          "access_level",
           "verification_status",
-          "session_id",
-          "session_expires_at"
+          "routing_target",
+          "access_level"
         ],
         "type": "object"
       },
@@ -4344,6 +4264,162 @@
         "required": [
           "email",
           "code"
+        ],
+        "type": "object"
+      },
+      "VerifySignupResponseDto": {
+        "properties": {
+          "access_level": {
+            "enum": [
+              "full",
+              "limited"
+            ],
+            "example": "full",
+            "type": "string"
+          },
+          "access_token": {
+            "description": "JWT access token with 15 minutes expiration",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "type": "string"
+          },
+          "message": {
+            "example": "account verified",
+            "nullable": true,
+            "type": "string"
+          },
+          "refresh_token": {
+            "description": "JWT refresh token with 7 days expiration",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "type": "string"
+          },
+          "routing_target": {
+            "enum": [
+              "email_verification",
+              "admin_dashboard",
+              "patient_home",
+              "professional_verification",
+              "professional_dashboard",
+              "hospital_verification",
+              "hospital_dashboard",
+              "laboratory_verification",
+              "laboratory_dashboard",
+              "pharmacy_verification",
+              "pharmacy_dashboard",
+              "account_setup",
+              "account_restricted"
+            ],
+            "example": "patient_home",
+            "type": "string"
+          },
+          "session_expires_at": {
+            "example": "2024-01-15T10:30:00Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "session_id": {
+            "example": "550e8400-e29b-41d4-a716-446655440000",
+            "nullable": true,
+            "type": "string"
+          },
+          "status_code": {
+            "example": 200,
+            "nullable": true,
+            "type": "number"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserDto"
+          },
+          "verification_status": {
+            "description": "Current provider verification status, when applicable",
+            "example": null,
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token",
+          "refresh_token",
+          "user",
+          "routing_target",
+          "access_level",
+          "verification_status",
+          "status_code",
+          "message",
+          "session_id",
+          "session_expires_at"
+        ],
+        "type": "object"
+      },
+      "VerifySignupResponseDtoData": {
+        "properties": {
+          "access_level": {
+            "enum": [
+              "full",
+              "limited"
+            ],
+            "example": "full",
+            "type": "string"
+          },
+          "access_token": {
+            "description": "JWT access token with 15 minutes expiration",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "type": "string"
+          },
+          "refresh_token": {
+            "description": "JWT refresh token with 7 days expiration",
+            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "type": "string"
+          },
+          "routing_target": {
+            "enum": [
+              "email_verification",
+              "admin_dashboard",
+              "patient_home",
+              "professional_verification",
+              "professional_dashboard",
+              "hospital_verification",
+              "hospital_dashboard",
+              "laboratory_verification",
+              "laboratory_dashboard",
+              "pharmacy_verification",
+              "pharmacy_dashboard",
+              "account_setup",
+              "account_restricted"
+            ],
+            "example": "patient_home",
+            "type": "string"
+          },
+          "session_expires_at": {
+            "example": "2024-01-15T10:30:00Z",
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "session_id": {
+            "example": "550e8400-e29b-41d4-a716-446655440000",
+            "nullable": true,
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserDto"
+          },
+          "verification_status": {
+            "description": "Current provider verification status, when applicable",
+            "example": null,
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token",
+          "refresh_token",
+          "user",
+          "routing_target",
+          "access_level",
+          "verification_status",
+          "session_id",
+          "session_expires_at"
         ],
         "type": "object"
       }
@@ -5205,8 +5281,7 @@
                     {
                       "properties": {
                         "data": {
-                          "example": null,
-                          "nullable": true
+                          "$ref": "#/components/schemas/VerifySignupResponseDtoData"
                         }
                       },
                       "required": [
@@ -5251,7 +5326,7 @@
             "description": "Internal server error"
           }
         },
-        "summary": "Verify a newly registered email address",
+        "summary": "Verify email ownership and create first authenticated session",
         "tags": [
           "Authentication"
         ]

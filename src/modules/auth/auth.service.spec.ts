@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
+import { LoginTicket, OAuth2Client } from 'google-auth-library';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
 
@@ -16,9 +17,11 @@ import * as sysMsg from '../../constants/system.messages';
 import { EmailService } from '../email/email.service';
 import { ProfessionalVerificationStatus } from '../professional/entities/professional.entity';
 import { User } from '../user/entities/user.entity';
+import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserRole } from '../user/enums/user-role.enum';
 import { UserService } from '../user/user.service';
 
+import { AccountAccessPolicyService } from './account-access-policy.service';
 import { AuthRoutingService } from './auth-routing.service';
 import { AuthService } from './auth.service';
 import { ResendVerificationDto, VerifySignupDto } from './dto/auth.dto';
@@ -31,9 +34,14 @@ describe('AuthService', () => {
   const mockUserService = {
     findByEmail: jest.fn(),
     findById: jest.fn(),
-    findByResetToken: jest.fn(),
     create: jest.fn(),
-    save: jest.fn(),
+    setPasswordResetChallenge: jest.fn(),
+    consumePasswordResetToken: jest.fn(),
+    rotateVerificationChallenge: jest.fn(),
+    updateAuthenticatedProfile: jest.fn(),
+    replaceAuthenticatedPassword: jest.fn(),
+    linkGoogleIdentity: jest.fn(),
+    verifyEmailWithCode: jest.fn(),
   };
 
   const mockSessionRepository = {
@@ -102,6 +110,7 @@ describe('AuthService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
+        AccountAccessPolicyService,
         {
           provide: UserService,
           useValue: mockUserService,
@@ -146,7 +155,7 @@ describe('AuthService', () => {
   });
 
   describe('signup', () => {
-    it('should create a user, issue tokens, and open a session', async () => {
+    it('creates a pending user with no access, refresh, or session credentials', async () => {
       jest
         .spyOn(bcrypt, 'hash')
         .mockImplementation(async () => 'hashed-password');
@@ -158,10 +167,6 @@ describe('AuthService', () => {
           ...payload,
         }),
       );
-      mockUserService.save.mockImplementation(
-        async (payload: Record<string, unknown>) => payload,
-      );
-
       mockJwtService.signAsync
         .mockResolvedValueOnce('access-token')
         .mockResolvedValueOnce('refresh-token');
@@ -189,9 +194,11 @@ describe('AuthService', () => {
 
       expect(result.message).toBe(sysMsg.VERIFICATION_CODE_SENT);
       expect(result.user.email).toBe('tunde@example.com');
-      expect(result).toHaveProperty('access_token', 'access-token');
-      expect(result).toHaveProperty('refresh_token', 'refresh-token');
-      expect(result).toHaveProperty('session_id');
+      expect(result).not.toHaveProperty('access_token');
+      expect(result).not.toHaveProperty('refresh_token');
+      expect(result).not.toHaveProperty('session_id');
+      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+      expect(mockSessionRepository.save).not.toHaveBeenCalled();
       expect(result).toMatchObject(defaultRouting);
       expect(mockUserService.create).toHaveBeenCalledWith(
         expect.objectContaining({ role: [UserRole.PATIENT] }),
@@ -262,6 +269,8 @@ describe('AuthService', () => {
         role: [UserRole.PATIENT],
         is_active: true,
         is_verified: true,
+        account_status: AccountStatus.ACTIVE,
+        email_verified_at: new Date(),
       } as User;
       mockUserService.findByEmail.mockResolvedValue(user);
       mockJwtService.signAsync
@@ -288,6 +297,31 @@ describe('AuthService', () => {
     });
   });
 
+  it.each([
+    AccountStatus.PENDING_VERIFICATION,
+    AccountStatus.SUSPENDED,
+    AccountStatus.DEACTIVATED,
+  ])(
+    'denies password login for %s even if legacy flags say active',
+    async (accountStatus) => {
+      jest.spyOn(bcrypt, 'compare').mockImplementation(async () => true);
+      mockUserService.findByEmail.mockResolvedValue({
+        id: 'blocked-user',
+        email: 'blocked@example.com',
+        password: 'hash',
+        role: [UserRole.PATIENT],
+        account_status: accountStatus,
+        email_verified_at: new Date(),
+        is_active: true,
+        is_verified: true,
+      });
+      await expect(
+        service.login({ email: 'blocked@example.com', password: 'test' }),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+    },
+  );
+
   describe('issueAuthSession', () => {
     it('should issue tokens and create a refresh session for an existing user', async () => {
       const expiresAt = new Date('2026-07-11T16:16:13.000Z');
@@ -311,6 +345,8 @@ describe('AuthService', () => {
         id: 'user-id-1',
         email: 'lab.admin@example.com',
         role: [UserRole.LAB_ADMIN],
+        account_status: AccountStatus.ACTIVE,
+        email_verified_at: new Date(),
       } as User);
 
       expect(mockJwtService.signAsync).toHaveBeenCalledTimes(2);
@@ -339,15 +375,16 @@ describe('AuthService', () => {
         email: 'user@example.com',
         first_name: 'Tunde',
       });
-      mockUserService.save.mockImplementation(
-        async (u: Record<string, unknown>) => u,
-      );
-
       const result = await service.forgotPassword({
         email: 'user@example.com',
       });
 
       expect(result.message).toBe(sysMsg.PASSWORD_RESET_CODE_SENT);
+      expect(mockUserService.setPasswordResetChallenge).toHaveBeenCalledWith(
+        'user-id-1',
+        expect.any(String),
+        expect.any(Date),
+      );
       expect(mockEmailService.sendMail).toHaveBeenCalled();
     });
   });
@@ -378,6 +415,8 @@ describe('AuthService', () => {
         role: [UserRole.DOCTOR],
         is_active: true,
         is_verified: true,
+        account_status: AccountStatus.ACTIVE,
+        email_verified_at: new Date(),
       } as User;
       mockJwtService.verifyAsync.mockResolvedValue({
         sub: user.id,
@@ -441,6 +480,8 @@ describe('AuthService', () => {
         role: [UserRole.PATIENT],
         is_active: true,
         is_verified: true,
+        account_status: AccountStatus.ACTIVE,
+        email_verified_at: new Date(),
       });
 
       await expect(
@@ -449,6 +490,37 @@ describe('AuthService', () => {
       expect(mockJwtService.signAsync).not.toHaveBeenCalled();
     });
   });
+
+  it.each([
+    AccountStatus.PENDING_VERIFICATION,
+    AccountStatus.SUSPENDED,
+    AccountStatus.DEACTIVATED,
+  ])(
+    'rejects refresh for %s even if legacy flags say active',
+    async (accountStatus) => {
+      mockJwtService.verifyAsync.mockResolvedValue({
+        sub: 'blocked-user',
+        email: 'blocked@example.com',
+        role: [UserRole.PATIENT],
+      });
+      mockSessionRepository.findOne.mockResolvedValue({
+        user_id: 'blocked-user',
+        revoked_at: null,
+      });
+      mockUserService.findById.mockResolvedValue({
+        id: 'blocked-user',
+        role: [UserRole.PATIENT],
+        account_status: accountStatus,
+        email_verified_at: new Date(),
+        is_active: true,
+        is_verified: true,
+      });
+      await expect(
+        service.refreshToken({ refresh_token: 'existing-token' }),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+    },
+  );
 
   describe('getProfile', () => {
     it('should return the authenticated user profile', async () => {
@@ -539,44 +611,40 @@ describe('AuthService', () => {
         email: payload.email,
         first_name: 'Tunde',
         is_verified: false,
+        account_status: AccountStatus.PENDING_VERIFICATION,
+        email_verified_at: null,
         verification_code: 'old-code',
         verification_code_expires_at: new Date(Date.now() - 1000),
       };
-      mockUserService.findByEmail.mockResolvedValue(user);
-      mockUserService.save.mockImplementation(
-        async (u: Record<string, unknown>) => u,
-      );
+      mockUserService.rotateVerificationChallenge.mockResolvedValue(user);
 
       const result = await service.resendVerification(payload);
 
       expect(result).toEqual({ message: sysMsg.VERIFICATION_CODE_SENT });
-      expect(mockUserService.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          verification_code: expect.any(String),
-          verification_code_expires_at: expect.any(Date),
-        }),
+      expect(mockUserService.rotateVerificationChallenge).toHaveBeenCalledWith(
+        payload.email,
+        expect.any(String),
+        expect.any(Date),
       );
       expect(mockEmailService.sendMail).toHaveBeenCalled();
     });
 
     it('should return VERIFICATION_CODE_SENT without sending email for unknown email', async () => {
-      mockUserService.findByEmail.mockResolvedValue(null);
+      mockUserService.rotateVerificationChallenge.mockResolvedValue(null);
 
       const result = await service.resendVerification({
         email: 'ghost@example.com',
       });
 
       expect(result).toEqual({ message: sysMsg.VERIFICATION_CODE_SENT });
-      expect(mockUserService.save).not.toHaveBeenCalled();
+      expect(mockUserService.rotateVerificationChallenge).toHaveBeenCalled();
       expect(mockEmailService.sendMail).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException for an already verified user', async () => {
-      mockUserService.findByEmail.mockResolvedValue({
-        id: 'user-id-2',
-        email: 'verified@example.com',
-        is_verified: true,
-      });
+      mockUserService.rotateVerificationChallenge.mockRejectedValue(
+        new BadRequestException(sysMsg.ACCOUNT_ALREADY_VERIFIED),
+      );
 
       await expect(
         service.resendVerification({ email: 'verified@example.com' }),
@@ -590,25 +658,151 @@ describe('AuthService', () => {
         email: 'tunde@example.com',
         code: '123456',
       };
-      mockUserService.findByEmail.mockResolvedValue({
+      mockUserService.verifyEmailWithCode.mockResolvedValue({
         id: 'user-id-1',
         email: payload.email,
         first_name: 'Tunde',
         last_name: 'Adebayo',
-        is_active: false,
-        is_verified: false,
-        verification_code: '123456',
-        verification_code_expires_at: new Date(Date.now() + 60000),
+        role: [UserRole.PATIENT],
+        is_active: true,
+        is_verified: true,
+        account_status: AccountStatus.ACTIVE,
+        email_verified_at: new Date(),
       });
-      mockUserService.save.mockImplementation(
-        async (u: Record<string, unknown>) => u,
+      mockJwtService.signAsync
+        .mockReset()
+        .mockResolvedValueOnce('first-access-token')
+        .mockResolvedValueOnce('first-refresh-token');
+      mockJwtService.decode.mockReturnValue({
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      });
+      mockSessionRepository.create.mockImplementation(
+        (details: Partial<AuthSession>) => details,
       );
+      mockSessionRepository.save.mockImplementation(async (details) => details);
 
       const result = await service.verifySignup(payload);
 
-      expect(result).toEqual({ message: sysMsg.ACCOUNT_VERIFIED });
-      expect(mockUserService.save).toHaveBeenCalled();
+      expect(result).toMatchObject({
+        message: sysMsg.ACCOUNT_VERIFIED,
+        access_token: 'first-access-token',
+        refresh_token: 'first-refresh-token',
+        user: expect.objectContaining({ email: payload.email }),
+      });
+      expect(mockSessionRepository.save).toHaveBeenCalledTimes(1);
+      expect(mockUserService.verifyEmailWithCode).toHaveBeenCalledWith(
+        payload.email,
+        payload.code,
+      );
       expect(mockEmailService.sendMail).toHaveBeenCalled();
+    });
+  });
+
+  describe('Google OAuth canonical account states', () => {
+    beforeEach(() => {
+      const ticket = {
+        getPayload: () => ({
+          email: 'google@example.com',
+          sub: 'google-id-1',
+          email_verified: true,
+          given_name: 'Google',
+          family_name: 'Person',
+        }),
+      } as unknown as LoginTicket;
+      jest
+        .spyOn(OAuth2Client.prototype, 'verifyIdToken')
+        .mockImplementation(async () => ticket);
+    });
+
+    it.each([
+      AccountStatus.PENDING_VERIFICATION,
+      AccountStatus.SUSPENDED,
+      AccountStatus.DEACTIVATED,
+    ])(
+      'rejects %s even when legacy flags claim verified',
+      async (accountStatus) => {
+        mockUserService.findByEmail.mockResolvedValue({
+          id: 'blocked-google-user',
+          email: 'google@example.com',
+          account_status: accountStatus,
+          email_verified_at: new Date(),
+          is_active: true,
+          is_verified: true,
+          role: [UserRole.PATIENT],
+        });
+        await expect(service.googleLogin('google-test-token')).rejects.toThrow(
+          UnauthorizedException,
+        );
+        expect(mockUserService.linkGoogleIdentity).not.toHaveBeenCalled();
+        expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+        expect(mockSessionRepository.save).not.toHaveBeenCalled();
+      },
+    );
+
+    it('rejects an active account lacking verification evidence', async () => {
+      mockUserService.findByEmail.mockResolvedValue({
+        id: 'active-no-proof',
+        email: 'google@example.com',
+        account_status: AccountStatus.ACTIVE,
+        email_verified_at: null,
+        is_active: true,
+        is_verified: true,
+        role: [UserRole.PATIENT],
+      });
+      await expect(service.googleLogin('google-test-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('rejects a mismatched linked Google identity', async () => {
+      mockUserService.findByEmail.mockResolvedValue({
+        id: 'linked-user',
+        email: 'google@example.com',
+        google_id: 'another-google-id',
+        account_status: AccountStatus.ACTIVE,
+        email_verified_at: new Date(),
+        is_active: true,
+        is_verified: true,
+        role: [UserRole.PATIENT],
+      });
+      await expect(service.googleLogin('google-test-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(mockUserService.linkGoogleIdentity).not.toHaveBeenCalled();
+    });
+
+    it('allows a verified active account to receive credentials', async () => {
+      const user = {
+        id: 'verified-user',
+        email: 'google@example.com',
+        google_id: 'google-id-1',
+        account_status: AccountStatus.ACTIVE,
+        email_verified_at: new Date(),
+        is_active: true,
+        is_verified: true,
+        role: [UserRole.PATIENT],
+        first_name: 'Google',
+        last_name: 'Person',
+      };
+      mockUserService.findByEmail.mockResolvedValue(user);
+      mockUserService.linkGoogleIdentity.mockResolvedValue(user);
+      mockJwtService.signAsync
+        .mockReset()
+        .mockResolvedValueOnce('oauth-access')
+        .mockResolvedValueOnce('oauth-refresh');
+      mockJwtService.decode.mockReturnValue({
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      });
+      mockSessionRepository.create.mockImplementation(
+        (details: Partial<AuthSession>) => details,
+      );
+      mockSessionRepository.save.mockImplementation(async (details) => details);
+
+      const response = await service.googleLogin('google-test-token');
+      expect(response.access_token).toBe('oauth-access');
+      expect(response.refresh_token).toBe('oauth-refresh');
+      expect(mockSessionRepository.save).toHaveBeenCalledTimes(1);
     });
   });
 });

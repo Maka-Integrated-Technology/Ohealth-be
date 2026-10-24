@@ -48,7 +48,7 @@ export class User extends BaseEntity {
   @Column({ type: 'simple-array', default: UserRole.PATIENT })
   role: UserRole[];
 
-  @Column({ default: true })
+  @Column({ default: false })
   is_active: boolean;
 
   @Column({ default: false })

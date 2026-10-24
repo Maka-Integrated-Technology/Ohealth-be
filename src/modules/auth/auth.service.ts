@@ -5,7 +5,6 @@ import {
   ConflictException,
   Inject,
   Injectable,
-  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -22,9 +21,11 @@ import { EmailTemplateID } from '../../constants/email-constants';
 import * as sysMsg from '../../constants/system.messages';
 import { EmailService } from '../email/email.service';
 import { User } from '../user/entities/user.entity';
+import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserRole } from '../user/enums/user-role.enum';
 import { UserService } from '../user/user.service';
 
+import { AccountAccessPolicyService } from './account-access-policy.service';
 import { AuthRoutingService } from './auth-routing.service';
 import { SELF_SERVICE_SIGNUP_ROLES } from './constants/self-service-signup-roles.constant';
 import {
@@ -61,6 +62,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
     private readonly authRoutingService: AuthRoutingService,
+    private readonly accountAccessPolicy: AccountAccessPolicyService,
     @Inject(WINSTON_MODULE_PROVIDER) logger: Logger,
   ) {
     this.logger = logger.child({ context: AuthService.name });
@@ -100,17 +102,13 @@ export class AuthService {
       role: signupPayload.role,
       is_active: false,
       is_verified: false,
+      account_status: AccountStatus.PENDING_VERIFICATION,
+      email_verified_at: null,
       verification_code: verificationCode,
       verification_code_expires_at: verificationExpiry,
     });
-    const [tokens, routing] = await Promise.all([
-      this.generateTokens(savedUser.id, savedUser.email, savedUser.role),
-      this.authRoutingService.resolve(savedUser),
-    ]);
-    const session = await this.createSession(
-      savedUser.id,
-      tokens.refresh_token,
-    );
+    // Pending users must never receive access or refresh credentials.
+    const routing = await this.authRoutingService.resolve(savedUser);
 
     this.logger.info(sysMsg.ACCOUNT_CREATED);
     void this.sendVerificationEmail(savedUser, verificationCode, 10);
@@ -119,9 +117,6 @@ export class AuthService {
       message: sysMsg.VERIFICATION_CODE_SENT,
       user: this.toUserResponse(savedUser),
       ...routing,
-      ...tokens,
-      session_id: session.session_id,
-      session_expires_at: session.expires_at,
     };
   }
 
@@ -133,10 +128,6 @@ export class AuthService {
       throw new UnauthorizedException(sysMsg.INVALID_CREDENTIALS);
     }
 
-    if (!user.is_active || !user.is_verified) {
-      throw new UnauthorizedException(sysMsg.USER_INACTIVE);
-    }
-
     const isPasswordValid = await bcrypt.compare(
       loginPayload.password,
       user.password,
@@ -144,6 +135,7 @@ export class AuthService {
     if (!isPasswordValid) {
       throw new UnauthorizedException(sysMsg.INVALID_CREDENTIALS);
     }
+    this.accountAccessPolicy.assertCanAuthenticate(user);
 
     const [tokens, routing] = await Promise.all([
       this.generateTokens(user.id, user.email, user.role),
@@ -164,6 +156,7 @@ export class AuthService {
   }
 
   async issueAuthSession(user: User) {
+    this.accountAccessPolicy.assertCanAuthenticate(user);
     const [tokens, routing] = await Promise.all([
       this.generateTokens(user.id, user.email, user.role),
       this.authRoutingService.resolve(user),
@@ -205,7 +198,8 @@ export class AuthService {
     }
 
     const user = await this.userService.findById(payload.sub);
-    if (!user || !user.is_active || !user.is_verified) {
+    this.accountAccessPolicy.assertCanAuthenticate(user);
+    if (!user) {
       throw new UnauthorizedException(sysMsg.USER_INACTIVE);
     }
     if (!haveSameRoles(payload.role, user.role)) {
@@ -244,9 +238,11 @@ export class AuthService {
 
     if (user) {
       const resetCode = this.generateVerificationCode();
-      user.reset_token = resetCode;
-      user.reset_token_expiry = new Date(Date.now() + 10 * 60 * 1000);
-      await this.userService.save(user);
+      await this.userService.setPasswordResetChallenge(
+        user.id,
+        resetCode,
+        new Date(Date.now() + 10 * 60 * 1000),
+      );
 
       this.logger.info(`Password reset token generated for user ${user.id}`);
       void this.sendPasswordResetEmail(user, resetCode, 10);
@@ -258,20 +254,11 @@ export class AuthService {
   }
 
   async resetPassword(payload: ResetPasswordDto): Promise<{ message: string }> {
-    const user = await this.userService.findByResetToken(payload.token);
-
-    if (
-      !user ||
-      !user.reset_token_expiry ||
-      user.reset_token_expiry < new Date()
-    ) {
-      throw new BadRequestException(sysMsg.TOKEN_INVALID);
-    }
-
-    user.password = await bcrypt.hash(payload.newPassword, this.saltRounds);
-    user.reset_token = null;
-    user.reset_token_expiry = null;
-    await this.userService.save(user);
+    const password = await bcrypt.hash(payload.newPassword, this.saltRounds);
+    const user = await this.userService.consumePasswordResetToken(
+      payload.token,
+      password,
+    );
 
     await this.sessionRepository
       .createQueryBuilder()
@@ -288,52 +275,54 @@ export class AuthService {
 
   async verifySignup(payload: VerifySignupDto) {
     const email = payload.email.trim().toLowerCase();
-    const user = await this.userService.findByEmail(email);
-    if (!user) {
-      throw new NotFoundException(sysMsg.USER_NOT_FOUND);
+    const verifiedUser = await this.userService.verifyEmailWithCode(
+      email,
+      payload.code,
+    );
+    // First token/session issuance happens only after the email proof is stored.
+    const session = await this.issueAuthSession(verifiedUser);
+    void this.sendWelcomeEmail(verifiedUser);
+
+    return {
+      message: sysMsg.ACCOUNT_VERIFIED,
+      user: this.toUserResponse(verifiedUser),
+      ...session,
+    };
+  }
+
+  /**
+   * Send the challenge created inside the provisioner's database transaction.
+   * This method never issues a session or promotes account state.
+   */
+  sendProvisionedVerification(user: User): void {
+    if (
+      user.account_status !== AccountStatus.PENDING_VERIFICATION ||
+      user.email_verified_at ||
+      !user.verification_code ||
+      !user.verification_code_expires_at ||
+      user.verification_code_expires_at <= new Date()
+    ) {
+      throw new BadRequestException(
+        'A pending verification challenge is required.',
+      );
     }
-
-    if (!user.verification_code || !user.verification_code_expires_at) {
-      throw new BadRequestException(sysMsg.INVALID_VERIFICATION_CODE);
-    }
-
-    if (user.verification_code !== payload.code) {
-      throw new BadRequestException(sysMsg.INVALID_VERIFICATION_CODE);
-    }
-
-    if (user.verification_code_expires_at < new Date()) {
-      throw new BadRequestException(sysMsg.VERIFICATION_CODE_EXPIRED);
-    }
-
-    user.is_active = true;
-    user.is_verified = true;
-    user.verification_code = null;
-    user.verification_code_expires_at = null;
-    await this.userService.save(user);
-
-    void this.sendWelcomeEmail(user);
-
-    return { message: sysMsg.ACCOUNT_VERIFIED };
+    void this.sendVerificationEmail(user, user.verification_code, 10);
   }
 
   async resendVerification(
     payload: ResendVerificationDto,
   ): Promise<{ message: string }> {
     const email = payload.email.trim().toLowerCase();
-    const user = await this.userService.findByEmail(email);
+    const verificationCode = this.generateVerificationCode();
+    const user = await this.userService.rotateVerificationChallenge(
+      email,
+      verificationCode,
+      new Date(Date.now() + 10 * 60 * 1000),
+    );
 
     if (!user) {
       return { message: sysMsg.VERIFICATION_CODE_SENT };
     }
-
-    if (user.is_verified) {
-      throw new BadRequestException(sysMsg.ACCOUNT_ALREADY_VERIFIED);
-    }
-
-    const verificationCode = this.generateVerificationCode();
-    user.verification_code = verificationCode;
-    user.verification_code_expires_at = new Date(Date.now() + 10 * 60 * 1000);
-    await this.userService.save(user);
 
     void this.sendVerificationEmail(user, verificationCode, 10);
 
@@ -376,39 +365,37 @@ export class AuthService {
       throw new UnauthorizedException(sysMsg.TOKEN_INVALID);
     }
 
-    const user = await this.userService.findById(userId);
-    if (!user) {
-      this.logger.warn(sysMsg.USER_NOT_FOUND);
-      throw new UnauthorizedException(sysMsg.USER_NOT_FOUND);
-    }
-
+    const update: UpdateProfileDto = {};
     if (dto.first_name !== undefined) {
-      user.first_name = dto.first_name.trim();
+      update.first_name = dto.first_name.trim();
     }
     if (dto.last_name !== undefined) {
-      user.last_name = dto.last_name.trim();
+      update.last_name = dto.last_name.trim();
     }
     if (dto.middle_name !== undefined) {
-      user.middle_name = dto.middle_name?.trim() || null;
+      update.middle_name = dto.middle_name?.trim() || null;
     }
     if (dto.gender !== undefined) {
-      user.gender = dto.gender;
+      update.gender = dto.gender;
     }
     if (dto.dob !== undefined) {
-      user.dob = dto.dob;
+      update.dob = dto.dob;
     }
     if (dto.phone !== undefined) {
-      user.phone = dto.phone;
+      update.phone = dto.phone;
     }
     if (dto.country !== undefined) {
-      user.country = dto.country;
+      update.country = dto.country;
     }
     if (dto.image !== undefined) {
-      user.image = dto.image;
+      update.image = dto.image;
     }
 
-    const saved = await this.userService.save(user);
-    this.logger.info(`Profile updated for user ${user.id}`);
+    const saved = await this.userService.updateAuthenticatedProfile(
+      userId,
+      update,
+    );
+    this.logger.info(`Profile updated for user ${saved.id}`);
 
     return this.getProfile({
       ...req,
@@ -436,8 +423,12 @@ export class AuthService {
       throw new UnauthorizedException(sysMsg.INVALID_CURRENT_PASSWORD);
     }
 
-    user.password = await bcrypt.hash(dto.newPassword, this.saltRounds);
-    await this.userService.save(user);
+    const password = await bcrypt.hash(dto.newPassword, this.saltRounds);
+    await this.userService.replaceAuthenticatedPassword(
+      user.id,
+      user.password,
+      password,
+    );
 
     await this.sessionRepository
       .createQueryBuilder()
@@ -530,30 +521,20 @@ export class AuthService {
         role: [UserRole.PATIENT],
         is_active: true,
         is_verified: true,
+        account_status: AccountStatus.ACTIVE,
+        email_verified_at: new Date(),
         google_id: payload.sub,
       });
     } else {
-      const defaultFirst = 'OHealth';
-      const defaultLast = 'User';
-      const shouldUpdateFirst =
-        !user.first_name || user.first_name === defaultFirst;
-      const shouldUpdateLast =
-        !user.last_name || user.last_name === defaultLast;
-      const shouldUpdateGoogleId = !user.google_id;
-
-      if (shouldUpdateGoogleId) {
-        user.google_id = payload.sub;
+      this.accountAccessPolicy.assertCanAuthenticate(user);
+      if (user.google_id && user.google_id !== payload.sub) {
+        throw new UnauthorizedException(sysMsg.INVALID_GOOGLE_TOKEN);
       }
-      if (shouldUpdateFirst) {
-        user.first_name = derivedName.firstName;
-      }
-      if (shouldUpdateLast) {
-        user.last_name = derivedName.lastName;
-      }
-
-      if (shouldUpdateGoogleId || shouldUpdateFirst || shouldUpdateLast) {
-        user = await this.userService.save(user);
-      }
+      user = await this.userService.linkGoogleIdentity(
+        user.id,
+        payload.sub,
+        derivedName,
+      );
     }
 
     const [tokens, routing] = await Promise.all([

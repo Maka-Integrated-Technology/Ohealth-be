@@ -12,7 +12,10 @@ import { DataSource, Repository } from 'typeorm';
 import { Logger } from 'winston';
 
 import * as sysMsg from '../../constants/system.messages';
+import { AuthService } from '../auth/auth.service';
+import { generateVerificationChallenge } from '../auth/utils/verification-challenge.util';
 import { User } from '../user/entities/user.entity';
+import { AccountStatus } from '../user/enums/account-status.enum';
 
 import { ORGANIZATION_ADMIN_ROLE } from './constants/organization-role.constant';
 import { SetupOrganizationResponseDto } from './dto/organization-response.dto';
@@ -42,6 +45,7 @@ export class OrganizationOnboardingService {
     private readonly userRepository: Repository<User>,
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
+    private readonly authService: AuthService,
     @Inject(WINSTON_MODULE_PROVIDER) baseLogger: Logger,
   ) {
     this.logger = baseLogger.child({
@@ -67,6 +71,8 @@ export class OrganizationOnboardingService {
       parsedName,
       hashedPassword,
     );
+
+    this.authService.sendProvisionedVerification(result.user);
 
     this.logger.info(sysMsg.ORGANIZATION_ADMIN_SETUP_COMPLETED, {
       organization_id: result.organization.id,
@@ -105,6 +111,7 @@ export class OrganizationOnboardingService {
     parsedName: IParsedAdministratorName,
     hashedPassword: string,
   ): Promise<ICreatedOrganizationAdministrator> {
+    const challenge = generateVerificationChallenge();
     try {
       return await this.dataSource.transaction(async (manager) => {
         const organizations = manager.withRepository(
@@ -157,8 +164,11 @@ export class OrganizationOnboardingService {
             middle_name: parsedName.middleName,
             phone: administratorPayload.phone,
             role: [ORGANIZATION_ADMIN_ROLE[organization.organization_type]],
-            is_active: true,
-            is_verified: true,
+            is_active: false,
+            is_verified: false,
+            account_status: AccountStatus.PENDING_VERIFICATION,
+            email_verified_at: null,
+            ...challenge,
           }),
         );
         const administrator = await administrators.save(

@@ -24,6 +24,7 @@ import { Organization } from '../organization/entities/organization.entity';
 import { OrganizationType } from '../organization/enums/organization-type.enum';
 import { OrganizationVerificationStatus } from '../organization/enums/organization-verification-status.enum';
 import { User } from '../user/entities/user.entity';
+import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserRole } from '../user/enums/user-role.enum';
 
 import {
@@ -361,6 +362,8 @@ export class LaboratoryPostApprovalService {
             role: [UserRole.LAB_STAFF],
             is_active: true,
             is_verified: true,
+            account_status: AccountStatus.ACTIVE,
+            email_verified_at: new Date(),
           }),
         );
 

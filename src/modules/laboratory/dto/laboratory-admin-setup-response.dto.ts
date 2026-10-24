@@ -89,15 +89,10 @@ export class LaboratoryAdminSetupResponseDto {
   @ApiProperty({ type: LaboratoryAdministratorSetupResponseDto })
   administrator: LaboratoryAdministratorSetupResponseDto;
 
-  @ApiProperty({ example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' })
-  access_token: string;
-
-  @ApiProperty({ example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...' })
-  refresh_token: string;
-
-  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440003' })
-  session_id: string;
-
-  @ApiProperty({ example: '2026-07-18T10:30:00.000Z' })
-  session_expires_at: Date;
+  @ApiProperty({
+    example: true,
+    description:
+      'Administrator must verify their email before receiving credentials.',
+  })
+  verification_required: boolean;
 }

@@ -58,7 +58,18 @@ class RoutedAuthResponseDto extends TokensDto {
   verification_status: string | null;
 }
 
-export class SignupResponseDto extends RoutedAuthResponseDto {
+export class SignupResponseDto {
+  @ApiProperty({ type: UserDto })
+  user: UserDto;
+
+  @ApiProperty({
+    example: null,
+    nullable: true,
+    description:
+      'Current provider verification state; signup grants no session.',
+  })
+  verification_status: string | null;
+
   @ApiProperty({
     enum: AuthRoutingTarget,
     example: AuthRoutingTarget.EMAIL_VERIFICATION,
@@ -82,18 +93,6 @@ export class SignupResponseDto extends RoutedAuthResponseDto {
     nullable: true,
   })
   message?: string;
-
-  @ApiProperty({
-    example: '550e8400-e29b-41d4-a716-446655440000',
-    nullable: true,
-  })
-  session_id?: string;
-
-  @ApiProperty({
-    example: '2024-01-15T10:30:00Z',
-    nullable: true,
-  })
-  session_expires_at?: Date;
 }
 
 export class LoginResponseDto extends RoutedAuthResponseDto {
@@ -120,6 +119,11 @@ export class LoginResponseDto extends RoutedAuthResponseDto {
     nullable: true,
   })
   session_expires_at?: Date;
+}
+
+export class VerifySignupResponseDto extends LoginResponseDto {
+  @ApiProperty({ example: 'account verified' })
+  message: string;
 }
 
 export class RefreshTokenResponseDto extends RoutedAuthResponseDto {

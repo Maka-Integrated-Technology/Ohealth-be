@@ -10,6 +10,7 @@ import { Logger } from 'winston';
 import * as sysMsg from '../../constants/system.messages';
 import { AuthService } from '../auth/auth.service';
 import { User } from '../user/entities/user.entity';
+import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserRole } from '../user/enums/user-role.enum';
 
 import { LaboratoryAdminSetupDto } from './dto/laboratory-admin-setup.dto';
@@ -23,7 +24,6 @@ describe('LaboratoryAuthService', () => {
   let service: LaboratoryAuthService;
 
   const createdAt = new Date('2026-07-11T10:30:00.000Z');
-  const sessionExpiresAt = new Date('2026-07-18T10:30:00.000Z');
 
   const mockLaboratoryRepository = {
     findOne: jest.fn(),
@@ -48,6 +48,7 @@ describe('LaboratoryAuthService', () => {
 
   const mockAuthService = {
     issueAuthSession: jest.fn(),
+    sendProvisionedVerification: jest.fn(),
   };
 
   const mockConfigService = {
@@ -140,7 +141,7 @@ describe('LaboratoryAuthService', () => {
     expect(service).toBeDefined();
   });
 
-  it('should create a laboratory, primary admin user, admin profile, and auth session', async () => {
+  it('creates a pending laboratory administrator without issuing credentials', async () => {
     jest
       .spyOn(bcrypt, 'hash')
       .mockImplementation(async () => 'hashed-password');
@@ -164,13 +165,6 @@ describe('LaboratoryAuthService', () => {
         ...administrator,
       }),
     );
-    mockAuthService.issueAuthSession.mockResolvedValue({
-      access_token: 'access-token',
-      refresh_token: 'refresh-token',
-      session_id: 'session-id',
-      session_expires_at: sessionExpiresAt,
-    });
-
     const result = await service.setupAdministrator(payload);
 
     expect(bcrypt.hash).toHaveBeenCalledWith('SecurePassword123', 10);
@@ -201,8 +195,12 @@ describe('LaboratoryAuthService', () => {
         middle_name: 'Ade',
         last_name: 'Adebayo',
         role: [UserRole.LAB_ADMIN],
-        is_active: true,
-        is_verified: true,
+        is_active: false,
+        is_verified: false,
+        account_status: AccountStatus.PENDING_VERIFICATION,
+        email_verified_at: null,
+        verification_code: expect.any(String),
+        verification_code_expires_at: expect.any(Date),
       }),
     );
     expect(mockLaboratoryAdminRepository.create).toHaveBeenCalledWith(
@@ -214,8 +212,12 @@ describe('LaboratoryAuthService', () => {
         is_primary: true,
       }),
     );
-    expect(mockAuthService.issueAuthSession).toHaveBeenCalledWith(
-      expect.objectContaining({ id: 'user-id', role: [UserRole.LAB_ADMIN] }),
+    expect(mockAuthService.issueAuthSession).not.toHaveBeenCalled();
+    expect(mockAuthService.sendProvisionedVerification).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'user-id',
+        account_status: AccountStatus.PENDING_VERIFICATION,
+      }),
     );
     expect(result).toEqual({
       message: sysMsg.LABORATORY_ADMIN_SETUP_COMPLETED,
@@ -230,10 +232,7 @@ describe('LaboratoryAuthService', () => {
         email: 'tunde@medcheck.example',
         role: [UserRole.LAB_ADMIN],
       }),
-      access_token: 'access-token',
-      refresh_token: 'refresh-token',
-      session_id: 'session-id',
-      session_expires_at: sessionExpiresAt,
+      verification_required: true,
     });
   });
 
@@ -258,13 +257,6 @@ describe('LaboratoryAuthService', () => {
       phone: '+2348098765432',
       is_primary: true,
     });
-    mockAuthService.issueAuthSession.mockResolvedValue({
-      access_token: 'access-token',
-      refresh_token: 'refresh-token',
-      session_id: 'session-id',
-      session_expires_at: sessionExpiresAt,
-    });
-
     await service.setupAdministrator({
       ...payload,
       administrator: {
@@ -296,6 +288,7 @@ describe('LaboratoryAuthService', () => {
       sysMsg.LABORATORY_ADMIN_EMAIL_ALREADY_REGISTERED,
     );
     expect(mockLaboratoryRepository.save).not.toHaveBeenCalled();
+    expect(mockAuthService.sendProvisionedVerification).not.toHaveBeenCalled();
     expect(mockAuthService.issueAuthSession).not.toHaveBeenCalled();
   });
 
@@ -313,6 +306,7 @@ describe('LaboratoryAuthService', () => {
       sysMsg.LABORATORY_ALREADY_EXISTS,
     );
     expect(mockUserRepository.save).not.toHaveBeenCalled();
+    expect(mockAuthService.sendProvisionedVerification).not.toHaveBeenCalled();
     expect(mockAuthService.issueAuthSession).not.toHaveBeenCalled();
   });
 
@@ -338,6 +332,7 @@ describe('LaboratoryAuthService', () => {
     await expect(service.setupAdministrator(payload)).rejects.toThrow(
       'database failure',
     );
+    expect(mockAuthService.sendProvisionedVerification).not.toHaveBeenCalled();
     expect(mockAuthService.issueAuthSession).not.toHaveBeenCalled();
   });
 });

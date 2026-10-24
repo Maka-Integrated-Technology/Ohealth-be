@@ -15,8 +15,10 @@ import {
   ProfessionalVerificationStatus,
 } from '../professional/entities/professional.entity';
 import { User } from '../user/entities/user.entity';
+import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserRole } from '../user/enums/user-role.enum';
 
+import { AccountAccessPolicyService } from './account-access-policy.service';
 import { AuthAccessLevel, AuthRoutingTarget } from './enums/auth-routing.enum';
 import { IAuthRoutingResult } from './interfaces/auth-routing-result.interface';
 
@@ -58,12 +60,14 @@ export class AuthRoutingService {
     private readonly legacyLaboratoryAdminRepository: Repository<LaboratoryAdmin>,
     @InjectRepository(LaboratoryStaff)
     private readonly laboratoryStaffRepository: Repository<LaboratoryStaff>,
+    private readonly accountAccessPolicy: AccountAccessPolicyService,
   ) {}
 
   async resolve(user: User): Promise<IAuthRoutingResult> {
-    if (!user.is_verified) {
+    if (user.account_status === AccountStatus.PENDING_VERIFICATION) {
       return this.limited(AuthRoutingTarget.EMAIL_VERIFICATION);
     }
+    this.accountAccessPolicy.assertCanAuthenticate(user);
 
     const roles = new Set(user.role ?? []);
     if (!roles.size) {
