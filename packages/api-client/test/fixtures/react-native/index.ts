@@ -19,8 +19,8 @@ const client = createApiClient({
   }),
 });
 
-void client.AuthController_activateAccount({
+void client.BookingController_findOne({
   path: {
-    user_id: 'user-id',
+    id: 'booking-id',
   },
 });

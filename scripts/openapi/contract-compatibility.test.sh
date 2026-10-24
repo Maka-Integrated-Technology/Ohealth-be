@@ -112,8 +112,14 @@ chmod 0755 "${TEMP_DIR}/gh"
 cat >"${TEMP_DIR}/current-approval.json" <<'JSON'
 {
   "commits": [{"oid": "current-head"}],
-  "reviewDecision": "APPROVED",
-  "reviews": [{"state": "APPROVED", "commit": {"oid": "current-head"}}]
+  "reviewDecision": "REVIEW_REQUIRED",
+  "reviews": [{
+    "author": {"login": "reviewer"},
+    "authorAssociation": "MEMBER",
+    "submittedAt": "2026-10-24T10:00:00Z",
+    "state": "APPROVED",
+    "commit": {"oid": "current-head"}
+  }]
 }
 JSON
 
@@ -130,7 +136,13 @@ cat >"${TEMP_DIR}/stale-approval.json" <<'JSON'
 {
   "commits": [{"oid": "current-head"}],
   "reviewDecision": "APPROVED",
-  "reviews": [{"state": "APPROVED", "commit": {"oid": "previous-head"}}]
+  "reviews": [{
+    "author": {"login": "reviewer"},
+    "authorAssociation": "MEMBER",
+    "submittedAt": "2026-10-24T10:00:00Z",
+    "state": "APPROVED",
+    "commit": {"oid": "previous-head"}
+  }]
 }
 JSON
 
@@ -150,8 +162,20 @@ cat >"${TEMP_DIR}/invalidated-approval.json" <<'JSON'
   "commits": [{"oid": "current-head"}],
   "reviewDecision": "CHANGES_REQUESTED",
   "reviews": [
-    {"state": "APPROVED", "commit": {"oid": "current-head"}},
-    {"state": "CHANGES_REQUESTED", "commit": {"oid": "current-head"}}
+    {
+      "author": {"login": "reviewer"},
+      "authorAssociation": "MEMBER",
+      "submittedAt": "2026-10-24T10:00:00Z",
+      "state": "APPROVED",
+      "commit": {"oid": "current-head"}
+    },
+    {
+      "author": {"login": "reviewer"},
+      "authorAssociation": "MEMBER",
+      "submittedAt": "2026-10-24T10:05:00Z",
+      "state": "CHANGES_REQUESTED",
+      "commit": {"oid": "current-head"}
+    }
   ]
 }
 JSON
@@ -165,6 +189,31 @@ if PATH="${TEMP_DIR}:${PATH}" \
   PR_NUMBER=1 \
   bash "${REPO_ROOT}/scripts/openapi/enforce-breaking-approval.sh" >/dev/null 2>&1; then
   fail 'an invalidated approval was accepted'
+fi
+
+cat >"${TEMP_DIR}/untrusted-approval.json" <<'JSON'
+{
+  "commits": [{"oid": "current-head"}],
+  "reviewDecision": "REVIEW_REQUIRED",
+  "reviews": [{
+    "author": {"login": "external-reviewer"},
+    "authorAssociation": "NONE",
+    "submittedAt": "2026-10-24T10:00:00Z",
+    "state": "APPROVED",
+    "commit": {"oid": "current-head"}
+  }]
+}
+JSON
+
+if PATH="${TEMP_DIR}:${PATH}" \
+  MOCK_REVIEW_DATA="${TEMP_DIR}/untrusted-approval.json" \
+  BREAKING_CHANGES=true \
+  APPROVAL_LABEL_PRESENT=true \
+  GH_TOKEN=test-token \
+  GITHUB_REPOSITORY=example/repository \
+  PR_NUMBER=1 \
+  bash "${REPO_ROOT}/scripts/openapi/enforce-breaking-approval.sh" >/dev/null 2>&1; then
+  fail 'an untrusted reviewer approval was accepted'
 fi
 
 printf 'Contract compatibility controls passed.\n'

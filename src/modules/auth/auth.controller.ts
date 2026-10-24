@@ -1,16 +1,16 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   HttpCode,
   HttpStatus,
-  Param,
   Patch,
   Post,
   Get,
   UseGuards,
   Req,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiExcludeEndpoint, ApiTags } from '@nestjs/swagger';
 
 import { Public } from '../../common/decorators/public.decorator';
 import { IAuthUser, IRequestWithUser } from '../../common/types';
@@ -18,7 +18,6 @@ import { IAuthUser, IRequestWithUser } from '../../common/types';
 import { AuthService } from './auth.service';
 import { CurrentUser } from './decorators/current-user.decorator';
 import {
-  ActivateAccountDocs,
   ForgotPasswordDocs,
   ChangePasswordDocs,
   GetProfileDocs,
@@ -114,16 +113,15 @@ export class AuthController {
     return this.authService.resendVerification(payload);
   }
 
-  @Public()
+  // Keep a guarded rejection for legacy clients: 401 without a valid JWT,
+  // 403 with one. Only the proof-of-contact verification flow can activate users.
+  @ApiExcludeEndpoint()
+  @UseGuards(JwtAuthGuard)
   @Patch('users/:user_id/activate')
-  @HttpCode(HttpStatus.OK)
-  @ActivateAccountDocs()
-  async activateAccount(@Param('user_id') userId: string) {
-    const message = await this.authService.activateUserAccount(userId);
-    return {
-      status: HttpStatus.OK,
-      message,
-    };
+  activateAccount(): never {
+    throw new ForbiddenException(
+      'Legacy account activation is disabled. Verify your contact instead.',
+    );
   }
 
   @GetProfileDocs()

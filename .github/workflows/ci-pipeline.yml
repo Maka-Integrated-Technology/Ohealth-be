@@ -84,6 +84,21 @@ jobs:
             contracts/openapi.json \
             "${CONTRACT_REPORT}"
 
+      - name: Verify formatting
+        run: npm run format:check
+
+      - name: Run ESLint
+        run: npm run lint
+
+      - name: Run Tests
+        run: npm test
+
+      - name: Verify denied legacy activation (isolated e2e)
+        run: npx jest --config ./test/jest-e2e.json --runInBand test/auth-activation.e2e-spec.ts
+
+      - name: Run Build
+        run: npm run build
+
       - name: Enforce breaking-change approval
         if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review'
         env:
@@ -93,12 +108,3 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: bash scripts/openapi/enforce-breaking-approval.sh
-
-      - name: Run ESLint
-        run: npm run lint
-
-      - name: Run Tests
-        run: npm test
-
-      - name: Run Build
-        run: npm run build
