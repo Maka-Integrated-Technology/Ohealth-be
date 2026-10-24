@@ -36,7 +36,7 @@ done
 review_data="$(
   gh pr view "${PR_NUMBER}" \
     --repo "${GITHUB_REPOSITORY}" \
-    --json commits,reviewDecision,reviews
+    --json commits,reviews
 )"
 latest_commit_oid="$(jq -r '.commits[-1].oid // empty' <<<"${review_data}")"
 
@@ -46,14 +46,24 @@ latest_commit_oid="$(jq -r '.commits[-1].oid // empty' <<<"${review_data}")"
 }
 
 if ! jq -e --arg latest_commit_oid "${latest_commit_oid}" '
-  .reviewDecision == "APPROVED" and
+  [
+    .reviews[]? |
+    (.authorAssociation // "") as $association |
+    select(
+      (.author.login | type == "string" and length > 0) and
+      (.submittedAt | type == "string" and length > 0) and
+      (["OWNER", "MEMBER", "COLLABORATOR"] | index($association)) != null
+    )
+  ] |
+  group_by(.author.login) |
+  map(max_by(.submittedAt)) |
   any(
-    .reviews[]?;
+    .[];
     .state == "APPROVED" and .commit.oid == $latest_commit_oid
   )
 ' <<<"${review_data}" >/dev/null; then
   printf '%s\n' \
-    '::error::Breaking API changes require a current approving decision on the latest commit.' \
+    '::error::Breaking API changes require a trusted reviewer approval on the latest commit.' \
     >&2
   exit 1
 fi
