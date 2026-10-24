@@ -84,16 +84,6 @@ jobs:
             contracts/openapi.json \
             "${CONTRACT_REPORT}"
 
-      - name: Enforce breaking-change approval
-        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review'
-        env:
-          APPROVAL_LABEL_PRESENT: ${{ contains(github.event.pull_request.labels.*.name, 'api-breaking-change-approved') }}
-          BREAKING_CHANGES: ${{ steps.contract_compatibility.outputs.breaking_changes }}
-          CONTRACT_REPORT: ${{ runner.temp }}/api-contract-report.md
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: bash scripts/openapi/enforce-breaking-approval.sh
-
       - name: Verify formatting
         run: npm run format:check
 
@@ -108,3 +98,13 @@ jobs:
 
       - name: Run Build
         run: npm run build
+
+      - name: Enforce breaking-change approval
+        if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review'
+        env:
+          APPROVAL_LABEL_PRESENT: ${{ contains(github.event.pull_request.labels.*.name, 'api-breaking-change-approved') }}
+          BREAKING_CHANGES: ${{ steps.contract_compatibility.outputs.breaking_changes }}
+          CONTRACT_REPORT: ${{ runner.temp }}/api-contract-report.md
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: bash scripts/openapi/enforce-breaking-approval.sh
