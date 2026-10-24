@@ -238,9 +238,11 @@ export class AuthService {
 
     if (user) {
       const resetCode = this.generateVerificationCode();
-      user.reset_token = resetCode;
-      user.reset_token_expiry = new Date(Date.now() + 10 * 60 * 1000);
-      await this.userService.save(user);
+      await this.userService.setPasswordResetChallenge(
+        user.id,
+        resetCode,
+        new Date(Date.now() + 10 * 60 * 1000),
+      );
 
       this.logger.info(`Password reset token generated for user ${user.id}`);
       void this.sendPasswordResetEmail(user, resetCode, 10);
@@ -252,20 +254,11 @@ export class AuthService {
   }
 
   async resetPassword(payload: ResetPasswordDto): Promise<{ message: string }> {
-    const user = await this.userService.findByResetToken(payload.token);
-
-    if (
-      !user ||
-      !user.reset_token_expiry ||
-      user.reset_token_expiry < new Date()
-    ) {
-      throw new BadRequestException(sysMsg.TOKEN_INVALID);
-    }
-
-    user.password = await bcrypt.hash(payload.newPassword, this.saltRounds);
-    user.reset_token = null;
-    user.reset_token_expiry = null;
-    await this.userService.save(user);
+    const password = await bcrypt.hash(payload.newPassword, this.saltRounds);
+    const user = await this.userService.consumePasswordResetToken(
+      payload.token,
+      password,
+    );
 
     await this.sessionRepository
       .createQueryBuilder()
@@ -320,18 +313,16 @@ export class AuthService {
     payload: ResendVerificationDto,
   ): Promise<{ message: string }> {
     const email = payload.email.trim().toLowerCase();
-    const user = await this.userService.findByEmail(email);
+    const verificationCode = this.generateVerificationCode();
+    const user = await this.userService.rotateVerificationChallenge(
+      email,
+      verificationCode,
+      new Date(Date.now() + 10 * 60 * 1000),
+    );
 
     if (!user) {
       return { message: sysMsg.VERIFICATION_CODE_SENT };
     }
-
-    this.accountAccessPolicy.assertCanVerifyContact(user);
-
-    const verificationCode = this.generateVerificationCode();
-    user.verification_code = verificationCode;
-    user.verification_code_expires_at = new Date(Date.now() + 10 * 60 * 1000);
-    await this.userService.save(user);
 
     void this.sendVerificationEmail(user, verificationCode, 10);
 
@@ -374,39 +365,37 @@ export class AuthService {
       throw new UnauthorizedException(sysMsg.TOKEN_INVALID);
     }
 
-    const user = await this.userService.findById(userId);
-    if (!user) {
-      this.logger.warn(sysMsg.USER_NOT_FOUND);
-      throw new UnauthorizedException(sysMsg.USER_NOT_FOUND);
-    }
-
+    const update: UpdateProfileDto = {};
     if (dto.first_name !== undefined) {
-      user.first_name = dto.first_name.trim();
+      update.first_name = dto.first_name.trim();
     }
     if (dto.last_name !== undefined) {
-      user.last_name = dto.last_name.trim();
+      update.last_name = dto.last_name.trim();
     }
     if (dto.middle_name !== undefined) {
-      user.middle_name = dto.middle_name?.trim() || null;
+      update.middle_name = dto.middle_name?.trim() || null;
     }
     if (dto.gender !== undefined) {
-      user.gender = dto.gender;
+      update.gender = dto.gender;
     }
     if (dto.dob !== undefined) {
-      user.dob = dto.dob;
+      update.dob = dto.dob;
     }
     if (dto.phone !== undefined) {
-      user.phone = dto.phone;
+      update.phone = dto.phone;
     }
     if (dto.country !== undefined) {
-      user.country = dto.country;
+      update.country = dto.country;
     }
     if (dto.image !== undefined) {
-      user.image = dto.image;
+      update.image = dto.image;
     }
 
-    const saved = await this.userService.save(user);
-    this.logger.info(`Profile updated for user ${user.id}`);
+    const saved = await this.userService.updateAuthenticatedProfile(
+      userId,
+      update,
+    );
+    this.logger.info(`Profile updated for user ${saved.id}`);
 
     return this.getProfile({
       ...req,
@@ -434,8 +423,12 @@ export class AuthService {
       throw new UnauthorizedException(sysMsg.INVALID_CURRENT_PASSWORD);
     }
 
-    user.password = await bcrypt.hash(dto.newPassword, this.saltRounds);
-    await this.userService.save(user);
+    const password = await bcrypt.hash(dto.newPassword, this.saltRounds);
+    await this.userService.replaceAuthenticatedPassword(
+      user.id,
+      user.password,
+      password,
+    );
 
     await this.sessionRepository
       .createQueryBuilder()
@@ -537,27 +530,11 @@ export class AuthService {
       if (user.google_id && user.google_id !== payload.sub) {
         throw new UnauthorizedException(sysMsg.INVALID_GOOGLE_TOKEN);
       }
-      const defaultFirst = 'OHealth';
-      const defaultLast = 'User';
-      const shouldUpdateFirst =
-        !user.first_name || user.first_name === defaultFirst;
-      const shouldUpdateLast =
-        !user.last_name || user.last_name === defaultLast;
-      const shouldUpdateGoogleId = !user.google_id;
-
-      if (shouldUpdateGoogleId) {
-        user.google_id = payload.sub;
-      }
-      if (shouldUpdateFirst) {
-        user.first_name = derivedName.firstName;
-      }
-      if (shouldUpdateLast) {
-        user.last_name = derivedName.lastName;
-      }
-
-      if (shouldUpdateGoogleId || shouldUpdateFirst || shouldUpdateLast) {
-        user = await this.userService.save(user);
-      }
+      user = await this.userService.linkGoogleIdentity(
+        user.id,
+        payload.sub,
+        derivedName,
+      );
     }
 
     const [tokens, routing] = await Promise.all([

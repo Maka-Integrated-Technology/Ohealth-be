@@ -1,4 +1,8 @@
-import { BadRequestException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Repository } from 'typeorm';
 
 import { AccountAccessPolicyService } from '../auth/account-access-policy.service';
@@ -13,20 +17,24 @@ describe('UserService atomic verification and audited state transitions', () => 
   const findOne = jest.fn();
   const save = jest.fn();
   const insert = jest.fn();
+  const update = jest.fn();
+  const repositoryUpdate = jest.fn();
   const manager = {
     transaction: jest.fn(async (fn: (m: unknown) => Promise<unknown>) =>
-      fn({ findOne, save, insert }),
+      fn({ findOne, save, insert, update }),
     ),
   };
   const policy = new AccountAccessPolicyService();
   const service = new UserService(
-    { manager } as unknown as Repository<User>,
+    { manager, update: repositoryUpdate } as unknown as Repository<User>,
     policy,
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
     save.mockImplementation(async (_entity: unknown, user: User) => user);
+    update.mockResolvedValue({ affected: 1 });
+    repositoryUpdate.mockResolvedValue({ affected: 1 });
   });
 
   it('updates status, contact time, legacy flags and audit in one transaction', async () => {
@@ -91,6 +99,104 @@ describe('UserService atomic verification and audited state transitions', () => 
     await expect(
       service.verifyEmailWithCode('blocked@example.com', '123456'),
     ).rejects.toThrow(ForbiddenException);
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('rotates a verification challenge under a row lock without writing lifecycle fields', async () => {
+    const user = {
+      id: 'pending-user',
+      email: 'pending@example.com',
+      account_status: AccountStatus.PENDING_VERIFICATION,
+      email_verified_at: null,
+    } as User;
+    findOne.mockResolvedValue(user);
+    const expiresAt = new Date(Date.now() + 60_000);
+
+    await service.rotateVerificationChallenge(user.email, '654321', expiresAt);
+
+    expect(findOne).toHaveBeenCalledWith(
+      User,
+      expect.objectContaining({ lock: { mode: 'pessimistic_write' } }),
+    );
+    expect(update).toHaveBeenCalledWith(User, user.id, {
+      verification_code: '654321',
+      verification_code_expires_at: expiresAt,
+    });
+  });
+
+  it('rejects a profile write when the locked current account is suspended', async () => {
+    findOne.mockResolvedValue({
+      id: 'suspended-user',
+      account_status: AccountStatus.SUSPENDED,
+      email_verified_at: new Date(),
+    });
+
+    await expect(
+      service.updateAuthenticatedProfile('suspended-user', {
+        first_name: 'Changed',
+      }),
+    ).rejects.toThrow(UnauthorizedException);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('updates only permitted profile fields after locking an active account', async () => {
+    const user = {
+      id: 'active-user',
+      first_name: 'Old',
+      account_status: AccountStatus.ACTIVE,
+      email_verified_at: new Date(),
+    } as User;
+    findOne.mockResolvedValue(user);
+
+    await service.updateAuthenticatedProfile(user.id, {
+      first_name: 'New',
+    });
+
+    expect(update).toHaveBeenCalledWith(User, user.id, { first_name: 'New' });
+    expect(update).not.toHaveBeenCalledWith(
+      User,
+      user.id,
+      expect.objectContaining({ account_status: expect.anything() }),
+    );
+  });
+
+  it('updates only reset-challenge fields without saving a stale user entity', async () => {
+    const expiresAt = new Date(Date.now() + 60_000);
+
+    await service.setPasswordResetChallenge(
+      'active-user',
+      'reset-token',
+      expiresAt,
+    );
+
+    expect(repositoryUpdate).toHaveBeenCalledWith('active-user', {
+      reset_token: 'reset-token',
+      reset_token_expiry: expiresAt,
+    });
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  it('consumes a reset token under lock without changing account state', async () => {
+    const user = {
+      id: 'active-user',
+      account_status: AccountStatus.ACTIVE,
+      email_verified_at: new Date(),
+      reset_token: 'reset-token',
+      reset_token_expiry: new Date(Date.now() + 60_000),
+    } as User;
+    findOne.mockResolvedValue(user);
+
+    await service.consumePasswordResetToken('reset-token', 'new-password');
+
+    expect(findOne).toHaveBeenCalledWith(
+      User,
+      expect.objectContaining({ lock: { mode: 'pessimistic_write' } }),
+    );
+    expect(update).toHaveBeenCalledWith(User, user.id, {
+      password: 'new-password',
+      reset_token: null,
+      reset_token_expiry: null,
+    });
     expect(save).not.toHaveBeenCalled();
   });
 

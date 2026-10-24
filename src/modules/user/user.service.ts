@@ -2,9 +2,10 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DeepPartial, Repository } from 'typeorm';
+import { DeepPartial, EntityManager, Repository } from 'typeorm';
 
 import * as sysMsg from '../../constants/system.messages';
 import { AccountAccessPolicyService } from '../auth/account-access-policy.service';
@@ -12,6 +13,10 @@ import { AccountAccessPolicyService } from '../auth/account-access-policy.servic
 import { UserAccountStatusHistory } from './entities/user-account-status-history.entity';
 import { User } from './entities/user.entity';
 import { AccountStatus } from './enums/account-status.enum';
+import {
+  AuthenticatedUserProfileUpdate,
+  IGoogleIdentityProfile,
+} from './interfaces/user-mutation.interface';
 
 @Injectable()
 export class UserService {
@@ -29,19 +34,135 @@ export class UserService {
     return this.userRepository.findOne({ where: { id } });
   }
 
-  findByResetToken(token: string) {
-    return this.userRepository.findOne({
-      where: { reset_token: token },
-    });
-  }
-
   async create(payload: DeepPartial<User>) {
     const user = this.userRepository.create(payload);
     return this.userRepository.save(user);
   }
 
-  save(user: User) {
-    return this.userRepository.save(user);
+  async setPasswordResetChallenge(
+    userId: string,
+    token: string,
+    expiresAt: Date,
+  ): Promise<void> {
+    await this.userRepository.update(userId, {
+      reset_token: token,
+      reset_token_expiry: expiresAt,
+    });
+  }
+
+  async consumePasswordResetToken(
+    token: string,
+    password: string,
+  ): Promise<User> {
+    return this.userRepository.manager.transaction(async (manager) => {
+      const user = await manager.findOne(User, {
+        where: { reset_token: token },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (
+        !user ||
+        !user.reset_token_expiry ||
+        user.reset_token_expiry < new Date()
+      ) {
+        throw new BadRequestException(sysMsg.TOKEN_INVALID);
+      }
+      this.accountAccessPolicy.assertKnownStatus(user.account_status);
+
+      await manager.update(User, user.id, {
+        password,
+        reset_token: null,
+        reset_token_expiry: null,
+      });
+      user.password = password;
+      user.reset_token = null;
+      user.reset_token_expiry = null;
+      return user;
+    });
+  }
+
+  async rotateVerificationChallenge(
+    email: string,
+    code: string,
+    expiresAt: Date,
+  ): Promise<User | null> {
+    return this.userRepository.manager.transaction(async (manager) => {
+      const user = await manager.findOne(User, {
+        where: { email },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!user) {
+        return null;
+      }
+      this.accountAccessPolicy.assertCanVerifyContact(user);
+      await manager.update(User, user.id, {
+        verification_code: code,
+        verification_code_expires_at: expiresAt,
+      });
+      user.verification_code = code;
+      user.verification_code_expires_at = expiresAt;
+      return user;
+    });
+  }
+
+  async updateAuthenticatedProfile(
+    userId: string,
+    update: AuthenticatedUserProfileUpdate,
+  ): Promise<User> {
+    return this.userRepository.manager.transaction(async (manager) => {
+      const user = await this.findLockedAuthenticatedUser(manager, userId);
+      if (Object.keys(update).length) {
+        await manager.update(User, user.id, update);
+        Object.assign(user, update);
+      }
+      return user;
+    });
+  }
+
+  async replaceAuthenticatedPassword(
+    userId: string,
+    expectedPassword: string,
+    password: string,
+  ): Promise<User> {
+    return this.userRepository.manager.transaction(async (manager) => {
+      const user = await this.findLockedAuthenticatedUser(manager, userId);
+      if (user.password !== expectedPassword) {
+        throw new UnauthorizedException(sysMsg.INVALID_CURRENT_PASSWORD);
+      }
+      await manager.update(User, user.id, { password });
+      user.password = password;
+      return user;
+    });
+  }
+
+  async linkGoogleIdentity(
+    userId: string,
+    googleId: string,
+    profile: IGoogleIdentityProfile,
+  ): Promise<User> {
+    return this.userRepository.manager.transaction(async (manager) => {
+      const user = await this.findLockedAuthenticatedUser(manager, userId);
+      if (user.google_id && user.google_id !== googleId) {
+        throw new UnauthorizedException(sysMsg.INVALID_GOOGLE_TOKEN);
+      }
+
+      const update: Partial<
+        Pick<User, 'google_id' | 'first_name' | 'last_name'>
+      > = {};
+      if (!user.google_id) {
+        update.google_id = googleId;
+      }
+      if (!user.first_name || user.first_name === 'OHealth') {
+        update.first_name = profile.firstName;
+      }
+      if (!user.last_name || user.last_name === 'User') {
+        update.last_name = profile.lastName;
+      }
+      if (Object.keys(update).length) {
+        await manager.update(User, user.id, update);
+        Object.assign(user, update);
+      }
+      return user;
+    });
   }
 
   /** Email code validation, status change and history entry are one transaction.
@@ -131,5 +252,20 @@ export class UserService {
       });
       return saved;
     });
+  }
+
+  private async findLockedAuthenticatedUser(
+    manager: EntityManager,
+    userId: string,
+  ): Promise<User> {
+    const user = await manager.findOne(User, {
+      where: { id: userId },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!user) {
+      throw new NotFoundException(sysMsg.USER_NOT_FOUND);
+    }
+    this.accountAccessPolicy.assertCanAuthenticate(user);
+    return user;
   }
 }

@@ -34,9 +34,13 @@ describe('AuthService', () => {
   const mockUserService = {
     findByEmail: jest.fn(),
     findById: jest.fn(),
-    findByResetToken: jest.fn(),
     create: jest.fn(),
-    save: jest.fn(),
+    setPasswordResetChallenge: jest.fn(),
+    consumePasswordResetToken: jest.fn(),
+    rotateVerificationChallenge: jest.fn(),
+    updateAuthenticatedProfile: jest.fn(),
+    replaceAuthenticatedPassword: jest.fn(),
+    linkGoogleIdentity: jest.fn(),
     verifyEmailWithCode: jest.fn(),
   };
 
@@ -163,10 +167,6 @@ describe('AuthService', () => {
           ...payload,
         }),
       );
-      mockUserService.save.mockImplementation(
-        async (payload: Record<string, unknown>) => payload,
-      );
-
       mockJwtService.signAsync
         .mockResolvedValueOnce('access-token')
         .mockResolvedValueOnce('refresh-token');
@@ -375,15 +375,16 @@ describe('AuthService', () => {
         email: 'user@example.com',
         first_name: 'Tunde',
       });
-      mockUserService.save.mockImplementation(
-        async (u: Record<string, unknown>) => u,
-      );
-
       const result = await service.forgotPassword({
         email: 'user@example.com',
       });
 
       expect(result.message).toBe(sysMsg.PASSWORD_RESET_CODE_SENT);
+      expect(mockUserService.setPasswordResetChallenge).toHaveBeenCalledWith(
+        'user-id-1',
+        expect.any(String),
+        expect.any(Date),
+      );
       expect(mockEmailService.sendMail).toHaveBeenCalled();
     });
   });
@@ -615,43 +616,35 @@ describe('AuthService', () => {
         verification_code: 'old-code',
         verification_code_expires_at: new Date(Date.now() - 1000),
       };
-      mockUserService.findByEmail.mockResolvedValue(user);
-      mockUserService.save.mockImplementation(
-        async (u: Record<string, unknown>) => u,
-      );
+      mockUserService.rotateVerificationChallenge.mockResolvedValue(user);
 
       const result = await service.resendVerification(payload);
 
       expect(result).toEqual({ message: sysMsg.VERIFICATION_CODE_SENT });
-      expect(mockUserService.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          verification_code: expect.any(String),
-          verification_code_expires_at: expect.any(Date),
-        }),
+      expect(mockUserService.rotateVerificationChallenge).toHaveBeenCalledWith(
+        payload.email,
+        expect.any(String),
+        expect.any(Date),
       );
       expect(mockEmailService.sendMail).toHaveBeenCalled();
     });
 
     it('should return VERIFICATION_CODE_SENT without sending email for unknown email', async () => {
-      mockUserService.findByEmail.mockResolvedValue(null);
+      mockUserService.rotateVerificationChallenge.mockResolvedValue(null);
 
       const result = await service.resendVerification({
         email: 'ghost@example.com',
       });
 
       expect(result).toEqual({ message: sysMsg.VERIFICATION_CODE_SENT });
-      expect(mockUserService.save).not.toHaveBeenCalled();
+      expect(mockUserService.rotateVerificationChallenge).toHaveBeenCalled();
       expect(mockEmailService.sendMail).not.toHaveBeenCalled();
     });
 
     it('should throw BadRequestException for an already verified user', async () => {
-      mockUserService.findByEmail.mockResolvedValue({
-        id: 'user-id-2',
-        email: 'verified@example.com',
-        is_verified: true,
-        account_status: AccountStatus.ACTIVE,
-        email_verified_at: new Date(),
-      });
+      mockUserService.rotateVerificationChallenge.mockRejectedValue(
+        new BadRequestException(sysMsg.ACCOUNT_ALREADY_VERIFIED),
+      );
 
       await expect(
         service.resendVerification({ email: 'verified@example.com' }),
@@ -740,7 +733,7 @@ describe('AuthService', () => {
         await expect(service.googleLogin('google-test-token')).rejects.toThrow(
           UnauthorizedException,
         );
-        expect(mockUserService.save).not.toHaveBeenCalled();
+        expect(mockUserService.linkGoogleIdentity).not.toHaveBeenCalled();
         expect(mockJwtService.signAsync).not.toHaveBeenCalled();
         expect(mockSessionRepository.save).not.toHaveBeenCalled();
       },
@@ -776,11 +769,11 @@ describe('AuthService', () => {
       await expect(service.googleLogin('google-test-token')).rejects.toThrow(
         UnauthorizedException,
       );
-      expect(mockUserService.save).not.toHaveBeenCalled();
+      expect(mockUserService.linkGoogleIdentity).not.toHaveBeenCalled();
     });
 
     it('allows a verified active account to receive credentials', async () => {
-      mockUserService.findByEmail.mockResolvedValue({
+      const user = {
         id: 'verified-user',
         email: 'google@example.com',
         google_id: 'google-id-1',
@@ -791,7 +784,9 @@ describe('AuthService', () => {
         role: [UserRole.PATIENT],
         first_name: 'Google',
         last_name: 'Person',
-      });
+      };
+      mockUserService.findByEmail.mockResolvedValue(user);
+      mockUserService.linkGoogleIdentity.mockResolvedValue(user);
       mockJwtService.signAsync
         .mockReset()
         .mockResolvedValueOnce('oauth-access')

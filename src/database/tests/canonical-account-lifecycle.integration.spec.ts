@@ -3,6 +3,10 @@ import { env } from 'node:process';
 
 import { DataSource, QueryRunner } from 'typeorm';
 
+import { AccountAccessPolicyService } from '../../modules/auth/account-access-policy.service';
+import { User } from '../../modules/user/entities/user.entity';
+import { AccountStatus } from '../../modules/user/enums/account-status.enum';
+import { UserService } from '../../modules/user/user.service';
 import { CanonicalAccountLifecycle1792750000000 } from '../migrations/1792750000000-CanonicalAccountLifecycle';
 
 const integration = env.PG_INTEGRATION_URL ? describe : describe.skip;
@@ -16,6 +20,7 @@ integration('Canonical account lifecycle on real PostgreSQL', () => {
     dataSource = new DataSource({
       type: 'postgres',
       url: env.PG_INTEGRATION_URL,
+      entities: [__dirname + '/../../modules/**/*.entity.ts'],
       synchronize: false,
     });
     await dataSource.initialize();
@@ -32,12 +37,26 @@ integration('Canonical account lifecycle on real PostgreSQL', () => {
     await runner.query(`
       CREATE TABLE users (
         id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+        email varchar NOT NULL DEFAULT (uuid_generate_v4()::text || '@example.test'),
+        password varchar NOT NULL DEFAULT 'password-hash',
+        first_name varchar NOT NULL DEFAULT 'Test',
+        last_name varchar NOT NULL DEFAULT 'User',
+        middle_name varchar,
+        gender varchar,
+        dob date,
+        phone varchar,
+        country varchar,
+        image varchar,
+        role varchar NOT NULL DEFAULT 'PATIENT',
         account_status varchar NOT NULL DEFAULT 'pending_verification',
         is_active boolean NOT NULL DEFAULT true,
         is_verified boolean NOT NULL DEFAULT false,
         email_verified_at timestamptz,
         verification_code varchar,
         verification_code_expires_at timestamptz,
+        google_id varchar,
+        reset_token varchar,
+        reset_token_expiry timestamptz,
         created_at timestamptz NOT NULL DEFAULT now(),
         updated_at timestamptz NOT NULL DEFAULT now()
       )
@@ -147,54 +166,125 @@ integration('Canonical account lifecycle on real PostgreSQL', () => {
     ).rejects.toThrow('Unsupported account_status');
   });
 
-  it('prevents a second verification update from consuming the same code after first use', async () => {
+  it('allows the production verification service to consume a code exactly once', async () => {
     const id = randomUUID();
     await runner.query(
-      `INSERT INTO users (id, account_status, is_active, is_verified,
+      `INSERT INTO users (id, email, account_status, is_active, is_verified,
         verification_code, verification_code_expires_at)
-       VALUES ($1, 'pending_verification', false, false, '123456', now() + interval '10 minutes')`,
+       VALUES ($1, 'pending@example.test', 'pending_verification', false, false,
+         '123456', now() + interval '10 minutes')`,
       [id],
     );
     await new CanonicalAccountLifecycle1792750000000().up(runner);
-    // Commit the fixture, then race two independent PostgreSQL connections.
     await runner.commitTransaction();
-    await runner.startTransaction();
-    await runner.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [id]);
 
-    const contender = dataSource.createQueryRunner();
-    await contender.connect();
+    const firstRunner = await createServiceRunner();
+    const secondRunner = await createServiceRunner();
     try {
-      await contender.query(`SET search_path TO "${schemaName}", public`);
-      await contender.startTransaction();
-      const competingUpdate = contender.query(
-        `UPDATE users SET account_status = 'active', is_active = true,
-          is_verified = true, email_verified_at = now(),
-          verification_code = NULL, verification_code_expires_at = NULL
-         WHERE id = $1 AND account_status = 'pending_verification'
-           AND verification_code = '123456'
-         RETURNING id`,
+      const outcomes = await Promise.allSettled(
+        [firstRunner.service, secondRunner.service].map((service) =>
+          service.verifyEmailWithCode('pending@example.test', '123456'),
+        ),
+      );
+      expect(
+        outcomes.filter(({ status }) => status === 'fulfilled'),
+      ).toHaveLength(1);
+      expect(
+        outcomes.filter(({ status }) => status === 'rejected'),
+      ).toHaveLength(1);
+
+      const [user] = await runner.query(
+        `SELECT account_status, email_verified_at, verification_code
+         FROM users WHERE id = $1`,
         [id],
       );
-
-      const first = await runner.query(
-        `UPDATE users SET account_status = 'active', is_active = true,
-          is_verified = true, email_verified_at = now(),
-          verification_code = NULL, verification_code_expires_at = NULL
-         WHERE id = $1 AND account_status = 'pending_verification'
-           AND verification_code = '123456'
-         RETURNING id`,
+      expect(user).toMatchObject({
+        account_status: AccountStatus.ACTIVE,
+        verification_code: null,
+      });
+      expect(user.email_verified_at).toBeTruthy();
+      const [{ count }] = await runner.query(
+        `SELECT count(*)::int AS count FROM user_account_status_history
+         WHERE user_id = $1 AND reason = 'verified_email_code'`,
         [id],
       );
-      await runner.commitTransaction();
-      const second = await competingUpdate;
-      await contender.commitTransaction();
-
-      // TypeORM's PostgreSQL QueryRunner returns [rows, affectedRowCount].
-      expect(first[1]).toBe(1);
-      expect(second[1]).toBe(0);
+      expect(count).toBe(1);
     } finally {
-      if (contender.isTransactionActive) await contender.rollbackTransaction();
-      await contender.release();
+      await firstRunner.runner.release();
+      await secondRunner.runner.release();
     }
   });
+
+  it('never lets verification reactivate an account racing an administrative suspension', async () => {
+    const userId = randomUUID();
+    const adminId = randomUUID();
+    await runner.query(
+      `INSERT INTO users
+        (id, email, role, account_status, is_active, is_verified,
+         email_verified_at, verification_code, verification_code_expires_at)
+       VALUES
+        ($1, 'race@example.test', 'PATIENT', 'pending_verification', false,
+         false, NULL, '123456', now() + interval '10 minutes'),
+        ($2, 'admin@example.test', 'ADMIN', 'active', true, true, now(), NULL, NULL)`,
+      [userId, adminId],
+    );
+    await new CanonicalAccountLifecycle1792750000000().up(runner);
+    await runner.commitTransaction();
+
+    const verifier = await createServiceRunner();
+    const administrator = await createServiceRunner();
+    try {
+      await Promise.allSettled([
+        verifier.service.verifyEmailWithCode('race@example.test', '123456'),
+        administrator.service.transitionAccountStatus(
+          userId,
+          AccountStatus.SUSPENDED,
+          adminId,
+          'concurrent security review',
+        ),
+      ]);
+
+      const [user] = await runner.query(
+        'SELECT account_status, is_active FROM users WHERE id = $1',
+        [userId],
+      );
+      expect(user).toEqual({
+        account_status: AccountStatus.SUSPENDED,
+        is_active: false,
+      });
+      const history: Array<{ new_status: AccountStatus; reason: string }> =
+        await runner.query(
+          `SELECT new_status, reason FROM user_account_status_history
+           WHERE user_id = $1 ORDER BY changed_at`,
+          [userId],
+        );
+      expect(history).toEqual(
+        expect.arrayContaining([
+          {
+            new_status: AccountStatus.SUSPENDED,
+            reason: 'concurrent security review',
+          },
+        ]),
+      );
+    } finally {
+      await verifier.runner.release();
+      await administrator.runner.release();
+    }
+  });
+
+  async function createServiceRunner(): Promise<{
+    runner: QueryRunner;
+    service: UserService;
+  }> {
+    const serviceRunner = dataSource.createQueryRunner();
+    await serviceRunner.connect();
+    await serviceRunner.query(`SET search_path TO "${schemaName}", public`);
+    return {
+      runner: serviceRunner,
+      service: new UserService(
+        serviceRunner.manager.getRepository(User),
+        new AccountAccessPolicyService(),
+      ),
+    };
+  }
 });
