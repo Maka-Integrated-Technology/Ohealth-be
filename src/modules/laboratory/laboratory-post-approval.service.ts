@@ -11,13 +11,13 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import * as bcrypt from 'bcrypt';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { DataSource, QueryFailedError, Repository } from 'typeorm';
 import { Logger } from 'winston';
 
 import { EmailTemplateID } from '../../constants/email-constants';
 import * as sysMsg from '../../constants/system.messages';
+import { PasswordCredentialsService } from '../auth/password-policy/password-credentials.service';
 import { EmailService } from '../email/email.service';
 import { OrganizationAdmin } from '../organization/entities/organization-admin.entity';
 import { Organization } from '../organization/entities/organization.entity';
@@ -55,7 +55,6 @@ const TIME_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
 @Injectable()
 export class LaboratoryPostApprovalService {
   private readonly logger: Logger;
-  private readonly saltRounds: number;
 
   constructor(
     @InjectRepository(Organization)
@@ -73,12 +72,12 @@ export class LaboratoryPostApprovalService {
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
+    private readonly passwordCredentials: PasswordCredentialsService,
     @Inject(WINSTON_MODULE_PROVIDER) baseLogger: Logger,
   ) {
     this.logger = baseLogger.child({
       context: LaboratoryPostApprovalService.name,
     });
-    this.saltRounds = Number(this.configService.get<string>('HASH_SALT', '10'));
   }
 
   async setOperatingHours(
@@ -324,7 +323,9 @@ export class LaboratoryPostApprovalService {
       where: { invitation_token_hash: tokenHash },
     });
     this.assertUsableInvitation(initial);
-    const hashedPassword = await bcrypt.hash(dto.password, this.saltRounds);
+    const hashedPassword = await this.passwordCredentials.hashNewPassword(
+      dto.password,
+    );
 
     let saved: LaboratoryStaff;
     try {

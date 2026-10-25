@@ -66,6 +66,9 @@ jobs:
       - name: Security Audit
         run: npm audit --audit-level=high
 
+      - name: Verify pinned compromised-password dataset
+        run: npm run password-blocklist:check
+
       - name: Check generated contract drift
         run: npm run contract:check
 
@@ -109,6 +112,9 @@ jobs:
       - name: Verify denied legacy activation (isolated e2e)
         run: npx jest --config ./test/jest-e2e.json --runInBand test/auth-activation.e2e-spec.ts
 
+      - name: Verify credential enumeration resistance (isolated e2e)
+        run: npx jest --config ./test/jest-e2e.json --runInBand test/auth-login-enumeration.e2e-spec.ts
+
       - name: Run Build
         run: npm run build
 
@@ -117,10 +123,10 @@ jobs:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
         run: npx jest --runInBand src/database/tests/canonical-account-lifecycle.integration.spec.ts
 
-      - name: Verify refresh session foundation on real PostgreSQL
+      - name: Verify auth security audit foundation on PostgreSQL
         env:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
-        run: npx jest --runInBand src/database/tests/refresh-session.integration.spec.ts
+        run: npx jest --runInBand src/database/tests/auth-security-audit.integration.spec.ts
 
       - name: Enforce breaking-change approval
         if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review'

@@ -88,10 +88,11 @@ npm run build
 ```
 
 The integration suite creates a disposable database, runs actual migrations and drops
-only its own database afterward. The local/CI PostgreSQL role requires CREATEDB;
+only its own database afterward. The PostgreSQL test role requires CREATEDB;
 the baseline contains public-qualified enums, so schema isolation is insufficient. It tests database state, replay, refresh/logout/
 revoke-all concurrency, ownership, safe projections, signing rollback, expiry,
-canonical account restrictions and migration rollback. CI explicitly supplies
-PostgreSQL so this suite cannot silently skip there. No production credentials
+canonical account restrictions and migration rollback. The unchanged CI workflow does not explicitly run this suite with
+`PG_INTEGRATION_URL`; it skips during the default unit run. Run the command
+above explicitly for integration evidence before reviewing session changes. No production credentials
 are needed. SMTP uses local Mailpit; OAuth/S3/Resend/OpenRouter calls need real
 credentials only when testing those external services.

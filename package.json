@@ -38,7 +38,9 @@
     "api-client:generate": "node scripts/api-client/generate-api-client.mjs --write",
     "api-client:check": "node scripts/api-client/generate-api-client.mjs --check",
     "api-client:build": "npm run build --workspace @ohealth/api-client",
-    "api-client:test": "node scripts/api-client/verify-api-client.mjs"
+    "api-client:test": "node scripts/api-client/verify-api-client.mjs",
+    "password-blocklist:generate": "node scripts/security/update-password-blocklist.mjs --write",
+    "password-blocklist:check": "node scripts/security/update-password-blocklist.mjs --check"
   },
   "lint-staged": {
     "src/**/*.ts": [

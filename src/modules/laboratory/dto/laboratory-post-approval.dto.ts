@@ -21,6 +21,8 @@ import {
   ValidateNested,
 } from 'class-validator';
 
+import { isSecurePassword } from '../../auth/password-policy/is-secure-password.decorator';
+import { PASSWORD_MIN_LENGTH } from '../../auth/password-policy/password-policy';
 import {
   DayOfWeek,
   LaboratoryStaffRole,
@@ -180,14 +182,12 @@ export class AcceptLaboratoryStaffInvitationDto {
   @MaxLength(128)
   token: string;
 
-  @ApiProperty({ example: 'SecurePassword123' })
-  @IsString()
-  @MinLength(8)
-  @MaxLength(128)
-  @Matches(/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
-    message:
-      'password must contain an uppercase letter, lowercase letter, and number',
+  @ApiProperty({
+    example: 'a memorable patient passphrase',
+    minLength: PASSWORD_MIN_LENGTH,
   })
+  @IsString()
+  @isSecurePassword()
   password: string;
 
   @ApiProperty({ required: false, example: '+2348012345678' })

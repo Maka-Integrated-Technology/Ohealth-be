@@ -4,9 +4,8 @@ import {
   IsBoolean,
   IsNotEmpty,
   IsEmail,
-  IsString,
-  MinLength,
   Matches,
+  IsString,
   IsJWT,
   IsUUID,
   IsOptional,
@@ -17,6 +16,8 @@ import {
 
 import { UserRole } from '../../user/enums/user-role.enum';
 import { SELF_SERVICE_SIGNUP_ROLES } from '../constants/self-service-signup-roles.constant';
+import { isSecurePassword } from '../password-policy/is-secure-password.decorator';
+import { PASSWORD_MIN_LENGTH } from '../password-policy/password-policy';
 
 export class AuthDto {
   @ApiProperty({
@@ -94,13 +95,14 @@ export class AuthDto {
   role: UserRole[];
 
   @ApiProperty({
-    description: 'User password (minimum 8 characters)',
-    example: 'SecurePassword123!',
-    minLength: 8,
+    description:
+      'Password: 15+ Unicode characters, no composition rule, max 1024 UTF-8 bytes',
+    example: 'a memorable patient passphrase',
+    minLength: PASSWORD_MIN_LENGTH,
   })
   @IsString()
   @IsNotEmpty()
-  @MinLength(8)
+  @isSecurePassword()
   password: string;
 
   @ApiProperty({
@@ -133,16 +135,13 @@ export class ResetPasswordDto {
   token: string;
 
   @ApiProperty({
-    example: 'NewPassword123!',
-    description: 'New password',
+    example: 'a memorable patient passphrase',
+    description: 'New password: 15+ Unicode characters, max 1024 UTF-8 bytes',
+    minLength: PASSWORD_MIN_LENGTH,
   })
   @IsString()
   @IsNotEmpty()
-  @MinLength(8, { message: 'Password must be at least 8 characters long' })
-  @Matches(/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
-    message:
-      'Password must contain at least one uppercase letter, one lowercase letter, and one number',
-  })
+  @isSecurePassword()
   newPassword: string;
 }
 export class RefreshTokenDto {
@@ -342,16 +341,12 @@ export class ChangePasswordDto {
   currentPassword: string;
 
   @ApiProperty({
-    description: 'New password',
-    example: 'NewPassword123!',
-    minLength: 8,
+    description: 'New password: 15+ Unicode characters, max 1024 UTF-8 bytes',
+    example: 'a memorable patient passphrase',
+    minLength: PASSWORD_MIN_LENGTH,
   })
   @IsString()
   @IsNotEmpty()
-  @MinLength(8, { message: 'Password must be at least 8 characters long' })
-  @Matches(/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
-    message:
-      'Password must contain at least one uppercase letter, one lowercase letter, and one number',
-  })
+  @isSecurePassword()
   newPassword: string;
 }

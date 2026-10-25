@@ -4,9 +4,7 @@ import {
   Inject,
   Injectable,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
-import * as bcrypt from 'bcrypt';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { DataSource, Repository } from 'typeorm';
 import { Logger } from 'winston';
@@ -34,7 +32,6 @@ import {
 @Injectable()
 export class OrganizationOnboardingService {
   private readonly logger: Logger;
-  private readonly saltRounds: number;
 
   constructor(
     @InjectRepository(Organization)
@@ -44,14 +41,12 @@ export class OrganizationOnboardingService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly dataSource: DataSource,
-    private readonly configService: ConfigService,
     private readonly authService: AuthService,
     @Inject(WINSTON_MODULE_PROVIDER) baseLogger: Logger,
   ) {
     this.logger = baseLogger.child({
       context: OrganizationOnboardingService.name,
     });
-    this.saltRounds = Number(this.configService.get<string>('HASH_SALT', '10'));
   }
 
   async setupAdministrator(
@@ -60,9 +55,8 @@ export class OrganizationOnboardingService {
     const organization = this.normalizeOrganization(dto);
     const administrator = this.normalizeAdministrator(dto);
     const parsedName = this.parseFullName(administrator.fullName);
-    const hashedPassword = await bcrypt.hash(
+    const hashedPassword = await this.authService.hashNewPassword(
       administrator.password,
-      this.saltRounds,
     );
 
     const result = await this.createOrganizationAndAdministrator(

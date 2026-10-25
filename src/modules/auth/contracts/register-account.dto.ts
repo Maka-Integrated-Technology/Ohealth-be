@@ -7,12 +7,13 @@ import {
   IsNotEmpty,
   IsString,
   MaxLength,
-  MinLength,
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
 
 import { SignupIntent } from '../enums/signup-intent.enum';
+import { isSecurePassword } from '../password-policy/is-secure-password.decorator';
+import { PASSWORD_MIN_LENGTH } from '../password-policy/password-policy';
 
 import { OrganizationRegistrationDto } from './organization-registration.dto';
 
@@ -33,10 +34,14 @@ export class RegisterAccountDto {
   @IsEmail()
   email: string;
 
-  @ApiProperty({ format: 'password', minLength: 12, maxLength: 128 })
+  @ApiProperty({
+    format: 'password',
+    minLength: PASSWORD_MIN_LENGTH,
+    description:
+      '15+ Unicode characters, no composition rule, max 1024 UTF-8 bytes',
+  })
   @IsString()
-  @MinLength(12)
-  @MaxLength(128)
+  @isSecurePassword()
   password: string;
 
   @ApiProperty({ enum: SignupIntent })

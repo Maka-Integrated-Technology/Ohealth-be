@@ -5,9 +5,11 @@ import {
   IsNotEmpty,
   IsString,
   Matches,
-  MinLength,
   ValidateNested,
 } from 'class-validator';
+
+import { isSecurePassword } from '../../auth/password-policy/is-secure-password.decorator';
+import { PASSWORD_MIN_LENGTH } from '../../auth/password-policy/password-policy';
 
 export class LaboratorySetupDto {
   @ApiProperty({ example: 'MedCheck Diagnostics' })
@@ -68,14 +70,13 @@ export class LaboratoryAdministratorSetupDto {
   })
   phone: string;
 
-  @ApiProperty({ example: 'SecurePassword123', minLength: 8 })
+  @ApiProperty({
+    example: 'a memorable patient passphrase',
+    minLength: PASSWORD_MIN_LENGTH,
+  })
   @IsString()
   @IsNotEmpty()
-  @MinLength(8)
-  @Matches(/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
-    message:
-      'password must contain at least one uppercase letter, one lowercase letter, and one number',
-  })
+  @isSecurePassword()
   password: string;
 }
 

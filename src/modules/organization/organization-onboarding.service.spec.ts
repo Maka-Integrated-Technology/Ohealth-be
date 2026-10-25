@@ -1,5 +1,4 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { DataSource, Repository } from 'typeorm';
 import { Logger } from 'winston';
@@ -30,7 +29,10 @@ describe('OrganizationOnboardingService', () => {
     create: jest.fn((value) => value),
     save: jest.fn(),
   };
-  const authService = { sendProvisionedVerification: jest.fn() };
+  const authService = {
+    sendProvisionedVerification: jest.fn(),
+    hashNewPassword: jest.fn().mockResolvedValue('hashed'),
+  };
   const dataSource = {
     transaction: jest.fn(async (callback) =>
       callback({ withRepository: (repository: unknown) => repository }),
@@ -64,7 +66,6 @@ describe('OrganizationOnboardingService', () => {
       administrators as unknown as Repository<OrganizationAdmin>,
       users as unknown as Repository<User>,
       dataSource as unknown as DataSource,
-      { get: jest.fn().mockReturnValue('10') } as unknown as ConfigService,
       authService as unknown as AuthService,
       logger as unknown as Logger,
     );
