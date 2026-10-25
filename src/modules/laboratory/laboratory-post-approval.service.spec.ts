@@ -6,11 +6,11 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as bcrypt from 'bcrypt';
 import { DataSource, Repository } from 'typeorm';
 import { Logger } from 'winston';
 
 import * as sysMsg from '../../constants/system.messages';
+import { PasswordCredentialsService } from '../auth/password-policy/password-credentials.service';
 import { EmailService } from '../email/email.service';
 import { OrganizationAdmin } from '../organization/entities/organization-admin.entity';
 import { Organization } from '../organization/entities/organization.entity';
@@ -81,6 +81,9 @@ describe('LaboratoryPostApprovalService', () => {
     }),
   };
   const email = { sendMail: jest.fn() };
+  const passwordCredentials = {
+    hashNewPassword: jest.fn().mockResolvedValue('hashed'),
+  };
   const logger = {
     child: jest.fn().mockReturnThis(),
     info: jest.fn(),
@@ -101,6 +104,7 @@ describe('LaboratoryPostApprovalService', () => {
       dataSource as unknown as DataSource,
       config as unknown as ConfigService,
       email as unknown as EmailService,
+      passwordCredentials as unknown as PasswordCredentialsService,
       logger as unknown as Logger,
     );
     administrators.findOne.mockResolvedValue({
@@ -139,7 +143,7 @@ describe('LaboratoryPostApprovalService', () => {
       ...record,
     }));
     email.sendMail.mockResolvedValue(undefined);
-    jest.spyOn(bcrypt, 'hash').mockImplementation(async () => 'hashed');
+    passwordCredentials.hashNewPassword.mockResolvedValue('hashed');
   });
 
   afterEach(() => jest.restoreAllMocks());
@@ -384,6 +388,9 @@ describe('LaboratoryPostApprovalService', () => {
       }),
     );
     expect(result.message).toBe(sysMsg.LABORATORY_STAFF_INVITATION_ACCEPTED);
+    expect(passwordCredentials.hashNewPassword).toHaveBeenCalledWith(
+      'SecurePassword123',
+    );
   });
 
   it('rejects an expired invitation before hashing a password', async () => {
@@ -399,6 +406,6 @@ describe('LaboratoryPostApprovalService', () => {
         password: 'SecurePassword123',
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
-    expect(bcrypt.hash).not.toHaveBeenCalled();
+    expect(passwordCredentials.hashNewPassword).not.toHaveBeenCalled();
   });
 });

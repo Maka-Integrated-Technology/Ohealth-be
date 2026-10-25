@@ -10,7 +10,6 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import * as bcrypt from 'bcrypt';
 import { OAuth2Client } from 'google-auth-library';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { IsNull, MoreThan, Repository } from 'typeorm';
@@ -41,6 +40,8 @@ import {
 } from './dto/auth.dto';
 import { LoginDto } from './dto/login.dto';
 import { AuthSession } from './entities/auth.entity';
+import { PasswordCredentialsService } from './password-policy/password-credentials.service';
+import { isLoginPasswordWithinLimit } from './password-policy/password-policy';
 import { haveSameRoles } from './utils/auth-role.util';
 
 interface IRefreshPayload {
@@ -52,7 +53,6 @@ interface IRefreshPayload {
 @Injectable()
 export class AuthService {
   private readonly logger: Logger;
-  private readonly saltRounds: number;
 
   constructor(
     private readonly userService: UserService,
@@ -63,10 +63,10 @@ export class AuthService {
     private readonly emailService: EmailService,
     private readonly authRoutingService: AuthRoutingService,
     private readonly accountAccessPolicy: AccountAccessPolicyService,
+    private readonly passwordCredentials: PasswordCredentialsService,
     @Inject(WINSTON_MODULE_PROVIDER) logger: Logger,
   ) {
     this.logger = logger.child({ context: AuthService.name });
-    this.saltRounds = Number(this.configService.get<string>('HASH_SALT', '10'));
   }
 
   async signup(signupPayload: AuthDto) {
@@ -84,9 +84,8 @@ export class AuthService {
       throw new ConflictException(sysMsg.ACCOUNT_ALREADY_EXISTS);
     }
 
-    const hashedPassword = await bcrypt.hash(
+    const hashedPassword = await this.passwordCredentials.hashNewPassword(
       signupPayload.password,
-      this.saltRounds,
     );
     const verificationCode = this.generateVerificationCode();
     const verificationExpiry = new Date(Date.now() + 10 * 60 * 1000);
@@ -121,18 +120,20 @@ export class AuthService {
   }
 
   async login(loginPayload: LoginDto) {
+    // Reject pathological passwords before querying account existence.
+    if (!isLoginPasswordWithinLimit(loginPayload.password)) {
+      throw new UnauthorizedException(sysMsg.INVALID_CREDENTIALS);
+    }
     const email = loginPayload.email.trim().toLowerCase();
     const user = await this.userService.findByEmail(email);
 
-    if (!user) {
-      throw new UnauthorizedException(sysMsg.INVALID_CREDENTIALS);
-    }
-
-    const isPasswordValid = await bcrypt.compare(
+    // Unknown and incorrect credentials take the same bcrypt comparison path.
+    // No account-state check happens until after the password is proven.
+    const isPasswordValid = await this.passwordCredentials.verifyForLogin(
       loginPayload.password,
-      user.password,
+      user?.password ?? null,
     );
-    if (!isPasswordValid) {
+    if (!user || !isPasswordValid) {
       throw new UnauthorizedException(sysMsg.INVALID_CREDENTIALS);
     }
     this.accountAccessPolicy.assertCanAuthenticate(user);
@@ -153,6 +154,11 @@ export class AuthService {
       session_id: session.session_id,
       session_expires_at: session.expires_at,
     };
+  }
+
+  // Shared credential boundary for laboratory/organization administrators.
+  async hashNewPassword(password: string): Promise<string> {
+    return this.passwordCredentials.hashNewPassword(password);
   }
 
   async issueAuthSession(user: User) {
@@ -254,7 +260,9 @@ export class AuthService {
   }
 
   async resetPassword(payload: ResetPasswordDto): Promise<{ message: string }> {
-    const password = await bcrypt.hash(payload.newPassword, this.saltRounds);
+    const password = await this.passwordCredentials.hashNewPassword(
+      payload.newPassword,
+    );
     const user = await this.userService.consumePasswordResetToken(
       payload.token,
       password,
@@ -415,7 +423,7 @@ export class AuthService {
       throw new UnauthorizedException(sysMsg.USER_NOT_FOUND);
     }
 
-    const isCurrentPasswordValid = await bcrypt.compare(
+    const isCurrentPasswordValid = await this.passwordCredentials.verify(
       dto.currentPassword,
       user.password,
     );
@@ -423,7 +431,9 @@ export class AuthService {
       throw new UnauthorizedException(sysMsg.INVALID_CURRENT_PASSWORD);
     }
 
-    const password = await bcrypt.hash(dto.newPassword, this.saltRounds);
+    const password = await this.passwordCredentials.hashNewPassword(
+      dto.newPassword,
+    );
     await this.userService.replaceAuthenticatedPassword(
       user.id,
       user.password,
@@ -503,10 +513,8 @@ export class AuthService {
 
     if (!user) {
       const generatedPassword = crypto.randomBytes(24).toString('hex');
-      const hashedPassword = await bcrypt.hash(
-        generatedPassword,
-        this.saltRounds,
-      );
+      const hashedPassword =
+        await this.passwordCredentials.hashGeneratedSecret(generatedPassword);
 
       isNewUser = true;
       user = await this.userService.create({

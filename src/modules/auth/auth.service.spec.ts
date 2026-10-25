@@ -27,6 +27,7 @@ import { AuthService } from './auth.service';
 import { ResendVerificationDto, VerifySignupDto } from './dto/auth.dto';
 import { AuthSession } from './entities/auth.entity';
 import { AuthAccessLevel, AuthRoutingTarget } from './enums/auth-routing.enum';
+import { PasswordCredentialsService } from './password-policy/password-credentials.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -111,6 +112,7 @@ describe('AuthService', () => {
       providers: [
         AuthService,
         AccountAccessPolicyService,
+        PasswordCredentialsService,
         {
           provide: UserService,
           useValue: mockUserService,
@@ -188,7 +190,7 @@ describe('AuthService', () => {
         first_name: 'Tunde',
         last_name: 'Adebayo',
         email: 'tunde@example.com',
-        password: 'Password123',
+        password: 'a memorable patient passphrase',
         role: [UserRole.PATIENT],
       });
 
@@ -246,6 +248,56 @@ describe('AuthService', () => {
     });
   });
 
+  describe('credential login privacy', () => {
+    it('uses bcrypt dummy work for an unknown email and returns the same response as a wrong password', async () => {
+      const compare = jest
+        .spyOn(bcrypt, 'compare')
+        .mockImplementation(async () => false);
+
+      mockUserService.findByEmail.mockResolvedValueOnce(null);
+      await expect(
+        service.login({
+          email: 'unknown@example.com',
+          password: 'WrongPass123',
+        }),
+      ).rejects.toThrow(sysMsg.INVALID_CREDENTIALS);
+
+      mockUserService.findByEmail.mockResolvedValueOnce({
+        id: 'known',
+        email: 'known@example.com',
+        password:
+          '$2b$10$Ftuis5NCxsw77LLSIKVzjeUkDSRtIyEo5rbKum.IUIwxXu3agTMjy',
+        account_status: AccountStatus.SUSPENDED,
+      });
+      await expect(
+        service.login({ email: 'known@example.com', password: 'WrongPass123' }),
+      ).rejects.toThrow(sysMsg.INVALID_CREDENTIALS);
+
+      expect(compare).toHaveBeenCalledTimes(2);
+      expect(compare.mock.calls[0][1]).toMatch(/^\$2b\$10\$/);
+      expect(compare.mock.calls[1][1]).toMatch(/^\$2b\$10\$/);
+      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+      expect(mockLogger.info).not.toHaveBeenCalledWith(sysMsg.LOGIN_SUCCESS);
+    });
+
+    it('does not reveal an inactive account until after correct password comparison', async () => {
+      jest.spyOn(bcrypt, 'compare').mockImplementation(async () => false);
+      mockUserService.findByEmail.mockResolvedValue({
+        password:
+          '$2b$10$Ftuis5NCxsw77LLSIKVzjeUkDSRtIyEo5rbKum.IUIwxXu3agTMjy',
+        account_status: AccountStatus.SUSPENDED,
+        email_verified_at: new Date(),
+      });
+      await expect(
+        service.login({
+          email: 'suspended@example.com',
+          password: 'WrongPass123',
+        }),
+      ).rejects.toThrow(sysMsg.INVALID_CREDENTIALS);
+      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+    });
+  });
+
   describe('login', () => {
     it('should throw unauthorized exception for invalid credentials', async () => {
       mockUserService.findByEmail.mockResolvedValue(null);
@@ -263,7 +315,8 @@ describe('AuthService', () => {
       const user = {
         id: 'user-id-1',
         email: 'patient@example.com',
-        password: 'hashed-password',
+        password:
+          '$2b$10$Ftuis5NCxsw77LLSIKVzjeUkDSRtIyEo5rbKum.IUIwxXu3agTMjy',
         first_name: 'Patient',
         last_name: 'User',
         role: [UserRole.PATIENT],
