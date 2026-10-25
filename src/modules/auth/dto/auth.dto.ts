@@ -137,6 +137,7 @@ export class ResetPasswordDto {
   @ApiProperty({
     example: 'a memorable patient passphrase',
     description: 'New password: 15+ Unicode characters, max 1024 UTF-8 bytes',
+    minLength: PASSWORD_MIN_LENGTH,
   })
   @IsString()
   @IsNotEmpty()
@@ -340,8 +341,8 @@ export class ChangePasswordDto {
   currentPassword: string;
 
   @ApiProperty({
-    description: 'New password',
-    example: 'NewPassword123!',
+    description: 'New password: 15+ Unicode characters, max 1024 UTF-8 bytes',
+    example: 'a memorable patient passphrase',
     minLength: PASSWORD_MIN_LENGTH,
   })
   @IsString()

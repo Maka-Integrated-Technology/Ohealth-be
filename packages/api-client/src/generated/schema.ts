@@ -1516,8 +1516,8 @@ export interface components {
        */
       readonly currentPassword: string;
       /**
-       * @description New password
-       * @example NewPassword123!
+       * @description New password: 15+ Unicode characters, max 1024 UTF-8 bytes
+       * @example a memorable patient passphrase
        */
       readonly newPassword: string;
     };
