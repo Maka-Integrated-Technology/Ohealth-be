@@ -13,7 +13,7 @@ This change implements reusable challenge and abuse-control storage. It does **n
 ## What remains to finish issue #75
 
 1. Wire the live signup, verification, resend, password-reset request and completion flows to challenge issuance/consumption. Change public DTO/OpenAPI clients to identify the challenge by UUID; never return a secret in an HTTP response.
-2. Reuse #76's central password policy for reset completion, and integrate #77's transaction-safe session revocation, #74's canonical account transition and #81's audit events **in the same transaction**.
+2. Reuse #76's central password policy for reset completion, and perform baseline session revocation inside the password reset transaction in #75; #77 later extends session rotation, #74's canonical account transition and #81's audit events **in the same transaction**.
 3. Provide durable delivery with an approved encrypted-outbox/worker design, email retry and idempotency. **Never write plaintext codes into outbox JSON.** Do not return “sent” unless the provider actually accepted the message; distinguish queued from sent where applicable.
 4. Apply distributed subject/IP rate-limit policies to login, verification, resend, recovery requests and reset completion, including safe proxy-address handling and enumeration-safe responses.
 5. Add end-to-end HTTP, concurrency, brute-force, challenge-ID collision and provider-failure tests; migrate off legacy plaintext user-level verification and reset columns, using a staged rollout that allows old codes to expire before removal.

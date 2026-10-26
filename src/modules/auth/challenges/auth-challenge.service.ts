@@ -160,6 +160,14 @@ export class AuthChallengeService {
     this.assertTransaction(manager);
     this.assertPurpose(purpose);
     const pepper = this.getPepper();
+    if (
+      typeof challengeId !== 'string' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(challengeId) ||
+      typeof code !== 'string' ||
+      code.length !== 6
+    ) {
+      return null;
+    }
     const rows: IChallengeRow[] = await manager.query(
       'SELECT * FROM auth_challenges WHERE id = $1 FOR UPDATE',
       [challengeId],

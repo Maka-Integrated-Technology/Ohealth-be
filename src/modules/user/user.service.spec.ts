@@ -3,9 +3,10 @@ import {
   ForbiddenException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 
 import { AccountAccessPolicyService } from '../auth/account-access-policy.service';
+import { AuthSession } from '../auth/entities/auth.entity';
 
 import { UserAccountStatusHistory } from './entities/user-account-status-history.entity';
 import { User } from './entities/user.entity';
@@ -198,6 +199,24 @@ describe('UserService atomic verification and audited state transitions', () => 
       reset_token_expiry: null,
     });
     expect(save).not.toHaveBeenCalled();
+  });
+
+  it('revokes live sessions atomically within password reset', async () => {
+    const user = {
+      id: 'user-id-1',
+      account_status: AccountStatus.ACTIVE,
+      email_verified_at: new Date(),
+      reset_token: 'reset-code',
+      reset_token_expiry: new Date(Date.now() + 60_000),
+    } as User;
+    findOne.mockResolvedValue(user);
+    await service.consumePasswordResetToken('reset-code', 'hashed-password');
+    expect(update).toHaveBeenCalledWith(
+      AuthSession,
+      { user_id: user.id, revoked_at: IsNull() },
+      { revoked_at: expect.any(Date) },
+    );
+    expect(manager.transaction).toHaveBeenCalledTimes(1);
   });
 
   it('logs a permitted administrative suspension with actor and reason', async () => {
