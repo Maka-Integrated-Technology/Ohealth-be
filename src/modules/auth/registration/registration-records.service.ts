@@ -1,12 +1,16 @@
-import { BadRequestException, ConflictException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource, EntityManager } from 'typeorm';
 
 import { LegalAcceptance } from '../../identity/entities/legal-acceptance.entity';
 import { UserPersona } from '../../identity/entities/user-persona.entity';
 import { LegalDocumentType } from '../../identity/enums/legal-document-type.enum';
-import { Organization } from '../../organization/entities/organization.entity';
 import { OrganizationMembership } from '../../organization/entities/organization-membership.entity';
+import { Organization } from '../../organization/entities/organization.entity';
 import { OrganizationMembershipRole } from '../../organization/enums/organization-membership-role.enum';
 import { OrganizationMembershipStatus } from '../../organization/enums/organization-membership-status.enum';
 import { OrganizationVerificationStatus } from '../../organization/enums/organization-verification-status.enum';
@@ -14,8 +18,8 @@ import { OutboxEvent } from '../../platform-events/entities/outbox-event.entity'
 import { OutboxEventStatus } from '../../platform-events/enums/outbox-event-status.enum';
 import { User } from '../../user/entities/user.entity';
 import { AccountStatus } from '../../user/enums/account-status.enum';
-import { RegisterAccountDto } from '../contracts/register-account.dto';
 import { RegistrationPendingResponseDto } from '../contracts/auth-contract-response.dto';
+import { RegisterAccountDto } from '../contracts/register-account.dto';
 import { PasswordCredentialsService } from '../password-policy/password-credentials.service';
 
 import {
@@ -151,7 +155,9 @@ export class RegistrationRecordsService {
           !Number.isInteger(receipt.expiresInSeconds) ||
           receipt.expiresInSeconds < 1
         ) {
-          throw new Error('Durable challenge writer returned invalid metadata.');
+          throw new Error(
+            'Durable challenge writer returned invalid metadata.',
+          );
         }
         // Event payload must contain no raw code, email or secret.
         await manager.insert(OutboxEvent, {

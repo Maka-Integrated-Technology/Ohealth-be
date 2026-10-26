@@ -41,11 +41,14 @@ describe('RegistrationRecordsService transactional foundation', () => {
     }),
   };
   const dataSource = {
-    transaction: jest.fn(async (callback: (m: EntityManager) => Promise<unknown>) =>
-      callback(manager as unknown as EntityManager),
+    transaction: jest.fn(
+      async (callback: (m: EntityManager) => Promise<unknown>) =>
+        callback(manager as unknown as EntityManager),
     ),
   };
-  const passwords = { hashNewPassword: jest.fn().mockResolvedValue('safe-hash') };
+  const passwords = {
+    hashNewPassword: jest.fn().mockResolvedValue('safe-hash'),
+  };
   const config = {
     get: jest.fn((key: string) => {
       if (key === 'REGISTRATION_TERMS_VERSION') return 'terms-v3';
@@ -58,7 +61,7 @@ describe('RegistrationRecordsService transactional foundation', () => {
     passwords as unknown as PasswordCredentialsService,
     config as unknown as ConfigService,
   );
-  const writer = jest.fn(async (_manager: EntityManager, _user: User) => ({
+  const writer = jest.fn(async () => ({
     challengeId: UUID,
     resendAfterSeconds: 60,
     expiresInSeconds: 600,
