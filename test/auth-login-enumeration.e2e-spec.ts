@@ -11,6 +11,7 @@ import { AccountAccessPolicyService } from '../src/modules/auth/account-access-p
 import { AuthRoutingService } from '../src/modules/auth/auth-routing.service';
 import { AuthController } from '../src/modules/auth/auth.controller';
 import { AuthService } from '../src/modules/auth/auth.service';
+import { AuthAbuseGuard } from '../src/modules/auth/challenges/auth-abuse.guard';
 import { AuthSession } from '../src/modules/auth/entities/auth.entity';
 import { JwtAuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
 import { PasswordCredentialsService } from '../src/modules/auth/password-policy/password-credentials.service';
@@ -66,6 +67,7 @@ describe('Credential enumeration resistance (isolated HTTP e2e)', () => {
       controllers: [AuthController],
       providers: [
         AuthService,
+        { provide: AuthAbuseGuard, useValue: { canActivate: () => true } },
         AccountAccessPolicyService,
         PasswordCredentialsService,
         { provide: UserService, useValue: { findByEmail } },
