@@ -284,7 +284,10 @@ integration('Canonical account lifecycle on real PostgreSQL', () => {
     );
     await runner.query(
       `CREATE TABLE auth_sessions (
-        id uuid PRIMARY KEY, user_id uuid NOT NULL, revoked_at timestamptz
+        id uuid PRIMARY KEY,
+        user_id uuid NOT NULL,
+        revoked_at timestamptz,
+        updated_at timestamptz NOT NULL DEFAULT now()
       )`,
     );
     await runner.query(
