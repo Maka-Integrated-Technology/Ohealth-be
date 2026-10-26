@@ -12,9 +12,9 @@ import { Professional } from '../professional/entities/professional.entity';
 import { UserModule } from '../user/user.module';
 
 import { AuthRoutingService } from './auth-routing.service';
-import { AuthChallengeModule } from './challenges/auth-challenge.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { AuthChallengeModule } from './challenges/auth-challenge.module';
 import { AuthSession } from './entities/auth.entity';
 import { User2fa } from './entities/user-2fa.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';

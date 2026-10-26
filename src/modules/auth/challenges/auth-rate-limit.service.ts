@@ -4,7 +4,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource, EntityManager } from 'typeorm';
 
-export interface RateLimitResult {
+export interface IRateLimitResult {
   allowed: boolean;
   retryAfterSeconds: number;
   hits: number;
@@ -23,7 +23,7 @@ export class AuthRateLimitService {
     key: string,
     limit: number,
     windowSeconds: number,
-  ): Promise<RateLimitResult> {
+  ): Promise<IRateLimitResult> {
     return this.dataSource.transaction((manager) =>
       this.consumeInTransaction(manager, scope, key, limit, windowSeconds),
     );
@@ -35,7 +35,7 @@ export class AuthRateLimitService {
     key: string,
     limit: number,
     windowSeconds: number,
-  ): Promise<RateLimitResult> {
+  ): Promise<IRateLimitResult> {
     if (!manager.queryRunner?.isTransactionActive) {
       throw new Error('Rate limit updates require an active transaction.');
     }
