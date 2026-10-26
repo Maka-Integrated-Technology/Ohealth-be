@@ -42,6 +42,18 @@ describe('AuthAbuseGuard', () => {
     expect(JSON.stringify(consume.mock.calls)).not.toContain('1.2.3.4');
   });
 
+  it('recognizes routes mounted under the global API prefix', async () => {
+    await guard.canActivate(
+      context('/api/auth/login', { email: 'test@example.com' }, '127.0.0.1'),
+    );
+    expect(consume).toHaveBeenCalledWith(
+      '/auth/login',
+      'ip:127.0.0.1',
+      20,
+      60,
+    );
+  });
+
   it('enforces subject limits independently of account existence', async () => {
     consume
       .mockResolvedValueOnce({
