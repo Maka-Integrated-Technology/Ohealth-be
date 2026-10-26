@@ -30,9 +30,11 @@ export class AuthAbuseGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<IAuthAbuseRequest>();
-    const path = request.route?.path
-      ? '/auth' + request.route.path
-      : request.path;
+    const rawPath = request.route?.path ?? request.path ?? '';
+    // Nest/Express can expose either a controller-local route or a full
+    // mounted path with global prefix (/api/auth/...).
+    const index = rawPath.indexOf('/auth/');
+    const path = index >= 0 ? rawPath.slice(index) : '/auth' + rawPath;
     const limits = path ? POLICY.get(path) : undefined;
     if (!limits) {
       throw new Error('AuthAbuseGuard applied without an abuse policy.');
