@@ -12,6 +12,7 @@ import { Professional } from '../professional/entities/professional.entity';
 import { UserModule } from '../user/user.module';
 
 import { AuthRoutingService } from './auth-routing.service';
+import { AuthChallengeModule } from './challenges/auth-challenge.module';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthSession } from './entities/auth.entity';
@@ -26,6 +27,7 @@ import { TwoFactorAuthService } from './two-factor-auth.service';
 
 @Module({
   imports: [
+    AuthChallengeModule,
     AuthSecurityAuditModule,
     ConfigModule,
     EmailModule,
