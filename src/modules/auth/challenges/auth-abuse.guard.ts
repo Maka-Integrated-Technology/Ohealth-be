@@ -15,13 +15,13 @@ interface IAuthAbuseRequest {
   body?: { email?: unknown; challenge_id?: unknown; token?: unknown };
 }
 
-const POLICY: Record<string, { ip: number; subject: number }> = {
-  '/auth/login': { ip: 20, subject: 8 },
-  '/auth/verify': { ip: 20, subject: 8 },
-  '/auth/verify/resend': { ip: 8, subject: 4 },
-  '/auth/forgot-password': { ip: 8, subject: 4 },
-  '/auth/reset-password': { ip: 8, subject: 5 },
-};
+const POLICY = new Map<string, { ip: number; subject: number }>([
+  ['/auth/login', { ip: 20, subject: 8 }],
+  ['/auth/verify', { ip: 20, subject: 8 }],
+  ['/auth/verify/resend', { ip: 8, subject: 4 }],
+  ['/auth/forgot-password', { ip: 8, subject: 4 }],
+  ['/auth/reset-password', { ip: 8, subject: 5 }],
+]);
 
 /** Do not trust spoofable forwarding headers until trusted proxy setup is audited. */
 @Injectable()
@@ -33,7 +33,7 @@ export class AuthAbuseGuard implements CanActivate {
     const path = request.route?.path
       ? '/auth' + request.route.path
       : request.path;
-    const limits = path ? POLICY[path] : undefined;
+    const limits = path ? POLICY.get(path) : undefined;
     if (!limits) {
       throw new Error('AuthAbuseGuard applied without an abuse policy.');
     }

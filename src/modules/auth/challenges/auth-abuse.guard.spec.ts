@@ -15,7 +15,7 @@ describe('AuthAbuseGuard', () => {
           route: { path },
           body,
           socket: { remoteAddress: ip },
-          headers: { 'x-forwarded-for': '1.2.3.4' },
+          headers: Object.fromEntries([['x-forwarded-for', '1.2.3.4']]),
         }),
       }),
     }) as unknown as ExecutionContext;
