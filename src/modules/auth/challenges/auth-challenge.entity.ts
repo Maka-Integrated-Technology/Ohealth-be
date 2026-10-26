@@ -14,7 +14,10 @@ export enum AuthChallengePurpose {
   'CHK_auth_challenge_purpose',
   `"purpose" IN ('contact_verification', 'password_recovery')`,
 )
-@Check('CHK_auth_challenge_attempts', '"attempt_count" >= 0 AND "attempt_count" <= 5')
+@Check(
+  'CHK_auth_challenge_attempts',
+  '"attempt_count" >= 0 AND "attempt_count" <= 5',
+)
 @Check('CHK_auth_challenge_expiry', '"expires_at" > "issued_at"')
 @Entity('auth_challenges')
 export class AuthChallenge {
