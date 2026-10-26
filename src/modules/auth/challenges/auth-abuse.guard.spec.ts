@@ -46,12 +46,7 @@ describe('AuthAbuseGuard', () => {
     await guard.canActivate(
       context('/api/auth/login', { email: 'test@example.com' }, '127.0.0.1'),
     );
-    expect(consume).toHaveBeenCalledWith(
-      '/auth/login',
-      'ip:127.0.0.1',
-      20,
-      60,
-    );
+    expect(consume).toHaveBeenCalledWith('/auth/login', 'ip:127.0.0.1', 20, 60);
   });
 
   it('enforces subject limits independently of account existence', async () => {
