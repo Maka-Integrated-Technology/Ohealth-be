@@ -4,9 +4,7 @@ import { env } from 'node:process';
 import { ConfigService } from '@nestjs/config';
 import { DataSource, QueryRunner } from 'typeorm';
 
-import {
-  AuthChallengePurpose,
-} from '../../modules/auth/challenges/auth-challenge.entity';
+import { AuthChallengePurpose } from '../../modules/auth/challenges/auth-challenge.entity';
 import { AuthChallengeService } from '../../modules/auth/challenges/auth-challenge.service';
 import { AuthRateLimitService } from '../../modules/auth/challenges/auth-rate-limit.service';
 import { AuthChallengeFoundation1793000000000 } from '../migrations/1793000000000-AuthChallengeFoundation';
@@ -32,7 +30,7 @@ integration('Purpose-bound auth challenges on PostgreSQL', () => {
     await dataSource.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
     const config = { get: () => PEPPER } as unknown as ConfigService;
     challenges = new AuthChallengeService(dataSource, config);
-    rateLimits = new AuthRateLimitService(dataSource);
+    rateLimits = new AuthRateLimitService(dataSource, config);
   });
 
   beforeEach(async () => {
