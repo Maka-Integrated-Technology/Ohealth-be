@@ -8,6 +8,7 @@ import * as request from 'supertest';
 import { AccountAccessPolicyService } from '../src/modules/auth/account-access-policy.service';
 import { AuthController } from '../src/modules/auth/auth.controller';
 import { AuthService } from '../src/modules/auth/auth.service';
+import { AuthAbuseGuard } from '../src/modules/auth/challenges/auth-abuse.guard';
 import { JwtAuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
 import { JwtStrategy } from '../src/modules/auth/strategies/jwt.strategy';
 import { AccountStatus } from '../src/modules/user/enums/account-status.enum';
@@ -43,6 +44,7 @@ describe('Retired account activation (isolated e2e)', () => {
       providers: [
         JwtAuthGuard,
         JwtStrategy,
+        { provide: AuthAbuseGuard, useValue: { canActivate: () => true } },
         AccountAccessPolicyService,
         { provide: AuthService, useValue: {} },
         {
