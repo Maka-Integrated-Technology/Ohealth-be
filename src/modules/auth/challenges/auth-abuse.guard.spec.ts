@@ -5,9 +5,9 @@ import { AuthRateLimitService } from './auth-rate-limit.service';
 
 describe('AuthAbuseGuard', () => {
   const consume = jest.fn();
-  const guard = new AuthAbuseGuard(
-    { consume } as unknown as AuthRateLimitService,
-  );
+  const guard = new AuthAbuseGuard({
+    consume,
+  } as unknown as AuthRateLimitService);
   const context = (path: string, body: Record<string, unknown>, ip: string) =>
     ({
       switchToHttp: () => ({
@@ -22,7 +22,9 @@ describe('AuthAbuseGuard', () => {
 
   beforeEach(() => {
     consume.mockReset().mockResolvedValue({
-      allowed: true, hits: 1, retryAfterSeconds: 0,
+      allowed: true,
+      hits: 1,
+      retryAfterSeconds: 0,
     });
   });
 
@@ -30,21 +32,28 @@ describe('AuthAbuseGuard', () => {
     await guard.canActivate(
       context('/login', { email: 'Test@Example.com' }, '127.0.0.1'),
     );
+    expect(consume).toHaveBeenCalledWith('/auth/login', 'ip:127.0.0.1', 20, 60);
     expect(consume).toHaveBeenCalledWith(
-      '/auth/login', 'ip:127.0.0.1', 20, 60,
-    );
-    expect(consume).toHaveBeenCalledWith(
-      '/auth/login', 'subject:test@example.com', 8, 60,
+      '/auth/login',
+      'subject:test@example.com',
+      8,
+      60,
     );
     expect(JSON.stringify(consume.mock.calls)).not.toContain('1.2.3.4');
   });
 
   it('enforces subject limits independently of account existence', async () => {
-    consume.mockResolvedValueOnce({
-      allowed: true, hits: 1, retryAfterSeconds: 0,
-    }).mockResolvedValueOnce({
-      allowed: false, hits: 5, retryAfterSeconds: 18,
-    });
+    consume
+      .mockResolvedValueOnce({
+        allowed: true,
+        hits: 1,
+        retryAfterSeconds: 0,
+      })
+      .mockResolvedValueOnce({
+        allowed: false,
+        hits: 5,
+        retryAfterSeconds: 18,
+      });
     await expect(
       guard.canActivate(
         context('/forgot-password', { email: 'ghost@example.com' }, '::1'),

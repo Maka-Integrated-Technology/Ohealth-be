@@ -162,7 +162,9 @@ export class AuthChallengeService {
     const pepper = this.getPepper();
     if (
       typeof challengeId !== 'string' ||
-      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(challengeId) ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        challengeId,
+      ) ||
       typeof code !== 'string' ||
       code.length !== 6
     ) {

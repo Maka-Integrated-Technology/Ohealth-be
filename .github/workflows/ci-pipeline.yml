@@ -63,18 +63,6 @@ jobs:
       - name: Install Dependencies
         run: npm ci --ignore-scripts
 
-      - name: Temporary Prettier diagnostics for issue 75
-        shell: bash
-        run: |
-          npx prettier --write src/modules/auth/challenges/auth-abuse.guard.spec.ts src/modules/auth/challenges/auth-challenge.service.ts
-          for file in src/modules/auth/challenges/auth-abuse.guard.spec.ts src/modules/auth/challenges/auth-challenge.service.ts; do
-            echo "PRETTIER_FILE_START=$file"
-            base64 -w0 "$file"
-            echo
-            echo "PRETTIER_FILE_END=$file"
-          done
-          exit 1
-
       - name: Security Audit
         run: npm audit --audit-level=high
 
