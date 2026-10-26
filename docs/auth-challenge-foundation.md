@@ -1,0 +1,26 @@
+# Issue #75 — secure challenge foundation (incremental)
+
+This change implements reusable challenge and abuse-control storage. It does **not** complete #75 or switch public auth routes to the new implementation.
+
+## Security and data model
+
+- Additive `auth_challenges` migration: UUID challenge identity, purpose allowlist (contact verification or password recovery), subject UUID, HMAC-SHA-256 digest of the six-digit code, issue time, expiry, failed-attempt counter and consumed timestamp. Raw codes and emails are never stored in this table.
+- Every HMAC uses the challenge UUID and purpose as domain separation. Set `AUTH_CHALLENGE_PEPPER` from an independently generated high-entropy secret (at least 32 random bytes) in the deployment secret manager **before wiring any producers**. No production fallback. Coordinate key rotation to avoid invalidating outstanding challenges unexpectedly.
+- `issueInTransaction` locks the subject user row across processes; enforces a 60-second issuance cooldown; consumes earlier unconsumed challenges of the same purpose; inserts a fresh code that expires after 10 minutes. A partial unique index enforces at most one usable challenge per user per purpose.
+- `consumeWithMutation` enforces purpose and expiry, increments failed attempts up to five, and consumes a successful challenge with the caller-supplied account mutation in one database transaction. Callback failures roll back consumption; invalid guesses are committed before returning a generic error.
+- `auth_rate_limit_buckets` uses atomic PostgreSQL upsert counters shared by all instances. Only SHA-256 fingerprints of scope and key are stored, never raw IPs or addresses. Database errors fail closed.
+
+## What remains to finish issue #75
+
+1. Wire the live signup, verification, resend, password-reset request and completion flows to challenge issuance/consumption. Change public DTO/OpenAPI clients to identify the challenge by UUID; never return a secret in an HTTP response.
+2. Reuse #76's central password policy for reset completion, and integrate #77's transaction-safe session revocation, #74's canonical account transition and #81's audit events **in the same transaction**.
+3. Provide durable delivery with an approved encrypted-outbox/worker design, email retry and idempotency. **Never write plaintext codes into outbox JSON.** Do not return “sent” unless the provider actually accepted the message; distinguish queued from sent where applicable.
+4. Apply distributed subject/IP rate-limit policies to login, verification, resend, recovery requests and reset completion, including safe proxy-address handling and enumeration-safe responses.
+5. Add end-to-end HTTP, concurrency, brute-force, challenge-ID collision and provider-failure tests; migrate off legacy plaintext user-level verification and reset columns, using a staged rollout that allows old codes to expire before removal.
+6. Rehearse the migration and pepper setup in staging before deployment. Review retention and disposal policy for expired challenges and rate-limit buckets.
+
+## Important deployment constraint
+
+This PR adds a database migration and injectable services but deliberately does not yet alter production authentication behavior. The existing endpoints remain on their legacy code paths until the follow-on migration, delivery, abuse-control and rollout work is completed.
+
+Keep issue #75 **OPEN** and keep this PR **DRAFT** until all added code and CI are checked.
