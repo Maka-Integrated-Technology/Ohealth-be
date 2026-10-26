@@ -1,6 +1,7 @@
-import { createHash } from 'node:crypto';
+import { createHmac } from 'node:crypto';
 
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { DataSource, EntityManager } from 'typeorm';
 
 export interface RateLimitResult {
@@ -9,10 +10,13 @@ export interface RateLimitResult {
   hits: number;
 }
 
-/** Atomic PostgreSQL counters shared by every instance; no raw IP/email stored. */
+/** Atomic PostgreSQL counters; stored keys use secret-keyed HMAC, not raw IPs. */
 @Injectable()
 export class AuthRateLimitService {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly dataSource: DataSource,
+    private readonly config: ConfigService,
+  ) {}
 
   consume(
     scope: string,
@@ -46,7 +50,11 @@ export class AuthRateLimitService {
     ) {
       throw new Error('Invalid rate limit configuration.');
     }
-    const digest = createHash('sha256')
+    const pepper = this.config.get<string>('AUTH_CHALLENGE_PEPPER');
+    if (!pepper || Buffer.byteLength(pepper, 'utf8') < 32) {
+      throw new Error('AUTH_CHALLENGE_PEPPER is required for rate limiting.');
+    }
+    const digest = createHmac('sha256', pepper)
       .update('ohealth:rate-limit:v1:', 'utf8')
       .update(scope, 'utf8')
       .update(':', 'utf8')

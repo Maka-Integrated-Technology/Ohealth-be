@@ -8,7 +8,7 @@ This change implements reusable challenge and abuse-control storage. It does **n
 - Every HMAC uses the challenge UUID and purpose as domain separation. Set `AUTH_CHALLENGE_PEPPER` from an independently generated high-entropy secret (at least 32 random bytes) in the deployment secret manager **before wiring any producers**. No production fallback. Coordinate key rotation to avoid invalidating outstanding challenges unexpectedly.
 - `issueInTransaction` locks the subject user row across processes; enforces a 60-second issuance cooldown; consumes earlier unconsumed challenges of the same purpose; inserts a fresh code that expires after 10 minutes. A partial unique index enforces at most one usable challenge per user per purpose.
 - `consumeWithMutation` enforces purpose and expiry, increments failed attempts up to five, and consumes a successful challenge with the caller-supplied account mutation in one database transaction. Callback failures roll back consumption; invalid guesses are committed before returning a generic error.
-- `auth_rate_limit_buckets` uses atomic PostgreSQL upsert counters shared by all instances. Only SHA-256 fingerprints of scope and key are stored, never raw IPs or addresses. Database errors fail closed.
+- `auth_rate_limit_buckets` uses atomic PostgreSQL upsert counters shared by all instances. Only HMAC-SHA-256 fingerprints of scope and key are stored, never raw IPs or addresses. Database errors fail closed.
 
 ## What remains to finish issue #75
 

@@ -3,7 +3,8 @@ import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'node:crypto'
 import {
   BadRequestException,
   Injectable,
-  TooManyRequestsException,
+  HttpException,
+  HttpStatus,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource, EntityManager } from 'typeorm';
@@ -81,8 +82,9 @@ export class AuthChallengeService {
       latest.length > 0 &&
       now.getTime() - latest[0].issued_at.getTime() < RESEND_COOLDOWN_MS
     ) {
-      throw new TooManyRequestsException(
+      throw new HttpException(
         'Please wait before requesting another code.',
+        HttpStatus.TOO_MANY_REQUESTS,
       );
     }
 
@@ -220,7 +222,9 @@ export class AuthChallengeService {
 
   private assertTransaction(manager: EntityManager): void {
     if (!manager.queryRunner?.isTransactionActive) {
-      throw new Error('Authentication challenges require an active transaction.');
+      throw new Error(
+        'Authentication challenges require an active transaction.',
+      );
     }
   }
 
