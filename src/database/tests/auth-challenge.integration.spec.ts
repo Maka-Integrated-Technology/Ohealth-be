@@ -277,16 +277,30 @@ integration('Purpose-bound auth challenges on PostgreSQL', () => {
   it('enforces shared hashed rate-limit budgets and opens a new window', async () => {
     const key = '203.0.113.9';
     const first = await rateLimits.consumeInTransaction(
-      runner.manager, 'auth:login', key, 2, 60,
+      runner.manager,
+      'auth:login',
+      key,
+      2,
+      60,
     );
     const second = await rateLimits.consumeInTransaction(
-      runner.manager, 'auth:login', key, 2, 60,
+      runner.manager,
+      'auth:login',
+      key,
+      2,
+      60,
     );
     const third = await rateLimits.consumeInTransaction(
-      runner.manager, 'auth:login', key, 2, 60,
+      runner.manager,
+      'auth:login',
+      key,
+      2,
+      60,
     );
     expect([first.allowed, second.allowed, third.allowed]).toEqual([
-      true, true, false,
+      true,
+      true,
+      false,
     ]);
     expect(third.retryAfterSeconds).toBeGreaterThan(0);
     const buckets: Array<{ key_hash: string; hits: number }> =
@@ -299,7 +313,11 @@ integration('Purpose-bound auth challenges on PostgreSQL', () => {
        SET window_ends_at = now() - interval '1 second'`,
     );
     const next = await rateLimits.consumeInTransaction(
-      runner.manager, 'auth:login', key, 2, 60,
+      runner.manager,
+      'auth:login',
+      key,
+      2,
+      60,
     );
     expect(next).toMatchObject({ allowed: true, hits: 1 });
   });

@@ -1,4 +1,9 @@
-import { createHmac, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
+import {
+  createHmac,
+  randomInt,
+  randomUUID,
+  timingSafeEqual,
+} from 'node:crypto';
 
 import {
   BadRequestException,
