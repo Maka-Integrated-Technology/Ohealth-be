@@ -21,14 +21,14 @@ const CHALLENGE_LIFETIME_MS = 10 * 60_000;
 const RESEND_COOLDOWN_MS = 60_000;
 const INVALID_CHALLENGE = 'Invalid or expired authentication challenge.';
 
-export interface IssuedAuthChallenge {
+export interface IAuthChallengeIssued {
   challengeId: string;
   /** Sensitive: send only through an approved contact-delivery mechanism. */
   code: string;
   expiresAt: Date;
 }
 
-interface ChallengeRow {
+interface IChallengeRow {
   id: string;
   purpose: AuthChallengePurpose;
   subject_user_id: string;
@@ -52,7 +52,7 @@ export class AuthChallengeService {
   issueForUser(
     subjectUserId: string,
     purpose: AuthChallengePurpose,
-  ): Promise<IssuedAuthChallenge> {
+  ): Promise<IAuthChallengeIssued> {
     return this.dataSource.transaction((manager) =>
       this.issueInTransaction(manager, subjectUserId, purpose),
     );
@@ -62,7 +62,7 @@ export class AuthChallengeService {
     manager: EntityManager,
     subjectUserId: string,
     purpose: AuthChallengePurpose,
-  ): Promise<IssuedAuthChallenge> {
+  ): Promise<IAuthChallengeIssued> {
     this.assertTransaction(manager);
     this.assertPurpose(purpose);
     const pepper = this.getPepper();
@@ -160,7 +160,7 @@ export class AuthChallengeService {
     this.assertTransaction(manager);
     this.assertPurpose(purpose);
     const pepper = this.getPepper();
-    const rows: ChallengeRow[] = await manager.query(
+    const rows: IChallengeRow[] = await manager.query(
       'SELECT * FROM auth_challenges WHERE id = $1 FOR UPDATE',
       [challengeId],
     );
