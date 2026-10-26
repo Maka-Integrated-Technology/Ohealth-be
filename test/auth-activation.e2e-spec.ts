@@ -9,6 +9,7 @@ import { AccountAccessPolicyService } from '../src/modules/auth/account-access-p
 import { AuthController } from '../src/modules/auth/auth.controller';
 import { AuthService } from '../src/modules/auth/auth.service';
 import { AuthAbuseGuard } from '../src/modules/auth/challenges/auth-abuse.guard';
+import { AuthRateLimitService } from '../src/modules/auth/challenges/auth-rate-limit.service';
 import { JwtAuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
 import { JwtStrategy } from '../src/modules/auth/strategies/jwt.strategy';
 import { AccountStatus } from '../src/modules/user/enums/account-status.enum';
@@ -45,6 +46,16 @@ describe('Retired account activation (isolated e2e)', () => {
         JwtAuthGuard,
         JwtStrategy,
         { provide: AuthAbuseGuard, useValue: { canActivate: () => true } },
+        {
+          provide: AuthRateLimitService,
+          useValue: {
+            consume: jest.fn().mockResolvedValue({
+              allowed: true,
+              hits: 1,
+              retryAfterSeconds: 0,
+            }),
+          },
+        },
         AccountAccessPolicyService,
         { provide: AuthService, useValue: {} },
         {

@@ -12,6 +12,7 @@ import { AuthRoutingService } from '../src/modules/auth/auth-routing.service';
 import { AuthController } from '../src/modules/auth/auth.controller';
 import { AuthService } from '../src/modules/auth/auth.service';
 import { AuthAbuseGuard } from '../src/modules/auth/challenges/auth-abuse.guard';
+import { AuthRateLimitService } from '../src/modules/auth/challenges/auth-rate-limit.service';
 import { AuthSession } from '../src/modules/auth/entities/auth.entity';
 import { JwtAuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
 import { PasswordCredentialsService } from '../src/modules/auth/password-policy/password-credentials.service';
@@ -68,6 +69,16 @@ describe('Credential enumeration resistance (isolated HTTP e2e)', () => {
       providers: [
         AuthService,
         { provide: AuthAbuseGuard, useValue: { canActivate: () => true } },
+        {
+          provide: AuthRateLimitService,
+          useValue: {
+            consume: jest.fn().mockResolvedValue({
+              allowed: true,
+              hits: 1,
+              retryAfterSeconds: 0,
+            }),
+          },
+        },
         AccountAccessPolicyService,
         PasswordCredentialsService,
         { provide: UserService, useValue: { findByEmail } },
