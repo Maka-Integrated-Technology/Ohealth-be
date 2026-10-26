@@ -13,14 +13,14 @@ This change implements reusable challenge and abuse-control storage. It does **n
 ## What remains to finish issue #75
 
 1. Wire the live signup, verification, resend, password-reset request and completion flows to challenge issuance/consumption. Change public DTO/OpenAPI clients to identify the challenge by UUID; never return a secret in an HTTP response.
-2. Reuse #76's central password policy for reset completion, and perform baseline session revocation inside the password reset transaction in #75; #77 later extends session rotation, #74's canonical account transition and #81's audit events **in the same transaction**.
+2. Reuse #76's central password policy for secure challenge-based reset completion, #74's canonical account transitions, and #81's audit events in the same transaction. Baseline legacy session revocation is already transactional in #75. **#75 blocks #77; #77 does not block #75.** Issue #77 subsequently adds refresh rotation and replay detection.
 3. Provide durable delivery with an approved encrypted-outbox/worker design, email retry and idempotency. **Never write plaintext codes into outbox JSON.** Do not return “sent” unless the provider actually accepted the message; distinguish queued from sent where applicable.
-4. Apply distributed subject/IP rate-limit policies to login, verification, resend, recovery requests and reset completion, including safe proxy-address handling and enumeration-safe responses.
+4. Validate the now-connected PostgreSQL subject/IP rate-limit guard on login, verification, resend, recovery request and reset completion against real HTTP and shared DB instances. The guard uses the socket peer and ignores spoofable forwarding headers; behind a reverse proxy this can group many legitimate users under one IP. Validate the ingress topology before deploying, then configure trusted proxy resolution and test spoofing safely.
 5. Add end-to-end HTTP, concurrency, brute-force, challenge-ID collision and provider-failure tests; migrate off legacy plaintext user-level verification and reset columns, using a staged rollout that allows old codes to expire before removal.
 6. Rehearse the migration and pepper setup in staging before deployment. Review retention and disposal policy for expired challenges and rate-limit buckets.
 
 ## Important deployment constraint
 
-This PR adds a database migration and injectable services but deliberately does not yet alter production authentication behavior. The existing endpoints remain on their legacy code paths until the follow-on migration, delivery, abuse-control and rollout work is completed.
+This PR adds a database migration, injectable security services, guarded public authentication routes, and baseline atomic password-reset session revocation. **Legacy plaintext verification/recovery producers still run**, so do not treat this as the final remediation. Deploying the guards requires the migration and the securely configured `AUTH_CHALLENGE_PEPPER`; do not merge before that rollout is planned.
 
 Keep issue #75 **OPEN** and keep this PR **DRAFT** until all added code and CI are checked.
