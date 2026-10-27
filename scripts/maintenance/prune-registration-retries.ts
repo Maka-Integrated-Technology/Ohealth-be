@@ -5,19 +5,21 @@ import { RegistrationRetryMaintenanceService } from '../../src/modules/auth/regi
  * Trusted operator command. One bounded batch only, no HTTP endpoint,
  * background timer, credential logging, or implicit schema migration.
  */
+class RegistrationRetryUsageError extends Error {}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   if (
     args.length > 1 ||
     (args.length === 1 && !/^--batch-size=[0-9]+$/.test(args[0]))
   ) {
-    throw new Error('Expected optional --batch-size=1..500 only.');
+    throw new RegistrationRetryUsageError();
   }
   const batchSize = args.length
     ? Number(args[0].slice('--batch-size='.length))
     : 200;
   if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > 500) {
-    throw new Error('Invalid registration retry cleanup batch size.');
+    throw new RegistrationRetryUsageError();
   }
   const dataSource = await initializeDataSource();
   try {
@@ -30,8 +32,13 @@ async function main(): Promise<void> {
   }
 }
 
-void main().catch(() => {
-  // Database exceptions may include sensitive SQL values: do not echo them.
-  process.stderr.write('Registration retry maintenance failed.\n');
+void main().catch((error: unknown) => {
+  // Distinguish locally validated CLI usage from a real database failure.
+  // Never echo SQL or connection exceptions, which may contain secrets.
+  const message =
+    error instanceof RegistrationRetryUsageError
+      ? 'Invalid registration retry maintenance arguments.\n'
+      : 'Registration retry maintenance failed.\n';
+  process.stderr.write(message);
   process.exitCode = 1;
 });
