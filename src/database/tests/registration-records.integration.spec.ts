@@ -11,6 +11,7 @@ import { PasswordCredentialsService } from '../../modules/auth/password-policy/p
 import { RegistrationRecordsService } from '../../modules/auth/registration/registration-records.service';
 import { User } from '../../modules/user/entities/user.entity';
 import { NormalizedSignupKeys1793150000000 } from '../migrations/1793150000000-NormalizedSignupKeys';
+import { RegistrationIdempotency1793160000000 } from '../migrations/1793160000000-RegistrationIdempotency';
 
 const integration = env.PG_INTEGRATION_URL ? describe : describe.skip;
 const CHALLENGE_ID = 'f64031c5-70e4-4b37-a92c-f193e59a6621';
@@ -207,6 +208,7 @@ integration('Transactional intent registration on PostgreSQL', () => {
         )
       `);
       await new NormalizedSignupKeys1793150000000().up(setup);
+      await new RegistrationIdempotency1793160000000().up(setup);
     } finally {
       await setup.release();
     }
@@ -226,7 +228,9 @@ integration('Transactional intent registration on PostgreSQL', () => {
             ? 'terms-v3'
             : key === 'REGISTRATION_PRIVACY_VERSION'
               ? 'privacy-v4'
-              : undefined,
+              : key === 'REGISTRATION_IDEMPOTENCY_PEPPER'
+                ? 'a-random-32-plus-byte-server-held-signup-hmac-secret'
+                : undefined,
       } as unknown as ConfigService,
     );
   });
@@ -332,5 +336,86 @@ integration('Transactional intent registration on PostgreSQL', () => {
         runner.query('SELECT role, status FROM organization_memberships'),
     );
     expect(memberships[0]).toEqual({ role: 'owner', status: 'active' });
+  });
+  it('returns the same pending challenge for an identical request key without new writes', async () => {
+    const key = randomUUID();
+    const first = await service.registerPending(patient, writeChallenge, key);
+    const second = await service.registerPending(
+      { ...patient, email: ' ada@example.test ' },
+      writeChallenge,
+      key,
+    );
+    expect(second.challenge_id).toBe(first.challenge_id);
+    expect(second.delivery_target).toBe(first.delivery_target);
+    expect(second.expires_in_seconds).toBeLessThanOrEqual(
+      first.expires_in_seconds,
+    );
+    expect(await count('users')).toBe(1);
+    expect(await count('registration_attempts')).toBe(1);
+    expect(await count('outbox_events')).toBe(1);
+    expect(await count('durable_challenge_delivery')).toBe(1);
+    const rows: Array<Record<string, unknown>> = await inSchema((runner) =>
+      runner.query(
+        'SELECT request_key_hash, request_fingerprint FROM registration_attempts',
+      ),
+    );
+    const stored = JSON.stringify(rows);
+    expect(stored).not.toContain(key);
+    expect(stored).not.toContain(patient.password);
+    expect(stored).not.toContain(patient.email);
+  });
+
+  it('serializes simultaneous duplicate requests with the same idempotency key', async () => {
+    const key = randomUUID();
+    const responses = await Promise.all([
+      service.registerPending(patient, writeChallenge, key),
+      service.registerPending(
+        { ...patient, email: '  ada@example.test ' },
+        writeChallenge,
+        key,
+      ),
+    ]);
+    expect(responses[0].challenge_id).toBe(responses[1].challenge_id);
+    expect(await count('users')).toBe(1);
+    expect(await count('registration_attempts')).toBe(1);
+    expect(await count('outbox_events')).toBe(1);
+    expect(await count('legal_acceptances')).toBe(2);
+  });
+
+  it('rejects conflicting payload reuse and expired challenge receipts without new writes', async () => {
+    const key = randomUUID();
+    await service.registerPending(patient, writeChallenge, key);
+    await expect(
+      service.registerPending(
+        { ...patient, first_name: 'Someone else' },
+        writeChallenge,
+        key,
+      ),
+    ).rejects.toThrow(ConflictException);
+    await inSchema((runner) =>
+      runner.query(
+        "UPDATE registration_attempts SET challenge_expires_at = now() - interval '1 second'",
+      ),
+    );
+    await expect(
+      service.registerPending(patient, writeChallenge, key),
+    ).rejects.toThrow(ConflictException);
+    expect(await count('users')).toBe(1);
+    expect(await count('registration_attempts')).toBe(1);
+    expect(await count('outbox_events')).toBe(1);
+  });
+
+  it('does not retain idempotency state if durable challenge delivery fails', async () => {
+    await expect(
+      service.registerPending(
+        patient,
+        async () => {
+          throw new Error('Delivery envelope unavailable');
+        },
+        randomUUID(),
+      ),
+    ).rejects.toThrow('Delivery envelope unavailable');
+    expect(await count('registration_attempts')).toBe(0);
+    expect(await count('users')).toBe(0);
   });
 });
