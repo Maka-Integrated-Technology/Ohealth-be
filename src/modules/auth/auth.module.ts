@@ -22,6 +22,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { PasswordCredentialsService } from './password-policy/password-credentials.service';
 import { AuthSecurityAuditModule } from './security-audit/auth-security-audit.module';
+import { GoogleLinkingService } from './oauth/google-linking.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { TwoFactorAuthController } from './two-factor-auth.controller';
 import { TwoFactorAuthService } from './two-factor-auth.service';
@@ -54,6 +55,7 @@ import { TwoFactorAuthService } from './two-factor-auth.service';
   providers: [
     AuthService,
     AuthRoutingService,
+    GoogleLinkingService,
     AuthAbuseGuard,
     PasswordCredentialsService,
     JwtStrategy,
@@ -61,6 +63,6 @@ import { TwoFactorAuthService } from './two-factor-auth.service';
     RolesGuard,
     TwoFactorAuthService,
   ],
-  exports: [AuthService, PasswordCredentialsService, JwtAuthGuard, RolesGuard],
+  exports: [AuthService, GoogleLinkingService, PasswordCredentialsService, JwtAuthGuard, RolesGuard],
 })
 export class AuthModule {}
