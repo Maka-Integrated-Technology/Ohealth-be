@@ -1,8 +1,4 @@
-import {
-  createCipheriv,
-  createDecipheriv,
-  randomBytes,
-} from 'node:crypto';
+import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
 
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -103,7 +99,11 @@ export class AuthChallengeDeliveryService {
   async dispatchBatch(
     batchSize = 5,
   ): Promise<{ accepted: number; retried: number; discarded: number }> {
-    if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > MAX_BATCH_SIZE) {
+    if (
+      !Number.isInteger(batchSize) ||
+      batchSize < 1 ||
+      batchSize > MAX_BATCH_SIZE
+    ) {
       throw new BadRequestException('Invalid challenge delivery batch size.');
     }
     const key = this.getEncryptionKey();
@@ -123,7 +123,10 @@ export class AuthChallengeDeliveryService {
         );
         const delivery = rows[0];
         if (!delivery) return null;
-        if (delivery.consumed_at || new Date(delivery.expires_at) <= new Date()) {
+        if (
+          delivery.consumed_at ||
+          new Date(delivery.expires_at) <= new Date()
+        ) {
           await this.purge(manager, delivery.challenge_id, 'discarded');
           return 'discarded';
         }
@@ -168,9 +171,11 @@ export class AuthChallengeDeliveryService {
                   otp: code,
                   otp_digits: code.split(''),
                   reset_url: frontEndUrl
-                    ? frontEndUrl + '/reset-password?challenge_id=' +
+                    ? frontEndUrl +
+                      '/reset-password?challenge_id=' +
                       encodeURIComponent(delivery.challenge_id) +
-                      '&code=' + encodeURIComponent(code)
+                      '&code=' +
+                      encodeURIComponent(code)
                     : undefined,
                   expiry_minutes: 10,
                 }
@@ -186,13 +191,12 @@ export class AuthChallengeDeliveryService {
         } catch {
           // A wrong encryption key, corrupted envelope, missing mail config or
           // provider outage must not reveal secrets in logs or a fake success.
-          const retryAllowed =
-            Number(delivery.attempts) + 1 < MAX_ATTEMPTS;
+          const retryAllowed = Number(delivery.attempts) + 1 < MAX_ATTEMPTS;
           await manager.query(
             'UPDATE auth_challenge_deliveries SET ' +
               'attempts = attempts + 1, ' +
-              'status = CASE WHEN $2 THEN \'pending\' ELSE \'discarded\' END, ' +
-              'available_at = now() + interval \'120 seconds\', ' +
+              "status = CASE WHEN $2 THEN 'pending' ELSE 'discarded' END, " +
+              "available_at = now() + interval '120 seconds', " +
               'iv = CASE WHEN $2 THEN iv ELSE NULL END, ' +
               'ciphertext = CASE WHEN $2 THEN ciphertext ELSE NULL END, ' +
               'tag = CASE WHEN $2 THEN tag ELSE NULL END ' +
@@ -218,7 +222,7 @@ export class AuthChallengeDeliveryService {
     await manager.query(
       'UPDATE auth_challenge_deliveries SET status = $2, ' +
         'iv = NULL, ciphertext = NULL, tag = NULL, ' +
-        'accepted_at = CASE WHEN $2 = \'accepted\' THEN now() ELSE NULL END ' +
+        "accepted_at = CASE WHEN $2 = 'accepted' THEN now() ELSE NULL END " +
         'WHERE challenge_id = $1',
       [challengeId, status],
     );
@@ -230,10 +234,7 @@ export class AuthChallengeDeliveryService {
 
   private getEncryptionKey(): Buffer {
     const secret = this.config.get<string>('AUTH_CHALLENGE_DELIVERY_KEY');
-    if (
-      typeof secret !== 'string' ||
-      !/^[A-Za-z0-9+/]{43}=$/.test(secret)
-    ) {
+    if (typeof secret !== 'string' || !/^[A-Za-z0-9+/]{43}=$/.test(secret)) {
       throw new Error(
         'AUTH_CHALLENGE_DELIVERY_KEY must be a base64-encoded 32-byte key.',
       );
