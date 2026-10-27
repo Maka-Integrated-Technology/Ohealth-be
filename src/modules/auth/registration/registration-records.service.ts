@@ -9,11 +9,13 @@ import { DataSource, EntityManager } from 'typeorm';
 import { LegalAcceptance } from '../../identity/entities/legal-acceptance.entity';
 import { UserPersona } from '../../identity/entities/user-persona.entity';
 import { LegalDocumentType } from '../../identity/enums/legal-document-type.enum';
+import { UserPersonaType } from '../../identity/enums/user-persona-type.enum';
 import { OrganizationMembership } from '../../organization/entities/organization-membership.entity';
 import { Organization } from '../../organization/entities/organization.entity';
 import { OrganizationMembershipRole } from '../../organization/enums/organization-membership-role.enum';
 import { OrganizationMembershipStatus } from '../../organization/enums/organization-membership-status.enum';
 import { OrganizationVerificationStatus } from '../../organization/enums/organization-verification-status.enum';
+import { PatientProfile } from '../../patient/entities/patient-profile.entity';
 import { OutboxEvent } from '../../platform-events/entities/outbox-event.entity';
 import { OutboxEventStatus } from '../../platform-events/enums/outbox-event-status.enum';
 import { User } from '../../user/entities/user.entity';
@@ -101,6 +103,11 @@ export class RegistrationRecordsService {
             persona_type: input.persona,
             is_active: true,
           });
+          // Patient profile ownership is created atomically with the persona.
+          // Never create a medical profile for professional-only intent.
+          if (input.persona === UserPersonaType.PATIENT) {
+            await manager.insert(PatientProfile, { user_id: user.id });
+          }
         } else {
           const details = input.organization;
           if (!details) {

@@ -7,6 +7,7 @@ import { UserPersona } from '../../identity/entities/user-persona.entity';
 import { OrganizationMembership } from '../../organization/entities/organization-membership.entity';
 import { Organization } from '../../organization/entities/organization.entity';
 import { OrganizationType } from '../../organization/enums/organization-type.enum';
+import { PatientProfile } from '../../patient/entities/patient-profile.entity';
 import { OutboxEvent } from '../../platform-events/entities/outbox-event.entity';
 import { User } from '../../user/entities/user.entity';
 import { AccountStatus } from '../../user/enums/account-status.enum';
@@ -89,16 +90,17 @@ describe('RegistrationRecordsService transactional foundation', () => {
     );
     expect(persisted.map((item) => item.entity)).toEqual([
       UserPersona,
+      PatientProfile,
       LegalAcceptance,
       OutboxEvent,
     ]);
-    expect(persisted[1].record).toEqual(
+    expect(persisted[2].record).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ document_type: 'terms_of_service' }),
         expect.objectContaining({ document_type: 'privacy_policy' }),
       ]),
     );
-    expect(persisted[2].record).toMatchObject({
+    expect(persisted[3].record).toMatchObject({
       event_type: 'auth.challenge.delivery_requested',
       payload: {
         challenge_id: UUID,
@@ -113,6 +115,19 @@ describe('RegistrationRecordsService transactional foundation', () => {
       expires_in_seconds: 600,
     });
     expect(JSON.stringify(response)).not.toContain('safe-hash');
+  });
+
+  it('does not create a clinical patient profile for professional intent', async () => {
+    await service.registerPending(
+      { ...input, intent: SignupIntent.HEALTHCARE_PROFESSIONAL },
+      writer,
+    );
+    expect(persisted.map((item) => item.entity)).toEqual([
+      UserPersona,
+      LegalAcceptance,
+      OutboxEvent,
+    ]);
+    expect(persisted.some((item) => item.entity === PatientProfile)).toBe(false);
   });
 
   it.each(Object.values(OrganizationType))(
