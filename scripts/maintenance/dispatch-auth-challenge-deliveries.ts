@@ -39,9 +39,13 @@ async function main(): Promise<void> {
     );
     const result = await service.dispatchBatch(batchSize);
     process.stdout.write(
-      'Challenge delivery accepted=' + result.accepted +
-        ' retried=' + result.retried +
-        ' discarded=' + result.discarded + '\n',
+      'Challenge delivery accepted=' +
+        result.accepted +
+        ' retried=' +
+        result.retried +
+        ' discarded=' +
+        result.discarded +
+        '\n',
     );
   } finally {
     if (dataSource.isInitialized) await dataSource.destroy();
