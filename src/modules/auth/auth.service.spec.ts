@@ -694,14 +694,15 @@ describe('AuthService', () => {
       expect(mockEmailService.sendMail).not.toHaveBeenCalled();
     });
 
-    it('should throw BadRequestException for an already verified user', async () => {
-      mockUserService.rotateVerificationChallenge.mockRejectedValue(
-        new BadRequestException(sysMsg.ACCOUNT_ALREADY_VERIFIED),
-      );
+    it('returns the same generic response for a verified account and an unknown email', async () => {
+      mockUserService.rotateVerificationChallenge.mockResolvedValue(null);
 
-      await expect(
-        service.resendVerification({ email: 'verified@example.com' }),
-      ).rejects.toThrow(BadRequestException);
+      const result = await service.resendVerification({
+        email: 'verified@example.com',
+      });
+
+      expect(result).toEqual({ message: sysMsg.VERIFICATION_CODE_SENT });
+      expect(mockEmailService.sendMail).not.toHaveBeenCalled();
     });
   });
 
