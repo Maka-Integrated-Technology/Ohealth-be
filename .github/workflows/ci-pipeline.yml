@@ -102,7 +102,7 @@ jobs:
 
       - name: Diagnose challenge delivery formatting (temporary)
         run: |
-          for file in src/modules/auth/challenges/auth-challenge-delivery.service.ts src/modules/auth/challenges/auth-challenge-delivery.service.spec.ts src/database/migrations/1793005000000-DurableAuthChallengeDelivery.ts; do
+          for file in src/modules/auth/challenges/auth-challenge-delivery.service.ts src/modules/auth/challenges/auth-challenge-delivery.service.spec.ts src/database/migrations/1793005000000-DurableAuthChallengeDelivery.ts scripts/maintenance/dispatch-auth-challenge-deliveries.ts; do
             npx prettier "$file" | diff -u "$file" - || true
           done
 
