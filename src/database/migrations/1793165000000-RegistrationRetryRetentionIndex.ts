@@ -4,9 +4,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Additive cleanup index for the HMAC-only pending registration retry journal.
  * No identity, challenge, legal acceptance, or outbox rows are removed.
  */
-export class RegistrationRetryRetentionIndex1793165000000
-  implements MigrationInterface
-{
+export class RegistrationRetryRetentionIndex1793165000000 implements MigrationInterface {
   name = 'RegistrationRetryRetentionIndex1793165000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
