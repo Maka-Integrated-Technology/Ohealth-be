@@ -73,9 +73,10 @@ export class RegistrationRecordsService {
       privacy: this.config.get<string>('REGISTRATION_PRIVACY_VERSION') ?? '',
     };
     const input = normalizeRegistrationInput(dto, legalVersions);
-    const retry = idempotencyKey !== undefined
-      ? this.prepareIdempotency(idempotencyKey, dto.password, input)
-      : null;
+    const retry =
+      idempotencyKey !== undefined
+        ? this.prepareIdempotency(idempotencyKey, dto.password, input)
+        : null;
     // Use the centralized #76 policy, never a second password implementation.
     const hashedPassword = await this.passwords.hashNewPassword(dto.password);
     try {
@@ -289,7 +290,9 @@ export class RegistrationRecordsService {
         key,
       )
     ) {
-      throw new BadRequestException('A valid registration request key is required.');
+      throw new BadRequestException(
+        'A valid registration request key is required.',
+      );
     }
     if (typeof password !== 'string') {
       throw new BadRequestException('A valid password is required.');
