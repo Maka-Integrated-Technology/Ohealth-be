@@ -5,10 +5,13 @@ import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { EmailModule } from '../email/email.module';
+import { UserPersona } from '../identity/entities/user-persona.entity';
 import { LaboratoryAdmin } from '../laboratory/entities/laboratory-admin.entity';
 import { LaboratoryStaff } from '../laboratory/entities/laboratory-staff.entity';
 import { OrganizationAdmin } from '../organization/entities/organization-admin.entity';
+import { OrganizationMembership } from '../organization/entities/organization-membership.entity';
 import { Professional } from '../professional/entities/professional.entity';
+import { User } from '../user/entities/user.entity';
 import { UserModule } from '../user/user.module';
 
 import { AuthRoutingService } from './auth-routing.service';
@@ -16,6 +19,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthAbuseGuard } from './challenges/auth-abuse.guard';
 import { AuthChallengeModule } from './challenges/auth-challenge.module';
+import { CanonicalAuthContextService } from './context/canonical-auth-context.service';
 import { AuthSession } from './entities/auth.entity';
 import { User2fa } from './entities/user-2fa.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -39,6 +43,9 @@ import { TwoFactorAuthService } from './two-factor-auth.service';
       AuthSession,
       User2fa,
       Professional,
+      User,
+      UserPersona,
+      OrganizationMembership,
       OrganizationAdmin,
       LaboratoryAdmin,
       LaboratoryStaff,
@@ -55,6 +62,7 @@ import { TwoFactorAuthService } from './two-factor-auth.service';
   providers: [
     AuthService,
     AuthRoutingService,
+    CanonicalAuthContextService,
     GoogleLinkingService,
     AuthAbuseGuard,
     PasswordCredentialsService,
@@ -63,6 +71,13 @@ import { TwoFactorAuthService } from './two-factor-auth.service';
     RolesGuard,
     TwoFactorAuthService,
   ],
-  exports: [AuthService, GoogleLinkingService, PasswordCredentialsService, JwtAuthGuard, RolesGuard],
+  exports: [
+    AuthService,
+    CanonicalAuthContextService,
+    GoogleLinkingService,
+    PasswordCredentialsService,
+    JwtAuthGuard,
+    RolesGuard,
+  ],
 })
 export class AuthModule {}
