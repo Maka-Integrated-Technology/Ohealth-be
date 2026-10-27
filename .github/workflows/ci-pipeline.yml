@@ -155,6 +155,16 @@ jobs:
             exit 1
           fi
 
+      - name: Verify unique Google provider subjects on PostgreSQL
+        env:
+          PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
+        run: npx jest --runInBand src/database/tests/google-subject-unique.integration.spec.ts
+
+      - name: Verify OAuth unlink audit constraint on PostgreSQL
+        env:
+          PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
+        run: npx jest --runInBand src/database/tests/oauth-unlink-security-audit.integration.spec.ts
+
       - name: Enforce breaking-change approval
         if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review'
         env:

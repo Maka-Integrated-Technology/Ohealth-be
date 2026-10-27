@@ -12,6 +12,7 @@ export enum AuthSecurityEventType {
   LOGOUT = 'logout',
   ACCOUNT_STATE_CHANGE = 'account_state_change',
   OAUTH_LINK = 'oauth_link',
+  OAUTH_UNLINK = 'oauth_unlink',
   REGISTRATION = 'registration',
   MFA = 'mfa',
 }

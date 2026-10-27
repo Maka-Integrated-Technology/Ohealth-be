@@ -27,6 +27,10 @@ export class UserService {
     private readonly accountAccessPolicy: AccountAccessPolicyService,
   ) {}
 
+  findByGoogleSubject(googleSubject: string) {
+    return this.userRepository.findOne({ where: { google_id: googleSubject } });
+  }
+
   findByEmail(email: string) {
     return this.userRepository.findOne({ where: { email } });
   }

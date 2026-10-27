@@ -34,6 +34,7 @@ describe('AuthService', () => {
 
   const mockUserService = {
     findByEmail: jest.fn(),
+    findByGoogleSubject: jest.fn(),
     findById: jest.fn(),
     create: jest.fn(),
     setPasswordResetChallenge: jest.fn(),
@@ -774,7 +775,7 @@ describe('AuthService', () => {
     ])(
       'rejects %s even when legacy flags claim verified',
       async (accountStatus) => {
-        mockUserService.findByEmail.mockResolvedValue({
+        mockUserService.findByGoogleSubject.mockResolvedValue({
           id: 'blocked-google-user',
           email: 'google@example.com',
           account_status: accountStatus,
@@ -793,7 +794,7 @@ describe('AuthService', () => {
     );
 
     it('rejects an active account lacking verification evidence', async () => {
-      mockUserService.findByEmail.mockResolvedValue({
+      mockUserService.findByGoogleSubject.mockResolvedValue({
         id: 'active-no-proof',
         email: 'google@example.com',
         account_status: AccountStatus.ACTIVE,
@@ -809,7 +810,7 @@ describe('AuthService', () => {
     });
 
     it('rejects a mismatched linked Google identity', async () => {
-      mockUserService.findByEmail.mockResolvedValue({
+      mockUserService.findByGoogleSubject.mockResolvedValue({
         id: 'linked-user',
         email: 'google@example.com',
         google_id: 'another-google-id',
@@ -825,6 +826,35 @@ describe('AuthService', () => {
       expect(mockUserService.linkGoogleIdentity).not.toHaveBeenCalled();
     });
 
+    it('rejects unknown Google identities without creating unauthorized accounts', async () => {
+      mockUserService.findByGoogleSubject.mockResolvedValue(null);
+      await expect(service.googleLogin('google-test-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(mockUserService.create).not.toHaveBeenCalled();
+      expect(mockUserService.linkGoogleIdentity).not.toHaveBeenCalled();
+      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+    });
+
+    it('never silently links a local password account by matching email', async () => {
+      mockUserService.findByGoogleSubject.mockResolvedValue({
+        id: 'local-account',
+        email: 'google@example.com',
+        google_id: null,
+        account_status: AccountStatus.ACTIVE,
+        email_verified_at: new Date(),
+        is_active: true,
+        is_verified: true,
+        role: [UserRole.PATIENT],
+      });
+      await expect(service.googleLogin('google-test-token')).rejects.toThrow(
+        UnauthorizedException,
+      );
+      expect(mockUserService.linkGoogleIdentity).not.toHaveBeenCalled();
+      expect(mockUserService.create).not.toHaveBeenCalled();
+      expect(mockSessionRepository.save).not.toHaveBeenCalled();
+    });
+
     it('allows a verified active account to receive credentials', async () => {
       const user = {
         id: 'verified-user',
@@ -838,8 +868,7 @@ describe('AuthService', () => {
         first_name: 'Google',
         last_name: 'Person',
       };
-      mockUserService.findByEmail.mockResolvedValue(user);
-      mockUserService.linkGoogleIdentity.mockResolvedValue(user);
+      mockUserService.findByGoogleSubject.mockResolvedValue(user);
       mockJwtService.signAsync
         .mockReset()
         .mockResolvedValueOnce('oauth-access')
@@ -856,6 +885,7 @@ describe('AuthService', () => {
       expect(response.access_token).toBe('oauth-access');
       expect(response.refresh_token).toBe('oauth-refresh');
       expect(mockSessionRepository.save).toHaveBeenCalledTimes(1);
+      expect(mockUserService.linkGoogleIdentity).not.toHaveBeenCalled();
     });
   });
 });
