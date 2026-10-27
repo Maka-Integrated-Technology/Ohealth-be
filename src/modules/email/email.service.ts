@@ -116,11 +116,9 @@ export class EmailService {
       };
 
       return nunjucks.renderString(template, fullContext);
-    } catch (error) {
-      this.logger.error(
-        `Error reading or compiling template at: ${templatePath}`,
-        error,
-      );
+    } catch {
+      // Never serialize template-rendering errors: they can contain context.
+      this.logger.error('Email template loading or compilation failed.');
       throw new Error('Could not load or compile email template.');
     }
   }
@@ -155,15 +153,14 @@ export class EmailService {
         html,
         text,
       });
-      this.logger.log(
-        `Email sent successfully to ${toHeader.join(', ')}: ${messageId}`,
-      );
-    } catch (error) {
-      this.logger.error(
-        `Failed to send email to ${toHeader.join(', ')}`,
-        error,
-      );
-      throw error;
+      // Provider ID, recipient, template data and verification code do not
+      // belong in application logs. The worker tracks acceptance separately.
+      if (!messageId) {
+        this.logger.warn('Email provider accepted a message without an ID.');
+      }
+    } catch {
+      this.logger.error('Email delivery failed at provider boundary.');
+      throw new Error('Email delivery unavailable.');
     }
   }
 }
