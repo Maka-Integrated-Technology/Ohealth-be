@@ -143,17 +143,24 @@ jobs:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
         run: npx jest --runInBand src/database/tests/registration-records.integration.spec.ts
 
-      - name: Verify operator-only retry cleanup command rejects invalid batch before DB access
+      - name: Verify retry cleanup validates CLI input before connecting to PostgreSQL
         run: |
           npx prettier --check scripts/maintenance/prune-registration-retries.ts
-          set +e
-          result=$(npm run registration-retries:prune -- --batch-size=0 2>&1)
-          status=$?
-          set -e
-          if [ "$status" -eq 0 ] || ! printf '%s' "$result" | grep -q 'Registration retry maintenance failed'; then
-            printf 'Retry cleanup command failed its safe-invalid-input contract.\n' >&2
-            exit 1
-          fi
+          check_invalid_usage() {
+            set +e
+            result=$(npm run registration-retries:prune -- "$@" 2>&1)
+            status=$?
+            set -e
+            if [ "$status" -eq 0 ] || ! printf '%s\n' "$result" | grep -qx 'Invalid registration retry maintenance arguments.'; then
+              printf 'Retry cleanup did not reject invalid CLI input before DB initialization.\n' >&2
+              exit 1
+            fi
+          }
+          check_invalid_usage --batch-size=0
+          check_invalid_usage --batch-size=501
+          check_invalid_usage --batch-size=NaN
+          check_invalid_usage --unexpected-flag
+          check_invalid_usage --batch-size=1 --batch-size=2
 
       - name: Enforce breaking-change approval
         if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review'
