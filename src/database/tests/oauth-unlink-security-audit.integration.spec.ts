@@ -3,8 +3,8 @@ import { env } from 'node:process';
 
 import { DataSource, QueryRunner } from 'typeorm';
 
-import { AddOAuthUnlinkSecurityAudit1793180000000 } from '../migrations/1793180000000-AddOAuthUnlinkSecurityAudit';
 import { AuthSecurityAuditFoundation1792900000000 } from '../migrations/1792900000000-AuthSecurityAuditFoundation';
+import { AddOAuthUnlinkSecurityAudit1793180000000 } from '../migrations/1793180000000-AddOAuthUnlinkSecurityAudit';
 
 const integration = env.PG_INTEGRATION_URL ? describe : describe.skip;
 
@@ -36,7 +36,8 @@ integration('OAuth unlink audit constraint (PostgreSQL)', () => {
   afterEach(async () => {
     if (runner?.isTransactionActive) await runner.rollbackTransaction();
     await runner?.release();
-    if (schema) await database.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+    if (schema)
+      await database.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
   });
 
   afterAll(async () => {

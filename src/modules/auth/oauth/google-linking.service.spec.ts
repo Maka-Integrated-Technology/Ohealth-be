@@ -188,7 +188,10 @@ describe('GoogleLinkingService explicit-link boundary', () => {
     expect(audit.recordInTransaction).not.toHaveBeenCalled();
   });
   it('unlinks with confirmed recent-auth and password proof and records atomic audit', async () => {
-    manager.findOne.mockResolvedValue({ ...account, google_id: 'google-subject-1' });
+    manager.findOne.mockResolvedValue({
+      ...account,
+      google_id: 'google-subject-1',
+    });
     await service.unlink(account.id, 'known-password', recent);
     expect(passwords.verifyForLogin).toHaveBeenCalledWith(
       'known-password',
@@ -221,20 +224,23 @@ describe('GoogleLinkingService explicit-link boundary', () => {
   });
 
   it('rejects invalid password and suspended accounts without mutating provider link', async () => {
-    manager.findOne.mockResolvedValue({ ...account, google_id: 'google-subject-1' });
+    manager.findOne.mockResolvedValue({
+      ...account,
+      google_id: 'google-subject-1',
+    });
     passwords.verifyForLogin.mockResolvedValueOnce(false);
-    await expect(service.unlink(account.id, 'wrong-password', recent)).rejects.toThrow(
-      UnauthorizedException,
-    );
+    await expect(
+      service.unlink(account.id, 'wrong-password', recent),
+    ).rejects.toThrow(UnauthorizedException);
     expect(manager.update).not.toHaveBeenCalled();
     manager.findOne.mockResolvedValue({
       ...account,
       google_id: 'google-subject-1',
       account_status: AccountStatus.SUSPENDED,
     });
-    await expect(service.unlink(account.id, 'known-password', recent)).rejects.toThrow(
-      UnauthorizedException,
-    );
+    await expect(
+      service.unlink(account.id, 'known-password', recent),
+    ).rejects.toThrow(UnauthorizedException);
     expect(manager.update).not.toHaveBeenCalled();
   });
 

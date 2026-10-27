@@ -21,6 +21,8 @@ export class AddOAuthUnlinkSecurityAudit1793180000000 implements MigrationInterf
   }
 
   public async down(): Promise<void> {
-    throw new Error('Audited OAuth unlink history cannot be invalidated by rollback.');
+    throw new Error(
+      'Audited OAuth unlink history cannot be invalidated by rollback.',
+    );
   }
 }

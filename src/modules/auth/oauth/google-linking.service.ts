@@ -162,7 +162,9 @@ export class GoogleLinkingService {
       if (!user || !user.password) {
         throw new UnauthorizedException('Invalid credentials.');
       }
-      if (!(await this.passwords.verifyForLogin(currentPassword, user.password))) {
+      if (
+        !(await this.passwords.verifyForLogin(currentPassword, user.password))
+      ) {
         throw new UnauthorizedException('Invalid credentials.');
       }
       if (!user.google_id) return; // No-op retry; never duplicate audit.
@@ -175,5 +177,4 @@ export class GoogleLinkingService {
       });
     });
   }
-
 }
