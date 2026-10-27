@@ -52,14 +52,17 @@ describe('GoogleLinkingService explicit-link boundary', () => {
       { document_type: 'terms_of_service', document_version: 'terms-v3' },
       { document_type: 'privacy_policy', document_version: 'privacy-v4' },
     ]);
-    jest.spyOn(OAuth2Client.prototype, 'verifyIdToken').mockImplementation(async () => ({
+    const ticket = {
       getPayload: () => ({
         sub: 'google-subject-1',
         email: 'ada@example.com',
         email_verified: true,
         nonce: 'server-initiated-nonce',
       }),
-    } as unknown as LoginTicket));
+    } as unknown as LoginTicket;
+    jest
+      .spyOn(OAuth2Client.prototype, 'verifyIdToken')
+      .mockImplementation(async () => ticket);
   });
 
   afterEach(() => jest.restoreAllMocks());
