@@ -143,6 +143,13 @@ jobs:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
         run: npx jest --runInBand src/database/tests/registration-records.integration.spec.ts
 
+      - name: TEMP - obtain canonical formatted operator cleanup command
+        run: |
+          npx prettier --write scripts/maintenance/prune-registration-retries.ts
+          printf 'FORMAT_B64 scripts/maintenance/prune-registration-retries.ts '
+          base64 -w0 scripts/maintenance/prune-registration-retries.ts
+          printf '\n'
+
       - name: Verify operator-only retry cleanup command rejects invalid batch before DB access
         run: |
           npx prettier --check scripts/maintenance/prune-registration-retries.ts

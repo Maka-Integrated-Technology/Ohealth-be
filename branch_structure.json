@@ -1,0 +1,33 @@
+{
+  "default_branch": "dev",
+  "branches": [
+    "ci/stack-registration-retention-20261027",
+    "dev",
+    "feat/75-auth-challenge-foundation",
+    "feat/78-registration-transaction-foundation",
+    "feat/80-canonical-auth-context-foundation",
+    "feat/90-canonical-patient-profile-foundation",
+    "fix/79-oauth-existing-links-only",
+    "origin"
+  ],
+  "parent": {
+    "ci/stack-registration-retention-20261027": "dev",
+    "dev": null,
+    "feat/75-auth-challenge-foundation": "dev",
+    "feat/78-registration-transaction-foundation": "dev",
+    "feat/80-canonical-auth-context-foundation": "dev",
+    "feat/90-canonical-patient-profile-foundation": "dev",
+    "fix/79-oauth-existing-links-only": "dev",
+    "origin": "dev"
+  },
+  "order": [
+    "dev",
+    "ci/stack-registration-retention-20261027",
+    "feat/75-auth-challenge-foundation",
+    "feat/78-registration-transaction-foundation",
+    "feat/80-canonical-auth-context-foundation",
+    "feat/90-canonical-patient-profile-foundation",
+    "fix/79-oauth-existing-links-only",
+    "origin"
+  ]
+}
