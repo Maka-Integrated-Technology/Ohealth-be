@@ -1,13 +1,17 @@
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { env } from 'node:process';
 
 import { ConfigService } from '@nestjs/config';
 import { DataSource, QueryRunner } from 'typeorm';
 
+import { AuthChallengeDeliveryService } from '../../modules/auth/challenges/auth-challenge-delivery.service';
 import { AuthChallengePurpose } from '../../modules/auth/challenges/auth-challenge.entity';
 import { AuthChallengeService } from '../../modules/auth/challenges/auth-challenge.service';
 import { AuthRateLimitService } from '../../modules/auth/challenges/auth-rate-limit.service';
+import { EmailService } from '../../modules/email/email.service';
+import { User } from '../../modules/user/entities/user.entity';
 import { AuthChallengeFoundation1793000000000 } from '../migrations/1793000000000-AuthChallengeFoundation';
+import { DurableAuthChallengeDelivery1793005000000 } from '../migrations/1793005000000-DurableAuthChallengeDelivery';
 
 const integration = env.PG_INTEGRATION_URL ? describe : describe.skip;
 const PEPPER = 'auth-challenge-test-key-please-do-not-use-in-production';
@@ -44,6 +48,7 @@ integration('Purpose-bound auth challenges on PostgreSQL', () => {
     await runner.query('CREATE TABLE users (id uuid PRIMARY KEY)');
     await runner.query('INSERT INTO users (id) VALUES ($1)', [userId]);
     await new AuthChallengeFoundation1793000000000().up(runner);
+    await new DurableAuthChallengeDelivery1793005000000().up(runner);
   });
 
   afterEach(async () => {
@@ -56,6 +61,41 @@ integration('Purpose-bound auth challenges on PostgreSQL', () => {
 
   afterAll(async () => {
     if (dataSource?.isInitialized) await dataSource.destroy();
+  });
+
+  it('stages an encrypted recoverable email envelope in the challenge transaction', async () => {
+    const key = randomBytes(32).toString('base64');
+    const delivery = new AuthChallengeDeliveryService(
+      dataSource,
+      {
+        get: (name: string) =>
+          name === 'AUTH_CHALLENGE_DELIVERY_KEY' ? key : PEPPER,
+      } as unknown as ConfigService,
+      challenges,
+      { sendMail: jest.fn() } as unknown as EmailService,
+    );
+    const receipt = await delivery.queueInTransaction(
+      runner.manager,
+      { id: userId } as User,
+      AuthChallengePurpose.CONTACT_VERIFICATION,
+    );
+    const envelopes: Array<Record<string, unknown>> = await runner.query(
+      'SELECT * FROM auth_challenge_deliveries',
+    );
+    expect(envelopes).toHaveLength(1);
+    expect(envelopes[0]).toMatchObject({
+      challenge_id: receipt.challengeId,
+      status: 'pending',
+      attempts: 0,
+    });
+    expect(envelopes[0].iv).toMatch(/^[a-f0-9]{24}$/);
+    expect(envelopes[0].tag).toMatch(/^[a-f0-9]{32}$/);
+    expect(envelopes[0].ciphertext).toMatch(/^[a-f0-9]{12}$/);
+    expect(JSON.stringify(envelopes)).not.toContain(key);
+    const rows: Array<{ id: string }> = await runner.query(
+      'SELECT id FROM auth_challenges',
+    );
+    expect(rows).toEqual([{ id: receipt.challengeId }]);
   });
 
   it('stores an allowlisted purpose, opaque ID and keyed digest, never the code', async () => {
