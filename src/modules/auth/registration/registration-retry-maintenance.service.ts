@@ -11,7 +11,7 @@ import { DataSource } from 'typeorm';
  */
 @Injectable()
 export class RegistrationRetryMaintenanceService {
-  private static readonly MAX_BATCH_SIZE = 500;
+  private static readonly maxBatchSize = 500;
 
   constructor(private readonly dataSource: DataSource) {}
 
@@ -19,7 +19,7 @@ export class RegistrationRetryMaintenanceService {
     if (
       !Number.isInteger(batchSize) ||
       batchSize < 1 ||
-      batchSize > RegistrationRetryMaintenanceService.MAX_BATCH_SIZE
+      batchSize > RegistrationRetryMaintenanceService.maxBatchSize
     ) {
       throw new BadRequestException('Invalid registration cleanup batch size.');
     }
