@@ -5,10 +5,10 @@ import { ConflictException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DataSource, EntityManager, QueryRunner } from 'typeorm';
 
-import { RegistrationRecordsService } from '../../modules/auth/registration/registration-records.service';
 import { RegisterAccountDto } from '../../modules/auth/contracts/register-account.dto';
 import { SignupIntent } from '../../modules/auth/enums/signup-intent.enum';
 import { PasswordCredentialsService } from '../../modules/auth/password-policy/password-credentials.service';
+import { RegistrationRecordsService } from '../../modules/auth/registration/registration-records.service';
 import { User } from '../../modules/user/entities/user.entity';
 import { NormalizedSignupKeys1793150000000 } from '../migrations/1793150000000-NormalizedSignupKeys';
 
@@ -212,10 +212,13 @@ integration('Transactional intent registration on PostgreSQL', () => {
 
     service = new RegistrationRecordsService(
       {
-        transaction: async <T>(callback: (manager: EntityManager) => Promise<T>) =>
-          inSchema((runner) => callback(runner.manager)),
+        transaction: async <T>(
+          callback: (manager: EntityManager) => Promise<T>,
+        ) => inSchema((runner) => callback(runner.manager)),
       } as unknown as DataSource,
-      { hashNewPassword: async () => 'test-password-hash' } as unknown as PasswordCredentialsService,
+      {
+        hashNewPassword: async () => 'test-password-hash',
+      } as unknown as PasswordCredentialsService,
       {
         get: (key: string) =>
           key === 'REGISTRATION_TERMS_VERSION'
@@ -256,8 +259,9 @@ integration('Transactional intent registration on PostgreSQL', () => {
       account_status: 'pending_verification',
       is_active: false,
     });
-    const outbox: Array<{ payload: Record<string, unknown> }> =
-      await inSchema((runner) => runner.query('SELECT payload FROM outbox_events'));
+    const outbox: Array<{ payload: Record<string, unknown> }> = await inSchema(
+      (runner) => runner.query('SELECT payload FROM outbox_events'),
+    );
     expect(outbox[0].payload).toEqual({
       challenge_id: CHALLENGE_ID,
       purpose: 'contact_verification',
@@ -295,9 +299,10 @@ integration('Transactional intent registration on PostgreSQL', () => {
     const rejected = outcomes.filter((item) => item.status === 'rejected');
     expect(succeeded).toHaveLength(1);
     expect(rejected).toHaveLength(1);
-    if (rejected[0].status === 'rejected') {
-      expect(rejected[0].reason).toBeInstanceOf(ConflictException);
-    }
+    const errors = rejected.map((outcome) =>
+      outcome.status === 'rejected' ? outcome.reason : null,
+    );
+    expect(errors).toEqual([expect.any(ConflictException)]);
     expect(await count('users')).toBe(1);
     expect(await count('legal_acceptances')).toBe(2);
     expect(await count('outbox_events')).toBe(1);
@@ -321,10 +326,10 @@ integration('Transactional intent registration on PostgreSQL', () => {
     expect(await count('organizations')).toBe(1);
     expect(await count('organization_memberships')).toBe(1);
     expect(await count('patient_profiles')).toBe(0);
-    const memberships: Array<{ role: string; status: string }> =
-      await inSchema((runner) =>
+    const memberships: Array<{ role: string; status: string }> = await inSchema(
+      (runner) =>
         runner.query('SELECT role, status FROM organization_memberships'),
-      );
+    );
     expect(memberships[0]).toEqual({ role: 'owner', status: 'active' });
   });
 });
