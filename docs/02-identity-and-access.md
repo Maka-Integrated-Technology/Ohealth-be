@@ -65,10 +65,31 @@ Different keys competing to register the same normalized email still yield
 a controlled unique-constraint conflict. A writer/outbox failure rolls back
 the retry record together with identity and legal acceptance data.
 
+**Retention and cleanup:** keep a retry receipt for 24 hours after the
+original challenge expires, then remove only the `registration_attempts`
+row. This is the chosen retention policy for this HMAC-only journal.
+Never delete the corresponding user, acceptance records, delivery outbox,
+challenge, or audit history through retry maintenance. Run the bounded
+cleanup command in the trusted operations environment (not an HTTP route):
+
+```bash
+npm run registration-retries:prune
+npm run registration-retries:prune -- --batch-size=250
+```
+
+Each invocation deletes at most 500 expired receipt rows, uses
+`FOR UPDATE SKIP LOCKED` so it does not block in-flight retries, and
+reports only an aggregate count. For a backlog, execute bounded batches
+using an explicitly approved, monitored worker schedule. Redis/BullMQ
+automatic scheduling is **not** added here, and the command is **not
+run automatically**. DB migrations must be deployed before the command.
+Database access must be restricted to trusted operations personnel.
+
 The registration route is not wired in this staging PR. Before launch,
-review retry-key TTL/retention and anti-replay policy, implement cleanup of
-expired journal rows, review schema/client compatibility and ensure #75
-delivers the encrypted message and #77 issues the canonical first session.
+complete TTL/anti-replay policy review with security, approve a monitored
+worker cadence and cleanup alarms, review schema/client compatibility,
+ensure #75 delivers the encrypted message, and #77 issues the canonical
+first session.
 
 ## Authentication challenges
 

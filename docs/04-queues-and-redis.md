@@ -58,6 +58,23 @@ after dispatch.
 Security audit durability must not depend solely on Redis. The authoritative
 event is committed to PostgreSQL before asynchronous enrichment.
 
+## Registration retry journal maintenance (staged internal only)
+
+Issue #78's HMAC-only `registration_attempts` journal has an additive
+expiry index and a transaction-bounded cleanup service. Retain a journal row
+until 24 hours **after** its challenge expires. Remove only the retry
+receipt: pending identities, consent records, verification challenges,
+outbox messages, and security audits require their own retention policies.
+
+Authorized operators may invoke one batch with
+`npm run registration-retries:prune -- --batch-size=200`.
+The command refuses unknown arguments and invalid batch sizes, never
+accepts or emits an idempotency key, and reports only the number removed.
+A future trusted worker may invoke this operation on an approved cadence
+with counts-only monitoring and error alerts. No worker or recurring job
+is registered by this change. Do not run it through an unauthenticated
+endpoint, public process, or request-triggered handler.
+
 ## Job rules
 
 - Every job is idempotent.
