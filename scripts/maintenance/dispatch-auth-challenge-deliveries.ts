@@ -10,19 +10,21 @@ import { EmailService } from '../../src/modules/email/email.service';
  * One bounded operator-run batch. No HTTP entry point, scheduler, automatic
  * retries or identifying/secret telemetry. Run only on trusted workers.
  */
+class ChallengeDispatchUsageError extends Error {}
+
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
   if (
     args.length > 1 ||
     (args.length === 1 && !/^--batch-size=[0-9]+$/.test(args[0]))
   ) {
-    throw new Error('Invalid challenge delivery dispatch arguments.');
+    throw new ChallengeDispatchUsageError();
   }
   const batchSize = args.length
     ? Number(args[0].slice('--batch-size='.length))
     : 5;
   if (!Number.isInteger(batchSize) || batchSize < 1 || batchSize > 10) {
-    throw new Error('Invalid challenge delivery dispatch batch size.');
+    throw new ChallengeDispatchUsageError();
   }
   const settings = new ConfigService(config());
   const dataSource = await initializeDataSource();
@@ -46,8 +48,12 @@ async function main(): Promise<void> {
   }
 }
 
-void main().catch(() => {
+void main().catch((error: unknown) => {
   // Do not print raw provider, database or secret-related exceptions.
-  process.stderr.write('Challenge delivery dispatch failed.\n');
+  if (error instanceof ChallengeDispatchUsageError) {
+    process.stderr.write('Invalid challenge delivery dispatch arguments.\n');
+  } else {
+    process.stderr.write('Challenge delivery dispatch failed.\n');
+  }
   process.exitCode = 1;
 });
