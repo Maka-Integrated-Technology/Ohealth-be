@@ -514,4 +514,27 @@ integration('Transactional intent registration on PostgreSQL', () => {
     expect(await count('registration_attempts')).toBe(0);
     expect(await count('users')).toBe(1);
   });
+
+  it('cannot recreate account or delivery after an expired retry receipt is pruned', async () => {
+    const key = randomUUID();
+    await service.registerPending(patient, writeChallenge, key);
+    await inSchema((runner) =>
+      runner.query(
+        "UPDATE registration_attempts SET challenge_expires_at = now() - interval '25 hours'",
+      ),
+    );
+
+    expect(await cleanup.pruneExpired(10)).toBe(1);
+    expect(await count('registration_attempts')).toBe(0);
+    await expect(
+      service.registerPending(patient, writeChallenge, key),
+    ).rejects.toThrow(ConflictException);
+
+    expect(await count('users')).toBe(1);
+    expect(await count('patient_profiles')).toBe(1);
+    expect(await count('legal_acceptances')).toBe(2);
+    expect(await count('outbox_events')).toBe(1);
+    expect(await count('durable_challenge_delivery')).toBe(1);
+    expect(await count('registration_attempts')).toBe(0);
+  });
 });
