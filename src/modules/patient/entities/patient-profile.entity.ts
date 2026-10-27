@@ -14,6 +14,10 @@ export class PatientProfile extends BaseEntity {
   @Column({ name: 'user_id' })
   user_id: string;
 
+  // Ordinary mailing/residential address is separate from clinical fields.
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  address?: string | null;
+
   @Column({ nullable: true })
   patient_reference?: string | null;
 
