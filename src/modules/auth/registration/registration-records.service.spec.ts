@@ -127,7 +127,9 @@ describe('RegistrationRecordsService transactional foundation', () => {
       LegalAcceptance,
       OutboxEvent,
     ]);
-    expect(persisted.some((item) => item.entity === PatientProfile)).toBe(false);
+    expect(persisted.some((item) => item.entity === PatientProfile)).toBe(
+      false,
+    );
   });
 
   it.each(Object.values(OrganizationType))(

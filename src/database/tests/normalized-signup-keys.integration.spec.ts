@@ -28,7 +28,9 @@ integration('Normalized signup uniqueness (PostgreSQL)', () => {
     await runner.connect();
     await runner.query(`SET search_path TO "${schema}", public`);
     await runner.startTransaction();
-    await runner.query('CREATE TABLE users (id serial PRIMARY KEY, email varchar NOT NULL)');
+    await runner.query(
+      'CREATE TABLE users (id serial PRIMARY KEY, email varchar NOT NULL)',
+    );
     await runner.query(
       'CREATE TABLE organizations (id serial PRIMARY KEY, registration_number varchar NOT NULL)',
     );
@@ -37,7 +39,8 @@ integration('Normalized signup uniqueness (PostgreSQL)', () => {
   afterEach(async () => {
     if (runner?.isTransactionActive) await runner.rollbackTransaction();
     await runner?.release();
-    if (schema) await database.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+    if (schema)
+      await database.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
   });
 
   afterAll(async () => {
