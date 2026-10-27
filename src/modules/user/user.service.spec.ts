@@ -125,6 +125,41 @@ describe('UserService atomic verification and audited state transitions', () => 
     });
   });
 
+  it.each([
+    AccountStatus.ACTIVE,
+    AccountStatus.SUSPENDED,
+    AccountStatus.DEACTIVATED,
+  ])(
+    'does not disclose or rotate a verification code for %s accounts',
+    async (accountStatus) => {
+      findOne.mockResolvedValue({
+        id: 'existing-user',
+        email: 'known@example.com',
+        account_status: accountStatus,
+        email_verified_at:
+          accountStatus === AccountStatus.ACTIVE ? new Date() : null,
+      });
+      const result = await service.rotateVerificationChallenge(
+        'known@example.com',
+        '654321',
+        new Date(Date.now() + 60_000),
+      );
+      expect(result).toBeNull();
+      expect(update).not.toHaveBeenCalled();
+    },
+  );
+
+  it('does not reveal an unknown email or mutate any account', async () => {
+    findOne.mockResolvedValue(null);
+    const result = await service.rotateVerificationChallenge(
+      'ghost@example.com',
+      '654321',
+      new Date(Date.now() + 60_000),
+    );
+    expect(result).toBeNull();
+    expect(update).not.toHaveBeenCalled();
+  });
+
   it('rejects a profile write when the locked current account is suspended', async () => {
     findOne.mockResolvedValue({
       id: 'suspended-user',
