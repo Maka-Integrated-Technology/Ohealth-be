@@ -94,12 +94,23 @@ integration('Transactional intent registration on PostgreSQL', () => {
           email varchar NOT NULL UNIQUE,
           first_name varchar NOT NULL,
           last_name varchar NOT NULL,
+          middle_name varchar,
+          gender varchar,
+          dob date,
+          phone varchar,
+          country varchar,
+          image varchar,
           password varchar NOT NULL,
           role text NOT NULL DEFAULT 'PATIENT',
           account_status varchar NOT NULL DEFAULT 'pending_verification',
           email_verified_at timestamptz,
           is_active boolean NOT NULL DEFAULT false,
-          is_verified boolean NOT NULL DEFAULT false
+          is_verified boolean NOT NULL DEFAULT false,
+          verification_code varchar,
+          verification_code_expires_at timestamptz,
+          google_id varchar,
+          reset_token varchar,
+          reset_token_expiry timestamptz
         )
       `);
       await setup.query(`
@@ -133,7 +144,16 @@ integration('Transactional intent registration on PostgreSQL', () => {
           id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
           created_at timestamptz NOT NULL DEFAULT now(),
           updated_at timestamptz NOT NULL DEFAULT now(),
-          user_id uuid NOT NULL REFERENCES users(id) UNIQUE
+          user_id uuid NOT NULL REFERENCES users(id) UNIQUE,
+          patient_reference varchar,
+          medical_conditions text,
+          allergies text,
+          blood_group varchar,
+          height_cm integer,
+          weight_kg double precision,
+          genotype varchar,
+          emergency_contact_name varchar,
+          emergency_contact_phone varchar
         )
       `);
       await setup.query(`
@@ -146,6 +166,7 @@ integration('Transactional intent registration on PostgreSQL', () => {
           role varchar NOT NULL,
           status varchar NOT NULL DEFAULT 'active',
           permission_overrides jsonb NOT NULL DEFAULT '[]',
+          invited_by_user_id uuid,
           joined_at timestamptz
         )
       `);
@@ -157,7 +178,9 @@ integration('Transactional intent registration on PostgreSQL', () => {
           user_id uuid NOT NULL REFERENCES users(id),
           document_type varchar NOT NULL,
           document_version varchar NOT NULL,
-          accepted_at timestamptz NOT NULL
+          accepted_at timestamptz NOT NULL,
+          ip_address inet,
+          user_agent text
         )
       `);
       await setup.query(`
@@ -169,7 +192,11 @@ integration('Transactional intent registration on PostgreSQL', () => {
           aggregate_id uuid,
           event_type varchar NOT NULL,
           status varchar NOT NULL DEFAULT 'pending',
-          payload jsonb NOT NULL DEFAULT '{}'
+          payload jsonb NOT NULL DEFAULT '{}',
+          attempts integer NOT NULL DEFAULT 0,
+          available_at timestamptz NOT NULL DEFAULT now(),
+          processed_at timestamptz,
+          last_error text
         )
       `);
       await setup.query(`
