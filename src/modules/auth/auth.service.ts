@@ -495,54 +495,17 @@ export class AuthService {
       throw new UnauthorizedException(sysMsg.INVALID_GOOGLE_TOKEN);
     }
 
-    const email = payload.email.toLowerCase();
-    const derivedName = this.deriveNameFromGoogle(payload);
-    let user = await this.userService.findByEmail(email);
-    let isNewUser = false;
-
-    if (!user) {
-      const generatedPassword = crypto.randomBytes(24).toString('hex');
-      const hashedPassword =
-        await this.passwordCredentials.hashGeneratedSecret(generatedPassword);
-
-      isNewUser = true;
-      user = await this.userService.create({
-        email,
-        password: hashedPassword,
-        first_name: derivedName.firstName,
-        last_name: derivedName.lastName,
-        middle_name: null,
-        gender: null,
-        dob: null,
-        phone: null,
-        role: [UserRole.PATIENT],
-        is_active: true,
-        is_verified: true,
-        account_status: AccountStatus.ACTIVE,
-        email_verified_at: new Date(),
-        google_id: payload.sub,
-      });
-    } else {
-      this.accountAccessPolicy.assertCanAuthenticate(user);
-      if (user.google_id && user.google_id !== payload.sub) {
-        throw new UnauthorizedException(sysMsg.INVALID_GOOGLE_TOKEN);
-      }
-      user = await this.userService.linkGoogleIdentity(
-        user.id,
-        payload.sub,
-        derivedName,
-      );
+    // Resolve the identity by Google's immutable, uniquely indexed subject.
+    // Email matches do not authorize linking or create accounts.
+    const user = await this.userService.findByGoogleSubject(payload.sub);
+    if (!user || user.google_id !== payload.sub) {
+      throw new UnauthorizedException(sysMsg.INVALID_GOOGLE_TOKEN);
     }
+    this.accountAccessPolicy.assertCanAuthenticate(user);
 
-    const [tokens, routing] = await Promise.all([
-      this.generateTokens(user.id, user.email, user.role),
-      this.authRoutingService.resolve(user),
-    ]);
-    const session = await this.createSession(user.id, tokens.refresh_token);
-
-    if (isNewUser) {
-      void this.sendWelcomeEmail(user);
-    }
+    // Reuse the same issuance boundary as post-verification sign-in.
+    // Issue #77 will replace its internals with rotating opaque sessions.
+    const session = await this.issueAuthSession(user);
 
     return {
       message: sysMsg.LOGIN_SUCCESS,
@@ -550,10 +513,7 @@ export class AuthService {
         ...this.toUserResponse(user),
         picture: payload.picture,
       },
-      ...routing,
-      ...tokens,
-      session_id: session.session_id,
-      session_expires_at: session.expires_at,
+      ...session,
     };
   }
 
