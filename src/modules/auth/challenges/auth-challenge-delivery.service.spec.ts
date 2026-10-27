@@ -174,6 +174,45 @@ describe('encrypted and recoverable auth challenge delivery', () => {
     );
   });
 
+  it('retries provider rejection without marking delivery as accepted', async () => {
+    await service.queueInTransaction(
+      manager as unknown as EntityManager,
+      user,
+      AuthChallengePurpose.CONTACT_VERIFICATION,
+    );
+    const args = manager.query.mock.calls[0][1] as string[];
+    manager.query.mockReset().mockResolvedValueOnce([
+      {
+        challenge_id: challengeId,
+        iv: args[1],
+        ciphertext: args[2],
+        tag: args[3],
+        purpose: AuthChallengePurpose.CONTACT_VERIFICATION,
+        expires_at: new Date(Date.now() + 600000),
+        consumed_at: null,
+        email: 'patient@example.test',
+        first_name: 'Ada',
+        attempts: 0,
+      },
+    ]);
+    sendMail.mockRejectedValueOnce(new Error('provider unavailable'));
+
+    expect(await service.dispatchBatch(1)).toEqual({
+      accepted: 0,
+      retried: 1,
+      discarded: 0,
+    });
+    expect(sendMail).toHaveBeenCalledTimes(1);
+    expect(manager.query).toHaveBeenLastCalledWith(
+      expect.stringContaining('attempts = attempts + 1'),
+      [challengeId, true],
+    );
+    expect(JSON.stringify(manager.query.mock.calls)).not.toContain('001234');
+    expect(JSON.stringify(manager.query.mock.calls)).not.toContain(
+      'patient@example.test',
+    );
+  });
+
   it('discards an expired challenge without contacting the provider', async () => {
     manager.query.mockResolvedValueOnce([
       {
