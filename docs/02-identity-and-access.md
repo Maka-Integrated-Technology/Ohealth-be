@@ -40,6 +40,36 @@ the registering human in the same transaction.
 
 Registration does not return an ordinary access or refresh token.
 
+## Registration retry safety (internal foundation)
+
+The internal registration transaction can accept an optional server-supplied
+idempotency key (UUIDv4) until the reviewed public signup contract is ready.
+The calling controller must generate or validate a high-entropy request key
+and preserve it for retransmission of the **same** registration payload.
+`REGISTRATION_IDEMPOTENCY_PEPPER` must be a secret random value of at
+least 32 UTF-8 bytes, stored in deployment secret management. Do not share
+it with the frontend or reuse the challenge pepper.
+
+The database persists only an HMAC of the retry key and a separate keyed HMAC
+of canonical request data (including the password), plus pending challenge
+receipt metadata. No raw key, password, verification code or token is stored
+in the journal. Advisory transaction locks serialize races on one key.
+A replay with the identical payload, within the original challenge lifetime
+and while the account is pending, reuses the same masked pending response
+**without creating a new user, challenge, acceptance, or outbox event**.
+
+Reusing the key with different details or after challenge expiry returns 409.
+The existing verified resend/recovery flow must handle expired challenges;
+registration retries must not silently create a replacement challenge.
+Different keys competing to register the same normalized email still yield
+a controlled unique-constraint conflict. A writer/outbox failure rolls back
+the retry record together with identity and legal acceptance data.
+
+The registration route is not wired in this staging PR. Before launch,
+review retry-key TTL/retention and anti-replay policy, implement cleanup of
+expired journal rows, review schema/client compatibility and ensure #75
+delivers the encrypted message and #77 issues the canonical first session.
+
 ## Authentication challenges
 
 Email verification, password reset, invitation, and MFA use purpose-bound
