@@ -19,11 +19,11 @@ export class DurableAuthChallengeDelivery1793005000000 implements MigrationInter
         '"created_at" timestamptz NOT NULL DEFAULT now(), ' +
         '"accepted_at" timestamptz, ' +
         'CONSTRAINT "CHK_auth_delivery_status" CHECK ' +
-        '("status" IN (\'pending\', \'accepted\', \'discarded\')), ' +
+        "(\"status\" IN ('pending', 'accepted', 'discarded')), " +
         'CONSTRAINT "CHK_auth_delivery_attempts" CHECK ("attempts" >= 0 AND "attempts" <= 5), ' +
         'CONSTRAINT "CHK_auth_delivery_secret" CHECK ' +
-        '((status = \'pending\' AND iv IS NOT NULL AND ciphertext IS NOT NULL AND tag IS NOT NULL) OR ' +
-        '(status <> \'pending\' AND iv IS NULL AND ciphertext IS NULL AND tag IS NULL))' +
+        "((status = 'pending' AND iv IS NOT NULL AND ciphertext IS NOT NULL AND tag IS NOT NULL) OR " +
+        "(status <> 'pending' AND iv IS NULL AND ciphertext IS NULL AND tag IS NULL))" +
         ')',
     );
     await queryRunner.query(
