@@ -35,10 +35,10 @@ async function main(): Promise<void> {
 void main().catch((error: unknown) => {
   // Distinguish locally validated CLI usage from a real database failure.
   // Never echo SQL or connection exceptions, which may contain secrets.
-  const message =
-    error instanceof RegistrationRetryUsageError
-      ? 'Invalid registration retry maintenance arguments.\n'
-      : 'Registration retry maintenance failed.\n';
-  process.stderr.write(message);
+  if (error instanceof RegistrationRetryUsageError) {
+    process.stderr.write('Invalid registration retry maintenance arguments.\n');
+  } else {
+    process.stderr.write('Registration retry maintenance failed.\n');
+  }
   process.exitCode = 1;
 });
