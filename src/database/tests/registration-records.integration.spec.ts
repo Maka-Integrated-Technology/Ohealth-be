@@ -145,6 +145,7 @@ integration('Transactional intent registration on PostgreSQL', () => {
           created_at timestamptz NOT NULL DEFAULT now(),
           updated_at timestamptz NOT NULL DEFAULT now(),
           user_id uuid NOT NULL REFERENCES users(id) UNIQUE,
+          address varchar(500),
           patient_reference varchar,
           medical_conditions text,
           allergies text,
