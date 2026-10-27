@@ -100,11 +100,24 @@ jobs:
             contracts/openapi.json \
             "${CONTRACT_REPORT}"
 
-      - name: Diagnose challenge delivery formatting (temporary)
+      - name: Verify operator delivery command input and formatting
         run: |
-          for file in src/modules/auth/challenges/auth-challenge-delivery.service.ts src/modules/auth/challenges/auth-challenge-delivery.service.spec.ts src/database/migrations/1793005000000-DurableAuthChallengeDelivery.ts scripts/maintenance/dispatch-auth-challenge-deliveries.ts; do
-            npx prettier "$file" | diff -u "$file" - || true
-          done
+          npx prettier --check scripts/maintenance/dispatch-auth-challenge-deliveries.ts
+          check_invalid_usage() {
+            set +e
+            result=$(npm run auth-challenge-delivery:dispatch -- "$@" 2>&1)
+            status=$?
+            set -e
+            if [ "$status" -eq 0 ] || ! printf '%s\n' "$result" | grep -qx 'Invalid challenge delivery dispatch arguments.'; then
+              printf 'Delivery dispatch did not reject invalid arguments before database access.\n' >&2
+              exit 1
+            fi
+          }
+          check_invalid_usage --batch-size=0
+          check_invalid_usage --batch-size=11
+          check_invalid_usage --batch-size=NaN
+          check_invalid_usage --unknown
+          check_invalid_usage --batch-size=1 --batch-size=2
 
       - name: Verify formatting
         run: npm run format:check
