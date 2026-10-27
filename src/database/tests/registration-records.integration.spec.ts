@@ -9,9 +9,11 @@ import { RegisterAccountDto } from '../../modules/auth/contracts/register-accoun
 import { SignupIntent } from '../../modules/auth/enums/signup-intent.enum';
 import { PasswordCredentialsService } from '../../modules/auth/password-policy/password-credentials.service';
 import { RegistrationRecordsService } from '../../modules/auth/registration/registration-records.service';
+import { RegistrationRetryMaintenanceService } from '../../modules/auth/registration/registration-retry-maintenance.service';
 import { User } from '../../modules/user/entities/user.entity';
 import { NormalizedSignupKeys1793150000000 } from '../migrations/1793150000000-NormalizedSignupKeys';
 import { RegistrationIdempotency1793160000000 } from '../migrations/1793160000000-RegistrationIdempotency';
+import { RegistrationRetryRetentionIndex1793165000000 } from '../migrations/1793165000000-RegistrationRetryRetentionIndex';
 
 const integration = env.PG_INTEGRATION_URL ? describe : describe.skip;
 const CHALLENGE_ID = 'f64031c5-70e4-4b37-a92c-f193e59a6621';
@@ -30,6 +32,7 @@ integration('Transactional intent registration on PostgreSQL', () => {
   let database: DataSource;
   let schema: string;
   let service: RegistrationRecordsService;
+  let cleanup: RegistrationRetryMaintenanceService;
 
   async function inSchema<T>(
     operation: (runner: QueryRunner) => Promise<T>,
@@ -209,9 +212,16 @@ integration('Transactional intent registration on PostgreSQL', () => {
       `);
       await new NormalizedSignupKeys1793150000000().up(setup);
       await new RegistrationIdempotency1793160000000().up(setup);
+      await new RegistrationRetryRetentionIndex1793165000000().up(setup);
     } finally {
       await setup.release();
     }
+
+    cleanup = new RegistrationRetryMaintenanceService({
+      transaction: async <T>(
+        callback: (manager: EntityManager) => Promise<T>,
+      ) => inSchema((runner) => callback(runner.manager)),
+    } as unknown as DataSource);
 
     service = new RegistrationRecordsService(
       {
@@ -417,5 +427,91 @@ integration('Transactional intent registration on PostgreSQL', () => {
     ).rejects.toThrow('Delivery envelope unavailable');
     expect(await count('registration_attempts')).toBe(0);
     expect(await count('users')).toBe(0);
+  });
+  it('removes only overdue retry receipts in bounded batches, preserving account and durable evidence', async () => {
+    const key = randomUUID();
+    await service.registerPending(patient, writeChallenge, key);
+    await inSchema((runner) =>
+      runner.query(
+        "UPDATE registration_attempts SET challenge_expires_at = now() - interval '26 hours'",
+      ),
+    );
+    const [account]: Array<{ id: string }> = await inSchema((runner) =>
+      runner.query('SELECT id FROM users LIMIT 1'),
+    );
+    await inSchema((runner) =>
+      runner.query(
+        `INSERT INTO registration_attempts
+          (request_key_hash, request_fingerprint, user_id, challenge_id,
+           challenge_expires_at, resend_after_at)
+         VALUES
+           ($1, $3, $5, $6, now() - interval '48 hours', now()),
+           ($2, $3, $5, $6, now() - interval '25 hours', now()),
+           ($4, $3, $5, $6, now() - interval '2 hours', now())`,
+        [
+          'a'.repeat(64),
+          'b'.repeat(64),
+          'f'.repeat(64),
+          'c'.repeat(64),
+          account.id,
+          CHALLENGE_ID,
+        ],
+      ),
+    );
+    expect(await count('registration_attempts')).toBe(4);
+    expect(await cleanup.pruneExpired(2)).toBe(2);
+    expect(await cleanup.pruneExpired(2)).toBe(1);
+    expect(await cleanup.pruneExpired(2)).toBe(0);
+    expect(await count('registration_attempts')).toBe(1);
+    expect(await count('users')).toBe(1);
+    expect(await count('patient_profiles')).toBe(1);
+    expect(await count('legal_acceptances')).toBe(2);
+    expect(await count('durable_challenge_delivery')).toBe(1);
+    expect(await count('outbox_events')).toBe(1);
+  });
+
+  it('does not remove unexpired challenges or recently expired receipts', async () => {
+    await service.registerPending(patient, writeChallenge, randomUUID());
+    expect(await cleanup.pruneExpired()).toBe(0);
+    await inSchema((runner) =>
+      runner.query(
+        "UPDATE registration_attempts SET challenge_expires_at = now() - interval '23 hours'",
+      ),
+    );
+    expect(await cleanup.pruneExpired()).toBe(0);
+    expect(await count('registration_attempts')).toBe(1);
+  });
+
+  it('validates cleanup batch bounds without opening a transaction', async () => {
+    await expect(cleanup.pruneExpired(0)).rejects.toThrow();
+    await expect(cleanup.pruneExpired(501)).rejects.toThrow();
+    await expect(cleanup.pruneExpired(1.5)).rejects.toThrow();
+    await expect(cleanup.pruneExpired(Number.NaN)).rejects.toThrow();
+  });
+
+  it('skips retry records currently locked by another transaction', async () => {
+    await service.registerPending(patient, writeChallenge, randomUUID());
+    await inSchema((runner) =>
+      runner.query(
+        "UPDATE registration_attempts SET challenge_expires_at = now() - interval '25 hours'",
+      ),
+    );
+    const locked = database.createQueryRunner();
+    await locked.connect();
+    try {
+      await locked.startTransaction();
+      await locked.query(`SET LOCAL search_path TO "${schema}", public`);
+      await locked.query(
+        'SELECT request_key_hash FROM registration_attempts FOR UPDATE',
+      );
+      expect(await cleanup.pruneExpired(10)).toBe(0);
+      expect(await count('registration_attempts')).toBe(1);
+    } finally {
+      if (locked.isTransactionActive) await locked.rollbackTransaction();
+      await locked.release();
+    }
+    expect(await cleanup.pruneExpired(10)).toBe(1);
+    expect(await count('registration_attempts')).toBe(0);
+    expect(await count('users')).toBe(1);
   });
 });
