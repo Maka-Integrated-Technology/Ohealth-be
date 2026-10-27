@@ -26,7 +26,9 @@ async function main(): Promise<void> {
     const service = new RegistrationRetryMaintenanceService(dataSource);
     const removed = await service.pruneExpired(batchSize);
     // Count-only operational telemetry. No identifiers or row values.
-    process.stdout.write(`Expired registration retry receipts pruned: ${removed}\n`);
+    process.stdout.write(
+      `Expired registration retry receipts pruned: ${removed}\n`,
+    );
   } finally {
     if (dataSource.isInitialized) await dataSource.destroy();
   }
