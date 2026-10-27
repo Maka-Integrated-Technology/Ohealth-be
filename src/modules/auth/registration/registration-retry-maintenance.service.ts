@@ -26,22 +26,25 @@ export class RegistrationRetryMaintenanceService {
     return this.dataSource.transaction(async (manager) => {
       // SKIP LOCKED avoids blocking active retry transactions. A bounded batch
       // keeps row locks, WAL and worker pressure predictable across instances.
-      const removed: Array<{ removed: number }> = await manager.query(
+      const rows: Array<{ removed_count: number }> = await manager.query(
         `WITH stale AS (
            SELECT request_key_hash FROM registration_attempts
            WHERE challenge_expires_at < now() - interval '24 hours'
            ORDER BY challenge_expires_at, request_key_hash
            LIMIT $1
            FOR UPDATE SKIP LOCKED
+         ), removed AS (
+           DELETE FROM registration_attempts AS retry
+           USING stale
+           WHERE retry.request_key_hash = stale.request_key_hash
+           RETURNING 1
          )
-         DELETE FROM registration_attempts AS retry
-         USING stale
-         WHERE retry.request_key_hash = stale.request_key_hash
-         RETURNING 1 AS removed`,
+         SELECT count(*)::int AS removed_count FROM removed`,
         [batchSize],
       );
-      // Never log the deleted HMAC keys, the linked account, or response data.
-      return removed.length;
+      // A SELECT count has a stable one-row shape across query adapters.
+      // Never log HMAC keys, linked accounts or response data.
+      return rows[0].removed_count;
     });
   }
 }
