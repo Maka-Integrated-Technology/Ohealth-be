@@ -83,7 +83,7 @@ describe('AuthAbuseGuard', () => {
             route: { path: '/login' },
             body: {},
             socket: { remoteAddress: ip },
-            headers: { 'x-forwarded-for': forwarded },
+            headers: Object.fromEntries([['x-forwarded-for', forwarded]]),
           }),
         }),
       }) as unknown as ExecutionContext;
@@ -117,7 +117,7 @@ describe('AuthAbuseGuard', () => {
           route: { path: '/login' },
           body: {},
           socket: { remoteAddress: '2001:db8:1::100' },
-          headers: { 'x-forwarded-for': '2001:db8:2::1' },
+          headers: Object.fromEntries([['x-forwarded-for', '2001:db8:2::1']]),
         }),
       }),
     } as unknown as ExecutionContext);
