@@ -117,7 +117,11 @@ export class AuthChallengeDeliveryService {
       const claim = await this.claim();
       if (!claim) break;
       let outcome: 'accepted' | 'retried' | 'discarded';
-      if (claim.consumed_at || new Date(claim.expires_at) <= new Date()) {
+      if (
+        claim.terminal ||
+        claim.consumed_at ||
+        new Date(claim.expires_at) <= new Date()
+      ) {
         outcome = 'discarded';
       } else {
         try {
@@ -197,7 +201,9 @@ export class AuthChallengeDeliveryService {
     return counts;
   }
 
-  private async claim(): Promise<(IPendingDelivery & { lease_token: string }) | null> {
+  private async claim(): Promise<
+    (IPendingDelivery & { lease_token: string; terminal: boolean }) | null
+  > {
     return this.dataSource.transaction(async (manager) => {
       const rows: IPendingDelivery[] = await manager.query(
         'SELECT d.challenge_id, d.iv, d.ciphertext, d.tag, d.attempts, ' +
@@ -225,6 +231,9 @@ export class AuthChallengeDeliveryService {
         ...delivery,
         attempts: Number(delivery.attempts) + 1,
         lease_token: leaseToken,
+        // A worker that died during its last allowed attempt must not
+        // restart unlimited sends each time its expired lease is reclaimed.
+        terminal: Number(delivery.attempts) >= MAX_ATTEMPTS,
       };
     });
   }
