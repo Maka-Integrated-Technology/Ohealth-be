@@ -19,14 +19,16 @@ describe('leased and encrypted authentication delivery', () => {
     query: jest.fn(),
   };
   let transactionsActive = 0;
-  const transaction = jest.fn(async (callback: (manager: EntityManager) => Promise<unknown>) => {
-    transactionsActive++;
-    try {
-      return await callback(manager as unknown as EntityManager);
-    } finally {
-      transactionsActive--;
-    }
-  });
+  const transaction = jest.fn(
+    async (callback: (manager: EntityManager) => Promise<unknown>) => {
+      transactionsActive++;
+      try {
+        return await callback(manager as unknown as EntityManager);
+      } finally {
+        transactionsActive--;
+      }
+    },
+  );
   const issueInTransaction = jest.fn();
   const sendMail = jest.fn();
   const config = {
@@ -75,7 +77,8 @@ describe('leased and encrypted authentication delivery', () => {
   function prepareClaim(row: Record<string, unknown> | null): void {
     manager.query.mockImplementation(async (sql: string) => {
       if (sql.startsWith('SELECT d.challenge_id')) return row ? [row] : [];
-      if (sql.includes('RETURNING challenge_id')) return [{ challenge_id: challengeId }];
+      if (sql.includes('RETURNING challenge_id'))
+        return [{ challenge_id: challengeId }];
       return [];
     });
   }
@@ -193,7 +196,9 @@ describe('leased and encrypted authentication delivery', () => {
   });
 
   it('discards expired challenges without sending mail', async () => {
-    prepareClaim(await encryptedRow({ expires_at: new Date(Date.now() - 1000) }));
+    prepareClaim(
+      await encryptedRow({ expires_at: new Date(Date.now() - 1000) }),
+    );
     expect(await service.dispatchBatch(1)).toEqual({
       accepted: 0,
       retried: 0,
