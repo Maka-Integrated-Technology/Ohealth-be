@@ -77,8 +77,8 @@ describe('leased and encrypted authentication delivery', () => {
   function prepareClaim(row: Record<string, unknown> | null): void {
     manager.query.mockImplementation(async (sql: string) => {
       if (sql.startsWith('SELECT d.challenge_id')) return row ? [row] : [];
-      if (sql.includes('RETURNING challenge_id'))
-        return [{ challenge_id: challengeId }];
+      if (sql.includes('SELECT count(*)::integer AS updated'))
+        return [{ updated: 1 }];
       return [];
     });
   }
@@ -191,7 +191,7 @@ describe('leased and encrypted authentication delivery', () => {
     );
     expect(transaction).toHaveBeenCalledTimes(2);
     const updates = manager.query.mock.calls.filter(([sql]) =>
-      (sql as string).startsWith('UPDATE auth_challenge_deliveries'),
+      (sql as string).includes('UPDATE auth_challenge_deliveries'),
     );
     expect(updates).toHaveLength(2);
     expect(updates[0][0]).toContain("status = 'processing'");
@@ -259,7 +259,8 @@ describe('leased and encrypted authentication delivery', () => {
           },
         ];
       }
-      if (sql.includes('RETURNING challenge_id')) return [];
+      if (sql.includes('SELECT count(*)::integer AS updated'))
+        return [{ updated: 0 }];
       return [];
     });
     // Override the SELECT separately; a stolen lease must never be finalized.
