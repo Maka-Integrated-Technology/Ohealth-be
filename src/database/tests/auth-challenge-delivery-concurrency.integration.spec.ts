@@ -68,12 +68,9 @@ integration('Delivery leases across independent PostgreSQL connections', () => {
     } as ConfigService;
     const challenges = new AuthChallengeService(db, settings);
     mail = jest.fn().mockResolvedValue(undefined);
-    delivery = new AuthChallengeDeliveryService(
-      db,
-      settings,
-      challenges,
-      { sendMail: (...args: unknown[]) => mail(...args) } as unknown as EmailService,
-    );
+    delivery = new AuthChallengeDeliveryService(db, settings, challenges, {
+      sendMail: (...args: unknown[]) => mail(...args),
+    } as unknown as EmailService);
   });
 
   afterAll(async () => {
@@ -104,8 +101,12 @@ integration('Delivery leases across independent PostgreSQL connections', () => {
     const challengeId = await queue();
     let unlock: () => void = () => undefined;
     let reachedProvider: () => void = () => undefined;
-    const entered = new Promise<void>((resolve) => { reachedProvider = resolve; });
-    const blocked = new Promise<void>((resolve) => { unlock = resolve; });
+    const entered = new Promise<void>((resolve) => {
+      reachedProvider = resolve;
+    });
+    const blocked = new Promise<void>((resolve) => {
+      unlock = resolve;
+    });
     mail.mockImplementationOnce(async () => {
       reachedProvider();
       await blocked;
@@ -116,7 +117,10 @@ integration('Delivery leases across independent PostgreSQL connections', () => {
       const second = Promise.race([
         delivery.dispatchBatch(1),
         new Promise<never>((_resolve, reject) => {
-          setTimeout(() => reject(new Error('DB pool held during provider I/O')), 1500);
+          setTimeout(
+            () => reject(new Error('DB pool held during provider I/O')),
+            1500,
+          );
         }),
       ]);
       expect(await second).toEqual({
@@ -152,11 +156,16 @@ integration('Delivery leases across independent PostgreSQL connections', () => {
       [id, oldToken],
     );
     expect(await delivery.dispatchBatch(1)).toMatchObject({ accepted: 1 });
-    const rows: Array<{ status: string; attempts: number; lease_token: string | null }> =
-      await db.query(
-        'SELECT status, attempts, lease_token FROM auth_challenge_deliveries WHERE challenge_id = $1',
-        [id],
-      );
-    expect(rows).toEqual([{ status: 'accepted', attempts: 2, lease_token: null }]);
+    const rows: Array<{
+      status: string;
+      attempts: number;
+      lease_token: string | null;
+    }> = await db.query(
+      'SELECT status, attempts, lease_token FROM auth_challenge_deliveries WHERE challenge_id = $1',
+      [id],
+    );
+    expect(rows).toEqual([
+      { status: 'accepted', attempts: 2, lease_token: null },
+    ]);
   });
 });
