@@ -52,6 +52,19 @@ export class AuthChallengeDeliveryService {
     private readonly email: EmailService,
   ) {}
 
+  /** Live producers are disabled if no healthy dispatcher has checked in. */
+  async assertWorkerReady(manager?: EntityManager): Promise<void> {
+    const query = manager ?? this.dataSource;
+    const rows: Array<{ id: string }> = await query.query(
+      'SELECT id FROM auth_challenge_worker_heartbeat ' +
+        "WHERE id = 'delivery' AND last_seen_at > now() - interval '30 seconds' " +
+        'AND oldest_pending_seconds < 120 AND expired_leases = 0',
+    );
+    if (!rows.length) {
+      throw new Error('Auth challenge delivery worker is not healthy.');
+    }
+  }
+
   async queueInTransaction(
     manager: EntityManager,
     user: Pick<User, 'id'>,
@@ -64,8 +77,11 @@ export class AuthChallengeDeliveryService {
     if (!manager.queryRunner?.isTransactionActive) {
       throw new Error('Challenge delivery requires a database transaction.');
     }
-    // Validate key BEFORE issuing any challenge or superseding older ones.
+    // Validate deployment readiness BEFORE issuing or superseding a code.
     const key = this.getEncryptionKey();
+    if (this.config.get<string>('AUTH_CHALLENGE_FLOWS_ENABLED') === 'true') {
+      await this.assertWorkerReady(manager);
+    }
     const challenge = await this.challenges.issueInTransaction(
       manager,
       user.id,
