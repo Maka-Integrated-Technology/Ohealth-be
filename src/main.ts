@@ -4,6 +4,8 @@ import { NestFactory } from '@nestjs/core';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 import { AppModule } from './app.module';
+import { AuthChallengeDeliveryService } from './modules/auth/challenges/auth-challenge-delivery.service';
+import { AuthChallengeService } from './modules/auth/challenges/auth-challenge.service';
 import { LoggingInterceptor } from './middleware/logging.interceptor';
 import {
   createOpenApiDocument,
@@ -14,6 +16,14 @@ import { OPENAPI_API_PREFIX } from './openapi/openapi.constants';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
+
+  // Fail the application startup, not the first user request, when auth
+  // security secrets are absent. The delivery key becomes mandatory when
+  // the new challenge-producing public flows are enabled.
+  app.get(AuthChallengeService).assertConfigured();
+  if (configService.get<string>('AUTH_CHALLENGE_FLOWS_ENABLED') === 'true') {
+    app.get(AuthChallengeDeliveryService).assertConfigured();
+  }
 
   const corsOrigins = configService.get<string[]>('cors.origins', []);
   app.enableCors({
