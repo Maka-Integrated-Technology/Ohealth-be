@@ -218,8 +218,8 @@ export class AuthChallengeDeliveryService {
         'UPDATE auth_challenge_deliveries ' +
           "SET status = 'processing', lease_token = $2, " +
           "lease_expires_at = now() + ($3::integer * interval '1 second'), " +
-          'attempts = attempts + 1 WHERE challenge_id = $1',
-        [delivery.challenge_id, leaseToken, LEASE_SECONDS],
+          'attempts = LEAST(attempts + 1, $4) WHERE challenge_id = $1',
+        [delivery.challenge_id, leaseToken, LEASE_SECONDS, MAX_ATTEMPTS],
       );
       return {
         ...delivery,
