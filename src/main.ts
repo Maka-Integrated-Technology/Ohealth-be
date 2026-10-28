@@ -4,9 +4,9 @@ import { NestFactory } from '@nestjs/core';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 import { AppModule } from './app.module';
+import { LoggingInterceptor } from './middleware/logging.interceptor';
 import { AuthChallengeDeliveryService } from './modules/auth/challenges/auth-challenge-delivery.service';
 import { AuthChallengeService } from './modules/auth/challenges/auth-challenge.service';
-import { LoggingInterceptor } from './middleware/logging.interceptor';
 import {
   createOpenApiDocument,
   mountOpenApiDocumentation,
