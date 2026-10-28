@@ -2,9 +2,14 @@
 
 ## Current status
 
-The transactional outbox table is a foundation. Redis, BullMQ queues, dedicated
-workers, and distributed rate limiting are approved targets but are not yet
-implemented in OHealth Server.
+The transactional outbox table is a foundation. Issue #75 currently implements
+shared PostgreSQL authentication rate-limit buckets and a dedicated PostgreSQL
+challenge-delivery worker with encrypted envelopes, recoverable leases, fencing
+and readiness heartbeats. Its commands, deployment order and rollback procedure
+are documented in `auth-challenge-foundation.md`. Redis and BullMQ remain target
+infrastructure; the queue design below describes that target, not the current
+authentication worker. The live route migration is delivered separately in
+PR #99 and still requires its acceptance and deployment evidence.
 
 ## Redis responsibilities
 
