@@ -6,5 +6,7 @@ COPY package.json package-lock.json ./
 COPY packages/api-client/package.json ./packages/api-client/package.json
 RUN npm ci --ignore-scripts
 COPY . .
+RUN npm run build
 USER node
+RUN node scripts/maintenance/check-worker-templates.cjs
 CMD ["npm", "run", "auth-challenge-delivery:dispatch", "--", "--continuous", "--batch-size=10", "--interval-seconds=5"]

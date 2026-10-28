@@ -1,39 +1,193 @@
-# Issue #75 — purpose-bound authentication and durable challenge delivery
+# Issue #75 — secure challenge and delivery foundation
 
-Public signup, verification, resend, password recovery, laboratory onboarding, and organization onboarding now use the transactional challenge writer/consumer. **Do not deploy or merge before the breaking OpenAPI/client rollout is approved, the encryption key and worker are configured, and security sign-off is recorded.**
+PR #111 (PR A) supplies reusable PostgreSQL challenge, abuse-control and encrypted
+email delivery services. PR #99 (PR B) migrates the live routes and public
+DTO/OpenAPI clients. The foundation can deploy dormant before PR B. Both PRs
+remain Ready for review; issue #75 stays open until the full acceptance matrix
+and independent security/deployment review are complete.
 
-## Security and data model
+## Security and persistence
 
-- Additive `auth_challenges` migration: UUID challenge identity, purpose allowlist (contact verification or password recovery), subject UUID, HMAC-SHA-256 digest of the six-digit code, issue time, expiry, failed-attempt counter and consumed timestamp. Raw codes and emails are never stored in this table.
-- Every HMAC uses the challenge UUID and purpose as domain separation. Set `AUTH_CHALLENGE_PEPPER` from an independently generated high-entropy secret (at least 32 random bytes) in the deployment secret manager **before wiring any producers**. No production fallback. Coordinate key rotation to avoid invalidating outstanding challenges unexpectedly.
-- `issueInTransaction` locks the subject user row across processes; enforces a 60-second issuance cooldown; consumes earlier unconsumed challenges of the same purpose; inserts a fresh code that expires after 10 minutes. A partial unique index enforces at most one usable challenge per user per purpose.
-- `consumeWithMutation` enforces purpose and expiry, increments failed attempts up to five, and consumes a successful challenge with the caller-supplied account mutation in one database transaction. Callback failures roll back consumption; invalid guesses are committed before returning a generic error.
-- `auth_rate_limit_buckets` uses atomic PostgreSQL upsert counters shared by all instances. Only HMAC-SHA-256 fingerprints of scope and key are stored, never raw IPs or addresses. Database errors fail closed.
+- `auth_challenges` stores a UUID, allowlisted purpose, subject UUID, HMAC-SHA-256
+  verifier, timestamps, failed-attempt count and consumed timestamp. It never
+  stores the raw code or recipient address. The HMAC binds the UUID and purpose.
+- Issuance locks the subject row across instances, enforces a 60-second cooldown,
+  invalidates earlier challenges for that purpose and expires new codes after
+  ten minutes. A partial unique index prevents multiple usable challenges.
+- Consumption checks purpose, expiry and the five-attempt limit. Successful
+  consumption and the protected account mutation commit atomically; mutation
+  failure rolls back consumption. Invalid guesses commit their attempt count.
+- `auth_rate_limit_buckets` stores atomic shared PostgreSQL counters keyed by
+  HMAC fingerprints, not raw email/IP values. Database failures fail closed.
+- `queueInTransaction` creates the challenge and AES-256-GCM encrypted recovery
+  envelope in the caller's transaction. Envelopes contain recoverable encrypted
+  codes, never plaintext passwords/codes or recipient addresses. Recipient data
+  is read from the canonical user record at dispatch. Do not copy envelopes or
+  credentials into general outbox JSON, logs or analytics.
 
-## Code implemented and merge/deployment conditions
+## Implemented worker runtime
 
-- Public `signup` stores a pending user, a purpose-bound challenge and an encrypted delivery receipt atomically. The HTTP response includes an opaque `challenge_id` and states *queued*, never *sent*. It does not grant a session.
-- `verify` consumes a six-digit code with the supplied `challenge_id`, activates the account, and records the account-status transition and audit event in the same transaction. Session issuance remains on the current baseline until #77 integrates rotating sessions.
-- `verify/resend` and `forgot-password` return a generic response for unknown or ineligible accounts, subject to the shared PostgreSQL rate limiter and issuance cooldown. They do not expose raw codes or reset tokens.
-- `reset-password` accepts `challenge_id`, `code` and a policy-compliant replacement password, consumes a password-recovery challenge, changes the password, revokes active sessions and audits in one transaction. Suspended and deactivated accounts are rejected at consumption time.
-- Lab/organization administrator onboarding queues encrypted verification within its existing transaction. Both email templates show challenge IDs. Verification email links contain only an opaque ID, **not the six-digit code**.
-- A regression suite checks public HTTP DTOs, login and account-state policies, challenge replay/expiry/cooldown/attempt bounds, basic PostgreSQL delivery integration and provider failures.
+This implementation uses a dedicated PostgreSQL-backed worker, not Redis or
+BullMQ. The long-term queue architecture remains in `04-queues-and-redis.md`.
+The worker has no public HTTP endpoint and runs independently of the API.
 
-### Required approvals and rollout sequence
+Build and verify the image from the repository root:
 
-1. **Human approval of breaking API contracts.** The previous `verify` email/code and `reset-password` legacy token shapes are deliberately unsupported. Regenerate and integrate all frontend/mobile consumers using `contracts/openapi.json` and `packages/api-client`; coordinate client rollout before enabling the backend. The GitHub Actions `api-breaking-change-approved` label is an explicit reviewer gate and must not be applied merely to silence CI.
-2. **Staging infrastructure:** apply additive migrations; configure independent high-entropy `AUTH_CHALLENGE_PEPPER` and base64 `AUTH_CHALLENGE_DELIVERY_KEY`; verify actual mail provider/credentials and a trusted worker schedule for the bounded dispatch command. Monitor queue age, provider acceptance, retries, discards and service health without logging recipients, codes, or plaintext secrets.
-3. **Safe legacy deprecation:** during the coordinated deployment, allow preexisting user-level verification/reset codes to expire (10-minute previous TTL), invalidate any remaining pending codes, and have clients request new challenges. The new public endpoints never read or write old code columns; leave nullable columns temporarily for additive compatibility, remove them in a separately approved migration once old instances and writes have drained. Never re-enable a plaintext fallback.
-4. **Security and QA:** review cross-instance rate limits and reverse-proxy IP handling; rehearse challenge issuance/consumption and delivery on staging PostgreSQL; test concurrency, failure recovery, provider acceptance and at-least-once duplicate delivery. Confirm that migrations, secrets, cleanup cadence, and audit telemetry are operational. Obtain required verified commit signatures and senior approval.
-5. **Dependency sequence:** #75 precedes #77. Once #75 lands, finalize #77's canonical sessions in PR #88, then rebase the #78/#79/#80/#90 stacked PRs in order. Do not merge the temporary validation PR #109.
+```sh
+docker build -f deploy/auth-challenge-worker/Dockerfile -t ohealth-auth-worker:review .
+docker run --rm --entrypoint node ohealth-auth-worker:review scripts/maintenance/check-worker-templates.cjs
+```
 
-Keep this PR **DRAFT** until these gates pass. A green unit/integration suite alone does not constitute authorization to merge.
+The image installs the lockfile with `npm ci --ignore-scripts`, runs `npm run
+build` to package `dist/templates`, and runs the template smoke check as the
+non-root `node` user. The Docker context excludes host `dist`, `node_modules`
+and `*.tsbuildinfo` so an incremental host build cannot suppress image output.
+The smoke check renders verification and recovery with the actual compiled
+EmailService/Nunjucks renderer; only external SMTP transport is replaced. It
+proves rendering, not successful provider or inbox delivery.
 
-## 27 October: encrypted delivery handoff
+After migration and secret provisioning, start the continuous deployment:
 
-- Added an additive `auth_challenge_deliveries` PostgreSQL table and an internal `AuthChallengeDeliveryService.queueInTransaction(manager, user, purpose)`. It creates the purpose-bound challenge and AES-256-GCM encrypted six-digit recovery envelope in the **same caller-owned transaction**, ready for #78's pending-registration writer to consume after review.
-- `AUTH_CHALLENGE_DELIVERY_KEY` must be a separately generated **base64-encoded 32-byte key** from the secret manager. There is no fallback. Store and rotate it separately from `AUTH_CHALLENGE_PEPPER`; rotating prematurely makes pending delivery envelopes undecryptable.
-- An internal bounded batch worker uses `FOR UPDATE SKIP LOCKED`, checks expiry/consumption, calls the existing email provider, and clears IV/ciphertext/tag on acceptance or final discard. Transient failures have at most five attempts with backoff. It reports **provider acceptance**, not final inbox delivery. The transport is **at-least-once**: an email accepted before a database outage can be repeated.
-- Trusted-operator invocation, after migration and secret setup: `npm run auth-challenge-delivery:dispatch -- --batch-size=5` (maximum 10). No HTTP route or scheduler has been introduced. Deployment operators must approve and arrange an appropriate cadence, monitoring, queue age thresholds, and cleanup of delivery metadata. The CLI prints aggregate counts only; exceptions are redacted.
-- The internal envelope holds no raw password, code, email address, or provider token. The email recipient is loaded from the canonical user record at dispatch time. A consumed/expired challenge is discarded instead of sent.
-- Public endpoints now use this new service. The remaining blockers are client coordination, approved staging/worker rollout, additional security review, and verified signatures. Do not claim final release readiness until those gates pass.
+```sh
+docker compose -f deploy/auth-challenge-worker/compose.yml up -d --build
+```
+
+The image's default command is:
+
+```sh
+npm run auth-challenge-delivery:dispatch -- --continuous --batch-size=10 --interval-seconds=5
+```
+
+For an operator-run single batch, omit `--continuous` and `--interval-seconds`:
+
+```sh
+npm run auth-challenge-delivery:dispatch -- --batch-size=5
+```
+
+Batch size accepts 1–10; continuous polling accepts 1–15 seconds, with a default
+of five seconds. Each batch dispatches sequentially, so its duration adds to the
+poll interval. One-shot mode does not publish the continuous-worker heartbeat
+and is insufficient to make live producers ready. SIGTERM/SIGINT stop the loop
+after the in-flight batch and close the database connection.
+
+## Leases, retry and delivery semantics
+
+Each dispatch uses a short `FOR UPDATE SKIP LOCKED` claim transaction, commits a
+90-second lease with a unique fencing token, sends outside the database
+transaction, then conditionally finalizes with the same token. A stale worker
+cannot finalize a reclaimed lease. Expired processing leases can be reclaimed
+after a crash. Consumed/expired challenges and exhausted attempts are discarded.
+
+Provider waits are bounded at 30 seconds per send. Retryable failure returns the
+delivery to pending with a fixed 120-second delay, up to five attempts. A crash
+on the last allowed attempt cannot cause unlimited redelivery. Acceptance and
+terminal discard clear the encrypted IV/ciphertext/tag; retries retain them.
+
+Delivery is **at least once**: provider acceptance followed by database failure
+or an ambiguous timeout can result in a duplicate email. Timeout does not prove
+provider cancellation. Report queued versus provider-accepted accurately;
+provider acceptance does not establish inbox delivery. Never log provider errors,
+recipient addresses, codes, envelope contents or tokens.
+
+## Heartbeat, readiness and monitoring
+
+After each successful continuous batch, the worker publishes aggregate queue
+metrics to `auth_challenge_worker_heartbeat` under `id = 'delivery'`:
+
+| Signal                             | Live readiness requirement |
+| ---------------------------------- | -------------------------- |
+| Last successful database heartbeat | Newer than 30 seconds      |
+| Oldest pending delivery            | Less than 120 seconds old  |
+| Expired processing leases          | Zero                       |
+
+The worker logs aggregate accepted/retried/discarded/pending counts, expired
+leases and oldest pending age. It emits a backlog warning when pending age is
+at least 120 seconds or any processing lease has expired. Infrastructure must
+collect these signals and alert; the example does not provision alert delivery.
+Slow provider batches can age the heartbeat and intentionally fail readiness.
+
+The health file defaults to `/tmp/ohealth-challenge-worker-heartbeat`; it is
+updated only after a successful continuous database cycle with healthy backlog.
+`AUTH_CHALLENGE_WORKER_HEALTH_FILE` can override it for custom deployments; update
+the healthcheck path too. The Compose healthcheck requires file age below 30
+seconds, checks every 15 seconds with a five-second timeout and two retries,
+and has a 45-second startup grace period. The file is a container health signal;
+API readiness uses the authoritative database heartbeat/metrics. Compose's
+restart policy handles process exit; an unhealthy status alone does not restart
+a container. Configure external monitoring and intervention.
+
+## Configuration and rollout order
+
+1. Apply the additive challenge, delivery, lease and heartbeat migrations before
+   starting workers or producers. Rehearse them in staging; never enable schema
+   synchronization.
+2. Provision independent secrets: `AUTH_CHALLENGE_PEPPER` (at least 32 bytes of
+   high-entropy secret material) and `AUTH_CHALLENGE_DELIVERY_KEY` (base64-encoded
+   32-byte AES key). There are no production fallbacks. Provide `DATABASE_URL`,
+   the chosen SMTP/Resend credentials, `MAIL_FROM_ADDRESS`, and `FRONTEND_URL` as
+   required by the Compose example. Both API and worker must share the intended
+   challenge secrets/database. The worker validates its secrets at startup.
+3. Build/start the continuous worker. Confirm image rendering, actual staging
+   provider delivery, fresh database heartbeat, healthy queue metrics and alerts
+   before deploying live producers. Do not infer deployment from green unit tests.
+4. PR A can remain dormant with `AUTH_CHALLENGE_FLOWS_ENABLED=false`. In the
+   combined PR B deployment, explicitly set it to `true`: PR B refuses startup
+   with the flag off and uses `assertLiveFlowReady` before account eligibility
+   lookup. Enabled API startup requires healthy delivery readiness. False is not
+   a supported way to run PR B's live routes without readiness checks.
+5. Configure `AUTH_TRUSTED_PROXY_CIDRS` for actual ingress hops; leave it empty
+   for direct clients. Untrusted peers cannot select their IP through spoofed
+   forwarding headers. Test IPv4/IPv6 and the deployed proxy chain before rollout.
+6. Coordinate the challenge-ID verification/reset DTOs and generated clients
+   with web/mobile consumers. Keep legacy columns until old nodes and codes
+   have expired or migrated. Verify account transitions, audit durability and
+   password-recovery session revocation. #75 blocks #77; refresh-family rotation
+   and replay detection are subsequent #77 work.
+
+## Rollback and retention
+
+Stop or roll back live producers first, using the coordinated pre-PR-B API/client
+release if necessary. Do not merely set the flag false on PR B and expect live
+routes to continue: that release must refuse startup. Keep a compatible worker
+and its secrets available while valid queued challenges drain, or explicitly
+invalidate affected challenges through an approved operational procedure. Then
+stop the worker. Preserve additive tables during rollback; do not revert
+migrations or erase audit evidence as part of a routine application rollback.
+
+Keep the old encryption key and pepper until dependent challenges expire or
+are deliberately invalidated. Premature rotation makes pending envelopes
+undecryptable or challenge proofs unverifiable. Review retention/deletion for
+expired challenges, rate-limit buckets and terminal delivery metadata before
+production; terminal envelope erasure is implemented, scheduled metadata cleanup
+is not. Do not claim cleanup automation that has not been deployed.
+
+## Evidence and remaining release gates
+
+CI builds/runs the worker image, checks real verification/recovery rendering,
+and runs the PostgreSQL challenge and independent-connection delivery suites.
+The delivery pool test clears its race timeout in `finally`, releases the
+blocked provider and awaits dispatch even when an assertion fails; no detached
+timeout should keep Jest alive. Record the final commit SHA and hosted run in
+the PR body, and inspect the complete run for open-handle warnings.
+
+Issue #75 still requires production-path real HTTP/PostgreSQL acceptance,
+shared-budget and issuance/consumption race/collision evidence, replay/cooldown,
+worker outages, provider timeout/retry recovery, measured account-enumeration
+resistance under representative concurrency, and staging deployment validation.
+A randomized response delay or isolated controller mocks do not prove those
+properties. API-breaking DTO approval is distinct from security/deployment merge
+approval. Revalidate signatures and CI after integrating the final foundation
+into PR B; neither PR is authorized for merge by this document.
+
+## PR #99 live authentication route migration
+
+- Signup atomically creates a pending user, purpose-bound challenge, and encrypted delivery record. The response contains an opaque challenge_id and says queued, not sent. Signup does not issue a session.
+- Verification requires challenge_id and a six-digit code. Successful consumption activates the account and records its audit event transactionally.
+- Resend and password-recovery requests use generic public responses for unknown or ineligible accounts, with shared rate limits and issuance cooldowns.
+- Password reset requires challenge_id, code, and a policy-compliant replacement password. Successful consumption updates the password, revokes active sessions, and audits the change transactionally. Suspended or deactivated accounts cannot complete recovery.
+- Laboratory and organization administrator onboarding queue encrypted verification inside their existing account transactions.
+- Verification links carry an opaque challenge ID, never the secret six-digit code.
+- The previous email/code verification and legacy reset-token request shapes are incompatible with the new API. Coordinate OpenAPI-generated clients and frontend/mobile deployment before activation.
+- Preserve legacy columns until older application instances have drained and outstanding legacy codes have expired or been invalidated. Remove legacy storage only in a separately approved migration.
+- Do not merge or deploy the live route changes until the breaking API contract receives trusted reviewer approval, the full production-path security acceptance matrix passes, and staging worker deployment is validated.
+
