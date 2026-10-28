@@ -16,7 +16,7 @@ interface IAuthAbuseRequest {
   route?: { path?: string };
   path?: string;
   socket?: { remoteAddress?: string };
-  headers?: { 'x-forwarded-for'?: string | string[] };
+  headers?: Record<string, string | string[] | undefined>;
   body?: { email?: unknown; challenge_id?: unknown; token?: unknown };
 }
 
