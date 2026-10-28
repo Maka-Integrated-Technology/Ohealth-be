@@ -38,8 +38,7 @@ export class AuthAbuseGuard implements CanActivate {
     private readonly rates: AuthRateLimitService,
     @Optional() private readonly config?: ConfigService,
   ) {
-    const cidrs =
-      this.config?.get<string>('AUTH_TRUSTED_PROXY_CIDRS') ?? '';
+    const cidrs = this.config?.get<string>('AUTH_TRUSTED_PROXY_CIDRS') ?? '';
     for (const cidr of cidrs.split(',').map((value) => value.trim())) {
       if (!cidr) continue;
       const [address, prefixText] = cidr.split('/');
