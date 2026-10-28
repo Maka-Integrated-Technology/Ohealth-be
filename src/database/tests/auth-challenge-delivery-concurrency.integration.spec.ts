@@ -138,14 +138,21 @@ integration('Delivery leases across independent PostgreSQL connections', () => {
     } finally {
       unlock();
     }
-    expect(await first).toMatchObject({ accepted: 1 });
+    const dispatched = await first;
     expect(mail).toHaveBeenCalledTimes(1);
-    const rows: Array<{ status: string; ciphertext: string | null }> =
-      await db.query(
-        'SELECT status, ciphertext FROM auth_challenge_deliveries WHERE challenge_id = $1',
-        [challengeId],
-      );
-    expect(rows).toEqual([{ status: 'accepted', ciphertext: null }]);
+    const rows: Array<{
+      status: string;
+      attempts: number;
+      envelope_cleared: boolean;
+    }> = await db.query(
+      'SELECT status, attempts, ciphertext IS NULL AS envelope_cleared ' +
+        'FROM auth_challenge_deliveries WHERE challenge_id = $1',
+      [challengeId],
+    );
+    expect({ dispatched, row: rows[0] }).toMatchObject({
+      dispatched: { accepted: 1 },
+      row: { status: 'accepted', envelope_cleared: true },
+    });
   }, 15_000);
 
   it('reclaims expired leases and prevents stale tokens from persisting', async () => {
@@ -157,7 +164,7 @@ integration('Delivery leases across independent PostgreSQL connections', () => {
         'WHERE challenge_id = $1',
       [id, oldToken],
     );
-    expect(await delivery.dispatchBatch(1)).toMatchObject({ accepted: 1 });
+    const dispatched = await delivery.dispatchBatch(1);
     const rows: Array<{
       status: string;
       attempts: number;
@@ -166,8 +173,9 @@ integration('Delivery leases across independent PostgreSQL connections', () => {
       'SELECT status, attempts, lease_token FROM auth_challenge_deliveries WHERE challenge_id = $1',
       [id],
     );
-    expect(rows).toEqual([
-      { status: 'accepted', attempts: 2, lease_token: null },
-    ]);
+    expect({ dispatched, row: rows[0] }).toMatchObject({
+      dispatched: { accepted: 1 },
+      row: { status: 'accepted', attempts: 2, lease_token: null },
+    });
   });
 });
