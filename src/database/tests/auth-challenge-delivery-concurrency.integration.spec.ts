@@ -115,11 +115,12 @@ integration('Delivery leases across independent PostgreSQL connections', () => {
     });
     const first = delivery.dispatchBatch(1);
     await entered;
+    let timeout: NodeJS.Timeout | undefined;
     try {
       const second = Promise.race([
         delivery.dispatchBatch(1),
         new Promise<never>((_resolve, reject) => {
-          setTimeout(
+          timeout = setTimeout(
             () => reject(new Error('DB pool held during provider I/O')),
             1500,
           );
@@ -136,7 +137,9 @@ integration('Delivery leases across independent PostgreSQL connections', () => {
       );
       expect(rows[0].status).toBe('processing');
     } finally {
+      if (timeout) clearTimeout(timeout);
       unlock();
+      await first;
     }
     const dispatched = await first;
     expect(mail).toHaveBeenCalledTimes(1);
