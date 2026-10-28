@@ -4,7 +4,7 @@ on:
   push:
     branches: [dev, staging, main]
   pull_request:
-    branches: [dev, staging, main]
+    branches: [dev, staging, main, feat/75-challenge-delivery-foundation]
     types: [opened, synchronize, reopened, edited, labeled, unlabeled]
   pull_request_review:
     types: [submitted, dismissed]
@@ -23,7 +23,8 @@ jobs:
       github.event_name != 'pull_request_review' ||
       github.event.pull_request.base.ref == 'dev' ||
       github.event.pull_request.base.ref == 'staging' ||
-      github.event.pull_request.base.ref == 'main'
+      github.event.pull_request.base.ref == 'main' ||
+      github.event.pull_request.base.ref == 'feat/75-challenge-delivery-foundation'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -124,6 +125,11 @@ jobs:
 
       - name: Run non-mutating ESLint
         run: npx eslint "{src,apps,libs,test}/**/*.ts"
+
+      - name: Verify maintenance worker TypeScript and ESLint
+        run: |
+          npx tsc --noEmit -p tsconfig.worker.json
+          npx eslint scripts/maintenance/dispatch-auth-challenge-deliveries.ts
 
       - name: Run Tests
         run: npm test
