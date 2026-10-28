@@ -52,6 +52,11 @@ export class AuthChallengeDeliveryService {
     private readonly email: EmailService,
   ) {}
 
+  /** Validate the AES-GCM secret before any public or worker action. */
+  assertConfigured(): void {
+    this.getEncryptionKey();
+  }
+
   /** Live producers are disabled if no healthy dispatcher has checked in. */
   async assertWorkerReady(manager?: EntityManager): Promise<void> {
     const query = manager ?? this.dataSource;
