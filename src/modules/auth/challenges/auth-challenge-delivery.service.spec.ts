@@ -114,7 +114,6 @@ describe('leased and encrypted authentication delivery', () => {
     expect(issueInTransaction).not.toHaveBeenCalled();
   });
 
-
   it('refuses live challenge issuance without a healthy dispatcher', async () => {
     config.get.mockImplementation((name: string) => {
       if (name === 'AUTH_CHALLENGE_DELIVERY_KEY') return key;
