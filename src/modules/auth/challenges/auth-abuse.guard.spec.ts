@@ -111,18 +111,16 @@ describe('AuthAbuseGuard', () => {
       { consume } as unknown as AuthRateLimitService,
       { get: () => '2001:db8:1::/48' } as unknown as ConfigService,
     );
-    await ipv6.canActivate(
-      ({
-        switchToHttp: () => ({
-          getRequest: () => ({
-            route: { path: '/login' },
-            body: {},
-            socket: { remoteAddress: '2001:db8:1::100' },
-            headers: { 'x-forwarded-for': '2001:db8:2::1' },
-          }),
+    await ipv6.canActivate({
+      switchToHttp: () => ({
+        getRequest: () => ({
+          route: { path: '/login' },
+          body: {},
+          socket: { remoteAddress: '2001:db8:1::100' },
+          headers: { 'x-forwarded-for': '2001:db8:2::1' },
         }),
-      }) as unknown as ExecutionContext,
-    );
+      }),
+    } as unknown as ExecutionContext);
     expect(consume).toHaveBeenCalledWith(
       '/auth/login',
       'ip:2001:db8:2::1',
@@ -137,5 +135,4 @@ describe('AuthAbuseGuard', () => {
         ),
     ).toThrow('AUTH_TRUSTED_PROXY_CIDRS');
   });
-
 });
