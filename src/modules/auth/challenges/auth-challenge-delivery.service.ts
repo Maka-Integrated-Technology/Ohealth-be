@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, randomBytes, randomUUID } from 'node:crypto';
 
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -13,6 +13,8 @@ import { AuthChallengeService } from './auth-challenge.service';
 
 const MAX_BATCH_SIZE = 10;
 const MAX_ATTEMPTS = 5;
+const LEASE_SECONDS = 90;
+const SEND_TIMEOUT_MS = 30_000;
 const COOLDOWN_SECONDS = 60;
 
 interface IPendingDelivery {
@@ -92,9 +94,12 @@ export class AuthChallengeDeliveryService {
   }
 
   /**
-   * Operator/worker entry point. A short, bounded batch only; no HTTP route or
-   * automatic scheduler is enabled. SKIP LOCKED coordinates worker instances.
-   * A provider "accepted" result is written only after sendMail resolves.
+   * Claim-and-lease is committed BEFORE provider I/O, which must never
+   * occupy a PostgreSQL connection or lock. Each attempt has a fencing token
+   * and leases can be reclaimed after a worker crash.
+   *
+   * Provider acceptance is at-least-once, not exactly-once. A timeout can
+   * race with provider delivery; never report an unpersisted acceptance.
    */
   async dispatchBatch(
     batchSize = 5,
@@ -109,40 +114,24 @@ export class AuthChallengeDeliveryService {
     const key = this.getEncryptionKey();
     const counts = { accepted: 0, retried: 0, discarded: 0 };
     for (let index = 0; index < batchSize; index++) {
-      const outcome = await this.dataSource.transaction(async (manager) => {
-        const rows: IPendingDelivery[] = await manager.query(
-          'SELECT d.challenge_id, d.iv, d.ciphertext, d.tag, d.attempts, ' +
-            'c.purpose, c.expires_at, c.consumed_at, u.email, u.first_name ' +
-            'FROM auth_challenge_deliveries d ' +
-            'JOIN auth_challenges c ON c.id = d.challenge_id ' +
-            'JOIN users u ON u.id = c.subject_user_id ' +
-            'WHERE d.status = $1 AND d.available_at <= now() ' +
-            'ORDER BY d.available_at, d.created_at LIMIT 1 ' +
-            'FOR UPDATE OF d SKIP LOCKED',
-          ['pending'],
-        );
-        const delivery = rows[0];
-        if (!delivery) return null;
-        if (
-          delivery.consumed_at ||
-          new Date(delivery.expires_at) <= new Date()
-        ) {
-          await this.purge(manager, delivery.challenge_id, 'discarded');
-          return 'discarded';
-        }
-
+      const claim = await this.claim();
+      if (!claim) break;
+      let outcome: 'accepted' | 'retried' | 'discarded';
+      if (claim.consumed_at || new Date(claim.expires_at) <= new Date()) {
+        outcome = 'discarded';
+      } else {
         try {
           const decipher = createDecipheriv(
             'aes-256-gcm',
             key,
-            Buffer.from(delivery.iv, 'hex'),
+            Buffer.from(claim.iv, 'hex'),
           );
           decipher.setAAD(
-            this.additionalData(delivery.challenge_id, delivery.purpose),
+            this.additionalData(claim.challenge_id, claim.purpose),
           );
-          decipher.setAuthTag(Buffer.from(delivery.tag, 'hex'));
+          decipher.setAuthTag(Buffer.from(claim.tag, 'hex'));
           const code = Buffer.concat([
-            decipher.update(Buffer.from(delivery.ciphertext, 'hex')),
+            decipher.update(Buffer.from(claim.ciphertext, 'hex')),
             decipher.final(),
           ]).toString('utf8');
           if (!/^\d{6}$/.test(code)) {
@@ -153,11 +142,13 @@ export class AuthChallengeDeliveryService {
           const fromName = this.config.get<string>('mail.from.name');
           const appName = this.config.get<string>('app.name') || 'OHealth';
           const recovery =
-            delivery.purpose === AuthChallengePurpose.PASSWORD_RECOVERY;
+            claim.purpose === AuthChallengePurpose.PASSWORD_RECOVERY;
           const frontEndUrl = this.config.get<string>('frontend.url');
-          await this.email.sendMail({
+
+          // No active DB transaction while waiting on SMTP/Resend.
+          await this.sendWithTimeout({
             from: { email: fromAddress, name: fromName },
-            to: [{ email: delivery.email, name: delivery.first_name }],
+            to: [{ email: claim.email, name: claim.first_name }],
             subject: recovery
               ? 'Reset your ' + appName + ' password'
               : 'Verify your ' + appName + ' account',
@@ -166,66 +157,119 @@ export class AuthChallengeDeliveryService {
               : EmailTemplateID.VERIFICATION_CODE,
             templateData: recovery
               ? {
-                  name: delivery.first_name,
+                  name: claim.first_name,
                   app_name: appName,
                   otp: code,
                   otp_digits: code.split(''),
+                  challenge_id: claim.challenge_id,
                   reset_url: frontEndUrl
                     ? frontEndUrl +
                       '/reset-password?challenge_id=' +
-                      encodeURIComponent(delivery.challenge_id) +
-                      '&code=' +
-                      encodeURIComponent(code)
+                      encodeURIComponent(claim.challenge_id)
                     : undefined,
                   expiry_minutes: 10,
                 }
               : {
-                  name: delivery.first_name,
+                  name: claim.first_name,
                   app_name: appName,
                   code,
+                  challenge_id: claim.challenge_id,
+                  verification_url: frontEndUrl
+                    ? frontEndUrl +
+                      '/verify-email?challenge_id=' +
+                      encodeURIComponent(claim.challenge_id)
+                    : undefined,
                   expiry_minutes: 10,
                 },
           });
-          await this.purge(manager, delivery.challenge_id, 'accepted');
-          return 'accepted';
+          outcome = 'accepted';
         } catch {
-          // A wrong encryption key, corrupted envelope, missing mail config or
-          // provider outage must not reveal secrets in logs or a fake success.
-          const retryAllowed = Number(delivery.attempts) + 1 < MAX_ATTEMPTS;
-          await manager.query(
-            'UPDATE auth_challenge_deliveries SET ' +
-              'attempts = attempts + 1, ' +
-              "status = CASE WHEN $2 THEN 'pending' ELSE 'discarded' END, " +
-              "available_at = now() + interval '120 seconds', " +
-              'iv = CASE WHEN $2 THEN iv ELSE NULL END, ' +
-              'ciphertext = CASE WHEN $2 THEN ciphertext ELSE NULL END, ' +
-              'tag = CASE WHEN $2 THEN tag ELSE NULL END ' +
-              'WHERE challenge_id = $1',
-            [delivery.challenge_id, retryAllowed],
-          );
-          return retryAllowed ? 'retried' : 'discarded';
+          // Redact recipient, code, transport and provider error details.
+          outcome =
+            Number(claim.attempts) < MAX_ATTEMPTS ? 'retried' : 'discarded';
         }
-      });
-      if (!outcome) break;
-      if (outcome === 'accepted') counts.accepted++;
-      if (outcome === 'retried') counts.retried++;
-      if (outcome === 'discarded') counts.discarded++;
+      }
+      // A stale worker cannot finalize a lease reclaimed by another worker.
+      if (await this.finalize(claim.challenge_id, claim.lease_token, outcome)) {
+        counts[outcome]++;
+      }
     }
     return counts;
   }
 
-  private async purge(
-    manager: EntityManager,
+  private async claim(): Promise<(IPendingDelivery & { lease_token: string }) | null> {
+    return this.dataSource.transaction(async (manager) => {
+      const rows: IPendingDelivery[] = await manager.query(
+        'SELECT d.challenge_id, d.iv, d.ciphertext, d.tag, d.attempts, ' +
+          'c.purpose, c.expires_at, c.consumed_at, u.email, u.first_name ' +
+          'FROM auth_challenge_deliveries d ' +
+          'JOIN auth_challenges c ON c.id = d.challenge_id ' +
+          'JOIN users u ON u.id = c.subject_user_id ' +
+          'WHERE (d.status = $1 AND d.available_at <= now()) ' +
+          'OR (d.status = $2 AND d.lease_expires_at <= now()) ' +
+          'ORDER BY d.available_at, d.created_at LIMIT 1 ' +
+          'FOR UPDATE OF d SKIP LOCKED',
+        ['pending', 'processing'],
+      );
+      const delivery = rows[0];
+      if (!delivery) return null;
+      const leaseToken = randomUUID();
+      await manager.query(
+        'UPDATE auth_challenge_deliveries ' +
+          "SET status = 'processing', lease_token = $2, " +
+          "lease_expires_at = now() + ($3::integer * interval '1 second'), " +
+          'attempts = attempts + 1 WHERE challenge_id = $1',
+        [delivery.challenge_id, leaseToken, LEASE_SECONDS],
+      );
+      return {
+        ...delivery,
+        attempts: Number(delivery.attempts) + 1,
+        lease_token: leaseToken,
+      };
+    });
+  }
+
+  private async finalize(
     challengeId: string,
-    status: 'accepted' | 'discarded',
+    leaseToken: string,
+    outcome: 'accepted' | 'retried' | 'discarded',
+  ): Promise<boolean> {
+    return this.dataSource.transaction(async (manager) => {
+      const rows: Array<{ challenge_id: string }> = await manager.query(
+        'UPDATE auth_challenge_deliveries SET ' +
+          "status = CASE WHEN $3 = 'retried' THEN 'pending' ELSE $3 END, " +
+          'lease_token = NULL, lease_expires_at = NULL, ' +
+          "available_at = CASE WHEN $3 = 'retried' " +
+          "THEN now() + interval '120 seconds' ELSE available_at END, " +
+          "iv = CASE WHEN $3 = 'retried' THEN iv ELSE NULL END, " +
+          "ciphertext = CASE WHEN $3 = 'retried' THEN ciphertext ELSE NULL END, " +
+          "tag = CASE WHEN $3 = 'retried' THEN tag ELSE NULL END, " +
+          "accepted_at = CASE WHEN $3 = 'accepted' THEN now() ELSE NULL END " +
+          "WHERE challenge_id = $1 AND lease_token = $2 AND status = 'processing' " +
+          'RETURNING challenge_id',
+        [challengeId, leaseToken, outcome],
+      );
+      return rows.length === 1;
+    });
+  }
+
+  private async sendWithTimeout(
+    options: Parameters<EmailService['sendMail']>[0],
   ): Promise<void> {
-    await manager.query(
-      'UPDATE auth_challenge_deliveries SET status = $2, ' +
-        'iv = NULL, ciphertext = NULL, tag = NULL, ' +
-        "accepted_at = CASE WHEN $2 = 'accepted' THEN now() ELSE NULL END " +
-        'WHERE challenge_id = $1',
-      [challengeId, status],
-    );
+    let timeout: NodeJS.Timeout | undefined;
+    try {
+      await Promise.race([
+        this.email.sendMail(options),
+        new Promise<never>((_resolve, reject) => {
+          timeout = setTimeout(
+            () => reject(new Error('Challenge delivery timeout.')),
+            SEND_TIMEOUT_MS,
+          );
+        }),
+      ]);
+    } finally {
+      if (timeout) clearTimeout(timeout);
+    }
   }
 
   private additionalData(id: string, purpose: AuthChallengePurpose): Buffer {
