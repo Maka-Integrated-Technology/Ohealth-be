@@ -1,4 +1,5 @@
 import { writeFile } from 'node:fs/promises';
+import { env } from 'node:process';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 import { ConfigService } from '@nestjs/config';
@@ -124,7 +125,7 @@ async function main(): Promise<void> {
       if (options.continuous) {
         if (oldestSeconds < 120 && expiredLeases === 0) {
           await writeFile(
-            process.env.AUTH_CHALLENGE_WORKER_HEALTH_FILE ??
+            env.AUTH_CHALLENGE_WORKER_HEALTH_FILE ??
               '/tmp/ohealth-challenge-worker-heartbeat',
             new Date().toISOString(),
             'utf8',
