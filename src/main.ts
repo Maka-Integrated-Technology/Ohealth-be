@@ -23,6 +23,7 @@ async function bootstrap() {
   app.get(AuthChallengeService).assertConfigured();
   if (configService.get<string>('AUTH_CHALLENGE_FLOWS_ENABLED') === 'true') {
     app.get(AuthChallengeDeliveryService).assertConfigured();
+    await app.get(AuthChallengeDeliveryService).assertWorkerReady();
   }
 
   const corsOrigins = configService.get<string[]>('cors.origins', []);
