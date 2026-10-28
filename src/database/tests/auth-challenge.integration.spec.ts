@@ -13,6 +13,7 @@ import { User } from '../../modules/user/entities/user.entity';
 import { AuthChallengeFoundation1793000000000 } from '../migrations/1793000000000-AuthChallengeFoundation';
 import { DurableAuthChallengeDelivery1793005000000 } from '../migrations/1793005000000-DurableAuthChallengeDelivery';
 import { LeasedAuthChallengeDelivery1793006000000 } from '../migrations/1793006000000-LeasedAuthChallengeDelivery';
+import { AuthChallengeWorkerHeartbeat1793007000000 } from '../migrations/1793007000000-AuthChallengeWorkerHeartbeat';
 
 const integration = env.PG_INTEGRATION_URL ? describe : describe.skip;
 const PEPPER = 'auth-challenge-test-key-please-do-not-use-in-production';
@@ -51,6 +52,7 @@ integration('Purpose-bound auth challenges on PostgreSQL', () => {
     await new AuthChallengeFoundation1793000000000().up(runner);
     await new DurableAuthChallengeDelivery1793005000000().up(runner);
     await new LeasedAuthChallengeDelivery1793006000000().up(runner);
+    await new AuthChallengeWorkerHeartbeat1793007000000().up(runner);
   });
 
   afterEach(async () => {
