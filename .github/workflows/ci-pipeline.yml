@@ -4,7 +4,7 @@ on:
   push:
     branches: [dev, staging, main]
   pull_request:
-    branches: [dev, staging, main]
+    branches: [dev, staging, main, feat/75-challenge-delivery-foundation]
     types: [opened, synchronize, reopened, edited, labeled, unlabeled]
   pull_request_review:
     types: [submitted, dismissed]
@@ -23,7 +23,8 @@ jobs:
       github.event_name != 'pull_request_review' ||
       github.event.pull_request.base.ref == 'dev' ||
       github.event.pull_request.base.ref == 'staging' ||
-      github.event.pull_request.base.ref == 'main'
+      github.event.pull_request.base.ref == 'main' ||
+      github.event.pull_request.base.ref == 'feat/75-challenge-delivery-foundation'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -100,11 +101,35 @@ jobs:
             contracts/openapi.json \
             "${CONTRACT_REPORT}"
 
+      - name: Verify operator delivery command input and formatting
+        run: |
+          npx prettier --check scripts/maintenance/dispatch-auth-challenge-deliveries.ts
+          check_invalid_usage() {
+            set +e
+            result=$(npm run auth-challenge-delivery:dispatch -- "$@" 2>&1)
+            status=$?
+            set -e
+            if [ "$status" -eq 0 ] || ! printf '%s\n' "$result" | grep -qx 'Invalid challenge delivery dispatch arguments.'; then
+              printf 'Delivery dispatch did not reject invalid arguments before database access.\n' >&2
+              exit 1
+            fi
+          }
+          check_invalid_usage --batch-size=0
+          check_invalid_usage --batch-size=11
+          check_invalid_usage --batch-size=NaN
+          check_invalid_usage --unknown
+          check_invalid_usage --batch-size=1 --batch-size=2
+
       - name: Verify formatting
         run: npm run format:check
 
       - name: Run non-mutating ESLint
         run: npx eslint "{src,apps,libs,test}/**/*.ts"
+
+      - name: Verify maintenance worker TypeScript and ESLint
+        run: |
+          npx tsc --noEmit -p tsconfig.worker.json
+          npx eslint scripts/maintenance/dispatch-auth-challenge-deliveries.ts
 
       - name: Run Tests
         run: npm test
@@ -118,6 +143,11 @@ jobs:
       - name: Run Build
         run: npm run build
 
+      - name: Verify deployed worker image and email rendering
+        run: |
+          docker build -f deploy/auth-challenge-worker/Dockerfile -t ohealth-auth-worker:ci .
+          docker run --rm --entrypoint node ohealth-auth-worker:ci scripts/maintenance/check-worker-templates.cjs
+
       - name: Verify account lifecycle migration on real PostgreSQL
         env:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
@@ -127,6 +157,16 @@ jobs:
         env:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
         run: npx jest --runInBand src/database/tests/auth-security-audit.integration.spec.ts
+
+      - name: Verify auth challenge foundation on PostgreSQL
+        env:
+          PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
+        run: npx jest --runInBand src/database/tests/auth-challenge.integration.spec.ts
+
+      - name: Verify delivery lease safety across independent PostgreSQL connections
+        env:
+          PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
+        run: npx jest --runInBand src/database/tests/auth-challenge-delivery-concurrency.integration.spec.ts
 
       - name: Enforce breaking-change approval
         if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review'

@@ -16,6 +16,7 @@ import { Public } from '../../common/decorators/public.decorator';
 import { IAuthUser, IRequestWithUser } from '../../common/types';
 
 import { AuthService } from './auth.service';
+import { AuthAbuseGuard } from './challenges/auth-abuse.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import {
   ForgotPasswordDocs,
@@ -63,6 +64,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @LoginDocs()
+  @UseGuards(AuthAbuseGuard)
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
   }
@@ -86,6 +88,7 @@ export class AuthController {
   @ForgotPasswordDocs()
   @Public()
   @Post('forgot-password')
+  @UseGuards(AuthAbuseGuard)
   forgotPassword(@Body() payload: ForgotPasswordDto) {
     return this.authService.forgotPassword(payload);
   }
@@ -93,6 +96,7 @@ export class AuthController {
   @ResetPasswordDocs()
   @Public()
   @Post('reset-password')
+  @UseGuards(AuthAbuseGuard)
   resetPassword(@Body() payload: ResetPasswordDto) {
     return this.authService.resetPassword(payload);
   }
@@ -101,6 +105,7 @@ export class AuthController {
   @Public()
   @Post('verify')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthAbuseGuard)
   verifySignup(@Body() payload: VerifySignupDto) {
     return this.authService.verifySignup(payload);
   }
@@ -109,6 +114,7 @@ export class AuthController {
   @Public()
   @Post('verify/resend')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthAbuseGuard)
   resendVerification(@Body() payload: ResendVerificationDto) {
     return this.authService.resendVerification(payload);
   }

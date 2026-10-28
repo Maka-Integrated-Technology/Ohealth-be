@@ -7,6 +7,8 @@ import { UserRole } from '../user/enums/user-role.enum';
 
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { AuthAbuseGuard } from './challenges/auth-abuse.guard';
+import { AuthRateLimitService } from './challenges/auth-rate-limit.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -32,6 +34,20 @@ describe('AuthController', () => {
         {
           provide: AuthService,
           useValue: mockAuthService,
+        },
+        {
+          provide: AuthAbuseGuard,
+          useValue: { canActivate: jest.fn().mockResolvedValue(true) },
+        },
+        {
+          provide: AuthRateLimitService,
+          useValue: {
+            consume: jest.fn().mockResolvedValue({
+              allowed: true,
+              hits: 1,
+              retryAfterSeconds: 0,
+            }),
+          },
         },
       ],
     }).compile();

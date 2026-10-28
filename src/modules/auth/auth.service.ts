@@ -263,18 +263,7 @@ export class AuthService {
     const password = await this.passwordCredentials.hashNewPassword(
       payload.newPassword,
     );
-    const user = await this.userService.consumePasswordResetToken(
-      payload.token,
-      password,
-    );
-
-    await this.sessionRepository
-      .createQueryBuilder()
-      .update(AuthSession)
-      .set({ revoked_at: new Date() })
-      .where('user_id = :userId', { userId: user.id })
-      .andWhere('revoked_at IS NULL')
-      .execute();
+    await this.userService.consumePasswordResetToken(payload.token, password);
 
     return {
       message: sysMsg.PASSWORD_RESET_SUCCESS,

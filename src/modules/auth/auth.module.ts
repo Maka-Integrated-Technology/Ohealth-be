@@ -14,6 +14,8 @@ import { UserModule } from '../user/user.module';
 import { AuthRoutingService } from './auth-routing.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { AuthAbuseGuard } from './challenges/auth-abuse.guard';
+import { AuthChallengeModule } from './challenges/auth-challenge.module';
 import { AuthSession } from './entities/auth.entity';
 import { User2fa } from './entities/user-2fa.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -26,6 +28,7 @@ import { TwoFactorAuthService } from './two-factor-auth.service';
 
 @Module({
   imports: [
+    AuthChallengeModule,
     AuthSecurityAuditModule,
     ConfigModule,
     EmailModule,
@@ -51,12 +54,19 @@ import { TwoFactorAuthService } from './two-factor-auth.service';
   providers: [
     AuthService,
     AuthRoutingService,
+    AuthAbuseGuard,
     PasswordCredentialsService,
     JwtStrategy,
     JwtAuthGuard,
     RolesGuard,
     TwoFactorAuthService,
   ],
-  exports: [AuthService, PasswordCredentialsService, JwtAuthGuard, RolesGuard],
+  exports: [
+    AuthChallengeModule,
+    AuthService,
+    PasswordCredentialsService,
+    JwtAuthGuard,
+    RolesGuard,
+  ],
 })
 export class AuthModule {}

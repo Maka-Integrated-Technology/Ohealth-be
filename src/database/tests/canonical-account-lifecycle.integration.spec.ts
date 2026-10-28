@@ -272,6 +272,102 @@ integration('Canonical account lifecycle on real PostgreSQL', () => {
     }
   });
 
+  it('commits password reset and session revocation together; replay fails', async () => {
+    const userId = randomUUID();
+    const sessionId = randomUUID();
+    await runner.query(
+      `INSERT INTO users (id, email, account_status, is_active, is_verified,
+        email_verified_at, reset_token, reset_token_expiry)
+       VALUES ($1, 'reset@example.test', 'active', true, true,
+         now(), 'one-time-code', now() + interval '10 minutes')`,
+      [userId],
+    );
+    await runner.query(
+      `CREATE TABLE auth_sessions (
+        id uuid PRIMARY KEY,
+        user_id uuid NOT NULL,
+        revoked_at timestamptz,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )`,
+    );
+    await runner.query(
+      'INSERT INTO auth_sessions (id, user_id) VALUES ($1, $2)',
+      [sessionId, userId],
+    );
+    await new CanonicalAccountLifecycle1792750000000().up(runner);
+    await runner.commitTransaction();
+
+    const client = await createServiceRunner();
+    try {
+      await client.service.consumePasswordResetToken(
+        'one-time-code',
+        'new-password-hash',
+      );
+      const users: Array<{ password: string; reset_token: string | null }> =
+        await runner.query(
+          'SELECT password, reset_token FROM users WHERE id = $1',
+          [userId],
+        );
+      const sessions: Array<{ revoked_at: Date | null }> = await runner.query(
+        'SELECT revoked_at FROM auth_sessions WHERE id = $1',
+        [sessionId],
+      );
+      expect(users[0]).toEqual({
+        password: 'new-password-hash',
+        reset_token: null,
+      });
+      expect(sessions[0].revoked_at).toBeInstanceOf(Date);
+      await expect(
+        client.service.consumePasswordResetToken(
+          'one-time-code',
+          'replayed-hash',
+        ),
+      ).rejects.toThrow();
+      const [{ password }] = await runner.query(
+        'SELECT password FROM users WHERE id = $1',
+        [userId],
+      );
+      expect(password).toBe('new-password-hash');
+    } finally {
+      await client.runner.release();
+    }
+  });
+
+  it('rolls back password replacement when session revocation fails', async () => {
+    const userId = randomUUID();
+    await runner.query(
+      `INSERT INTO users (id, email, account_status, is_active, is_verified,
+        email_verified_at, reset_token, reset_token_expiry)
+       VALUES ($1, 'rollback@example.test', 'active', true, true,
+         now(), 'rollback-code', now() + interval '10 minutes')`,
+      [userId],
+    );
+    await new CanonicalAccountLifecycle1792750000000().up(runner);
+    await runner.commitTransaction();
+
+    const client = await createServiceRunner();
+    try {
+      // Missing auth_sessions simulates a failed security revocation write.
+      await expect(
+        client.service.consumePasswordResetToken(
+          'rollback-code',
+          'unsafe-new-password',
+        ),
+      ).rejects.toThrow();
+      const users: Array<{ password: string; reset_token: string }> =
+        await runner.query(
+          'SELECT password, reset_token FROM users WHERE id = $1',
+          [userId],
+        );
+      expect(users[0]).toEqual({
+        password: 'password-hash',
+        reset_token: 'rollback-code',
+      });
+    } finally {
+      await client.runner.release();
+    }
+  });
+
   async function createServiceRunner(): Promise<{
     runner: QueryRunner;
     service: UserService;
