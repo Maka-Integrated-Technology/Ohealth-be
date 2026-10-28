@@ -158,6 +158,11 @@ jobs:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
         run: npx jest --runInBand src/database/tests/auth-challenge.integration.spec.ts
 
+      - name: Verify delivery lease safety across independent PostgreSQL connections
+        env:
+          PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
+        run: npx jest --runInBand src/database/tests/auth-challenge-delivery-concurrency.integration.spec.ts
+
       - name: Enforce breaking-change approval
         if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review'
         env:
