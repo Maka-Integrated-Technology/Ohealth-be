@@ -60,7 +60,10 @@ describe('Retired account activation (isolated e2e)', () => {
         { provide: AuthService, useValue: {} },
         {
           provide: ConfigService,
-          useValue: { get: () => secret },
+          useValue: {
+            get: (key: string) =>
+              key === 'AUTH_TRUSTED_PROXY_CIDRS' ? '' : secret,
+          },
         },
         { provide: UserService, useValue: { findById, save } },
       ],
