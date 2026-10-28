@@ -101,14 +101,6 @@ jobs:
             contracts/openapi.json \
             "${CONTRACT_REPORT}"
 
-      - name: Inspect formatting differences (temporary, read-only)
-        shell: bash
-        run: |
-          for path in scripts/maintenance/dispatch-auth-challenge-deliveries.ts src/modules/auth/challenges/auth-challenge-delivery.service.ts src/modules/auth/challenges/auth-challenge-delivery.service.spec.ts src/modules/auth/challenges/auth-abuse.guard.ts src/modules/auth/challenges/auth-abuse.guard.spec.ts src/database/tests/auth-challenge-delivery-concurrency.integration.spec.ts src/database/migrations/1793006000000-LeasedAuthChallengeDelivery.ts; do
-            echo "=== $path ==="
-            npx prettier "$path" | diff -u "$path" - || true
-          done
-
       - name: Verify operator delivery command input and formatting
         run: |
           npx prettier --check scripts/maintenance/dispatch-auth-challenge-deliveries.ts
