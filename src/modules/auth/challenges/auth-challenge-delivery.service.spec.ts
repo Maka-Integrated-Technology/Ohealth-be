@@ -114,6 +114,27 @@ describe('leased and encrypted authentication delivery', () => {
     expect(issueInTransaction).not.toHaveBeenCalled();
   });
 
+
+  it('refuses live challenge issuance without a healthy dispatcher', async () => {
+    config.get.mockImplementation((name: string) => {
+      if (name === 'AUTH_CHALLENGE_DELIVERY_KEY') return key;
+      if (name === 'AUTH_CHALLENGE_FLOWS_ENABLED') return 'true';
+      return undefined;
+    });
+    manager.query.mockResolvedValue([]);
+    await expect(
+      service.queueInTransaction(
+        manager as unknown as EntityManager,
+        user,
+        AuthChallengePurpose.CONTACT_VERIFICATION,
+      ),
+    ).rejects.toThrow('worker is not healthy');
+    expect(issueInTransaction).not.toHaveBeenCalled();
+    expect(manager.query).toHaveBeenCalledWith(
+      expect.stringContaining('auth_challenge_worker_heartbeat'),
+    );
+  });
+
   it('requires a caller-owned transaction and only stores ciphertext', async () => {
     manager.queryRunner.isTransactionActive = false;
     await expect(
