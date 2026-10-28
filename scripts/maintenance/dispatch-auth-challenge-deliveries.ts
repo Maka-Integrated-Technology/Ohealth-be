@@ -25,7 +25,8 @@ function parseArgs(args: string[]): IOptions {
       params.set(arg, 'true');
     } else {
       const match = /^(--batch-size|--interval-seconds)=([0-9]+)$/.exec(arg);
-      if (!match || params.has(match[1])) throw new ChallengeDispatchUsageError();
+      if (!match || params.has(match[1]))
+        throw new ChallengeDispatchUsageError();
       params.set(match[1], match[2]);
     }
   }
