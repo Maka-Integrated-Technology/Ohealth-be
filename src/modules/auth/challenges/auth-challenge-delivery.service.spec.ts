@@ -114,6 +114,28 @@ describe('leased and encrypted authentication delivery', () => {
     expect(issueInTransaction).not.toHaveBeenCalled();
   });
 
+  it('rejects the disabled feature flag before looking up worker health', async () => {
+    await expect(
+      service.assertLiveFlowReady(manager as unknown as EntityManager),
+    ).rejects.toThrow('live flows are disabled');
+    expect(manager.query).not.toHaveBeenCalled();
+  });
+
+  it('accepts a healthy enabled worker before account eligibility checks', async () => {
+    config.get.mockImplementation((name: string) => {
+      if (name === 'AUTH_CHALLENGE_DELIVERY_KEY') return key;
+      if (name === 'AUTH_CHALLENGE_FLOWS_ENABLED') return 'true';
+      return undefined;
+    });
+    manager.query.mockResolvedValue([{ id: 'delivery' }]);
+    await expect(
+      service.assertLiveFlowReady(manager as unknown as EntityManager),
+    ).resolves.toBeUndefined();
+    expect(manager.query).toHaveBeenCalledWith(
+      expect.stringContaining('auth_challenge_worker_heartbeat'),
+    );
+  });
+
   it('refuses live challenge issuance without a healthy dispatcher', async () => {
     config.get.mockImplementation((name: string) => {
       if (name === 'AUTH_CHALLENGE_DELIVERY_KEY') return key;
