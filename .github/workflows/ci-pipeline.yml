@@ -143,6 +143,11 @@ jobs:
       - name: Run Build
         run: npm run build
 
+      - name: Verify deployed worker image and email rendering
+        run: |
+          docker build -f deploy/auth-challenge-worker/Dockerfile -t ohealth-auth-worker:ci .
+          docker run --rm --entrypoint node ohealth-auth-worker:ci scripts/maintenance/check-worker-templates.cjs
+
       - name: Verify account lifecycle migration on real PostgreSQL
         env:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
