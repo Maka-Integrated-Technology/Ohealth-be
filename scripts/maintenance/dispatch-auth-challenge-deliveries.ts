@@ -39,7 +39,7 @@ function parseArgs(args: string[]): IOptions {
     batchSize > 10 ||
     !Number.isInteger(intervalSeconds) ||
     intervalSeconds < 1 ||
-    intervalSeconds > 60 ||
+    intervalSeconds > 15 ||
     (params.has('--interval-seconds') && !continuous)
   ) {
     throw new ChallengeDispatchUsageError();
@@ -105,15 +105,31 @@ async function main(): Promise<void> {
       if (oldestSeconds >= 120 || expiredLeases > 0) {
         process.stderr.write('Challenge delivery backlog needs attention.\n');
       }
+      // A committed, aggregate-only heartbeat lets live API producers fail
+      // closed when the dispatcher stops or the queue becomes dangerously old.
+      if (options.continuous) {
+        await dataSource.query(
+          'INSERT INTO auth_challenge_worker_heartbeat ' +
+            '(id, last_seen_at, pending, oldest_pending_seconds, expired_leases) ' +
+            "VALUES ('delivery', now(), $1, $2, $3) " +
+            'ON CONFLICT (id) DO UPDATE SET last_seen_at = now(), ' +
+            'pending = EXCLUDED.pending, ' +
+            'oldest_pending_seconds = EXCLUDED.oldest_pending_seconds, ' +
+            'expired_leases = EXCLUDED.expired_leases',
+          [pending, oldestSeconds, expiredLeases],
+        );
+      }
       // The health file updates only after a successful DB cycle.
       // Infrastructure checks must alert on a stale heartbeat and queue age.
       if (options.continuous) {
-        await writeFile(
-          process.env.AUTH_CHALLENGE_WORKER_HEALTH_FILE ??
-            '/tmp/ohealth-challenge-worker-heartbeat',
-          new Date().toISOString(),
-          'utf8',
-        );
+        if (oldestSeconds < 120 && expiredLeases === 0) {
+          await writeFile(
+            process.env.AUTH_CHALLENGE_WORKER_HEALTH_FILE ??
+              '/tmp/ohealth-challenge-worker-heartbeat',
+            new Date().toISOString(),
+            'utf8',
+          );
+        }
         if (!stopping) await sleep(options.intervalSeconds * 1000);
       }
     } while (options.continuous && !stopping);
