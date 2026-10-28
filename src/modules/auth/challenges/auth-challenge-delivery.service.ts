@@ -279,8 +279,8 @@ export class AuthChallengeDeliveryService {
     outcome: 'accepted' | 'retried' | 'discarded',
   ): Promise<boolean> {
     return this.dataSource.transaction(async (manager) => {
-      const rows: Array<{ challenge_id: string }> = await manager.query(
-        'UPDATE auth_challenge_deliveries SET ' +
+      const rows: Array<{ updated: number }> = await manager.query(
+        'WITH finalized AS (UPDATE auth_challenge_deliveries SET ' +
           "status = CASE WHEN $3 = 'retried' THEN 'pending' ELSE $3 END, " +
           'lease_token = NULL, lease_expires_at = NULL, ' +
           "available_at = CASE WHEN $3 = 'retried' " +
@@ -290,10 +290,11 @@ export class AuthChallengeDeliveryService {
           "tag = CASE WHEN $3 = 'retried' THEN tag ELSE NULL END, " +
           "accepted_at = CASE WHEN $3 = 'accepted' THEN now() ELSE NULL END " +
           "WHERE challenge_id = $1 AND lease_token = $2 AND status = 'processing' " +
-          'RETURNING challenge_id',
+          'RETURNING challenge_id) ' +
+          'SELECT count(*)::integer AS updated FROM finalized',
         [challengeId, leaseToken, outcome],
       );
-      return rows.length === 1;
+      return rows[0]?.updated === 1;
     });
   }
 
