@@ -57,6 +57,15 @@ export class AuthChallengeDeliveryService {
     this.getEncryptionKey();
   }
 
+  /** A live caller must never issue when disabled, misconfigured or unwatched. */
+  async assertLiveFlowReady(manager?: EntityManager): Promise<void> {
+    if (this.config.get<string>('AUTH_CHALLENGE_FLOWS_ENABLED') !== 'true') {
+      throw new Error('Auth challenge live flows are disabled.');
+    }
+    this.assertConfigured();
+    await this.assertWorkerReady(manager);
+  }
+
   /** Live producers are disabled if no healthy dispatcher has checked in. */
   async assertWorkerReady(manager?: EntityManager): Promise<void> {
     const query = manager ?? this.dataSource;
