@@ -209,6 +209,11 @@ export class AuthChallengeService {
     return challenge.subject_user_id;
   }
 
+  /** Validate the HMAC secret before accepting live authentication traffic. */
+  assertConfigured(): void {
+    this.getPepper();
+  }
+
   private getPepper(): string {
     const value = this.config.get<string>('AUTH_CHALLENGE_PEPPER');
     if (!value || Buffer.byteLength(value, 'utf8') < 32) {
