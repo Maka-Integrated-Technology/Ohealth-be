@@ -106,7 +106,10 @@ describe('AuthController', () => {
   });
 
   it('should verify signup code', async () => {
-    const payload = { email: 'user@example.com', code: '123456' };
+    const payload = {
+      challenge_id: 'f64031c5-70e4-4b37-a92c-f193e59a6621',
+      code: '123456',
+    };
     const expected = { message: sysMsg.ACCOUNT_VERIFIED };
     mockAuthService.verifySignup.mockResolvedValue(expected);
 

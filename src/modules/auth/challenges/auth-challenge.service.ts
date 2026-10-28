@@ -170,6 +170,19 @@ export class AuthChallengeService {
     ) {
       return null;
     }
+    // Keep the same lock order as issuance (subject user -> challenge).
+    // Reading the immutable subject first avoids a resend/consume deadlock;
+    // the challenge itself is still rechecked under FOR UPDATE below.
+    const references: Array<{ subject_user_id: string }> = await manager.query(
+      'SELECT subject_user_id FROM auth_challenges WHERE id = $1',
+      [challengeId],
+    );
+    if (!references.length) return null;
+    const subjects: Array<{ id: string }> = await manager.query(
+      'SELECT id FROM users WHERE id = $1 FOR UPDATE',
+      [references[0].subject_user_id],
+    );
+    if (!subjects.length) return null;
     const rows: IChallengeRow[] = await manager.query(
       'SELECT * FROM auth_challenges WHERE id = $1 FOR UPDATE',
       [challengeId],

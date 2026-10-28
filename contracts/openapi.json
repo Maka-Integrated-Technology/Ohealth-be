@@ -3679,20 +3679,26 @@
       },
       "ResetPasswordDto": {
         "properties": {
+          "challenge_id": {
+            "description": "Purpose-bound recovery challenge ID from the recovery email",
+            "format": "uuid",
+            "type": "string"
+          },
+          "code": {
+            "description": "6-digit recovery code",
+            "example": "123456",
+            "type": "string"
+          },
           "newPassword": {
             "description": "New password: 15+ Unicode characters, max 1024 UTF-8 bytes",
             "example": "a memorable patient passphrase",
             "minLength": 15,
             "type": "string"
-          },
-          "token": {
-            "description": "Password reset token",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-            "type": "string"
           }
         },
         "required": [
-          "token",
+          "challenge_id",
+          "code",
           "newPassword"
         ],
         "type": "object"
@@ -3879,6 +3885,11 @@
             "example": "limited",
             "type": "string"
           },
+          "challenge_id": {
+            "description": "Pending contact verification challenge ID",
+            "format": "uuid",
+            "type": "string"
+          },
           "message": {
             "example": "account created",
             "nullable": true,
@@ -3919,6 +3930,7 @@
           }
         },
         "required": [
+          "challenge_id",
           "user",
           "verification_status",
           "routing_target",
@@ -3936,6 +3948,11 @@
               "limited"
             ],
             "example": "limited",
+            "type": "string"
+          },
+          "challenge_id": {
+            "description": "Pending contact verification challenge ID",
+            "format": "uuid",
             "type": "string"
           },
           "routing_target": {
@@ -3968,6 +3985,7 @@
           }
         },
         "required": [
+          "challenge_id",
           "user",
           "verification_status",
           "routing_target",
@@ -4252,19 +4270,19 @@
       },
       "VerifySignupDto": {
         "properties": {
+          "challenge_id": {
+            "description": "Purpose-bound contact verification challenge ID",
+            "format": "uuid",
+            "type": "string"
+          },
           "code": {
             "description": "6-digit verification code",
             "example": "123456",
             "type": "string"
-          },
-          "email": {
-            "description": "User email address",
-            "example": "user@example.com",
-            "type": "string"
           }
         },
         "required": [
-          "email",
+          "challenge_id",
           "code"
         ],
         "type": "object"
@@ -4650,7 +4668,7 @@
             "description": "Internal server error"
           }
         },
-        "summary": "Request a password reset code",
+        "summary": "Queue a purpose-bound password-recovery challenge (generic response)",
         "tags": [
           "Authentication"
         ]
@@ -5174,7 +5192,7 @@
             "description": "Internal server error"
           }
         },
-        "summary": "Reset a password with a valid reset code",
+        "summary": "Complete password recovery with challenge ID and code",
         "tags": [
           "Authentication"
         ]
@@ -5307,16 +5325,6 @@
             },
             "description": "Verification code is invalid or expired"
           },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
-                }
-              }
-            },
-            "description": "User account not found"
-          },
           "500": {
             "content": {
               "application/json": {
@@ -5383,7 +5391,7 @@
                 }
               }
             },
-            "description": "Account is already verified"
+            "description": "Request validation failed"
           },
           "500": {
             "content": {
@@ -5396,7 +5404,7 @@
             "description": "Internal server error"
           }
         },
-        "summary": "Send a new email verification code",
+        "summary": "Queue a new verification challenge for an eligible account",
         "tags": [
           "Authentication"
         ]

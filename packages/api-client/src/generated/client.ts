@@ -153,7 +153,6 @@ export type AuthController_verifySignupResponse =
   operations['AuthController_verifySignup']['responses'][200]['content']['application/json'];
 export type AuthController_verifySignupError =
   | operations['AuthController_verifySignup']['responses'][400]['content']['application/json']
-  | operations['AuthController_verifySignup']['responses'][404]['content']['application/json']
   | operations['AuthController_verifySignup']['responses'][500]['content']['application/json'];
 
 export type BookingController_cancelRequest = Readonly<{

@@ -127,12 +127,16 @@ export class ForgotPasswordDto {
 
 export class ResetPasswordDto {
   @ApiProperty({
-    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-    description: 'Password reset token',
+    format: 'uuid',
+    description: 'Purpose-bound recovery challenge ID from the recovery email',
   })
+  @IsUUID()
+  challenge_id: string;
+
+  @ApiProperty({ example: '123456', description: '6-digit recovery code' })
   @IsString()
-  @IsNotEmpty()
-  token: string;
+  @Matches(/^\d{6}$/)
+  code: string;
 
   @ApiProperty({
     example: 'a memorable patient passphrase',
@@ -211,12 +215,11 @@ export class AuthMeResponseDto {
 
 export class VerifySignupDto {
   @ApiProperty({
-    example: 'user@example.com',
-    description: 'User email address',
+    format: 'uuid',
+    description: 'Purpose-bound contact verification challenge ID',
   })
-  @IsEmail()
-  @IsNotEmpty()
-  email: string;
+  @IsUUID()
+  challenge_id: string;
 
   @ApiProperty({
     example: '123456',
