@@ -8,18 +8,18 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      DATABASE_URL: \${DATABASE_URL:?provide_database_url}
-      AUTH_CHALLENGE_PEPPER: \${AUTH_CHALLENGE_PEPPER:?provide_random_pepper}
-      AUTH_CHALLENGE_DELIVERY_KEY: \${AUTH_CHALLENGE_DELIVERY_KEY:?provide_base64_aes_key}
-      MAIL_MAILER: \${MAIL_MAILER:?smtp_or_resend}
-      MAIL_HOST: \${MAIL_HOST:-}
-      MAIL_PORT: \${MAIL_PORT:-1025}
-      MAIL_USERNAME: \${MAIL_USERNAME:-}
-      MAIL_PASSWORD: \${MAIL_PASSWORD:-}
-      RESEND_API_KEY: \${RESEND_API_KEY:-}
-      MAIL_FROM_ADDRESS: \${MAIL_FROM_ADDRESS:?mail_from_required}
-      MAIL_FROM_NAME: \${MAIL_FROM_NAME:-OHealth}
-      FRONTEND_URL: \${FRONTEND_URL:?frontend_url_required}
+      DATABASE_URL: ${DATABASE_URL:?provide_database_url}
+      AUTH_CHALLENGE_PEPPER: ${AUTH_CHALLENGE_PEPPER:?provide_random_pepper}
+      AUTH_CHALLENGE_DELIVERY_KEY: ${AUTH_CHALLENGE_DELIVERY_KEY:?provide_base64_aes_key}
+      MAIL_MAILER: ${MAIL_MAILER:?smtp_or_resend}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:?mail_from_required}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-OHealth}
+      FRONTEND_URL: ${FRONTEND_URL:?frontend_url_required}
     healthcheck:
       test:
         - CMD
