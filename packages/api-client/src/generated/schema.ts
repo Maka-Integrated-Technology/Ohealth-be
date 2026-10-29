@@ -47,7 +47,7 @@ export interface paths {
     };
     readonly get?: never;
     readonly put?: never;
-    /** Request a password reset code */
+    /** Queue a purpose-bound password-recovery challenge (generic response) */
     readonly post: operations['AuthController_forgotPassword'];
     readonly delete?: never;
     readonly options?: never;
@@ -150,7 +150,7 @@ export interface paths {
     };
     readonly get?: never;
     readonly put?: never;
-    /** Reset a password with a valid reset code */
+    /** Complete password recovery with challenge ID and code */
     readonly post: operations['AuthController_resetPassword'];
     readonly delete?: never;
     readonly options?: never;
@@ -201,7 +201,7 @@ export interface paths {
     };
     readonly get?: never;
     readonly put?: never;
-    /** Send a new email verification code */
+    /** Queue a new verification challenge for an eligible account */
     readonly post: operations['AuthController_resendVerification'];
     readonly delete?: never;
     readonly options?: never;
@@ -2621,15 +2621,20 @@ export interface components {
     };
     readonly ResetPasswordDto: {
       /**
+       * Format: uuid
+       * @description Purpose-bound recovery challenge ID from the recovery email
+       */
+      readonly challenge_id: string;
+      /**
+       * @description 6-digit recovery code
+       * @example 123456
+       */
+      readonly code: string;
+      /**
        * @description New password: 15+ Unicode characters, max 1024 UTF-8 bytes
        * @example a memorable patient passphrase
        */
       readonly newPassword: string;
-      /**
-       * @description Password reset token
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-       */
-      readonly token: string;
     };
     readonly ReviewResponseDto: {
       readonly booking_id?: string;
@@ -2700,6 +2705,11 @@ export interface components {
        * @enum {string}
        */
       readonly access_level: LoginResponseDtoAccess_level;
+      /**
+       * Format: uuid
+       * @description Pending contact verification challenge ID
+       */
+      readonly challenge_id: string;
       /** @example account created */
       readonly message: string | null;
       /**
@@ -2722,6 +2732,11 @@ export interface components {
        * @enum {string}
        */
       readonly access_level: LoginResponseDtoAccess_level;
+      /**
+       * Format: uuid
+       * @description Pending contact verification challenge ID
+       */
+      readonly challenge_id: string;
       /**
        * @example email_verification
        * @enum {string}
@@ -2874,15 +2889,15 @@ export interface components {
     };
     readonly VerifySignupDto: {
       /**
+       * Format: uuid
+       * @description Purpose-bound contact verification challenge ID
+       */
+      readonly challenge_id: string;
+      /**
        * @description 6-digit verification code
        * @example 123456
        */
       readonly code: string;
-      /**
-       * @description User email address
-       * @example user@example.com
-       */
-      readonly email: string;
     };
     readonly VerifySignupResponseDto: {
       /**
@@ -3540,15 +3555,6 @@ export interface operations {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
         };
       };
-      /** @description User account not found */
-      readonly 404: {
-        headers: {
-          readonly [name: string]: unknown;
-        };
-        content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
-        };
-      };
       /** @description Internal server error */
       readonly 500: {
         headers: {
@@ -3584,7 +3590,7 @@ export interface operations {
           };
         };
       };
-      /** @description Account is already verified */
+      /** @description Request validation failed */
       readonly 400: {
         headers: {
           readonly [name: string]: unknown;

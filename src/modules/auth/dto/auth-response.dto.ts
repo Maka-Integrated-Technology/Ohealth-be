@@ -59,6 +59,12 @@ class RoutedAuthResponseDto extends TokensDto {
 }
 
 export class SignupResponseDto {
+  @ApiProperty({
+    format: 'uuid',
+    description: 'Pending contact verification challenge ID',
+  })
+  challenge_id: string;
+
   @ApiProperty({ type: UserDto })
   user: UserDto;
 
