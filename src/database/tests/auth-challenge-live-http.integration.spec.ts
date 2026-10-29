@@ -185,7 +185,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
 
   beforeEach(async () => {
     mail.mockReset().mockResolvedValue(undefined);
-    await database.query('TRUNCATE auth_rate_limit_buckets');
+    await database.query('TRUNCATE auth_challenge_deliveries, auth_challenges, auth_rate_limit_buckets');
     await healthyWorker();
   });
 

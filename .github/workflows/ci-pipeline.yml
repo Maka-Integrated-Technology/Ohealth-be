@@ -166,6 +166,11 @@ jobs:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
         run: npx jest --runInBand src/database/tests/auth-challenge.integration.spec.ts
 
+      - name: Verify live challenge HTTP and PostgreSQL acceptance
+        env:
+          PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
+        run: npx jest --runInBand src/database/tests/auth-challenge-live-http.integration.spec.ts
+
       - name: Verify delivery lease safety across independent PostgreSQL connections
         env:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
