@@ -500,5 +500,4 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       await other.destroy();
     }
   }, 15_000);
-
 });
