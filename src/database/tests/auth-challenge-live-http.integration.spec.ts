@@ -66,19 +66,19 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     });
     await database.initialize();
     await database.query(
-      "CREATE TABLE users (" +
-        "id uuid PRIMARY KEY DEFAULT uuid_generate_v4(), " +
-        "email varchar NOT NULL UNIQUE, password varchar NOT NULL, " +
-        "first_name varchar NOT NULL, last_name varchar NOT NULL, " +
-        "middle_name varchar, gender varchar, dob date, phone varchar, " +
+      'CREATE TABLE users (' +
+        'id uuid PRIMARY KEY DEFAULT uuid_generate_v4(), ' +
+        'email varchar NOT NULL UNIQUE, password varchar NOT NULL, ' +
+        'first_name varchar NOT NULL, last_name varchar NOT NULL, ' +
+        'middle_name varchar, gender varchar, dob date, phone varchar, ' +
         "country varchar, image varchar, role varchar NOT NULL DEFAULT 'PATIENT', " +
         "account_status varchar NOT NULL DEFAULT 'pending_verification', " +
-        "is_active boolean NOT NULL DEFAULT false, is_verified boolean NOT NULL DEFAULT false, " +
-        "email_verified_at timestamptz, verification_code varchar, " +
-        "verification_code_expires_at timestamptz, google_id varchar, " +
-        "reset_token varchar, reset_token_expiry timestamptz, " +
-        "created_at timestamptz NOT NULL DEFAULT now(), " +
-        "updated_at timestamptz NOT NULL DEFAULT now())",
+        'is_active boolean NOT NULL DEFAULT false, is_verified boolean NOT NULL DEFAULT false, ' +
+        'email_verified_at timestamptz, verification_code varchar, ' +
+        'verification_code_expires_at timestamptz, google_id varchar, ' +
+        'reset_token varchar, reset_token_expiry timestamptz, ' +
+        'created_at timestamptz NOT NULL DEFAULT now(), ' +
+        'updated_at timestamptz NOT NULL DEFAULT now())',
     );
     await database.query(
       'CREATE TABLE auth_sessions (' +
@@ -96,12 +96,12 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         'changed_at timestamptz NOT NULL DEFAULT now())',
     );
     await database.query(
-      "CREATE TABLE auth_security_events (" +
-        "id uuid PRIMARY KEY DEFAULT uuid_generate_v4(), " +
-        "event_type varchar NOT NULL, outcome varchar NOT NULL, " +
+      'CREATE TABLE auth_security_events (' +
+        'id uuid PRIMARY KEY DEFAULT uuid_generate_v4(), ' +
+        'event_type varchar NOT NULL, outcome varchar NOT NULL, ' +
         "request_source varchar NOT NULL DEFAULT 'unknown', " +
-        "actor_user_id uuid, subject_user_id uuid, session_id uuid, " +
-        "occurred_at timestamptz NOT NULL DEFAULT now())",
+        'actor_user_id uuid, subject_user_id uuid, session_id uuid, ' +
+        'occurred_at timestamptz NOT NULL DEFAULT now())',
     );
     const runner: QueryRunner = database.createQueryRunner();
     await runner.connect();
@@ -145,16 +145,32 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         PasswordCredentialsService,
         { provide: DataSource, useValue: database },
         { provide: ConfigService, useValue: config },
-        { provide: getRepositoryToken(User), useValue: database.getRepository(User) },
-        { provide: getRepositoryToken(AuthSession), useValue: database.getRepository(AuthSession) },
-        { provide: JwtService, useValue: { signAsync: jest.fn().mockResolvedValue('test-jwt') } },
+        {
+          provide: getRepositoryToken(User),
+          useValue: database.getRepository(User),
+        },
+        {
+          provide: getRepositoryToken(AuthSession),
+          useValue: database.getRepository(AuthSession),
+        },
+        {
+          provide: JwtService,
+          useValue: { signAsync: jest.fn().mockResolvedValue('test-jwt') },
+        },
         { provide: EmailService, useValue: { sendMail: mail } },
-        { provide: AuthRoutingService, useValue: { resolve: jest.fn().mockResolvedValue({}) } },
+        {
+          provide: AuthRoutingService,
+          useValue: { resolve: jest.fn().mockResolvedValue({}) },
+        },
         { provide: JwtAuthGuard, useValue: { canActivate: () => false } },
         {
           provide: WINSTON_MODULE_PROVIDER,
           useValue: {
-            child: () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn() }),
+            child: () => ({
+              info: jest.fn(),
+              warn: jest.fn(),
+              error: jest.fn(),
+            }),
           },
         },
       ],
@@ -185,17 +201,19 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
 
   beforeEach(async () => {
     mail.mockReset().mockResolvedValue(undefined);
-    await database.query('TRUNCATE auth_challenge_deliveries, auth_challenges, auth_rate_limit_buckets');
+    await database.query(
+      'TRUNCATE auth_challenge_deliveries, auth_challenges, auth_rate_limit_buckets',
+    );
     await healthyWorker();
   });
 
   async function healthyWorker(): Promise<void> {
     await database.query(
-      "INSERT INTO auth_challenge_worker_heartbeat " +
-        "(id, last_seen_at, pending, oldest_pending_seconds, expired_leases) " +
+      'INSERT INTO auth_challenge_worker_heartbeat ' +
+        '(id, last_seen_at, pending, oldest_pending_seconds, expired_leases) ' +
         "VALUES ('delivery', now(), 0, 0, 0) " +
-        "ON CONFLICT (id) DO UPDATE SET last_seen_at = now(), " +
-        "pending = 0, oldest_pending_seconds = 0, expired_leases = 0",
+        'ON CONFLICT (id) DO UPDATE SET last_seen_at = now(), ' +
+        'pending = 0, oldest_pending_seconds = 0, expired_leases = 0',
     );
   }
 
@@ -212,8 +230,16 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         'is_active, is_verified, email_verified_at) ' +
         'VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
       [
-        id, email, 'unused-password-hash', 'Ada', 'User', 'PATIENT',
-        status, active, active, active ? new Date() : null,
+        id,
+        email,
+        'unused-password-hash',
+        'Ada',
+        'User',
+        'PATIENT',
+        status,
+        active,
+        active,
+        active ? new Date() : null,
       ],
     );
     return { id, email };
@@ -225,16 +251,26 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     const suspended = await createUser('suspended-resend', 'suspended');
     const unknown = 'missing+' + randomUUID() + '@example.test';
     const results = [];
-    for (const email of [unknown, pending.email, active.email, suspended.email]) {
+    for (const email of [
+      unknown,
+      pending.email,
+      active.email,
+      suspended.email,
+    ]) {
       const response = await request(app.getHttpServer())
         .post('/api/auth/verify/resend')
         .send({ email })
         .expect(200);
       results.push(response.body);
     }
-    expect(results).toEqual([{
-      message: publicMessage,
-    }, { message: publicMessage }, { message: publicMessage }, { message: publicMessage }]);
+    expect(results).toEqual([
+      {
+        message: publicMessage,
+      },
+      { message: publicMessage },
+      { message: publicMessage },
+      { message: publicMessage },
+    ]);
     const issued: Array<{ subject_user_id: string }> = await database.query(
       'SELECT subject_user_id FROM auth_challenges WHERE purpose = $1 AND subject_user_id = $2',
       ['contact_verification', pending.id],
@@ -249,8 +285,12 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         .send({ email: 'unknown+' + randomUUID() + '@example.test' }),
     );
     const responses = await Promise.all(instances);
-    expect(responses.filter((response) => response.status === 200)).toHaveLength(8);
-    expect(responses.filter((response) => response.status === 429)).toHaveLength(1);
+    expect(
+      responses.filter((response) => response.status === 200),
+    ).toHaveLength(8);
+    expect(
+      responses.filter((response) => response.status === 429),
+    ).toHaveLength(1);
     const ipBucket: Array<{ hits: number }> = await database.query(
       'SELECT hits FROM auth_rate_limit_buckets WHERE hits = 9',
     );
@@ -310,11 +350,12 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       .post('/api/auth/reset-password')
       .send(payload)
       .expect(201);
-    const saved: Array<{ password: string; revoked_at: Date }> = await database.query(
-      'SELECT u.password, s.revoked_at FROM users u JOIN auth_sessions s ' +
-        'ON s.user_id = u.id WHERE u.id = $1',
-      [active.id],
-    );
+    const saved: Array<{ password: string; revoked_at: Date }> =
+      await database.query(
+        'SELECT u.password, s.revoked_at FROM users u JOIN auth_sessions s ' +
+          'ON s.user_id = u.id WHERE u.id = $1',
+        [active.id],
+      );
     expect(saved).toHaveLength(1);
     expect(saved[0].password).not.toBe('unused-password-hash');
     expect(saved[0].revoked_at).toBeTruthy();

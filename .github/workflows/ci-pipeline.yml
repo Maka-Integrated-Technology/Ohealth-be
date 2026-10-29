@@ -120,10 +120,6 @@ jobs:
           check_invalid_usage --unknown
           check_invalid_usage --batch-size=1 --batch-size=2
 
-      - name: Show read-only formatting diff for new live HTTP acceptance test
-        run: |
-          npx prettier src/database/tests/auth-challenge-live-http.integration.spec.ts | diff -u src/database/tests/auth-challenge-live-http.integration.spec.ts - || true
-
       - name: Verify formatting
         run: npm run format:check
 
