@@ -394,12 +394,21 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     const before: Array<{
       account_status: string;
       verification_code: string | null;
+      verification_code_expires_at: Date | null;
+      reset_token: string | null;
+      reset_token_expiry: Date | null;
     }> = await database.query(
-      'SELECT account_status, verification_code FROM users WHERE email = $1',
+      'SELECT account_status, verification_code, verification_code_expires_at, reset_token, reset_token_expiry FROM users WHERE email = $1',
       [email],
     );
     expect(before).toEqual([
-      { account_status: 'pending_verification', verification_code: null },
+      {
+        account_status: 'pending_verification',
+        verification_code: null,
+        verification_code_expires_at: null,
+        reset_token: null,
+        reset_token_expiry: null,
+      },
     ]);
     expect(await delivery.dispatchBatch(1)).toMatchObject({ accepted: 1 });
     const mailed = mail.mock.calls[0][0] as {
