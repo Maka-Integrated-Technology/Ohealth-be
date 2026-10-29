@@ -10,10 +10,10 @@ import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import * as request from 'supertest';
 import { DataSource, QueryRunner } from 'typeorm';
 
-import { AuthController } from '../../modules/auth/auth.controller';
-import { AuthRoutingService } from '../../modules/auth/auth-routing.service';
-import { AuthService } from '../../modules/auth/auth.service';
 import { AccountAccessPolicyService } from '../../modules/auth/account-access-policy.service';
+import { AuthRoutingService } from '../../modules/auth/auth-routing.service';
+import { AuthController } from '../../modules/auth/auth.controller';
+import { AuthService } from '../../modules/auth/auth.service';
 import { AuthAbuseGuard } from '../../modules/auth/challenges/auth-abuse.guard';
 import { AuthChallengeDeliveryService } from '../../modules/auth/challenges/auth-challenge-delivery.service';
 import { AuthChallengeService } from '../../modules/auth/challenges/auth-challenge.service';
@@ -46,7 +46,6 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
   let app: INestApplication;
   let schema: string;
   let delivery: AuthChallengeDeliveryService;
-  let rates: AuthRateLimitService;
   let config: ConfigService;
   const mail = jest.fn().mockResolvedValue(undefined);
 
@@ -187,7 +186,6 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     );
     await app.init();
     delivery = app.get(AuthChallengeDeliveryService);
-    rates = app.get(AuthRateLimitService);
   }, 30_000);
 
   afterAll(async () => {
