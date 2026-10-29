@@ -1,4 +1,5 @@
 import { randomBytes, randomUUID } from 'node:crypto';
+import { performance } from 'node:perf_hooks';
 import { env } from 'node:process';
 
 import { INestApplication, ValidationPipe } from '@nestjs/common';
@@ -16,6 +17,7 @@ import { AuthController } from '../../modules/auth/auth.controller';
 import { AuthService } from '../../modules/auth/auth.service';
 import { AuthAbuseGuard } from '../../modules/auth/challenges/auth-abuse.guard';
 import { AuthChallengeDeliveryService } from '../../modules/auth/challenges/auth-challenge-delivery.service';
+import { AuthChallengePurpose } from '../../modules/auth/challenges/auth-challenge.entity';
 import { AuthChallengeService } from '../../modules/auth/challenges/auth-challenge.service';
 import { AuthRateLimitService } from '../../modules/auth/challenges/auth-rate-limit.service';
 import { SecureAuthChallengeFlowsService } from '../../modules/auth/challenges/secure-auth-challenge-flows.service';
@@ -33,7 +35,7 @@ import { AuthChallengeWorkerHeartbeat1793007000000 } from '../migrations/1793007
 
 // This suite deliberately uses the production controller, AuthService, abuse
 // guard, limit, challenge, delivery and audit services against real PostgreSQL.
-// JWT issuance and outgoing SMTP are the only external adapters replaced.
+// Outgoing SMTP and routing are replaced; JWT issuance uses the real adapter.
 const integration = env.PG_INTEGRATION_URL ? describe : describe.skip;
 const pepper = 'live-http-integration-pepper-not-for-production';
 const encryptionKey = randomBytes(32).toString('base64');
@@ -44,6 +46,8 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
   let admin: DataSource;
   let database: DataSource;
   let app: INestApplication;
+  let secondApp: INestApplication;
+  let secondDatabase: DataSource;
   let schema: string;
   let delivery: AuthChallengeDeliveryService;
   let config: ConfigService;
@@ -129,6 +133,14 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       get: (key: string, fallback?: unknown) => values.get(key) ?? fallback,
     } as ConfigService;
 
+    app = await createApp(database);
+    secondDatabase = new DataSource({ ...database.options });
+    await secondDatabase.initialize();
+    secondApp = await createApp(secondDatabase);
+    delivery = app.get(AuthChallengeDeliveryService);
+  }, 30_000);
+
+  async function createApp(source: DataSource): Promise<INestApplication> {
     const module = await Test.createTestingModule({
       controllers: [AuthController],
       providers: [
@@ -142,19 +154,19 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         SecureAuthChallengeFlowsService,
         AuthSecurityAuditService,
         PasswordCredentialsService,
-        { provide: DataSource, useValue: database },
+        { provide: DataSource, useValue: source },
         { provide: ConfigService, useValue: config },
         {
           provide: getRepositoryToken(User),
-          useValue: database.getRepository(User),
+          useValue: source.getRepository(User),
         },
         {
           provide: getRepositoryToken(AuthSession),
-          useValue: database.getRepository(AuthSession),
+          useValue: source.getRepository(AuthSession),
         },
         {
           provide: JwtService,
-          useValue: { signAsync: jest.fn().mockResolvedValue('test-jwt') },
+          useValue: new JwtService(),
         },
         { provide: EmailService, useValue: { sendMail: mail } },
         {
@@ -175,21 +187,23 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       ],
     }).compile();
 
-    app = module.createNestApplication();
-    app.setGlobalPrefix('api');
-    app.useGlobalPipes(
+    const instance = module.createNestApplication();
+    instance.setGlobalPrefix('api');
+    instance.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
         forbidNonWhitelisted: true,
         transform: true,
       }),
     );
-    await app.init();
-    delivery = app.get(AuthChallengeDeliveryService);
-  }, 30_000);
+    await instance.init();
+    return instance;
+  }
 
   afterAll(async () => {
+    await secondApp?.close();
     await app?.close();
+    if (secondDatabase?.isInitialized) await secondDatabase.destroy();
     if (database?.isInitialized) await database.destroy();
     if (admin?.isInitialized) {
       await admin.query('DROP SCHEMA IF EXISTS "' + schema + '" CASCADE');
@@ -277,8 +291,8 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
   }, 15_000);
 
   it('uses the real guard and PostgreSQL counter for concurrent distributed budgets', async () => {
-    const instances = Array.from({ length: 9 }, () =>
-      request(app.getHttpServer())
+    const instances = Array.from({ length: 9 }, (_, i) =>
+      request((i % 2 ? app : secondApp).getHttpServer())
         .post('/api/auth/verify/resend')
         .send({ email: 'unknown+' + randomUUID() + '@example.test' }),
     );
@@ -441,8 +455,8 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
   it('serializes simultaneous resend and supersedes the older challenge after cooldown', async () => {
     const user = await createUser('racing-resend', 'pending_verification');
     const replies = await Promise.all(
-      [0, 1].map(() =>
-        request(app.getHttpServer())
+      [app, secondApp].map((instance) =>
+        request(instance.getHttpServer())
           .post('/api/auth/verify/resend')
           .send({ email: user.email }),
       ),
@@ -500,4 +514,175 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       await other.destroy();
     }
   }, 15_000);
+  it('allows only one verification across independent HTTP applications', async () => {
+    const user = await createUser('verify-race', 'pending_verification');
+    const challenge = await app
+      .get(AuthChallengeService)
+      .issueForUser(user.id, AuthChallengePurpose.CONTACT_VERIFICATION);
+    const replies = await Promise.all(
+      [app, secondApp].map((instance) =>
+        request(instance.getHttpServer()).post('/api/auth/verify').send({
+          challenge_id: challenge.challengeId,
+          code: challenge.code,
+        }),
+      ),
+    );
+    expect(replies.map((reply) => reply.status).sort()).toEqual([200, 400]);
+    const sessions = await database.query(
+      'SELECT id FROM auth_sessions WHERE user_id = $1',
+      [user.id],
+    );
+    expect(sessions).toHaveLength(1);
+  });
+
+  it('rejects contact proof at recovery, expiry, and the correct code after five wrong attempts', async () => {
+    const user = await createUser('attempt-boundary', 'pending_verification');
+    const challenge = await app
+      .get(AuthChallengeService)
+      .issueForUser(user.id, AuthChallengePurpose.CONTACT_VERIFICATION);
+    await request(app.getHttpServer())
+      .post('/api/auth/reset-password')
+      .send({
+        challenge_id: challenge.challengeId,
+        code: challenge.code,
+        newPassword: 'a memorable replacement passphrase',
+      })
+      .expect(400);
+    const wrong = challenge.code === '000000' ? '000001' : '000000';
+    for (let i = 0; i < 5; i++) {
+      await request((i % 2 ? app : secondApp).getHttpServer())
+        .post('/api/auth/verify')
+        .send({ challenge_id: challenge.challengeId, code: wrong })
+        .expect(400);
+    }
+    await request(app.getHttpServer())
+      .post('/api/auth/verify')
+      .send({ challenge_id: challenge.challengeId, code: challenge.code })
+      .expect(400);
+    const rows = await database.query(
+      'SELECT attempt_count, consumed_at FROM auth_challenges WHERE id = $1',
+      [challenge.challengeId],
+    );
+    expect(rows[0].attempt_count).toBe(5);
+    expect(rows[0].consumed_at).toBeTruthy();
+    const expiredUser = await createUser(
+      'expired-contact',
+      'pending_verification',
+    );
+    const expired = await app
+      .get(AuthChallengeService)
+      .issueForUser(expiredUser.id, AuthChallengePurpose.CONTACT_VERIFICATION);
+    await database.query(
+      "UPDATE auth_challenges SET expires_at = now() - interval '1 second' WHERE id = $1",
+      [expired.challengeId],
+    );
+    await request(app.getHttpServer())
+      .post('/api/auth/verify')
+      .send({ challenge_id: expired.challengeId, code: expired.code })
+      .expect(400);
+    const saved = await database.query(
+      'SELECT account_status FROM users WHERE id = $1',
+      [expiredUser.id],
+    );
+    expect(saved[0].account_status).toBe('pending_verification');
+  });
+
+  it('recovers a provider timeout without claiming acceptance and wipes the envelope on recovery', async () => {
+    const user = await createUser('provider-retry', 'active');
+    await request(app.getHttpServer())
+      .post('/api/auth/forgot-password')
+      .send({ email: user.email })
+      .expect(201);
+    // Exercise the real 30-second provider timeout without faking clocks or
+    // replacing delivery/persistence services.
+    mail.mockImplementationOnce(() => new Promise<void>(() => {}));
+    expect(await delivery.dispatchBatch(1)).toEqual({
+      accepted: 0,
+      retried: 1,
+      discarded: 0,
+    });
+    let rows = await database.query(
+      'SELECT status, ciphertext, attempts FROM auth_challenge_deliveries',
+    );
+    expect(rows[0]).toMatchObject({ status: 'pending', attempts: 1 });
+    expect(rows[0].ciphertext).toBeTruthy();
+    await database.query(
+      "UPDATE auth_challenge_deliveries SET available_at = now() - interval '1 second'",
+    );
+    expect(
+      await secondApp.get(AuthChallengeDeliveryService).dispatchBatch(1),
+    ).toEqual({ accepted: 1, retried: 0, discarded: 0 });
+    rows = await database.query(
+      'SELECT status, ciphertext, attempts FROM auth_challenge_deliveries',
+    );
+    expect(rows[0]).toEqual({
+      status: 'accepted',
+      ciphertext: null,
+      attempts: 2,
+    });
+  }, 40_000);
+
+  it('measures recovery response timing across unknown, pending, active, suspended, deactivated and cooldown targets', async () => {
+    const users = await Promise.all([
+      createUser('timing-pending', 'pending_verification'),
+      createUser('timing-active', 'active'),
+      createUser('timing-suspended', 'suspended'),
+      createUser('timing-deactivated', 'deactivated'),
+      createUser('timing-cooldown', 'active'),
+    ]);
+    const targets = [
+      'absent+' + randomUUID() + '@example.test',
+      ...users.map((user) => user.email),
+    ];
+    const samples: number[][] = targets.map(() => []);
+    const cooldownId = users[4].id;
+    for (let round = 0; round < 12; round++) {
+      // Rotate order to avoid warming/ordering bias. Reset budgets only so the
+      // timing experiment measures eligibility rather than deliberate 429s.
+      for (let offset = 0; offset < targets.length; offset++) {
+        const index = (round + offset) % targets.length;
+        await database.query('TRUNCATE auth_rate_limit_buckets');
+        // Re-arm the eligible target each sample; cooldown remains untouched.
+        if (index === 2)
+          await database.query(
+            'DELETE FROM auth_challenges WHERE subject_user_id = $1',
+            [users[1].id],
+          );
+        await healthyWorker();
+        const start = performance.now();
+        const response = await request(
+          (round % 2 ? app : secondApp).getHttpServer(),
+        )
+          .post('/api/auth/forgot-password')
+          .send({ email: targets[index] })
+          .expect(201);
+        samples[index].push(performance.now() - start);
+        expect(response.body).toEqual({ message: publicMessage });
+      }
+    }
+    const medians = samples.map(
+      (values) =>
+        [...values].sort((a, b) => a - b)[Math.floor(values.length / 2)],
+    );
+    // A bounded regression check, not proof against statistical enumeration.
+    // The report is evidence for the 350–599 ms floor on this CI workload.
+    // eslint-disable-next-line no-console -- safe aggregate timing evidence for CI
+    console.info(
+      'Recovery timing milliseconds (unknown,pending,eligible,suspended,deactivated,cooldown)',
+      JSON.stringify(
+        samples.map((values, index) => ({
+          median: Math.round(medians[index]),
+          max: Math.round(Math.max(...values)),
+          min: Math.round(Math.min(...values)),
+        })),
+      ),
+    );
+    expect(Math.max(...medians) - Math.min(...medians)).toBeLessThan(200);
+    expect(samples.flat().every((value) => value >= 340)).toBe(true);
+    const issued = await database.query(
+      'SELECT id FROM auth_challenges WHERE subject_user_id = $1',
+      [cooldownId],
+    );
+    expect(issued).toHaveLength(1);
+  }, 60_000);
 });
