@@ -113,20 +113,20 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       await runner.release();
     }
     await healthyWorker();
-    const values: Record<string, string> = {
-      AUTH_CHALLENGE_PEPPER: pepper,
-      AUTH_CHALLENGE_DELIVERY_KEY: encryptionKey,
-      AUTH_CHALLENGE_FLOWS_ENABLED: 'true',
-      AUTH_TRUSTED_PROXY_CIDRS: '',
-      HASH_SALT: '10',
-      JWT_SECRET: 'integration-only-access-secret',
-      JWT_REFRESH_SECRET: 'integration-only-refresh-secret',
-      'mail.from.address': 'sender@example.test',
-      'mail.from.name': 'OHealth',
-      'app.name': 'OHealth',
-    };
+    const values = new Map<string, string>([
+      ['AUTH_CHALLENGE_PEPPER', pepper],
+      ['AUTH_CHALLENGE_DELIVERY_KEY', encryptionKey],
+      ['AUTH_CHALLENGE_FLOWS_ENABLED', 'true'],
+      ['AUTH_TRUSTED_PROXY_CIDRS', ''],
+      ['HASH_SALT', '10'],
+      ['JWT_SECRET', 'integration-only-access-secret'],
+      ['JWT_REFRESH_SECRET', 'integration-only-refresh-secret'],
+      ['mail.from.address', 'sender@example.test'],
+      ['mail.from.name', 'OHealth'],
+      ['app.name', 'OHealth'],
+    ]);
     config = {
-      get: (key: string, fallback?: unknown) => values[key] ?? fallback,
+      get: (key: string, fallback?: unknown) => values.get(key) ?? fallback,
     } as ConfigService;
 
     const module = await Test.createTestingModule({
