@@ -362,4 +362,143 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       .send(payload)
       .expect(400);
   }, 20_000);
+
+  it('registers and verifies contact through the real HTTP service, then rejects replay', async () => {
+    const email = 'signup+' + randomUUID() + '@example.test';
+    const registered = await request(app.getHttpServer())
+      .post('/api/auth/signup')
+      .send({
+        first_name: 'Ada',
+        last_name: 'User',
+        email,
+        role: ['PATIENT'],
+        password: 'a memorable patient passphrase',
+      })
+      .expect(201);
+    const challengeId = registered.body.challenge_id as string;
+    expect(challengeId).toMatch(/^[a-f0-9-]{36}$/i);
+    const before: Array<{
+      account_status: string;
+      verification_code: string | null;
+    }> = await database.query(
+      'SELECT account_status, verification_code FROM users WHERE email = $1',
+      [email],
+    );
+    expect(before).toEqual([
+      { account_status: 'pending_verification', verification_code: null },
+    ]);
+    expect(await delivery.dispatchBatch(1)).toMatchObject({ accepted: 1 });
+    const mailed = mail.mock.calls[0][0] as {
+      templateData: { code: string; challenge_id: string };
+    };
+    expect(mailed.templateData.challenge_id).toBe(challengeId);
+
+    await request(app.getHttpServer())
+      .post('/api/auth/verify')
+      .send({ challenge_id: challengeId, code: mailed.templateData.code })
+      .expect(200);
+    const after: Array<{ account_status: string; count: number }> =
+      await database.query(
+        'SELECT u.account_status, (SELECT count(*)::int FROM auth_sessions s ' +
+          'WHERE s.user_id = u.id) AS count FROM users u WHERE u.email = $1',
+        [email],
+      );
+    expect(after).toEqual([{ account_status: 'active', count: 1 }]);
+    await request(app.getHttpServer())
+      .post('/api/auth/verify')
+      .send({ challenge_id: challengeId, code: mailed.templateData.code })
+      .expect(400);
+    const history: Array<{ reason: string }> = await database.query(
+      'SELECT reason FROM user_account_status_history h ' +
+        'JOIN users u ON u.id = h.user_id WHERE u.email = $1',
+      [email],
+    );
+    expect(history).toEqual([{ reason: 'verified_contact_challenge' }]);
+  }, 20_000);
+
+  it('rejects recovery proof used for contact verification without consuming it', async () => {
+    const user = await createUser('purpose-isolation', 'active');
+    await request(app.getHttpServer())
+      .post('/api/auth/forgot-password')
+      .send({ email: user.email })
+      .expect(201);
+    expect(await delivery.dispatchBatch(1)).toMatchObject({ accepted: 1 });
+    const mailed = mail.mock.calls[0][0] as {
+      templateData: { otp: string; challenge_id: string };
+    };
+    const { challenge_id: challengeId, otp } = mailed.templateData;
+    await request(app.getHttpServer())
+      .post('/api/auth/verify')
+      .send({ challenge_id: challengeId, code: otp })
+      .expect(400);
+    const rows: Array<{ consumed_at: Date | null }> = await database.query(
+      'SELECT consumed_at FROM auth_challenges WHERE id = $1',
+      [challengeId],
+    );
+    expect(rows[0].consumed_at).toBeNull();
+  }, 15_000);
+
+  it('serializes simultaneous resend and supersedes the older challenge after cooldown', async () => {
+    const user = await createUser('racing-resend', 'pending_verification');
+    const replies = await Promise.all(
+      [0, 1].map(() =>
+        request(app.getHttpServer())
+          .post('/api/auth/verify/resend')
+          .send({ email: user.email }),
+      ),
+    );
+    expect(replies.map((reply) => reply.status)).toEqual([200, 200]);
+    let rows: Array<{ id: string; consumed_at: Date | null }> =
+      await database.query(
+        'SELECT id, consumed_at FROM auth_challenges WHERE subject_user_id = $1',
+        [user.id],
+      );
+    expect(rows).toHaveLength(1);
+    const firstId = rows[0].id;
+    await database.query(
+      "UPDATE auth_challenges SET issued_at = now() - interval '61 seconds' " +
+        'WHERE id = $1',
+      [firstId],
+    );
+    await request(app.getHttpServer())
+      .post('/api/auth/verify/resend')
+      .send({ email: user.email })
+      .expect(200);
+    rows = await database.query(
+      'SELECT id, consumed_at FROM auth_challenges WHERE subject_user_id = $1',
+      [user.id],
+    );
+    expect(rows).toHaveLength(2);
+    expect(rows.filter((row) => row.consumed_at === null)).toHaveLength(1);
+    expect(rows.find((row) => row.id === firstId)?.consumed_at).toBeTruthy();
+  }, 15_000);
+
+  it('enforces the same PostgreSQL budget across two independent service instances', async () => {
+    const other = new DataSource({
+      type: 'postgres',
+      url: env.PG_INTEGRATION_URL,
+      synchronize: false,
+      extra: { options: '-c search_path=' + schema + ',public' },
+    });
+    await other.initialize();
+    try {
+      const first = app.get(AuthRateLimitService);
+      const second = new AuthRateLimitService(other, config);
+      const outcomes = await Promise.all(
+        Array.from({ length: 10 }, (_, i) =>
+          (i % 2 ? first : second).consume(
+            'auth:cross-instance-test',
+            'shared-test-key',
+            4,
+            60,
+          ),
+        ),
+      );
+      expect(outcomes.filter((result) => result.allowed)).toHaveLength(4);
+      expect(outcomes.filter((result) => !result.allowed)).toHaveLength(6);
+    } finally {
+      await other.destroy();
+    }
+  }, 15_000);
+
 });
