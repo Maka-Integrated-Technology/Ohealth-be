@@ -582,7 +582,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       .get(AuthChallengeService)
       .issueForUser(expiredUser.id, AuthChallengePurpose.CONTACT_VERIFICATION);
     await database.query(
-      "UPDATE auth_challenges SET expires_at = now() - interval '1 second' WHERE id = $1",
+      "UPDATE auth_challenges SET issued_at = now() - interval '11 minutes', expires_at = now() - interval '1 second' WHERE id = $1",
       [expired.challengeId],
     );
     await request(app.getHttpServer())
