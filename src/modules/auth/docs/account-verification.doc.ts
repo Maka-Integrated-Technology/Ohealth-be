@@ -2,7 +2,6 @@ import { applyDecorators } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
-  ApiNotFoundResponse,
   ApiOkResponse,
   ApiOperation,
 } from '@nestjs/swagger';
@@ -12,14 +11,19 @@ import { VerifySignupResponseDto } from '../dto/auth-response.dto';
 
 export const ForgotPasswordDocs = () =>
   applyDecorators(
-    ApiOperation({ summary: 'Request a password reset code' }),
+    ApiOperation({
+      summary:
+        'Queue a purpose-bound password-recovery challenge (generic response)',
+    }),
     ApiCreatedResponse({ type: ApiMessageResponseDto }),
     ApiBadRequestResponse({ description: 'Email validation failed' }),
   );
 
 export const ResetPasswordDocs = () =>
   applyDecorators(
-    ApiOperation({ summary: 'Reset a password with a valid reset code' }),
+    ApiOperation({
+      summary: 'Complete password recovery with challenge ID and code',
+    }),
     ApiCreatedResponse({ type: ApiMessageResponseDto }),
     ApiBadRequestResponse({ description: 'Reset code is invalid or expired' }),
   );
@@ -33,12 +37,12 @@ export const VerifySignupDocs = () =>
     ApiBadRequestResponse({
       description: 'Verification code is invalid or expired',
     }),
-    ApiNotFoundResponse({ description: 'User account not found' }),
   );
 
 export const ResendVerificationDocs = () =>
   applyDecorators(
-    ApiOperation({ summary: 'Send a new email verification code' }),
+    ApiOperation({
+      summary: 'Queue a new verification challenge for an eligible account',
+    }),
     ApiOkResponse({ type: ApiMessageResponseDto }),
-    ApiBadRequestResponse({ description: 'Account is already verified' }),
   );

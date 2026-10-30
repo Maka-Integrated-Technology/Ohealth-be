@@ -156,7 +156,7 @@ export class EmailService {
       // Provider ID, recipient, template data and verification code do not
       // belong in application logs. The worker tracks acceptance separately.
       if (!messageId) {
-        this.logger.warn('Email provider accepted a message without an ID.');
+        throw new Error('Email provider did not confirm acceptance.');
       }
     } catch {
       this.logger.error('Email delivery failed at provider boundary.');

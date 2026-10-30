@@ -20,7 +20,9 @@ import { UserService } from '../user/user.service';
 import { AccountAccessPolicyService } from './account-access-policy.service';
 import { AuthRoutingService } from './auth-routing.service';
 import { AuthService } from './auth.service';
-import { ResendVerificationDto, VerifySignupDto } from './dto/auth.dto';
+import { AuthChallengeDeliveryService } from './challenges/auth-challenge-delivery.service';
+import { SecureAuthChallengeFlowsService } from './challenges/secure-auth-challenge-flows.service';
+import { VerifySignupDto } from './dto/auth.dto';
 import { AuthSession } from './entities/auth.entity';
 import { AuthAccessLevel, AuthRoutingTarget } from './enums/auth-routing.enum';
 import { PasswordCredentialsService } from './password-policy/password-credentials.service';
@@ -84,6 +86,14 @@ describe('AuthService', () => {
   const mockEmailService = {
     sendMail: jest.fn(),
   };
+  const mockChallengeFlows = {
+    signup: jest.fn(),
+    requestRecovery: jest.fn(),
+    completeRecovery: jest.fn(),
+    verifyContact: jest.fn(),
+    resend: jest.fn(),
+  };
+  const mockChallengeDelivery = { queueInTransaction: jest.fn() };
 
   const defaultRouting = {
     routing_target: AuthRoutingTarget.PATIENT_HOME,
@@ -130,6 +140,14 @@ describe('AuthService', () => {
           useValue: mockEmailService,
         },
         {
+          provide: SecureAuthChallengeFlowsService,
+          useValue: mockChallengeFlows,
+        },
+        {
+          provide: AuthChallengeDeliveryService,
+          useValue: mockChallengeDelivery,
+        },
+        {
           provide: AuthRoutingService,
           useValue: mockAuthRoutingService,
         },
@@ -142,6 +160,24 @@ describe('AuthService', () => {
 
     service = module.get<AuthService>(AuthService);
     jest.clearAllMocks();
+    mockChallengeFlows.signup.mockResolvedValue({
+      user: {
+        id: 'user-id-1',
+        email: 'tunde@example.com',
+        first_name: 'Tunde',
+        last_name: 'Adebayo',
+        role: [UserRole.PATIENT],
+      },
+      challengeId: 'f64031c5-70e4-4b37-a92c-f193e59a6621',
+    });
+    mockChallengeFlows.requestRecovery.mockResolvedValue({
+      message:
+        'If this account is eligible, a verification message has been queued.',
+    });
+    mockChallengeFlows.resend.mockResolvedValue({
+      message:
+        'If this account is eligible, a verification message has been queued.',
+    });
   });
 
   afterEach(() => {
@@ -190,7 +226,7 @@ describe('AuthService', () => {
         role: [UserRole.PATIENT],
       });
 
-      expect(result.message).toBe(sysMsg.VERIFICATION_CODE_SENT);
+      expect(result.message).toBe('Verification queued');
       expect(result.user.email).toBe('tunde@example.com');
       expect(result).not.toHaveProperty('access_token');
       expect(result).not.toHaveProperty('refresh_token');
@@ -198,22 +234,25 @@ describe('AuthService', () => {
       expect(mockJwtService.signAsync).not.toHaveBeenCalled();
       expect(mockSessionRepository.save).not.toHaveBeenCalled();
       expect(result).toMatchObject(defaultRouting);
-      expect(mockUserService.create).toHaveBeenCalledWith(
+      expect(mockChallengeFlows.signup).toHaveBeenCalledWith(
         expect.objectContaining({ role: [UserRole.PATIENT] }),
+        expect.any(String),
       );
+      expect(result.challenge_id).toMatch(/^[0-9a-f-]{36}$/);
       expect(mockLogger.info).toHaveBeenCalledWith(sysMsg.ACCOUNT_CREATED);
-      expect(mockEmailService.sendMail).toHaveBeenCalled();
+      expect(mockEmailService.sendMail).not.toHaveBeenCalled();
     });
 
     it('should throw conflict exception for duplicate email', async () => {
-      mockUserService.findByEmail.mockResolvedValue({ id: 'existing-user-id' });
-
+      mockChallengeFlows.signup.mockRejectedValueOnce(
+        new ConflictException(sysMsg.ACCOUNT_ALREADY_EXISTS),
+      );
       await expect(
         service.signup({
           first_name: 'Grace',
           last_name: 'Okeke',
           email: 'grace@example.com',
-          password: 'Password123',
+          password: 'a strong registration passphrase',
           role: [UserRole.PATIENT],
         }),
       ).rejects.toThrow(ConflictException);
@@ -418,23 +457,33 @@ describe('AuthService', () => {
   });
 
   describe('forgotPassword', () => {
-    it('should send otp email when user exists', async () => {
-      mockUserService.findByEmail.mockResolvedValue({
-        id: 'user-id-1',
-        email: 'user@example.com',
-        first_name: 'Tunde',
-      });
+    it('returns a generic queued response without writing legacy reset tokens', async () => {
       const result = await service.forgotPassword({
         email: 'user@example.com',
       });
-
-      expect(result.message).toBe(sysMsg.PASSWORD_RESET_CODE_SENT);
-      expect(mockUserService.setPasswordResetChallenge).toHaveBeenCalledWith(
-        'user-id-1',
-        expect.any(String),
-        expect.any(Date),
+      expect(result.message).toContain('queued');
+      expect(mockChallengeFlows.requestRecovery).toHaveBeenCalledWith(
+        'user@example.com',
       );
-      expect(mockEmailService.sendMail).toHaveBeenCalled();
+      expect(mockUserService.setPasswordResetChallenge).not.toHaveBeenCalled();
+      expect(mockEmailService.sendMail).not.toHaveBeenCalled();
+    });
+
+    it('uses a purpose-bound challenge to reset without legacy token lookup', async () => {
+      mockChallengeFlows.completeRecovery.mockResolvedValue(undefined);
+      await expect(
+        service.resetPassword({
+          challenge_id: 'f64031c5-70e4-4b37-a92c-f193e59a6621',
+          code: '123456',
+          newPassword: 'a memorable replacement passphrase',
+        }),
+      ).resolves.toEqual({ message: sysMsg.PASSWORD_RESET_SUCCESS });
+      expect(mockChallengeFlows.completeRecovery).toHaveBeenCalledWith(
+        'f64031c5-70e4-4b37-a92c-f193e59a6621',
+        '123456',
+        expect.any(String),
+      );
+      expect(mockUserService.consumePasswordResetToken).not.toHaveBeenCalled();
     });
   });
 
@@ -653,51 +702,17 @@ describe('AuthService', () => {
   });
 
   describe('resendVerification', () => {
-    it('should update code, save user, send email, and return VERIFICATION_CODE_SENT for unverified user', async () => {
-      const payload: ResendVerificationDto = { email: 'tunde@example.com' };
-      const user = {
-        id: 'user-id-1',
-        email: payload.email,
-        first_name: 'Tunde',
-        is_verified: false,
-        account_status: AccountStatus.PENDING_VERIFICATION,
-        email_verified_at: null,
-        verification_code: 'old-code',
-        verification_code_expires_at: new Date(Date.now() - 1000),
-      };
-      mockUserService.rotateVerificationChallenge.mockResolvedValue(user);
-
-      const result = await service.resendVerification(payload);
-
-      expect(result).toEqual({ message: sysMsg.VERIFICATION_CODE_SENT });
-      expect(mockUserService.rotateVerificationChallenge).toHaveBeenCalledWith(
-        payload.email,
-        expect.any(String),
-        expect.any(Date),
+    it('delegates to the secure challenge flow for pending or unknown accounts', async () => {
+      const result = await service.resendVerification({
+        email: 'tunde@example.com',
+      });
+      expect(result.message).toContain('queued');
+      expect(mockChallengeFlows.resend).toHaveBeenCalledWith(
+        'tunde@example.com',
       );
-      expect(mockEmailService.sendMail).toHaveBeenCalled();
-    });
-
-    it('should return VERIFICATION_CODE_SENT without sending email for unknown email', async () => {
-      mockUserService.rotateVerificationChallenge.mockResolvedValue(null);
-
-      const result = await service.resendVerification({
-        email: 'ghost@example.com',
-      });
-
-      expect(result).toEqual({ message: sysMsg.VERIFICATION_CODE_SENT });
-      expect(mockUserService.rotateVerificationChallenge).toHaveBeenCalled();
-      expect(mockEmailService.sendMail).not.toHaveBeenCalled();
-    });
-
-    it('returns the same generic response for a verified account and an unknown email', async () => {
-      mockUserService.rotateVerificationChallenge.mockResolvedValue(null);
-
-      const result = await service.resendVerification({
-        email: 'verified@example.com',
-      });
-
-      expect(result).toEqual({ message: sysMsg.VERIFICATION_CODE_SENT });
+      expect(
+        mockUserService.rotateVerificationChallenge,
+      ).not.toHaveBeenCalled();
       expect(mockEmailService.sendMail).not.toHaveBeenCalled();
     });
   });
@@ -705,12 +720,12 @@ describe('AuthService', () => {
   describe('verifySignup', () => {
     it('should activate and verify a user with a valid code', async () => {
       const payload: VerifySignupDto = {
-        email: 'tunde@example.com',
+        challenge_id: 'f64031c5-70e4-4b37-a92c-f193e59a6621',
         code: '123456',
       };
-      mockUserService.verifyEmailWithCode.mockResolvedValue({
+      mockChallengeFlows.verifyContact.mockResolvedValue({
         id: 'user-id-1',
-        email: payload.email,
+        email: 'tunde@example.com',
         first_name: 'Tunde',
         last_name: 'Adebayo',
         role: [UserRole.PATIENT],
@@ -737,11 +752,11 @@ describe('AuthService', () => {
         message: sysMsg.ACCOUNT_VERIFIED,
         access_token: 'first-access-token',
         refresh_token: 'first-refresh-token',
-        user: expect.objectContaining({ email: payload.email }),
+        user: expect.objectContaining({ email: 'tunde@example.com' }),
       });
       expect(mockSessionRepository.save).toHaveBeenCalledTimes(1);
-      expect(mockUserService.verifyEmailWithCode).toHaveBeenCalledWith(
-        payload.email,
+      expect(mockChallengeFlows.verifyContact).toHaveBeenCalledWith(
+        payload.challenge_id,
         payload.code,
       );
       expect(mockEmailService.sendMail).toHaveBeenCalled();

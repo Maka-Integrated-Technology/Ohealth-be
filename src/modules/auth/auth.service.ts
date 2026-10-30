@@ -2,7 +2,6 @@ import * as crypto from 'crypto';
 
 import {
   BadRequestException,
-  ConflictException,
   Inject,
   Injectable,
   UnauthorizedException,
@@ -12,7 +11,7 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { OAuth2Client } from 'google-auth-library';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
-import { IsNull, MoreThan, Repository } from 'typeorm';
+import { EntityManager, IsNull, MoreThan, Repository } from 'typeorm';
 import { Logger } from 'winston';
 
 import { IRequestWithUser } from '../../common/types';
@@ -26,6 +25,9 @@ import { UserService } from '../user/user.service';
 
 import { AccountAccessPolicyService } from './account-access-policy.service';
 import { AuthRoutingService } from './auth-routing.service';
+import { AuthChallengeDeliveryService } from './challenges/auth-challenge-delivery.service';
+import { AuthChallengePurpose } from './challenges/auth-challenge.entity';
+import { SecureAuthChallengeFlowsService } from './challenges/secure-auth-challenge-flows.service';
 import { SELF_SERVICE_SIGNUP_ROLES } from './constants/self-service-signup-roles.constant';
 import {
   AuthDto,
@@ -64,6 +66,8 @@ export class AuthService {
     private readonly authRoutingService: AuthRoutingService,
     private readonly accountAccessPolicy: AccountAccessPolicyService,
     private readonly passwordCredentials: PasswordCredentialsService,
+    private readonly challengeFlows: SecureAuthChallengeFlowsService,
+    private readonly challengeDelivery: AuthChallengeDeliveryService,
     @Inject(WINSTON_MODULE_PROVIDER) logger: Logger,
   ) {
     this.logger = logger.child({ context: AuthService.name });
@@ -77,44 +81,19 @@ export class AuthService {
     ) {
       throw new BadRequestException(sysMsg.INVALID_SIGNUP_ROLE);
     }
-
-    const email = signupPayload.email.trim().toLowerCase();
-    const existingUser = await this.userService.findByEmail(email);
-    if (existingUser) {
-      throw new ConflictException(sysMsg.ACCOUNT_ALREADY_EXISTS);
-    }
-
     const hashedPassword = await this.passwordCredentials.hashNewPassword(
       signupPayload.password,
     );
-    const verificationCode = this.generateVerificationCode();
-    const verificationExpiry = new Date(Date.now() + 10 * 60 * 1000);
-    const savedUser = await this.userService.create({
-      email,
-      password: hashedPassword,
-      first_name: signupPayload.first_name.trim(),
-      last_name: signupPayload.last_name.trim(),
-      middle_name: signupPayload.middle_name?.trim() || null,
-      gender: signupPayload.gender ?? null,
-      dob: signupPayload.dob ?? null,
-      phone: signupPayload.phone ?? null,
-      role: signupPayload.role,
-      is_active: false,
-      is_verified: false,
-      account_status: AccountStatus.PENDING_VERIFICATION,
-      email_verified_at: null,
-      verification_code: verificationCode,
-      verification_code_expires_at: verificationExpiry,
-    });
-    // Pending users must never receive access or refresh credentials.
-    const routing = await this.authRoutingService.resolve(savedUser);
-
+    const { user, challengeId } = await this.challengeFlows.signup(
+      signupPayload,
+      hashedPassword,
+    );
+    const routing = await this.authRoutingService.resolve(user);
     this.logger.info(sysMsg.ACCOUNT_CREATED);
-    void this.sendVerificationEmail(savedUser, verificationCode, 10);
-
     return {
-      message: sysMsg.VERIFICATION_CODE_SENT,
-      user: this.toUserResponse(savedUser),
+      message: 'Verification queued',
+      challenge_id: challengeId,
+      user: this.toUserResponse(user),
       ...routing,
     };
   }
@@ -239,47 +218,30 @@ export class AuthService {
   async forgotPassword(
     payload: ForgotPasswordDto,
   ): Promise<{ message: string }> {
-    const email = payload.email.trim().toLowerCase();
-    const user = await this.userService.findByEmail(email);
-
-    if (user) {
-      const resetCode = this.generateVerificationCode();
-      await this.userService.setPasswordResetChallenge(
-        user.id,
-        resetCode,
-        new Date(Date.now() + 10 * 60 * 1000),
-      );
-
-      this.logger.info(`Password reset token generated for user ${user.id}`);
-      void this.sendPasswordResetEmail(user, resetCode, 10);
-    }
-
-    return {
-      message: sysMsg.PASSWORD_RESET_CODE_SENT,
-    };
+    return this.challengeFlows.requestRecovery(payload.email);
   }
 
   async resetPassword(payload: ResetPasswordDto): Promise<{ message: string }> {
     const password = await this.passwordCredentials.hashNewPassword(
       payload.newPassword,
     );
-    await this.userService.consumePasswordResetToken(payload.token, password);
-
-    return {
-      message: sysMsg.PASSWORD_RESET_SUCCESS,
-    };
+    await this.challengeFlows.completeRecovery(
+      payload.challenge_id,
+      payload.code,
+      password,
+    );
+    return { message: sysMsg.PASSWORD_RESET_SUCCESS };
   }
 
   async verifySignup(payload: VerifySignupDto) {
-    const email = payload.email.trim().toLowerCase();
-    const verifiedUser = await this.userService.verifyEmailWithCode(
-      email,
+    const verifiedUser = await this.challengeFlows.verifyContact(
+      payload.challenge_id,
       payload.code,
     );
-    // First token/session issuance happens only after the email proof is stored.
+    // Canonical refresh/session rotation belongs to #77. On #75's current
+    // session model, credentials still require a committed verified account.
     const session = await this.issueAuthSession(verifiedUser);
     void this.sendWelcomeEmail(verifiedUser);
-
     return {
       message: sysMsg.ACCOUNT_VERIFIED,
       user: this.toUserResponse(verifiedUser),
@@ -287,43 +249,33 @@ export class AuthService {
     };
   }
 
-  /**
-   * Send the challenge created inside the provisioner's database transaction.
-   * This method never issues a session or promotes account state.
-   */
-  sendProvisionedVerification(user: User): void {
+  /** Called from lab and organization registration inside the SAME transaction. */
+  async queueProvisionedVerification(
+    manager: EntityManager,
+    user: User,
+  ): Promise<{
+    challengeId: string;
+    resendAfterSeconds: number;
+    expiresInSeconds: number;
+  }> {
     if (
       user.account_status !== AccountStatus.PENDING_VERIFICATION ||
-      user.email_verified_at ||
-      !user.verification_code ||
-      !user.verification_code_expires_at ||
-      user.verification_code_expires_at <= new Date()
+      user.email_verified_at
     ) {
-      throw new BadRequestException(
-        'A pending verification challenge is required.',
-      );
+      throw new BadRequestException('A pending account is required.');
     }
-    void this.sendVerificationEmail(user, user.verification_code, 10);
+    await this.challengeDelivery.assertLiveFlowReady(manager);
+    return this.challengeDelivery.queueInTransaction(
+      manager,
+      user,
+      AuthChallengePurpose.CONTACT_VERIFICATION,
+    );
   }
 
   async resendVerification(
     payload: ResendVerificationDto,
   ): Promise<{ message: string }> {
-    const email = payload.email.trim().toLowerCase();
-    const verificationCode = this.generateVerificationCode();
-    const user = await this.userService.rotateVerificationChallenge(
-      email,
-      verificationCode,
-      new Date(Date.now() + 10 * 60 * 1000),
-    );
-
-    if (!user) {
-      return { message: sysMsg.VERIFICATION_CODE_SENT };
-    }
-
-    void this.sendVerificationEmail(user, verificationCode, 10);
-
-    return { message: sysMsg.VERIFICATION_CODE_SENT };
+    return this.challengeFlows.resend(payload.email);
   }
 
   async getProfile(req: IRequestWithUser) {
@@ -687,86 +639,6 @@ export class AuthService {
       this.logger.info('Welcome email sent', { email: user.email });
     } catch (error) {
       this.logger.error('Failed to send welcome email', error);
-    }
-  }
-
-  private async sendVerificationEmail(
-    user: User,
-    code: string,
-    expiryMinutes: number,
-  ) {
-    const appName = this.configService.get<string>('app.name') || 'OHealth';
-    const fromAddress = this.configService.get<string>('mail.from.address');
-    const fromName = this.configService.get<string>('mail.from.name');
-
-    if (!fromAddress) {
-      this.logger.warn(
-        'Verification email not sent: MAIL_FROM_ADDRESS not set',
-      );
-      return;
-    }
-
-    try {
-      await this.emailService.sendMail({
-        from: { email: fromAddress, name: fromName },
-        to: [{ email: user.email, name: user.first_name }],
-        subject: `Verify your ${appName} account`,
-        templateNameID: EmailTemplateID.VERIFICATION_CODE,
-        templateData: {
-          name: user.first_name,
-          app_name: appName,
-          code,
-          expiry_minutes: expiryMinutes,
-        },
-      });
-      this.logger.info('Verification email sent', { email: user.email });
-    } catch (error) {
-      this.logger.error('Failed to send verification email', error);
-    }
-  }
-
-  private generateVerificationCode(): string {
-    return String(crypto.randomInt(100000, 1000000));
-  }
-
-  private async sendPasswordResetEmail(
-    user: User,
-    code: string,
-    expiryMinutes: number,
-  ) {
-    const appName = this.configService.get<string>('app.name') || 'OHealth';
-    const fromAddress = this.configService.get<string>('mail.from.address');
-    const fromName = this.configService.get<string>('mail.from.name');
-    const frontendUrl = this.configService.get<string>('frontend.url');
-    const resetUrl = frontendUrl
-      ? `${frontendUrl}/reset-password?code=${code}`
-      : undefined;
-
-    if (!fromAddress) {
-      this.logger.warn(
-        'Password reset email not sent: MAIL_FROM_ADDRESS not set.',
-      );
-      return;
-    }
-
-    try {
-      await this.emailService.sendMail({
-        from: { email: fromAddress, name: fromName },
-        to: [{ email: user.email, name: user.first_name }],
-        subject: `Reset your ${appName} password`,
-        templateNameID: EmailTemplateID.OTP,
-        templateData: {
-          name: user.first_name,
-          app_name: appName,
-          otp: code,
-          otp_digits: code.split(''),
-          reset_url: resetUrl,
-          expiry_minutes: expiryMinutes,
-        },
-      });
-      this.logger.info('Password reset email sent', { email: user.email });
-    } catch (error) {
-      this.logger.error('Failed to send password reset email', error);
     }
   }
 

@@ -21,10 +21,14 @@ async function bootstrap() {
   // security secrets are absent. The delivery key becomes mandatory when
   // the new challenge-producing public flows are enabled.
   app.get(AuthChallengeService).assertConfigured();
-  if (configService.get<string>('AUTH_CHALLENGE_FLOWS_ENABLED') === 'true') {
-    app.get(AuthChallengeDeliveryService).assertConfigured();
-    await app.get(AuthChallengeDeliveryService).assertWorkerReady();
+  // This branch replaces live verification/recovery endpoints unconditionally.
+  // Reject a disabled flag rather than silently skipping readiness checks.
+  if (configService.get<string>('AUTH_CHALLENGE_FLOWS_ENABLED') !== 'true') {
+    throw new Error(
+      'AUTH_CHALLENGE_FLOWS_ENABLED=true is required for live authentication routes.',
+    );
   }
+  await app.get(AuthChallengeDeliveryService).assertLiveFlowReady();
 
   const corsOrigins = configService.get<string[]>('cors.origins', []);
   app.enableCors({

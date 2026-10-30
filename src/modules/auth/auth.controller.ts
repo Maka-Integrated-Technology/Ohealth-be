@@ -56,6 +56,7 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.CREATED)
   @Post('signup')
+  @UseGuards(AuthAbuseGuard)
   signup(@Body() signupDto: AuthDto) {
     return this.authService.signup(signupDto);
   }

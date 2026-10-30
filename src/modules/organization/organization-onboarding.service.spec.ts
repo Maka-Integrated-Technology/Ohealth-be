@@ -30,7 +30,7 @@ describe('OrganizationOnboardingService', () => {
     save: jest.fn(),
   };
   const authService = {
-    sendProvisionedVerification: jest.fn(),
+    queueProvisionedVerification: jest.fn(),
     hashNewPassword: jest.fn().mockResolvedValue('hashed'),
   };
   const dataSource = {
@@ -112,8 +112,8 @@ describe('OrganizationOnboardingService', () => {
           is_verified: false,
           account_status: AccountStatus.PENDING_VERIFICATION,
           email_verified_at: null,
-          verification_code: expect.any(String),
-          verification_code_expires_at: expect.any(Date),
+          verification_code: null,
+          verification_code_expires_at: null,
         }),
       );
       expect(administrators.create).toHaveBeenCalledWith(
@@ -125,7 +125,8 @@ describe('OrganizationOnboardingService', () => {
       );
       expect(result.organization.organization_type).toBe(type);
       expect(result).not.toHaveProperty('access_token');
-      expect(authService.sendProvisionedVerification).toHaveBeenCalledWith(
+      expect(authService.queueProvisionedVerification).toHaveBeenCalledWith(
+        expect.anything(),
         expect.objectContaining({
           account_status: AccountStatus.PENDING_VERIFICATION,
           email: 'admin@hospital.test',
@@ -141,7 +142,7 @@ describe('OrganizationOnboardingService', () => {
       ConflictException,
     );
     expect(organizations.save).not.toHaveBeenCalled();
-    expect(authService.sendProvisionedVerification).not.toHaveBeenCalled();
+    expect(authService.queueProvisionedVerification).not.toHaveBeenCalled();
   });
 
   it('rejects a duplicate registration number', async () => {

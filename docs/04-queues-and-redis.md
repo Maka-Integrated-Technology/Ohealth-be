@@ -8,8 +8,10 @@ challenge-delivery worker with encrypted envelopes, recoverable leases, fencing
 and readiness heartbeats. Its commands, deployment order and rollback procedure
 are documented in `auth-challenge-foundation.md`. Redis and BullMQ remain target
 infrastructure; the queue design below describes that target, not the current
-authentication worker. The live route migration is delivered separately in
-PR #99 and still requires its acceptance and deployment evidence.
+authentication worker. PR #113 migrates the live public authentication routes
+to the PostgreSQL challenge-delivery worker. Issue #75 remains open for the
+required staging deployment, client compatibility, and representative load and
+timing evidence before production acceptance.
 
 ## Redis responsibilities
 
