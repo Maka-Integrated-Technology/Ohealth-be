@@ -47,14 +47,20 @@ Without that variable, integration suites skip and do not constitute acceptance.
 6. Rollback disables producers first and preserves additive challenge/delivery and
    audit tables. A rollback must not expose legacy endpoints to populated raw codes.
 
-## External acceptance still required
+## Acceptance gates
+
+### Required before merge
 
 - Independent review of the full recovery diff, dependency/workflow scan results,
   and signatures on the final rewritten head. Existing PR #99 approvals do not transfer.
 - Trusted breaking API approval and CI rerun on that signed head.
+
+### Required after merge and before production rollout
+
 - Staging evidence for actual email delivery, provider timeout behavior, secrets,
   heartbeat/backlog/lease alerts, client adoption and rollback.
 - Representative timing/load evidence, including login and all account states;
   expand samples if the observed distributions support account classification.
 
-Keep #75 open and PR #113 draft until its complete acceptance matrix is satisfied.
+PR #113 may merge after its pre-merge gates pass. Keep #75 open until the
+post-merge staging and load evidence completes the full acceptance matrix.

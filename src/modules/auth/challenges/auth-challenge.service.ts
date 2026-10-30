@@ -47,7 +47,7 @@ export class AuthChallengeService {
 
   /**
    * Internal only: do not return the secret to an HTTP client.
-   * Public send and recovery endpoints are NOT wired in this foundation.
+   * Public flows issue challenges through the secure delivery service.
    */
   issueForUser(
     subjectUserId: string,
