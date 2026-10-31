@@ -21,6 +21,7 @@ import { AuthSession } from './entities/auth.entity';
 import { User2fa } from './entities/user-2fa.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { GoogleLinkingService } from './oauth/google-linking.service';
 import { PasswordCredentialsService } from './password-policy/password-credentials.service';
 import { AuthSecurityAuditModule } from './security-audit/auth-security-audit.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -56,6 +57,7 @@ import { TwoFactorAuthService } from './two-factor-auth.service';
     AuthService,
     SecureAuthChallengeFlowsService,
     AuthRoutingService,
+    GoogleLinkingService,
     AuthAbuseGuard,
     PasswordCredentialsService,
     JwtStrategy,
@@ -64,6 +66,7 @@ import { TwoFactorAuthService } from './two-factor-auth.service';
     TwoFactorAuthService,
   ],
   exports: [
+    GoogleLinkingService,
     AuthChallengeModule,
     AuthService,
     PasswordCredentialsService,

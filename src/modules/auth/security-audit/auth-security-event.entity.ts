@@ -20,7 +20,7 @@ import {
 @Index('IDX_auth_security_events_type_time', ['event_type', 'occurred_at'])
 @Check(
   'CHK_auth_security_events_type',
-  `"event_type" IN ('sign_in', 'contact_verification', 'password_recovery', 'password_change', 'session_refresh', 'session_reuse', 'logout', 'account_state_change', 'oauth_link', 'registration', 'mfa')`,
+  `"event_type" IN ('sign_in', 'contact_verification', 'password_recovery', 'password_change', 'session_refresh', 'session_reuse', 'logout', 'account_state_change', 'oauth_link', 'oauth_unlink', 'registration', 'mfa')`,
 )
 @Check(
   'CHK_auth_security_events_outcome',
