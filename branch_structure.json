@@ -1,0 +1,33 @@
+{
+  "default_branch": "dev",
+  "branches": [
+    "dependabot/npm_and_yarn/npm-security-updates-9cd3971d0d",
+    "dev",
+    "feat/77-refresh-session-foundation",
+    "feat/80-canonical-auth-context-foundation",
+    "feat/90-canonical-patient-profile-foundation",
+    "fix/79-oauth-existing-links-only",
+    "origin",
+    "recovery/78-registration-clean-20261031"
+  ],
+  "parent": {
+    "dependabot/npm_and_yarn/npm-security-updates-9cd3971d0d": "dev",
+    "dev": null,
+    "feat/77-refresh-session-foundation": "dev",
+    "feat/80-canonical-auth-context-foundation": "dev",
+    "feat/90-canonical-patient-profile-foundation": "dev",
+    "fix/79-oauth-existing-links-only": "dev",
+    "origin": "dev",
+    "recovery/78-registration-clean-20261031": "dev"
+  },
+  "order": [
+    "dev",
+    "dependabot/npm_and_yarn/npm-security-updates-9cd3971d0d",
+    "feat/77-refresh-session-foundation",
+    "feat/80-canonical-auth-context-foundation",
+    "feat/90-canonical-patient-profile-foundation",
+    "fix/79-oauth-existing-links-only",
+    "origin",
+    "recovery/78-registration-clean-20261031"
+  ]
+}
