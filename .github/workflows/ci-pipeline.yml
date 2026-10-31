@@ -4,7 +4,7 @@ on:
   push:
     branches: [dev, staging, main]
   pull_request:
-    branches: [dev, staging, main, feat/75-challenge-delivery-foundation]
+    branches: [dev, staging, main, feat/75-challenge-delivery-foundation, recovery/78-registration-clean-20261031, fix/79-oauth-existing-links-only, feat/80-canonical-auth-context-foundation]
     types: [opened, synchronize, reopened, edited, labeled, unlabeled]
   pull_request_review:
     types: [submitted, dismissed]
@@ -24,7 +24,10 @@ jobs:
       github.event.pull_request.base.ref == 'dev' ||
       github.event.pull_request.base.ref == 'staging' ||
       github.event.pull_request.base.ref == 'main' ||
-      github.event.pull_request.base.ref == 'feat/75-challenge-delivery-foundation'
+      github.event.pull_request.base.ref == 'feat/75-challenge-delivery-foundation' ||
+      github.event.pull_request.base.ref == 'recovery/78-registration-clean-20261031' ||
+      github.event.pull_request.base.ref == 'fix/79-oauth-existing-links-only' ||
+      github.event.pull_request.base.ref == 'feat/80-canonical-auth-context-foundation'
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -129,7 +132,8 @@ jobs:
       - name: Verify maintenance worker TypeScript and ESLint
         run: |
           npx tsc --noEmit -p tsconfig.worker.json
-          npx eslint scripts/maintenance/dispatch-auth-challenge-deliveries.ts
+          npx eslint scripts/maintenance/dispatch-auth-challenge-deliveries.ts scripts/maintenance/prune-registration-retries.ts
+          npx prettier --check scripts/maintenance/prune-registration-retries.ts
 
       - name: Run Tests
         run: npm test
@@ -175,6 +179,11 @@ jobs:
         env:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
         run: npx jest --runInBand src/database/tests/auth-challenge-delivery-concurrency.integration.spec.ts
+
+      - name: Verify recovered registration persistence and uniqueness on PostgreSQL
+        env:
+          PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
+        run: npx jest --runInBand src/database/tests/normalized-signup-keys.integration.spec.ts src/database/tests/registration-records.integration.spec.ts
 
       - name: Enforce breaking-change approval
         if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review'
