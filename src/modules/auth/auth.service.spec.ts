@@ -458,7 +458,10 @@ describe('AuthService', () => {
         email_verified_at: new Date(),
       } as User);
 
-      expect(mockSessions.issue).toHaveBeenCalledWith('user-id-1', 'credential-snapshot');
+      expect(mockSessions.issue).toHaveBeenCalledWith(
+        'user-id-1',
+        'credential-snapshot',
+      );
       expect(result).toEqual({
         ...defaultRouting,
         access_token: 'access-token',
