@@ -48,7 +48,7 @@ describe('LaboratoryAuthService', () => {
 
   const mockAuthService = {
     issueAuthSession: jest.fn(),
-    sendProvisionedVerification: jest.fn(),
+    queueProvisionedVerification: jest.fn(),
     hashNewPassword: jest.fn().mockResolvedValue('hashed-password'),
   };
 
@@ -202,8 +202,8 @@ describe('LaboratoryAuthService', () => {
         is_verified: false,
         account_status: AccountStatus.PENDING_VERIFICATION,
         email_verified_at: null,
-        verification_code: expect.any(String),
-        verification_code_expires_at: expect.any(Date),
+        verification_code: null,
+        verification_code_expires_at: null,
       }),
     );
     expect(mockLaboratoryAdminRepository.create).toHaveBeenCalledWith(
@@ -216,7 +216,8 @@ describe('LaboratoryAuthService', () => {
       }),
     );
     expect(mockAuthService.issueAuthSession).not.toHaveBeenCalled();
-    expect(mockAuthService.sendProvisionedVerification).toHaveBeenCalledWith(
+    expect(mockAuthService.queueProvisionedVerification).toHaveBeenCalledWith(
+      expect.anything(),
       expect.objectContaining({
         id: 'user-id',
         account_status: AccountStatus.PENDING_VERIFICATION,
@@ -291,7 +292,7 @@ describe('LaboratoryAuthService', () => {
       sysMsg.LABORATORY_ADMIN_EMAIL_ALREADY_REGISTERED,
     );
     expect(mockLaboratoryRepository.save).not.toHaveBeenCalled();
-    expect(mockAuthService.sendProvisionedVerification).not.toHaveBeenCalled();
+    expect(mockAuthService.queueProvisionedVerification).not.toHaveBeenCalled();
     expect(mockAuthService.issueAuthSession).not.toHaveBeenCalled();
   });
 
@@ -309,7 +310,7 @@ describe('LaboratoryAuthService', () => {
       sysMsg.LABORATORY_ALREADY_EXISTS,
     );
     expect(mockUserRepository.save).not.toHaveBeenCalled();
-    expect(mockAuthService.sendProvisionedVerification).not.toHaveBeenCalled();
+    expect(mockAuthService.queueProvisionedVerification).not.toHaveBeenCalled();
     expect(mockAuthService.issueAuthSession).not.toHaveBeenCalled();
   });
 
@@ -335,7 +336,7 @@ describe('LaboratoryAuthService', () => {
     await expect(service.setupAdministrator(payload)).rejects.toThrow(
       'database failure',
     );
-    expect(mockAuthService.sendProvisionedVerification).not.toHaveBeenCalled();
+    expect(mockAuthService.queueProvisionedVerification).not.toHaveBeenCalled();
     expect(mockAuthService.issueAuthSession).not.toHaveBeenCalled();
   });
 });

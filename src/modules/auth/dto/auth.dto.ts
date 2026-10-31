@@ -6,7 +6,6 @@ import {
   IsEmail,
   Matches,
   IsString,
-  IsJWT,
   IsUUID,
   IsOptional,
   ArrayNotEmpty,
@@ -127,12 +126,16 @@ export class ForgotPasswordDto {
 
 export class ResetPasswordDto {
   @ApiProperty({
-    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-    description: 'Password reset token',
+    format: 'uuid',
+    description: 'Purpose-bound recovery challenge ID from the recovery email',
   })
+  @IsUUID()
+  challenge_id: string;
+
+  @ApiProperty({ example: '123456', description: '6-digit recovery code' })
   @IsString()
-  @IsNotEmpty()
-  token: string;
+  @Matches(/^\d{6}$/)
+  code: string;
 
   @ApiProperty({
     example: 'a memorable patient passphrase',
@@ -146,10 +149,13 @@ export class ResetPasswordDto {
 }
 export class RefreshTokenDto {
   @ApiProperty({
-    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-    description: 'JWT refresh token with 7 days expiration',
+    example: '2hYxjxsL4aG8sfe8O5d5Q7vX7CjV1NzzVXJKmi6Ug7Q',
+    description:
+      'Opaque rotating refresh secret; store in OS secure storage. Absolute session expiry is unchanged by rotation.',
+    pattern: '^[A-Za-z0-9_-]{43}$',
   })
-  @IsJWT()
+  @IsString()
+  @Matches(/^[A-Za-z0-9_-]{43}$/)
   @IsNotEmpty()
   refresh_token: string;
 }
@@ -211,12 +217,11 @@ export class AuthMeResponseDto {
 
 export class VerifySignupDto {
   @ApiProperty({
-    example: 'user@example.com',
-    description: 'User email address',
+    format: 'uuid',
+    description: 'Purpose-bound contact verification challenge ID',
   })
-  @IsEmail()
-  @IsNotEmpty()
-  email: string;
+  @IsUUID()
+  challenge_id: string;
 
   @ApiProperty({
     example: '123456',

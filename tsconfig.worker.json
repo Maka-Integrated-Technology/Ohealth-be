@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "./dist-worker",
+    "noEmit": true,
+    "incremental": false
+  },
+  "include": [
+    "src/**/*.ts",
+    "scripts/maintenance/dispatch-auth-challenge-deliveries.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "dist-worker",
+    "**/*.spec.ts"
+  ]
+}

@@ -47,7 +47,7 @@ export interface paths {
     };
     readonly get?: never;
     readonly put?: never;
-    /** Request a password reset code */
+    /** Queue a purpose-bound password-recovery challenge (generic response) */
     readonly post: operations['AuthController_forgotPassword'];
     readonly delete?: never;
     readonly options?: never;
@@ -150,8 +150,59 @@ export interface paths {
     };
     readonly get?: never;
     readonly put?: never;
-    /** Reset a password with a valid reset code */
+    /** Complete password recovery with challenge ID and code */
     readonly post: operations['AuthController_resetPassword'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly '/api/auth/sessions': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** List your active sessions using safe metadata only */
+    readonly get: operations['AuthController_sessions'];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly '/api/auth/sessions/revoke': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Revoke one of your sessions; unknown or foreign IDs are a no-op */
+    readonly post: operations['AuthController_revokeSession'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly '/api/auth/sessions/revoke-all': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Revoke all your sessions, including this one */
+    readonly post: operations['AuthController_revokeAllSessions'];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -201,7 +252,7 @@ export interface paths {
     };
     readonly get?: never;
     readonly put?: never;
-    /** Send a new email verification code */
+    /** Queue a new verification challenge for an eligible account */
     readonly post: operations['AuthController_resendVerification'];
     readonly delete?: never;
     readonly options?: never;
@@ -1963,8 +2014,8 @@ export interface components {
       /** @example Login success */
       readonly message: string | null;
       /**
-       * @description JWT refresh token with 7 days expiration
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+       * @description Opaque rotating refresh secret. Reuse revokes the session family; absolute expiry does not slide.
+       * @example 2hYxjxsL4aG8sfe8O5d5Q7vX7CjV1NzzVXJKmi6Ug7Q
        */
       readonly refresh_token: string;
       /**
@@ -2000,8 +2051,8 @@ export interface components {
        */
       readonly access_token: string;
       /**
-       * @description JWT refresh token with 7 days expiration
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+       * @description Opaque rotating refresh secret. Reuse revokes the session family; absolute expiry does not slide.
+       * @example 2hYxjxsL4aG8sfe8O5d5Q7vX7CjV1NzzVXJKmi6Ug7Q
        */
       readonly refresh_token: string;
       /**
@@ -2522,8 +2573,8 @@ export interface components {
     };
     readonly RefreshTokenDto: {
       /**
-       * @description JWT refresh token with 7 days expiration
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+       * @description Opaque rotating refresh secret; store in OS secure storage. Absolute session expiry is unchanged by rotation.
+       * @example 2hYxjxsL4aG8sfe8O5d5Q7vX7CjV1NzzVXJKmi6Ug7Q
        */
       readonly refresh_token: string;
     };
@@ -2541,8 +2592,8 @@ export interface components {
       /** @example Token refresh successful */
       readonly message: string | null;
       /**
-       * @description JWT refresh token with 7 days expiration
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+       * @description Opaque rotating refresh secret. Reuse revokes the session family; absolute expiry does not slide.
+       * @example 2hYxjxsL4aG8sfe8O5d5Q7vX7CjV1NzzVXJKmi6Ug7Q
        */
       readonly refresh_token: string;
       /**
@@ -2578,8 +2629,8 @@ export interface components {
        */
       readonly access_token: string;
       /**
-       * @description JWT refresh token with 7 days expiration
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+       * @description Opaque rotating refresh secret. Reuse revokes the session family; absolute expiry does not slide.
+       * @example 2hYxjxsL4aG8sfe8O5d5Q7vX7CjV1NzzVXJKmi6Ug7Q
        */
       readonly refresh_token: string;
       /**
@@ -2621,15 +2672,20 @@ export interface components {
     };
     readonly ResetPasswordDto: {
       /**
+       * Format: uuid
+       * @description Purpose-bound recovery challenge ID from the recovery email
+       */
+      readonly challenge_id: string;
+      /**
+       * @description 6-digit recovery code
+       * @example 123456
+       */
+      readonly code: string;
+      /**
        * @description New password: 15+ Unicode characters, max 1024 UTF-8 bytes
        * @example a memorable patient passphrase
        */
       readonly newPassword: string;
-      /**
-       * @description Password reset token
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-       */
-      readonly token: string;
     };
     readonly ReviewResponseDto: {
       readonly booking_id?: string;
@@ -2640,6 +2696,13 @@ export interface components {
       readonly professional_id: string;
       readonly rating: number;
       readonly reviewer_id: string;
+    };
+    readonly RevokeOwnedSessionDto: {
+      /**
+       * Format: uuid
+       * @description A session owned by the authenticated user
+       */
+      readonly session_id: string;
     };
     readonly SendChatMessageResponseDto: {
       /** @example Common flu symptoms include fever, cough, body aches, and fatigue. */
@@ -2658,6 +2721,16 @@ export interface components {
        * @example Hello, AI!
        */
       readonly content: string;
+    };
+    readonly SessionMetadataDto: {
+      /** Format: date-time */
+      readonly created_at: string;
+      /** Format: date-time */
+      readonly expires_at: string;
+      /** Format: date-time */
+      readonly last_used_at: string | null;
+      /** Format: uuid */
+      readonly session_id: string;
     };
     readonly SetLaboratoryOperatingHourDto: {
       /**
@@ -2700,6 +2773,11 @@ export interface components {
        * @enum {string}
        */
       readonly access_level: LoginResponseDtoAccess_level;
+      /**
+       * Format: uuid
+       * @description Pending contact verification challenge ID
+       */
+      readonly challenge_id: string;
       /** @example account created */
       readonly message: string | null;
       /**
@@ -2722,6 +2800,11 @@ export interface components {
        * @enum {string}
        */
       readonly access_level: LoginResponseDtoAccess_level;
+      /**
+       * Format: uuid
+       * @description Pending contact verification challenge ID
+       */
+      readonly challenge_id: string;
       /**
        * @example email_verification
        * @enum {string}
@@ -2874,15 +2957,15 @@ export interface components {
     };
     readonly VerifySignupDto: {
       /**
+       * Format: uuid
+       * @description Purpose-bound contact verification challenge ID
+       */
+      readonly challenge_id: string;
+      /**
        * @description 6-digit verification code
        * @example 123456
        */
       readonly code: string;
-      /**
-       * @description User email address
-       * @example user@example.com
-       */
-      readonly email: string;
     };
     readonly VerifySignupResponseDto: {
       /**
@@ -2898,8 +2981,8 @@ export interface components {
       /** @example account verified */
       readonly message: string | null;
       /**
-       * @description JWT refresh token with 7 days expiration
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+       * @description Opaque rotating refresh secret. Reuse revokes the session family; absolute expiry does not slide.
+       * @example 2hYxjxsL4aG8sfe8O5d5Q7vX7CjV1NzzVXJKmi6Ug7Q
        */
       readonly refresh_token: string;
       /**
@@ -2935,8 +3018,8 @@ export interface components {
        */
       readonly access_token: string;
       /**
-       * @description JWT refresh token with 7 days expiration
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+       * @description Opaque rotating refresh secret. Reuse revokes the session family; absolute expiry does not slide.
+       * @example 2hYxjxsL4aG8sfe8O5d5Q7vX7CjV1NzzVXJKmi6Ug7Q
        */
       readonly refresh_token: string;
       /**
@@ -3455,6 +3538,138 @@ export interface operations {
       };
     };
   };
+  readonly AuthController_sessions: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: readonly components['schemas']['SessionMetadataDto'][];
+          };
+        };
+      };
+      /** @description A current session is required */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly AuthController_revokeSession: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly 'application/json': components['schemas']['RevokeOwnedSessionDto'];
+      };
+    };
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            /** @example null */
+            readonly data: unknown;
+          };
+        };
+      };
+      /** @description A valid session UUID is required */
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description A current session is required */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly AuthController_revokeAllSessions: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            /** @example null */
+            readonly data: unknown;
+          };
+        };
+      };
+      /** @description A current session is required */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
   readonly AuthController_signup: {
     readonly parameters: {
       readonly query?: never;
@@ -3540,15 +3755,6 @@ export interface operations {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
         };
       };
-      /** @description User account not found */
-      readonly 404: {
-        headers: {
-          readonly [name: string]: unknown;
-        };
-        content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
-        };
-      };
       /** @description Internal server error */
       readonly 500: {
         headers: {
@@ -3584,7 +3790,7 @@ export interface operations {
           };
         };
       };
-      /** @description Account is already verified */
+      /** @description Request validation failed */
       readonly 400: {
         headers: {
           readonly [name: string]: unknown;

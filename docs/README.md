@@ -26,18 +26,20 @@ must follow.
 
 ## Current status
 
-| Area                               | Status     |
-| ---------------------------------- | ---------- |
-| User personas                      | Foundation |
-| Organization memberships           | Foundation |
-| Legal acceptance records           | Foundation |
-| Transactional outbox table         | Foundation |
-| Role-free registration contracts   | Foundation |
-| Redis authentication challenges    | Target     |
-| Distributed rate limiting          | Target     |
-| BullMQ email worker                | Target     |
-| Rotating refresh-token families    | Target     |
-| Encrypted MFA factors              | Target     |
-| Existing role-array authentication | Legacy     |
+| Area                               | Status      |
+| ---------------------------------- | ----------- |
+| User personas                      | Foundation  |
+| Organization memberships           | Foundation  |
+| Legal acceptance records           | Foundation  |
+| Transactional outbox table         | Foundation  |
+| Role-free registration contracts   | Foundation  |
+| Redis authentication challenges    | Target      |
+| Distributed rate limiting          | Target      |
+| BullMQ email worker                | Target      |
+| Rotating refresh-token families    | Implemented |
+| Encrypted MFA factors              | Target      |
+| Existing role-array authentication | Legacy      |
 
 Update this table whenever an area moves between statuses.
+
+Canonical session cutover, transport compatibility, and verification: [Session security](./refresh-session-foundation.md).

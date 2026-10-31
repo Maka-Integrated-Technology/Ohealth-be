@@ -11,7 +11,6 @@ import { Logger } from 'winston';
 
 import * as sysMsg from '../../constants/system.messages';
 import { AuthService } from '../auth/auth.service';
-import { generateVerificationChallenge } from '../auth/utils/verification-challenge.util';
 import { User } from '../user/entities/user.entity';
 import { AccountStatus } from '../user/enums/account-status.enum';
 
@@ -66,8 +65,6 @@ export class OrganizationOnboardingService {
       hashedPassword,
     );
 
-    this.authService.sendProvisionedVerification(result.user);
-
     this.logger.info(sysMsg.ORGANIZATION_ADMIN_SETUP_COMPLETED, {
       organization_id: result.organization.id,
       user_id: result.user.id,
@@ -105,7 +102,6 @@ export class OrganizationOnboardingService {
     parsedName: IParsedAdministratorName,
     hashedPassword: string,
   ): Promise<ICreatedOrganizationAdministrator> {
-    const challenge = generateVerificationChallenge();
     try {
       return await this.dataSource.transaction(async (manager) => {
         const organizations = manager.withRepository(
@@ -162,7 +158,8 @@ export class OrganizationOnboardingService {
             is_verified: false,
             account_status: AccountStatus.PENDING_VERIFICATION,
             email_verified_at: null,
-            ...challenge,
+            verification_code: null,
+            verification_code_expires_at: null,
           }),
         );
         const administrator = await administrators.save(
@@ -175,6 +172,7 @@ export class OrganizationOnboardingService {
           }),
         );
 
+        await this.authService.queueProvisionedVerification(manager, user);
         return { organization, user, administrator };
       });
     } catch (error: unknown) {

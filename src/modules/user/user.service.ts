@@ -5,10 +5,11 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DeepPartial, EntityManager, Repository } from 'typeorm';
+import { DeepPartial, EntityManager, IsNull, Repository } from 'typeorm';
 
 import * as sysMsg from '../../constants/system.messages';
 import { AccountAccessPolicyService } from '../auth/account-access-policy.service';
+import { AuthSession } from '../auth/entities/auth.entity';
 
 import { UserAccountStatusHistory } from './entities/user-account-status-history.entity';
 import { User } from './entities/user.entity';
@@ -73,6 +74,12 @@ export class UserService {
         reset_token: null,
         reset_token_expiry: null,
       });
+      // Password reset and session revocation share one database commit.
+      await manager.update(
+        AuthSession,
+        { user_id: user.id, revoked_at: IsNull() },
+        { revoked_at: new Date() },
+      );
       user.password = password;
       user.reset_token = null;
       user.reset_token_expiry = null;
@@ -90,10 +97,16 @@ export class UserService {
         where: { email },
         lock: { mode: 'pessimistic_write' },
       });
-      if (!user) {
+      // Match unknown, active, suspended and deactivated accounts at the
+      // public resend boundary. Never reveal state through an error response
+      // or mutate legacy verification codes on an ineligible account.
+      if (
+        !user ||
+        user.account_status !== AccountStatus.PENDING_VERIFICATION ||
+        user.email_verified_at
+      ) {
         return null;
       }
-      this.accountAccessPolicy.assertCanVerifyContact(user);
       await manager.update(User, user.id, {
         verification_code: code,
         verification_code_expires_at: expiresAt,

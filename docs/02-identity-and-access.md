@@ -88,6 +88,8 @@ jobs, or analytics.
 Browser refresh tokens use secure, HTTP-only cookies with an explicit CSRF
 control. Mobile refresh tokens use operating-system secure storage.
 
+Canonical API session implementation and rollout details: [Session security](./refresh-session-foundation.md).
+
 ## MFA
 
 - TOTP factors are confirmed before activation.

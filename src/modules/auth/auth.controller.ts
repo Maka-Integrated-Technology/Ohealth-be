@@ -10,12 +10,21 @@ import {
   UseGuards,
   Req,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiExcludeEndpoint, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiExcludeEndpoint,
+  ApiTags,
+  ApiOperation,
+  ApiOkResponse,
+  ApiUnauthorizedResponse,
+  ApiBadRequestResponse,
+} from '@nestjs/swagger';
 
 import { Public } from '../../common/decorators/public.decorator';
 import { IAuthUser, IRequestWithUser } from '../../common/types';
 
 import { AuthService } from './auth.service';
+import { AuthAbuseGuard } from './challenges/auth-abuse.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import {
   ForgotPasswordDocs,
@@ -31,6 +40,7 @@ import {
   UpdateProfileDocs,
   VerifySignupDocs,
 } from './docs';
+import { LogoutResponseDto } from './dto/auth-response.dto';
 import {
   AuthDto,
   ChangePasswordDto,
@@ -44,6 +54,7 @@ import {
   VerifySignupDto,
 } from './dto/auth.dto';
 import { LoginDto } from './dto/login.dto';
+import { RevokeOwnedSessionDto, SessionMetadataDto } from './dto/session.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @ApiTags('Authentication')
@@ -55,6 +66,7 @@ export class AuthController {
   @Public()
   @HttpCode(HttpStatus.CREATED)
   @Post('signup')
+  @UseGuards(AuthAbuseGuard)
   signup(@Body() signupDto: AuthDto) {
     return this.authService.signup(signupDto);
   }
@@ -63,6 +75,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @LoginDocs()
+  @UseGuards(AuthAbuseGuard)
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
   }
@@ -86,6 +99,7 @@ export class AuthController {
   @ForgotPasswordDocs()
   @Public()
   @Post('forgot-password')
+  @UseGuards(AuthAbuseGuard)
   forgotPassword(@Body() payload: ForgotPasswordDto) {
     return this.authService.forgotPassword(payload);
   }
@@ -93,6 +107,7 @@ export class AuthController {
   @ResetPasswordDocs()
   @Public()
   @Post('reset-password')
+  @UseGuards(AuthAbuseGuard)
   resetPassword(@Body() payload: ResetPasswordDto) {
     return this.authService.resetPassword(payload);
   }
@@ -101,6 +116,7 @@ export class AuthController {
   @Public()
   @Post('verify')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthAbuseGuard)
   verifySignup(@Body() payload: VerifySignupDto) {
     return this.authService.verifySignup(payload);
   }
@@ -109,6 +125,7 @@ export class AuthController {
   @Public()
   @Post('verify/resend')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthAbuseGuard)
   resendVerification(@Body() payload: ResendVerificationDto) {
     return this.authService.resendVerification(payload);
   }
@@ -160,6 +177,43 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @LogoutDocs()
   async logout(@CurrentUser() user: IAuthUser, @Body() logoutDto: LogoutDto) {
-    return this.authService.logout(user.id, logoutDto);
+    return this.authService.logout(user.id, logoutDto, user.sessionId);
+  }
+
+  @Get('sessions')
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'List your active sessions using safe metadata only',
+  })
+  @ApiOkResponse({ type: SessionMetadataDto, isArray: true })
+  @ApiUnauthorizedResponse({ description: 'A current session is required' })
+  sessions(@CurrentUser() user: IAuthUser) {
+    return this.authService.listSessions(user.id);
+  }
+
+  @Post('sessions/revoke')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Revoke one of your sessions; unknown or foreign IDs are a no-op',
+  })
+  @ApiOkResponse({ type: LogoutResponseDto })
+  @ApiBadRequestResponse({ description: 'A valid session UUID is required' })
+  @ApiUnauthorizedResponse({ description: 'A current session is required' })
+  revokeSession(
+    @CurrentUser() user: IAuthUser,
+    @Body() payload: RevokeOwnedSessionDto,
+  ) {
+    return this.authService.logout(user.id, payload);
+  }
+
+  @Post('sessions/revoke-all')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Revoke all your sessions, including this one' })
+  @ApiOkResponse({ type: LogoutResponseDto })
+  @ApiUnauthorizedResponse({ description: 'A current session is required' })
+  revokeAllSessions(@CurrentUser() user: IAuthUser) {
+    return this.authService.revokeAllSessions(user.id);
   }
 }

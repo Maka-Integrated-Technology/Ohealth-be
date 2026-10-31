@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule, JwtService } from '@nestjs/jwt';
@@ -8,7 +10,10 @@ import * as request from 'supertest';
 import { AccountAccessPolicyService } from '../src/modules/auth/account-access-policy.service';
 import { AuthController } from '../src/modules/auth/auth.controller';
 import { AuthService } from '../src/modules/auth/auth.service';
+import { AuthAbuseGuard } from '../src/modules/auth/challenges/auth-abuse.guard';
+import { AuthRateLimitService } from '../src/modules/auth/challenges/auth-rate-limit.service';
 import { JwtAuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
+import { RefreshSessionService } from '../src/modules/auth/refresh-session.service';
 import { JwtStrategy } from '../src/modules/auth/strategies/jwt.strategy';
 import { AccountStatus } from '../src/modules/user/enums/account-status.enum';
 import { UserRole } from '../src/modules/user/enums/user-role.enum';
@@ -16,7 +21,8 @@ import { UserService } from '../src/modules/user/user.service';
 
 describe('Retired account activation (isolated e2e)', () => {
   const secret = 'fixed-test-secret-for-legacy-activation';
-  const userId = 'test-user-id';
+  const userId = randomUUID();
+  const sessionId = randomUUID();
   const url = `/api/auth/users/${userId}/activate`;
   let app: INestApplication;
   let jwtService: JwtService;
@@ -43,11 +49,32 @@ describe('Retired account activation (isolated e2e)', () => {
       providers: [
         JwtAuthGuard,
         JwtStrategy,
+        { provide: RefreshSessionService, useValue: { validate: findById } },
+        { provide: AuthAbuseGuard, useValue: { canActivate: () => true } },
+        {
+          provide: AuthRateLimitService,
+          useValue: {
+            consume: jest.fn().mockResolvedValue({
+              allowed: true,
+              hits: 1,
+              retryAfterSeconds: 0,
+            }),
+          },
+        },
         AccountAccessPolicyService,
         { provide: AuthService, useValue: {} },
         {
           provide: ConfigService,
-          useValue: { get: () => secret },
+          useValue: {
+            get: (key: string) =>
+              key === 'AUTH_TRUSTED_PROXY_CIDRS'
+                ? ''
+                : key === 'TOKEN_ACCESS_DURATION'
+                  ? '15m'
+                  : key === 'TOKEN_REFRESH_DURATION'
+                    ? '7d'
+                    : secret,
+          },
         },
         { provide: UserService, useValue: { findById, save } },
       ],
@@ -82,16 +109,15 @@ describe('Retired account activation (isolated e2e)', () => {
   });
 
   it('rejects an authenticated user with 403 without activating an account', async () => {
-    const token = jwtService.sign({
-      sub: userId,
-      email: 'verified@example.com',
-      role: [UserRole.PATIENT],
-    });
+    const token = jwtService.sign(
+      { sub: userId, sid: sessionId, jti: randomUUID() },
+      { expiresIn: 900 },
+    );
     await request(app.getHttpServer())
       .patch(url)
       .set('Authorization', `Bearer ${token}`)
       .expect(403);
-    expect(findById).toHaveBeenCalledWith(userId);
+    expect(findById).toHaveBeenCalledWith(userId, sessionId);
     expect(save).not.toHaveBeenCalled();
   });
 });

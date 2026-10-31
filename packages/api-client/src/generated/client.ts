@@ -117,6 +117,37 @@ export type AuthController_resetPasswordError =
   | operations['AuthController_resetPassword']['responses'][400]['content']['application/json']
   | operations['AuthController_resetPassword']['responses'][500]['content']['application/json'];
 
+export type AuthController_revokeAllSessionsRequest = Readonly<{
+  readonly headers?: ApiHeaders;
+}>;
+export type AuthController_revokeAllSessionsResponse =
+  operations['AuthController_revokeAllSessions']['responses'][200]['content']['application/json'];
+export type AuthController_revokeAllSessionsError =
+  | operations['AuthController_revokeAllSessions']['responses'][401]['content']['application/json']
+  | operations['AuthController_revokeAllSessions']['responses'][500]['content']['application/json'];
+
+export type AuthController_revokeSessionRequest = Readonly<{
+  readonly body: NonNullable<
+    operations['AuthController_revokeSession']['requestBody']
+  >['content']['application/json'];
+  readonly headers?: ApiHeaders;
+}>;
+export type AuthController_revokeSessionResponse =
+  operations['AuthController_revokeSession']['responses'][200]['content']['application/json'];
+export type AuthController_revokeSessionError =
+  | operations['AuthController_revokeSession']['responses'][400]['content']['application/json']
+  | operations['AuthController_revokeSession']['responses'][401]['content']['application/json']
+  | operations['AuthController_revokeSession']['responses'][500]['content']['application/json'];
+
+export type AuthController_sessionsRequest = Readonly<{
+  readonly headers?: ApiHeaders;
+}>;
+export type AuthController_sessionsResponse =
+  operations['AuthController_sessions']['responses'][200]['content']['application/json'];
+export type AuthController_sessionsError =
+  | operations['AuthController_sessions']['responses'][401]['content']['application/json']
+  | operations['AuthController_sessions']['responses'][500]['content']['application/json'];
+
 export type AuthController_signupRequest = Readonly<{
   readonly body: NonNullable<
     operations['AuthController_signup']['requestBody']
@@ -153,7 +184,6 @@ export type AuthController_verifySignupResponse =
   operations['AuthController_verifySignup']['responses'][200]['content']['application/json'];
 export type AuthController_verifySignupError =
   | operations['AuthController_verifySignup']['responses'][400]['content']['application/json']
-  | operations['AuthController_verifySignup']['responses'][404]['content']['application/json']
   | operations['AuthController_verifySignup']['responses'][500]['content']['application/json'];
 
 export type BookingController_cancelRequest = Readonly<{
@@ -1225,6 +1255,15 @@ export interface ApiClient {
   readonly AuthController_resetPassword: (
     request: AuthController_resetPasswordRequest,
   ) => Promise<AuthController_resetPasswordResponse>;
+  readonly AuthController_revokeAllSessions: (
+    request?: AuthController_revokeAllSessionsRequest,
+  ) => Promise<AuthController_revokeAllSessionsResponse>;
+  readonly AuthController_revokeSession: (
+    request: AuthController_revokeSessionRequest,
+  ) => Promise<AuthController_revokeSessionResponse>;
+  readonly AuthController_sessions: (
+    request?: AuthController_sessionsRequest,
+  ) => Promise<AuthController_sessionsResponse>;
   readonly AuthController_signup: (
     request: AuthController_signupRequest,
   ) => Promise<AuthController_signupResponse>;
@@ -1581,6 +1620,43 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
           method: 'POST',
           path: '/api/auth/reset-password',
           requestMediaType: 'application/json',
+        },
+        request,
+      ),
+    AuthController_revokeAllSessions: (request = {}) =>
+      core.request<
+        AuthController_revokeAllSessionsResponse,
+        AuthController_revokeAllSessionsError
+      >(
+        {
+          operationId: 'AuthController_revokeAllSessions',
+          method: 'POST',
+          path: '/api/auth/sessions/revoke-all',
+        },
+        request,
+      ),
+    AuthController_revokeSession: (request) =>
+      core.request<
+        AuthController_revokeSessionResponse,
+        AuthController_revokeSessionError
+      >(
+        {
+          operationId: 'AuthController_revokeSession',
+          method: 'POST',
+          path: '/api/auth/sessions/revoke',
+          requestMediaType: 'application/json',
+        },
+        request,
+      ),
+    AuthController_sessions: (request = {}) =>
+      core.request<
+        AuthController_sessionsResponse,
+        AuthController_sessionsError
+      >(
+        {
+          operationId: 'AuthController_sessions',
+          method: 'GET',
+          path: '/api/auth/sessions',
         },
         request,
       ),

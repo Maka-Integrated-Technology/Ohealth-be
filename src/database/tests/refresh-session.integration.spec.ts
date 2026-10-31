@@ -10,10 +10,12 @@ import { AccountAccessPolicyService } from '../../modules/auth/account-access-po
 import { AuthSession } from '../../modules/auth/entities/auth.entity';
 import { RefreshCredential } from '../../modules/auth/entities/refresh-credential.entity';
 import { RefreshSessionService } from '../../modules/auth/refresh-session.service';
+import { AuthSecurityAuditService } from '../../modules/auth/security-audit/auth-security-audit.service';
 import { User } from '../../modules/user/entities/user.entity';
 import { AccountStatus } from '../../modules/user/enums/account-status.enum';
 import { UserRole } from '../../modules/user/enums/user-role.enum';
 import { RefreshSessionFoundation1792850000000 } from '../migrations/1792850000000-RefreshSessionFoundation';
+import { CanonicalSessionCutover1793400000000 } from '../migrations/1793400000000-CanonicalSessionCutover';
 
 const integration = env.PG_INTEGRATION_URL ? describe : describe.skip;
 const secret = 'local-integration-secret-not-used-outside-tests';
@@ -51,6 +53,7 @@ integration('Refresh session foundation on real PostgreSQL', () => {
       new JwtService(),
       new ConfigService(settings),
       new AccountAccessPolicyService(),
+      new AuthSecurityAuditService(database),
     );
   }, 30000);
 
@@ -74,6 +77,63 @@ integration('Refresh session foundation on real PostgreSQL', () => {
       await admin.query(`DROP DATABASE IF EXISTS "${databaseName}"`);
       await admin.destroy();
     }
+  });
+
+  it('validates parallel requests without waiting for a held user write lock, then observes committed suspension and revocation', async () => {
+    const issued = await service.issue(user.id);
+    const writer = database.createQueryRunner();
+    await writer.connect();
+    await writer.startTransaction();
+    let validations: Promise<User[]> | undefined;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await writer.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [
+        user.id,
+      ]);
+      await writer.query(
+        "UPDATE users SET account_status = 'suspended', is_active = false WHERE id = $1",
+        [user.id],
+      );
+      validations = Promise.all(
+        Array.from({ length: 8 }, () =>
+          service.validate(user.id, issued.session_id),
+        ),
+      );
+      const completed = await Promise.race([
+        validations.then(() => true),
+        new Promise<boolean>((resolve) => {
+          timeout = setTimeout(() => resolve(false), 1500);
+        }),
+      ]);
+      expect(completed).toBe(true);
+      await writer.commitTransaction();
+      await expect(
+        service.validate(user.id, issued.session_id),
+      ).rejects.toThrow(UnauthorizedException);
+      await database.query(
+        "UPDATE users SET account_status = 'active', is_active = true WHERE id = $1",
+        [user.id],
+      );
+      await service.revoke(user.id, issued.session_id);
+      await expect(
+        service.validate(user.id, issued.session_id),
+      ).rejects.toThrow(UnauthorizedException);
+    } finally {
+      if (timeout) clearTimeout(timeout);
+      if (writer.isTransactionActive) await writer.rollbackTransaction();
+      await validations?.catch(() => undefined);
+      await writer.release();
+    }
+  });
+
+  it('rejects a credential proof superseded by a password reset before issuance', async () => {
+    await database
+      .getRepository(User)
+      .update(user.id, { password: 'reset-password-hash' });
+    await expect(service.issue(user.id, 'unused-test-hash')).rejects.toThrow(
+      UnauthorizedException,
+    );
+    expect(await service.list(user.id)).toEqual([]);
   });
 
   it('stores only hashes, issues short session-bound access tokens, and projects safe session metadata', async () => {
@@ -200,9 +260,13 @@ integration('Refresh session foundation on real PostgreSQL', () => {
         throw new Error('simulated credential failure');
       }),
     ).rejects.toThrow('simulated credential failure');
-    expect((await service.validate(user.id, initial.session_id)).password).toBe(
-      'unused-test-hash',
-    );
+    expect(
+      (await database.getRepository(User).findOneByOrFail({ id: user.id }))
+        .password,
+    ).toBe('unused-test-hash');
+    await expect(
+      service.validate(user.id, initial.session_id),
+    ).resolves.toBeDefined();
     await database.transaction(async (manager) => {
       await service.revokeAllInTransaction(manager, user.id);
       await manager.update(User, user.id, {
@@ -281,6 +345,7 @@ integration('Refresh session foundation on real PostgreSQL', () => {
       signer,
       new ConfigService(settings),
       new AccountAccessPolicyService(),
+      new AuthSecurityAuditService(database),
     );
     await expect(failingService.rotate(initial.refresh_token)).rejects.toThrow(
       'signing failure',
@@ -290,6 +355,63 @@ integration('Refresh session foundation on real PostgreSQL', () => {
         .getRepository(RefreshCredential)
         .countBy({ session_id: initial.session_id }),
     ).toBe(1);
+    expect((await service.rotate(initial.refresh_token)).session_id).toBe(
+      initial.session_id,
+    );
+  });
+
+  it('forces legacy-session expiry at cutover without revoking canonical families or resurrecting credentials on rollback', async () => {
+    const initial = await service.issue(user.id);
+    const legacy = await database.getRepository(AuthSession).save({
+      session_id: randomUUID(),
+      user_id: user.id,
+      credential_version: 1,
+      refresh_token_hash: 'legacy-verifier',
+      expires_at: new Date(Date.now() + 60000),
+      revoked_at: null,
+    });
+    const runner = database.createQueryRunner();
+    await runner.connect();
+    try {
+      await new CanonicalSessionCutover1793400000000().up(runner);
+      await new CanonicalSessionCutover1793400000000().down();
+      expect(
+        (
+          await database
+            .getRepository(AuthSession)
+            .findOneByOrFail({ id: legacy.id })
+        ).revoked_at,
+      ).toBeInstanceOf(Date);
+      await expect(
+        service.validate(user.id, initial.session_id),
+      ).resolves.toBeDefined();
+    } finally {
+      await runner.release();
+    }
+  });
+
+  it('rolls rotation back when transactional audit persistence fails', async () => {
+    const initial = await service.issue(user.id);
+    const audit = new AuthSecurityAuditService(database);
+    const fault = jest
+      .spyOn(audit, 'recordInTransaction')
+      .mockRejectedValueOnce(new Error('audit persistence failure'));
+    const failing = new RefreshSessionService(
+      database,
+      new JwtService(),
+      new ConfigService(settings),
+      new AccountAccessPolicyService(),
+      audit,
+    );
+    await expect(failing.rotate(initial.refresh_token)).rejects.toThrow(
+      'audit persistence failure',
+    );
+    expect(
+      await database
+        .getRepository(RefreshCredential)
+        .countBy({ session_id: initial.session_id }),
+    ).toBe(1);
+    fault.mockRestore();
     expect((await service.rotate(initial.refresh_token)).session_id).toBe(
       initial.session_id,
     );

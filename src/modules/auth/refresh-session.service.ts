@@ -10,8 +10,14 @@ import { User } from '../user/entities/user.entity';
 import { AccountAccessPolicyService } from './account-access-policy.service';
 import { AuthSession } from './entities/auth.entity';
 import { RefreshCredential } from './entities/refresh-credential.entity';
+import { AuthSecurityAuditService } from './security-audit/auth-security-audit.service';
+import {
+  AuthSecurityEventType,
+  AuthSecurityEventOutcome,
+} from './security-audit/auth-security-event.enum';
+import { sessionSettings } from './session-settings';
 
-/** Draft foundation: not registered in AuthModule until #75/#76 integration. */
+/** Canonical persisted sessions. One stable session ID is one refresh family. */
 @Injectable()
 export class RefreshSessionService {
   private readonly secret: string;
@@ -23,22 +29,20 @@ export class RefreshSessionService {
     private readonly jwt: JwtService,
     config: ConfigService,
     private readonly accountPolicy: AccountAccessPolicyService,
+    private readonly audit: AuthSecurityAuditService,
   ) {
-    this.secret = config.getOrThrow<string>('JWT_SECRET');
-    if (this.secret.trim().length < 32) {
-      throw new Error('JWT_SECRET must contain at least 32 characters');
-    }
-    this.accessSeconds = this.duration(config, 'TOKEN_ACCESS_DURATION', 900);
-    this.refreshSeconds = this.duration(
-      config,
-      'TOKEN_REFRESH_DURATION',
-      2592000,
-    );
+    const settings = sessionSettings(config);
+    this.secret = settings.secret;
+    this.accessSeconds = settings.accessSeconds;
+    this.refreshSeconds = settings.refreshSeconds;
   }
 
-  async issue(userId: string) {
+  async issue(userId: string, expectedPassword?: string) {
     return this.dataSource.transaction(async (manager) => {
-      await this.lockUser(manager, userId);
+      const user = await this.lockUser(manager, userId);
+      // Reject a password proof invalidated by a concurrent reset/change.
+      if (expectedPassword !== undefined && user.password !== expectedPassword)
+        throw this.invalid();
       const now = new Date();
       const token = this.newToken();
       const session = await manager.save(
@@ -54,6 +58,12 @@ export class RefreshSessionService {
         }),
       );
       await this.storeCredential(manager, session.session_id, token, now);
+      await this.record(
+        manager,
+        userId,
+        session.session_id,
+        AuthSecurityEventType.SIGN_IN,
+      );
       return this.tokens(session, token);
     });
   }
@@ -91,6 +101,13 @@ export class RefreshSessionService {
       ) {
         session.revoked_at = new Date();
         await manager.save(session);
+        await this.record(
+          manager,
+          owner.user_id,
+          session.session_id,
+          AuthSecurityEventType.SESSION_REUSE,
+          AuthSecurityEventOutcome.DENIED,
+        );
         // Return instead of throwing: revocation must COMMIT before the 401.
         return null;
       }
@@ -102,31 +119,53 @@ export class RefreshSessionService {
       session.last_used_at = now;
       await manager.save(session);
       await this.storeCredential(manager, session.session_id, replacement, now);
-      return this.tokens(session, replacement);
+      await this.record(
+        manager,
+        owner.user_id,
+        session.session_id,
+        AuthSecurityEventType.SESSION_REFRESH,
+      );
+      return {
+        ...(await this.tokens(session, replacement)),
+        userId: owner.user_id,
+      };
     });
     if (!result) throw this.invalid();
     return result;
   }
 
   async validate(userId: string, sessionId: string) {
-    return this.dataSource.transaction(async (manager) => {
-      const user = await this.lockUser(manager, userId);
-      const session = await manager.findOneBy(AuthSession, {
-        session_id: sessionId,
-        user_id: userId,
-        credential_version: 2,
-        revoked_at: IsNull(),
-        expires_at: MoreThan(new Date()),
-      });
-      if (!session) throw this.invalid();
-      return user;
-    });
+    // A single MVCC statement sees account and session from one snapshot.
+    // Ordinary authenticated traffic must not lock user rows or serialize reads.
+    const user = await this.dataSource
+      .getRepository(User)
+      .createQueryBuilder('user')
+      .select([
+        'user.id',
+        'user.email',
+        'user.first_name',
+        'user.last_name',
+        'user.role',
+        'user.account_status',
+        'user.email_verified_at',
+      ])
+      .innerJoin(AuthSession, 'session', 'session.user_id = user.id')
+      .where('user.id = :userId AND session.session_id = :sessionId', {
+        userId,
+        sessionId,
+      })
+      .andWhere('session.credential_version = 2 AND session.revoked_at IS NULL')
+      .andWhere('session.expires_at > CURRENT_TIMESTAMP')
+      .getOne();
+    this.accountPolicy.assertCanAuthenticate(user);
+    if (!user) throw this.invalid();
+    return user;
   }
 
   async revoke(userId: string, sessionId: string) {
     return this.dataSource.transaction(async (manager) => {
       await this.lockUser(manager, userId);
-      await manager.update(
+      const result = await manager.update(
         AuthSession,
         {
           session_id: sessionId,
@@ -136,6 +175,13 @@ export class RefreshSessionService {
         },
         { revoked_at: new Date() },
       );
+      if (result.affected)
+        await this.record(
+          manager,
+          userId,
+          sessionId,
+          AuthSecurityEventType.LOGOUT,
+        );
     });
   }
 
@@ -214,21 +260,46 @@ export class RefreshSessionService {
     };
   }
 
-  private duration(
-    config: ConfigService,
-    key: string,
-    maximum: number,
-  ): number {
-    const value = config.getOrThrow<string>(key);
-    const match = /^(\d+)([smhd]?)$/.exec(value);
-    const seconds = match
-      ? Number(match[1]) *
-        ({ s: 1, m: 60, h: 3600, d: 86400 }[match[2] || 's'] ?? 0)
-      : 0;
-    if (!Number.isSafeInteger(seconds) || seconds < 1 || seconds > maximum) {
-      throw new Error(`${key} must be between 1 and ${maximum} seconds`);
-    }
-    return seconds;
+  async revokeAll(userId: string) {
+    await this.dataSource.transaction(async (manager) => {
+      await this.revokeAllInTransaction(manager, userId);
+      await this.record(manager, userId, null, AuthSecurityEventType.LOGOUT);
+    });
+  }
+
+  async replacePassword(
+    userId: string,
+    expectedPassword: string,
+    password: string,
+  ) {
+    await this.dataSource.transaction(async (manager) => {
+      const user = await this.lockUser(manager, userId);
+      if (user.password !== expectedPassword) throw this.invalid();
+      await manager.update(User, userId, { password });
+      await this.revokeAllInTransaction(manager, userId);
+      await this.record(
+        manager,
+        userId,
+        null,
+        AuthSecurityEventType.PASSWORD_CHANGE,
+      );
+    });
+  }
+
+  private async record(
+    manager: EntityManager,
+    userId: string,
+    sessionId: string | null,
+    eventType: AuthSecurityEventType,
+    outcome = AuthSecurityEventOutcome.SUCCEEDED,
+  ) {
+    await this.audit.recordInTransaction(manager, {
+      event_type: eventType,
+      outcome,
+      actor_user_id: userId,
+      subject_user_id: userId,
+      session_id: sessionId,
+    });
   }
 
   private newToken() {

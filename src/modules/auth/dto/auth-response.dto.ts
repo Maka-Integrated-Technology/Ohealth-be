@@ -28,8 +28,9 @@ export class TokensDto {
   access_token: string;
 
   @ApiProperty({
-    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-    description: 'JWT refresh token with 7 days expiration',
+    example: '2hYxjxsL4aG8sfe8O5d5Q7vX7CjV1NzzVXJKmi6Ug7Q',
+    description:
+      'Opaque rotating refresh secret. Reuse revokes the session family; absolute expiry does not slide.',
   })
   refresh_token: string;
 }
@@ -59,6 +60,12 @@ class RoutedAuthResponseDto extends TokensDto {
 }
 
 export class SignupResponseDto {
+  @ApiProperty({
+    format: 'uuid',
+    description: 'Pending contact verification challenge ID',
+  })
+  challenge_id: string;
+
   @ApiProperty({ type: UserDto })
   user: UserDto;
 

@@ -1563,8 +1563,8 @@
             "type": "string"
           },
           "refresh_token": {
-            "description": "JWT refresh token with 7 days expiration",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "description": "Opaque rotating refresh secret. Reuse revokes the session family; absolute expiry does not slide.",
+            "example": "2hYxjxsL4aG8sfe8O5d5Q7vX7CjV1NzzVXJKmi6Ug7Q",
             "type": "string"
           },
           "routing_target": {
@@ -1642,8 +1642,8 @@
             "type": "string"
           },
           "refresh_token": {
-            "description": "JWT refresh token with 7 days expiration",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "description": "Opaque rotating refresh secret. Reuse revokes the session family; absolute expiry does not slide.",
+            "example": "2hYxjxsL4aG8sfe8O5d5Q7vX7CjV1NzzVXJKmi6Ug7Q",
             "type": "string"
           },
           "routing_target": {
@@ -3466,8 +3466,9 @@
       "RefreshTokenDto": {
         "properties": {
           "refresh_token": {
-            "description": "JWT refresh token with 7 days expiration",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "description": "Opaque rotating refresh secret; store in OS secure storage. Absolute session expiry is unchanged by rotation.",
+            "example": "2hYxjxsL4aG8sfe8O5d5Q7vX7CjV1NzzVXJKmi6Ug7Q",
+            "pattern": "^[A-Za-z0-9_-]{43}$",
             "type": "string"
           }
         },
@@ -3497,8 +3498,8 @@
             "type": "string"
           },
           "refresh_token": {
-            "description": "JWT refresh token with 7 days expiration",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "description": "Opaque rotating refresh secret. Reuse revokes the session family; absolute expiry does not slide.",
+            "example": "2hYxjxsL4aG8sfe8O5d5Q7vX7CjV1NzzVXJKmi6Ug7Q",
             "type": "string"
           },
           "routing_target": {
@@ -3574,8 +3575,8 @@
             "type": "string"
           },
           "refresh_token": {
-            "description": "JWT refresh token with 7 days expiration",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "description": "Opaque rotating refresh secret. Reuse revokes the session family; absolute expiry does not slide.",
+            "example": "2hYxjxsL4aG8sfe8O5d5Q7vX7CjV1NzzVXJKmi6Ug7Q",
             "type": "string"
           },
           "routing_target": {
@@ -3679,20 +3680,26 @@
       },
       "ResetPasswordDto": {
         "properties": {
+          "challenge_id": {
+            "description": "Purpose-bound recovery challenge ID from the recovery email",
+            "format": "uuid",
+            "type": "string"
+          },
+          "code": {
+            "description": "6-digit recovery code",
+            "example": "123456",
+            "type": "string"
+          },
           "newPassword": {
             "description": "New password: 15+ Unicode characters, max 1024 UTF-8 bytes",
             "example": "a memorable patient passphrase",
             "minLength": 15,
             "type": "string"
-          },
-          "token": {
-            "description": "Password reset token",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-            "type": "string"
           }
         },
         "required": [
-          "token",
+          "challenge_id",
+          "code",
           "newPassword"
         ],
         "type": "object"
@@ -3733,6 +3740,19 @@
         ],
         "type": "object"
       },
+      "RevokeOwnedSessionDto": {
+        "properties": {
+          "session_id": {
+            "description": "A session owned by the authenticated user",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "type": "object"
+      },
       "SendChatMessageResponseDto": {
         "properties": {
           "ai": {
@@ -3765,6 +3785,34 @@
         },
         "required": [
           "content"
+        ],
+        "type": "object"
+      },
+      "SessionMetadataDto": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "last_used_at": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "session_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "created_at",
+          "last_used_at",
+          "expires_at"
         ],
         "type": "object"
       },
@@ -3879,6 +3927,11 @@
             "example": "limited",
             "type": "string"
           },
+          "challenge_id": {
+            "description": "Pending contact verification challenge ID",
+            "format": "uuid",
+            "type": "string"
+          },
           "message": {
             "example": "account created",
             "nullable": true,
@@ -3919,6 +3972,7 @@
           }
         },
         "required": [
+          "challenge_id",
           "user",
           "verification_status",
           "routing_target",
@@ -3936,6 +3990,11 @@
               "limited"
             ],
             "example": "limited",
+            "type": "string"
+          },
+          "challenge_id": {
+            "description": "Pending contact verification challenge ID",
+            "format": "uuid",
             "type": "string"
           },
           "routing_target": {
@@ -3968,6 +4027,7 @@
           }
         },
         "required": [
+          "challenge_id",
           "user",
           "verification_status",
           "routing_target",
@@ -4252,19 +4312,19 @@
       },
       "VerifySignupDto": {
         "properties": {
+          "challenge_id": {
+            "description": "Purpose-bound contact verification challenge ID",
+            "format": "uuid",
+            "type": "string"
+          },
           "code": {
             "description": "6-digit verification code",
             "example": "123456",
             "type": "string"
-          },
-          "email": {
-            "description": "User email address",
-            "example": "user@example.com",
-            "type": "string"
           }
         },
         "required": [
-          "email",
+          "challenge_id",
           "code"
         ],
         "type": "object"
@@ -4290,8 +4350,8 @@
             "type": "string"
           },
           "refresh_token": {
-            "description": "JWT refresh token with 7 days expiration",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "description": "Opaque rotating refresh secret. Reuse revokes the session family; absolute expiry does not slide.",
+            "example": "2hYxjxsL4aG8sfe8O5d5Q7vX7CjV1NzzVXJKmi6Ug7Q",
             "type": "string"
           },
           "routing_target": {
@@ -4369,8 +4429,8 @@
             "type": "string"
           },
           "refresh_token": {
-            "description": "JWT refresh token with 7 days expiration",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "description": "Opaque rotating refresh secret. Reuse revokes the session family; absolute expiry does not slide.",
+            "example": "2hYxjxsL4aG8sfe8O5d5Q7vX7CjV1NzzVXJKmi6Ug7Q",
             "type": "string"
           },
           "routing_target": {
@@ -4650,7 +4710,7 @@
             "description": "Internal server error"
           }
         },
-        "summary": "Request a password reset code",
+        "summary": "Queue a purpose-bound password-recovery challenge (generic response)",
         "tags": [
           "Authentication"
         ]
@@ -5174,7 +5234,218 @@
             "description": "Internal server error"
           }
         },
-        "summary": "Reset a password with a valid reset code",
+        "summary": "Complete password recovery with challenge ID and code",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/sessions": {
+      "get": {
+        "operationId": "AuthController_sessions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "items": {
+                            "$ref": "#/components/schemas/SessionMetadataDto"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "A current session is required"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List your active sessions using safe metadata only",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/sessions/revoke": {
+      "post": {
+        "operationId": "AuthController_revokeSession",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokeOwnedSessionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "example": null,
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "A valid session UUID is required"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "A current session is required"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Revoke one of your sessions; unknown or foreign IDs are a no-op",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/sessions/revoke-all": {
+      "post": {
+        "operationId": "AuthController_revokeAllSessions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "example": null,
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "A current session is required"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Revoke all your sessions, including this one",
         "tags": [
           "Authentication"
         ]
@@ -5307,16 +5578,6 @@
             },
             "description": "Verification code is invalid or expired"
           },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
-                }
-              }
-            },
-            "description": "User account not found"
-          },
           "500": {
             "content": {
               "application/json": {
@@ -5383,7 +5644,7 @@
                 }
               }
             },
-            "description": "Account is already verified"
+            "description": "Request validation failed"
           },
           "500": {
             "content": {
@@ -5396,7 +5657,7 @@
             "description": "Internal server error"
           }
         },
-        "summary": "Send a new email verification code",
+        "summary": "Queue a new verification challenge for an eligible account",
         "tags": [
           "Authentication"
         ]

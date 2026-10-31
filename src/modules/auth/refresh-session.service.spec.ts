@@ -4,6 +4,7 @@ import { DataSource } from 'typeorm';
 
 import { AccountAccessPolicyService } from './account-access-policy.service';
 import { RefreshSessionService } from './refresh-session.service';
+import { AuthSecurityAuditService } from './security-audit/auth-security-audit.service';
 
 describe('Refresh session configuration boundary', () => {
   const valid = {
@@ -17,6 +18,7 @@ describe('Refresh session configuration boundary', () => {
       new JwtService(),
       new ConfigService(values),
       new AccountAccessPolicyService(),
+      {} as AuthSecurityAuditService,
     );
 
   it('accepts explicit bounded configuration', () => {

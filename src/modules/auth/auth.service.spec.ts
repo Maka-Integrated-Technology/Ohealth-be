@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  ConflictException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { ConflictException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -15,7 +11,6 @@ import { Logger } from 'winston';
 import { IRequestWithUser } from '../../common/types';
 import * as sysMsg from '../../constants/system.messages';
 import { EmailService } from '../email/email.service';
-import { ProfessionalVerificationStatus } from '../professional/entities/professional.entity';
 import { User } from '../user/entities/user.entity';
 import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserRole } from '../user/enums/user-role.enum';
@@ -24,10 +19,13 @@ import { UserService } from '../user/user.service';
 import { AccountAccessPolicyService } from './account-access-policy.service';
 import { AuthRoutingService } from './auth-routing.service';
 import { AuthService } from './auth.service';
-import { ResendVerificationDto, VerifySignupDto } from './dto/auth.dto';
+import { AuthChallengeDeliveryService } from './challenges/auth-challenge-delivery.service';
+import { SecureAuthChallengeFlowsService } from './challenges/secure-auth-challenge-flows.service';
+import { VerifySignupDto } from './dto/auth.dto';
 import { AuthSession } from './entities/auth.entity';
 import { AuthAccessLevel, AuthRoutingTarget } from './enums/auth-routing.enum';
 import { PasswordCredentialsService } from './password-policy/password-credentials.service';
+import { RefreshSessionService } from './refresh-session.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -43,6 +41,22 @@ describe('AuthService', () => {
     replaceAuthenticatedPassword: jest.fn(),
     linkGoogleIdentity: jest.fn(),
     verifyEmailWithCode: jest.fn(),
+  };
+
+  const sessionTokens = {
+    access_token: 'access-token',
+    refresh_token: 'refresh-token',
+    session_id: 'session-id-1',
+    session_expires_at: new Date('2026-07-11T16:16:13.000Z'),
+  };
+  const mockSessions = {
+    issue: jest.fn(),
+    rotate: jest.fn(),
+    validate: jest.fn(),
+    revoke: jest.fn(),
+    replacePassword: jest.fn(),
+    list: jest.fn(),
+    revokeAll: jest.fn(),
   };
 
   const mockSessionRepository = {
@@ -88,6 +102,14 @@ describe('AuthService', () => {
   const mockEmailService = {
     sendMail: jest.fn(),
   };
+  const mockChallengeFlows = {
+    signup: jest.fn(),
+    requestRecovery: jest.fn(),
+    completeRecovery: jest.fn(),
+    verifyContact: jest.fn(),
+    resend: jest.fn(),
+  };
+  const mockChallengeDelivery = { queueInTransaction: jest.fn() };
 
   const defaultRouting = {
     routing_target: AuthRoutingTarget.PATIENT_HOME,
@@ -111,6 +133,7 @@ describe('AuthService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
+        { provide: RefreshSessionService, useValue: mockSessions },
         AccountAccessPolicyService,
         PasswordCredentialsService,
         {
@@ -134,6 +157,14 @@ describe('AuthService', () => {
           useValue: mockEmailService,
         },
         {
+          provide: SecureAuthChallengeFlowsService,
+          useValue: mockChallengeFlows,
+        },
+        {
+          provide: AuthChallengeDeliveryService,
+          useValue: mockChallengeDelivery,
+        },
+        {
           provide: AuthRoutingService,
           useValue: mockAuthRoutingService,
         },
@@ -146,6 +177,27 @@ describe('AuthService', () => {
 
     service = module.get<AuthService>(AuthService);
     jest.clearAllMocks();
+    mockSessions.issue.mockReset().mockResolvedValue(sessionTokens);
+    mockSessions.rotate.mockReset();
+    mockSessions.validate.mockReset();
+    mockChallengeFlows.signup.mockResolvedValue({
+      user: {
+        id: 'user-id-1',
+        email: 'tunde@example.com',
+        first_name: 'Tunde',
+        last_name: 'Adebayo',
+        role: [UserRole.PATIENT],
+      },
+      challengeId: 'f64031c5-70e4-4b37-a92c-f193e59a6621',
+    });
+    mockChallengeFlows.requestRecovery.mockResolvedValue({
+      message:
+        'If this account is eligible, a verification message has been queued.',
+    });
+    mockChallengeFlows.resend.mockResolvedValue({
+      message:
+        'If this account is eligible, a verification message has been queued.',
+    });
   });
 
   afterEach(() => {
@@ -194,7 +246,7 @@ describe('AuthService', () => {
         role: [UserRole.PATIENT],
       });
 
-      expect(result.message).toBe(sysMsg.VERIFICATION_CODE_SENT);
+      expect(result.message).toBe('Verification queued');
       expect(result.user.email).toBe('tunde@example.com');
       expect(result).not.toHaveProperty('access_token');
       expect(result).not.toHaveProperty('refresh_token');
@@ -202,22 +254,25 @@ describe('AuthService', () => {
       expect(mockJwtService.signAsync).not.toHaveBeenCalled();
       expect(mockSessionRepository.save).not.toHaveBeenCalled();
       expect(result).toMatchObject(defaultRouting);
-      expect(mockUserService.create).toHaveBeenCalledWith(
+      expect(mockChallengeFlows.signup).toHaveBeenCalledWith(
         expect.objectContaining({ role: [UserRole.PATIENT] }),
+        expect.any(String),
       );
+      expect(result.challenge_id).toMatch(/^[0-9a-f-]{36}$/);
       expect(mockLogger.info).toHaveBeenCalledWith(sysMsg.ACCOUNT_CREATED);
-      expect(mockEmailService.sendMail).toHaveBeenCalled();
+      expect(mockEmailService.sendMail).not.toHaveBeenCalled();
     });
 
     it('should throw conflict exception for duplicate email', async () => {
-      mockUserService.findByEmail.mockResolvedValue({ id: 'existing-user-id' });
-
+      mockChallengeFlows.signup.mockRejectedValueOnce(
+        new ConflictException(sysMsg.ACCOUNT_ALREADY_EXISTS),
+      );
       await expect(
         service.signup({
           first_name: 'Grace',
           last_name: 'Okeke',
           email: 'grace@example.com',
-          password: 'Password123',
+          password: 'a strong registration passphrase',
           role: [UserRole.PATIENT],
         }),
       ).rejects.toThrow(ConflictException);
@@ -397,20 +452,13 @@ describe('AuthService', () => {
       const result = await service.issueAuthSession({
         id: 'user-id-1',
         email: 'lab.admin@example.com',
+        password: 'credential-snapshot',
         role: [UserRole.LAB_ADMIN],
         account_status: AccountStatus.ACTIVE,
         email_verified_at: new Date(),
       } as User);
 
-      expect(mockJwtService.signAsync).toHaveBeenCalledTimes(2);
-      expect(mockSessionRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          session_id: expect.any(String),
-          user_id: 'user-id-1',
-          refresh_token_hash: expect.any(String),
-          revoked_at: null,
-        }),
-      );
+      expect(mockSessions.issue).toHaveBeenCalledWith('user-id-1', 'credential-snapshot');
       expect(result).toEqual({
         ...defaultRouting,
         access_token: 'access-token',
@@ -422,158 +470,66 @@ describe('AuthService', () => {
   });
 
   describe('forgotPassword', () => {
-    it('should send otp email when user exists', async () => {
-      mockUserService.findByEmail.mockResolvedValue({
-        id: 'user-id-1',
-        email: 'user@example.com',
-        first_name: 'Tunde',
-      });
+    it('returns a generic queued response without writing legacy reset tokens', async () => {
       const result = await service.forgotPassword({
         email: 'user@example.com',
       });
-
-      expect(result.message).toBe(sysMsg.PASSWORD_RESET_CODE_SENT);
-      expect(mockUserService.setPasswordResetChallenge).toHaveBeenCalledWith(
-        'user-id-1',
-        expect.any(String),
-        expect.any(Date),
+      expect(result.message).toContain('queued');
+      expect(mockChallengeFlows.requestRecovery).toHaveBeenCalledWith(
+        'user@example.com',
       );
-      expect(mockEmailService.sendMail).toHaveBeenCalled();
+      expect(mockUserService.setPasswordResetChallenge).not.toHaveBeenCalled();
+      expect(mockEmailService.sendMail).not.toHaveBeenCalled();
+    });
+
+    it('uses a purpose-bound challenge to reset without legacy token lookup', async () => {
+      mockChallengeFlows.completeRecovery.mockResolvedValue(undefined);
+      await expect(
+        service.resetPassword({
+          challenge_id: 'f64031c5-70e4-4b37-a92c-f193e59a6621',
+          code: '123456',
+          newPassword: 'a memorable replacement passphrase',
+        }),
+      ).resolves.toEqual({ message: sysMsg.PASSWORD_RESET_SUCCESS });
+      expect(mockChallengeFlows.completeRecovery).toHaveBeenCalledWith(
+        'f64031c5-70e4-4b37-a92c-f193e59a6621',
+        '123456',
+        expect.any(String),
+      );
+      expect(mockUserService.consumePasswordResetToken).not.toHaveBeenCalled();
     });
   });
 
   describe('refreshToken', () => {
-    it('should throw unauthorized exception when the session is missing', async () => {
-      mockJwtService.verifyAsync.mockResolvedValue({
-        sub: 'user-id-1',
-        email: 'user@example.com',
-        role: [UserRole.PATIENT],
-      });
-      mockSessionRepository.findOne.mockResolvedValue(null);
-
+    it('propagates rejection from canonical rotation', async () => {
+      mockSessions.rotate.mockRejectedValue(
+        new UnauthorizedException(sysMsg.TOKEN_INVALID),
+      );
       await expect(
-        service.refreshToken({
-          refresh_token: 'refresh-token',
-        }),
+        service.refreshToken({ refresh_token: 'invalid' }),
       ).rejects.toThrow(sysMsg.TOKEN_INVALID);
     });
-
-    it('should issue tokens and routing from the current database user', async () => {
-      const expiresAt = new Date('2026-07-24T12:00:00.000Z');
+    it('uses current database roles and never returns the internal owner identifier', async () => {
       const user = {
         id: 'user-id-1',
         email: 'current@example.com',
-        first_name: 'Current',
-        last_name: 'User',
         role: [UserRole.DOCTOR],
-        is_active: true,
-        is_verified: true,
-        account_status: AccountStatus.ACTIVE,
-        email_verified_at: new Date(),
-      } as User;
-      mockJwtService.verifyAsync.mockResolvedValue({
-        sub: user.id,
-        email: user.email,
-        role: user.role,
+      };
+      mockSessions.rotate.mockResolvedValue({
+        ...sessionTokens,
+        userId: user.id,
       });
-      mockSessionRepository.findOne.mockResolvedValue({
-        user_id: user.id,
-        revoked_at: null,
-      });
-      mockUserService.findById.mockResolvedValue(user);
-      mockJwtService.signAsync
-        .mockResolvedValueOnce('new-access-token')
-        .mockResolvedValueOnce('new-refresh-token');
-      mockJwtService.decode.mockReturnValue({
-        exp: Math.floor(expiresAt.getTime() / 1000),
-      });
-      mockSessionRepository.save.mockImplementation(
-        async (payload: Partial<AuthSession>) => payload,
-      );
-      mockSessionRepository.create.mockImplementation(
-        (payload: Partial<AuthSession>) => payload,
-      );
-      mockAuthRoutingService.resolve.mockResolvedValueOnce({
-        routing_target: AuthRoutingTarget.PROFESSIONAL_VERIFICATION,
-        access_level: AuthAccessLevel.LIMITED,
-        verification_status: ProfessionalVerificationStatus.PENDING,
-      });
-
+      mockSessions.validate.mockResolvedValue(user);
       const result = await service.refreshToken({
-        refresh_token: 'refresh-token',
+        refresh_token: sessionTokens.refresh_token,
       });
-
-      expect(mockJwtService.signAsync).toHaveBeenNthCalledWith(
-        1,
-        expect.objectContaining({
-          email: user.email,
-          role: user.role,
-        }),
-        expect.any(Object),
+      expect(mockSessions.rotate).toHaveBeenCalledWith(
+        sessionTokens.refresh_token,
       );
       expect(result.user.role).toEqual(user.role);
-      expect(result.routing_target).toBe(
-        AuthRoutingTarget.PROFESSIONAL_VERIFICATION,
-      );
-    });
-
-    it('should reject a refresh token whose role no longer matches the user', async () => {
-      mockJwtService.verifyAsync.mockResolvedValue({
-        sub: 'user-id-1',
-        email: 'user@example.com',
-        role: [UserRole.ADMIN],
-      });
-      mockSessionRepository.findOne.mockResolvedValue({
-        user_id: 'user-id-1',
-        revoked_at: null,
-      });
-      mockUserService.findById.mockResolvedValue({
-        id: 'user-id-1',
-        email: 'user@example.com',
-        role: [UserRole.PATIENT],
-        is_active: true,
-        is_verified: true,
-        account_status: AccountStatus.ACTIVE,
-        email_verified_at: new Date(),
-      });
-
-      await expect(
-        service.refreshToken({ refresh_token: 'refresh-token' }),
-      ).rejects.toThrow(sysMsg.TOKEN_INVALID);
-      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+      expect(result).not.toHaveProperty('userId');
     });
   });
-
-  it.each([
-    AccountStatus.PENDING_VERIFICATION,
-    AccountStatus.SUSPENDED,
-    AccountStatus.DEACTIVATED,
-  ])(
-    'rejects refresh for %s even if legacy flags say active',
-    async (accountStatus) => {
-      mockJwtService.verifyAsync.mockResolvedValue({
-        sub: 'blocked-user',
-        email: 'blocked@example.com',
-        role: [UserRole.PATIENT],
-      });
-      mockSessionRepository.findOne.mockResolvedValue({
-        user_id: 'blocked-user',
-        revoked_at: null,
-      });
-      mockUserService.findById.mockResolvedValue({
-        id: 'blocked-user',
-        role: [UserRole.PATIENT],
-        account_status: accountStatus,
-        email_verified_at: new Date(),
-        is_active: true,
-        is_verified: true,
-      });
-      await expect(
-        service.refreshToken({ refresh_token: 'existing-token' }),
-      ).rejects.toThrow(UnauthorizedException);
-      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
-    },
-  );
 
   describe('getProfile', () => {
     it('should return the authenticated user profile', async () => {
@@ -610,110 +566,44 @@ describe('AuthService', () => {
   });
 
   describe('logout', () => {
-    it('should revoke active session and return success message', async () => {
-      mockSessionRepository.findOne.mockResolvedValue({
-        id: 'session-db-id',
-        session_id: 'session-id-1',
-        user_id: 'user-id-1',
-        revoked_at: null,
-      });
-      mockSessionRepository.save.mockImplementation(
-        async (payload: Partial<AuthSession>) => payload,
-      );
-
-      const result = await service.logout('user-id-1', {
-        session_id: 'session-id-1',
-      });
-
+    it('passes authenticated ownership to canonical revocation', async () => {
+      const result = await service.logout('caller', { session_id: 'target' });
+      expect(mockSessions.revoke).toHaveBeenCalledWith('caller', 'target');
       expect(result).toEqual({ message: sysMsg.LOGOUT_SUCCESS });
-      expect(mockSessionRepository.save).toHaveBeenCalled();
-      expect(mockLogger.info).toHaveBeenCalledWith(sysMsg.LOGOUT_SUCCESS);
     });
-
-    it('should scope the session lookup to the authenticated caller', async () => {
-      mockSessionRepository.findOne.mockResolvedValue(null);
-
-      await service.logout('caller-user-id', {
-        session_id: 'session-id-1',
-      });
-
-      expect(mockSessionRepository.findOne).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ user_id: 'caller-user-id' }),
-        }),
-      );
-    });
-
-    it('should not revoke anything when the session belongs to another user', async () => {
-      mockSessionRepository.findOne.mockResolvedValue(null);
-
-      const result = await service.logout('caller-user-id', {
-        session_id: 'session-owned-by-someone-else',
-      });
-
-      expect(mockSessionRepository.save).not.toHaveBeenCalled();
-      expect(result).toEqual({ message: sysMsg.LOGOUT_SUCCESS });
+    it('rejects logout targeting a different session from the bearer session', async () => {
+      await expect(
+        service.logout('caller', { session_id: 'other' }, 'current'),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockSessions.revoke).not.toHaveBeenCalled();
     });
   });
 
   describe('resendVerification', () => {
-    it('should update code, save user, send email, and return VERIFICATION_CODE_SENT for unverified user', async () => {
-      const payload: ResendVerificationDto = { email: 'tunde@example.com' };
-      const user = {
-        id: 'user-id-1',
-        email: payload.email,
-        first_name: 'Tunde',
-        is_verified: false,
-        account_status: AccountStatus.PENDING_VERIFICATION,
-        email_verified_at: null,
-        verification_code: 'old-code',
-        verification_code_expires_at: new Date(Date.now() - 1000),
-      };
-      mockUserService.rotateVerificationChallenge.mockResolvedValue(user);
-
-      const result = await service.resendVerification(payload);
-
-      expect(result).toEqual({ message: sysMsg.VERIFICATION_CODE_SENT });
-      expect(mockUserService.rotateVerificationChallenge).toHaveBeenCalledWith(
-        payload.email,
-        expect.any(String),
-        expect.any(Date),
-      );
-      expect(mockEmailService.sendMail).toHaveBeenCalled();
-    });
-
-    it('should return VERIFICATION_CODE_SENT without sending email for unknown email', async () => {
-      mockUserService.rotateVerificationChallenge.mockResolvedValue(null);
-
+    it('delegates to the secure challenge flow for pending or unknown accounts', async () => {
       const result = await service.resendVerification({
-        email: 'ghost@example.com',
+        email: 'tunde@example.com',
       });
-
-      expect(result).toEqual({ message: sysMsg.VERIFICATION_CODE_SENT });
-      expect(mockUserService.rotateVerificationChallenge).toHaveBeenCalled();
-      expect(mockEmailService.sendMail).not.toHaveBeenCalled();
-    });
-
-    it('should throw BadRequestException for an already verified user', async () => {
-      mockUserService.rotateVerificationChallenge.mockRejectedValue(
-        new BadRequestException(sysMsg.ACCOUNT_ALREADY_VERIFIED),
+      expect(result.message).toContain('queued');
+      expect(mockChallengeFlows.resend).toHaveBeenCalledWith(
+        'tunde@example.com',
       );
-
-      await expect(
-        service.resendVerification({ email: 'verified@example.com' }),
-      ).rejects.toThrow(BadRequestException);
+      expect(
+        mockUserService.rotateVerificationChallenge,
+      ).not.toHaveBeenCalled();
+      expect(mockEmailService.sendMail).not.toHaveBeenCalled();
     });
   });
 
   describe('verifySignup', () => {
     it('should activate and verify a user with a valid code', async () => {
       const payload: VerifySignupDto = {
-        email: 'tunde@example.com',
+        challenge_id: 'f64031c5-70e4-4b37-a92c-f193e59a6621',
         code: '123456',
       };
-      mockUserService.verifyEmailWithCode.mockResolvedValue({
+      mockChallengeFlows.verifyContact.mockResolvedValue({
         id: 'user-id-1',
-        email: payload.email,
+        email: 'tunde@example.com',
         first_name: 'Tunde',
         last_name: 'Adebayo',
         role: [UserRole.PATIENT],
@@ -738,13 +628,13 @@ describe('AuthService', () => {
 
       expect(result).toMatchObject({
         message: sysMsg.ACCOUNT_VERIFIED,
-        access_token: 'first-access-token',
-        refresh_token: 'first-refresh-token',
-        user: expect.objectContaining({ email: payload.email }),
+        access_token: 'access-token',
+        refresh_token: 'refresh-token',
+        user: expect.objectContaining({ email: 'tunde@example.com' }),
       });
-      expect(mockSessionRepository.save).toHaveBeenCalledTimes(1);
-      expect(mockUserService.verifyEmailWithCode).toHaveBeenCalledWith(
-        payload.email,
+      expect(mockSessions.issue).toHaveBeenCalledTimes(1);
+      expect(mockChallengeFlows.verifyContact).toHaveBeenCalledWith(
+        payload.challenge_id,
         payload.code,
       );
       expect(mockEmailService.sendMail).toHaveBeenCalled();
@@ -853,9 +743,9 @@ describe('AuthService', () => {
       mockSessionRepository.save.mockImplementation(async (details) => details);
 
       const response = await service.googleLogin('google-test-token');
-      expect(response.access_token).toBe('oauth-access');
-      expect(response.refresh_token).toBe('oauth-refresh');
-      expect(mockSessionRepository.save).toHaveBeenCalledTimes(1);
+      expect(response.access_token).toBe('access-token');
+      expect(response.refresh_token).toBe('refresh-token');
+      expect(mockSessions.issue).toHaveBeenCalledTimes(1);
     });
   });
 });
