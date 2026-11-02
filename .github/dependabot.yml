@@ -4,16 +4,30 @@ updates:
   - package-ecosystem: "npm"
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
+      day: "monday"
       time: "08:00"
       timezone: "Africa/Lagos"
-    open-pull-requests-limit: 0
+    open-pull-requests-limit: 5
     rebase-strategy: "auto"
     commit-message:
       prefix: "fix"
       include: "scope"
+    # Keep security updates independent so one incompatible fix cannot block others.
     groups:
-      npm-security-updates:
-        applies-to: "security-updates"
+      npm-production-updates:
+        applies-to: "version-updates"
+        dependency-type: "production"
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
+      npm-development-updates:
+        applies-to: "version-updates"
+        dependency-type: "development"
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
