@@ -28,8 +28,8 @@ export class TokensDto {
   access_token: string;
 
   @ApiProperty({
-    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-    description: 'JWT refresh token with 7 days expiration',
+    example: '4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA',
+    description: 'Opaque, rotating refresh credential',
   })
   refresh_token: string;
 }

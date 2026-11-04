@@ -1,6 +1,7 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { RefreshSessionService } from '../src/modules/auth/sessions/refresh-session.service';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
@@ -70,6 +71,7 @@ describe('Credential enumeration resistance (isolated HTTP e2e)', () => {
       controllers: [AuthController],
       providers: [
         AuthService,
+        { provide: RefreshSessionService, useValue: {} },
         { provide: SecureAuthChallengeFlowsService, useValue: {} },
         { provide: AuthChallengeDeliveryService, useValue: {} },
         { provide: AuthAbuseGuard, useValue: { canActivate: () => true } },

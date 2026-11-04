@@ -12,13 +12,14 @@ import { AuthAbuseGuard } from '../src/modules/auth/challenges/auth-abuse.guard'
 import { AuthRateLimitService } from '../src/modules/auth/challenges/auth-rate-limit.service';
 import { JwtAuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
 import { JwtStrategy } from '../src/modules/auth/strategies/jwt.strategy';
+import { RefreshSessionService } from '../src/modules/auth/sessions/refresh-session.service';
 import { AccountStatus } from '../src/modules/user/enums/account-status.enum';
 import { UserRole } from '../src/modules/user/enums/user-role.enum';
 import { UserService } from '../src/modules/user/user.service';
 
 describe('Retired account activation (isolated e2e)', () => {
   const secret = 'fixed-test-secret-for-legacy-activation';
-  const userId = 'test-user-id';
+  const userId = '550e8400-e29b-41d4-a716-446655440000';
   const url = `/api/auth/users/${userId}/activate`;
   let app: INestApplication;
   let jwtService: JwtService;
@@ -61,11 +62,15 @@ describe('Retired account activation (isolated e2e)', () => {
         {
           provide: ConfigService,
           useValue: {
-            get: (key: string) =>
-              key === 'AUTH_TRUSTED_PROXY_CIDRS' ? '' : secret,
+            get: (key: string) => {
+              if (key === 'TOKEN_ACCESS_DURATION') return '15m';
+              if (key === 'TOKEN_REFRESH_DURATION') return '7d';
+              return key === 'AUTH_TRUSTED_PROXY_CIDRS' ? '' : secret;
+            },
           },
         },
         { provide: UserService, useValue: { findById, save } },
+        { provide: RefreshSessionService, useValue: { validate: findById } },
       ],
     }).compile();
 
@@ -98,16 +103,19 @@ describe('Retired account activation (isolated e2e)', () => {
   });
 
   it('rejects an authenticated user with 403 without activating an account', async () => {
-    const token = jwtService.sign({
-      sub: userId,
-      email: 'verified@example.com',
-      role: [UserRole.PATIENT],
-    });
+    const token = jwtService.sign(
+      {
+        sub: userId,
+        sid: userId,
+        jti: userId,
+      },
+      { expiresIn: 900 },
+    );
     await request(app.getHttpServer())
       .patch(url)
       .set('Authorization', `Bearer ${token}`)
       .expect(403);
-    expect(findById).toHaveBeenCalledWith(userId);
+    expect(findById).toHaveBeenCalledWith(userId, userId);
     expect(save).not.toHaveBeenCalled();
   });
 });

@@ -50,7 +50,7 @@ test('exposes every canonical operationId exactly once', async () => {
     transport: async () => ({ status: 200, data: {} }),
   });
 
-  assert.equal(operationIds.length, 90);
+  assert.equal(operationIds.length, 93);
   assert.deepEqual(Object.keys(client).sort(), operationIds);
 });
 

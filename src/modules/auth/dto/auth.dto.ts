@@ -6,7 +6,6 @@ import {
   IsEmail,
   Matches,
   IsString,
-  IsJWT,
   IsUUID,
   IsOptional,
   ArrayNotEmpty,
@@ -150,11 +149,12 @@ export class ResetPasswordDto {
 }
 export class RefreshTokenDto {
   @ApiProperty({
-    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-    description: 'JWT refresh token with 7 days expiration',
+    example: '4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA',
+    description: 'Opaque refresh credential',
+    pattern: '^[A-Za-z0-9_-]{43}$',
   })
-  @IsJWT()
-  @IsNotEmpty()
+  @IsString()
+  @Matches(/^[A-Za-z0-9_-]{43}$/)
   refresh_token: string;
 }
 

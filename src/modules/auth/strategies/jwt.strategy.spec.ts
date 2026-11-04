@@ -2,131 +2,68 @@ import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import * as sysMsg from '../../../constants/system.messages';
-import { AccountStatus } from '../../user/enums/account-status.enum';
 import { UserRole } from '../../user/enums/user-role.enum';
-import { UserService } from '../../user/user.service';
-import { AccountAccessPolicyService } from '../account-access-policy.service';
+import { RefreshSessionService } from '../sessions/refresh-session.service';
 
 import { JwtStrategy } from './jwt.strategy';
 
 describe('JwtStrategy', () => {
   const configService = {
-    get: jest.fn().mockReturnValue('access-secret'),
+    get: jest.fn((key: string) => {
+      if (key === 'JWT_SECRET') return 'a'.repeat(32);
+      if (key === 'TOKEN_ACCESS_DURATION') return '15m';
+      if (key === 'TOKEN_REFRESH_DURATION') return '7d';
+      return undefined;
+    }),
   };
-  const userService = { findById: jest.fn() };
+  const sessions = { validate: jest.fn() };
   const strategy = new JwtStrategy(
     configService as unknown as ConfigService,
-    userService as unknown as UserService,
-    new AccountAccessPolicyService(),
+    sessions as unknown as RefreshSessionService,
   );
+  const payload = {
+    sub: '550e8400-e29b-41d4-a716-446655440000',
+    sid: '550e8400-e29b-41d4-a716-446655440001',
+    jti: '550e8400-e29b-41d4-a716-446655440002',
+    iat: 1000,
+    exp: 1900,
+  };
 
   beforeEach(() => jest.clearAllMocks());
 
-  it('uses the current database identity and roles', async () => {
-    userService.findById.mockResolvedValue({
-      id: 'user-id',
+  it('returns current database identity and binds it to the token session', async () => {
+    sessions.validate.mockResolvedValue({
+      id: payload.sub,
       email: 'current@example.com',
-      role: [UserRole.DOCTOR, UserRole.COUNSELLOR],
-      is_active: true,
-      is_verified: true,
-      account_status: AccountStatus.ACTIVE,
-      email_verified_at: new Date(),
+      role: [UserRole.DOCTOR],
     });
 
-    await expect(
-      strategy.validate({
-        sub: 'user-id',
-        email: 'token@example.com',
-        role: [UserRole.COUNSELLOR, UserRole.DOCTOR],
-      }),
-    ).resolves.toEqual({
-      id: 'user-id',
-      userId: 'user-id',
+    await expect(strategy.validate(payload)).resolves.toEqual({
+      id: payload.sub,
+      userId: payload.sub,
       email: 'current@example.com',
-      roles: [UserRole.DOCTOR, UserRole.COUNSELLOR],
+      roles: [UserRole.DOCTOR],
+      sessionId: payload.sid,
     });
-  });
-
-  it('rejects a token when its embedded role no longer matches the user', async () => {
-    userService.findById.mockResolvedValue({
-      id: 'user-id',
-      email: 'user@example.com',
-      role: [UserRole.PATIENT],
-      is_active: true,
-      is_verified: true,
-      account_status: AccountStatus.ACTIVE,
-      email_verified_at: new Date(),
-    });
-
-    await expect(
-      strategy.validate({
-        sub: 'user-id',
-        email: 'user@example.com',
-        role: [UserRole.ADMIN],
-      }),
-    ).rejects.toThrow(sysMsg.TOKEN_INVALID);
-  });
-
-  it('rejects inactive or unverified database users', async () => {
-    userService.findById.mockResolvedValue({
-      id: 'user-id',
-      role: [UserRole.PATIENT],
-      is_active: false,
-      is_verified: true,
-      account_status: AccountStatus.DEACTIVATED,
-      email_verified_at: new Date(),
-    });
-
-    await expect(
-      strategy.validate({
-        sub: 'user-id',
-        email: 'user@example.com',
-        role: [UserRole.PATIENT],
-      }),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(sessions.validate).toHaveBeenCalledWith(payload.sub, payload.sid);
   });
 
   it.each([
-    AccountStatus.PENDING_VERIFICATION,
-    AccountStatus.SUSPENDED,
-    AccountStatus.DEACTIVATED,
-  ])(
-    'rejects %s even when legacy flags allow access',
-    async (accountStatus) => {
-      userService.findById.mockResolvedValue({
-        id: 'user-id',
-        email: 'current@example.com',
-        role: [UserRole.PATIENT],
-        account_status: accountStatus,
-        email_verified_at: new Date(),
-        is_active: true,
-        is_verified: true,
-      });
-      await expect(
-        strategy.validate({
-          sub: 'user-id',
-          email: 'current@example.com',
-          role: [UserRole.PATIENT],
-        }),
-      ).rejects.toBeInstanceOf(UnauthorizedException);
-    },
-  );
+    { ...payload, sid: 'not-a-uuid' },
+    { ...payload, jti: 'not-a-uuid' },
+    { ...payload, exp: payload.iat },
+    { ...payload, exp: payload.iat + 901 },
+  ])('rejects malformed or overlong access-token claims', async (claims) => {
+    await expect(strategy.validate(claims)).rejects.toThrow(
+      sysMsg.TOKEN_INVALID,
+    );
+    expect(sessions.validate).not.toHaveBeenCalled();
+  });
 
-  it('denies active accounts without proof-of-contact timestamp', async () => {
-    userService.findById.mockResolvedValue({
-      id: 'user-id',
-      role: [UserRole.PATIENT],
-      account_status: AccountStatus.ACTIVE,
-      email_verified_at: null,
-      is_active: true,
-      is_verified: true,
-    });
-    await expect(
-      strategy.validate({
-        sub: 'user-id',
-        email: 'current@example.com',
-        role: [UserRole.PATIENT],
-      }),
-    ).rejects.toBeInstanceOf(UnauthorizedException);
+  it('propagates revoked-session rejection', async () => {
+    sessions.validate.mockRejectedValue(new UnauthorizedException());
+    await expect(strategy.validate(payload)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
   });
 });
