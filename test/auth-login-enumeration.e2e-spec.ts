@@ -20,6 +20,7 @@ import { AuthSession } from '../src/modules/auth/entities/auth.entity';
 import { JwtAuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
 import { PasswordCredentialsService } from '../src/modules/auth/password-policy/password-credentials.service';
 import { EmailService } from '../src/modules/email/email.service';
+import { User } from '../src/modules/user/entities/user.entity';
 import { AccountStatus } from '../src/modules/user/enums/account-status.enum';
 import { UserRole } from '../src/modules/user/enums/user-role.enum';
 import { UserService } from '../src/modules/user/user.service';
@@ -72,7 +73,21 @@ describe('Credential enumeration resistance (isolated HTTP e2e)', () => {
       providers: [
         AuthService,
         { provide: RefreshSessionService, useValue: {} },
-        { provide: SecureAuthChallengeFlowsService, useValue: {} },
+        {
+          provide: SecureAuthChallengeFlowsService,
+          useValue: {
+            rejectLoginAttempt: jest.fn().mockResolvedValue(undefined),
+            requestLogin: jest.fn(async (user: User) => {
+              new AccountAccessPolicyService().assertCanAuthenticate(user);
+              return {
+                message: 'Login verification queued',
+                challenge_id: 'f64031c5-70e4-4b37-a92c-f193e59a6621',
+                resend_after_seconds: 60,
+                expires_in_seconds: 600,
+              };
+            }),
+          },
+        },
         { provide: AuthChallengeDeliveryService, useValue: {} },
         { provide: AuthAbuseGuard, useValue: { canActivate: () => true } },
         {

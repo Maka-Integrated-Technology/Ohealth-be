@@ -3,6 +3,7 @@ import { Check, Column, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 export enum AuthChallengePurpose {
   CONTACT_VERIFICATION = 'contact_verification',
   PASSWORD_RECOVERY = 'password_recovery',
+  LOGIN_VERIFICATION = 'login_verification',
 }
 
 @Index('IDX_auth_challenges_subject_issued', [
@@ -12,7 +13,7 @@ export enum AuthChallengePurpose {
 ])
 @Check(
   'CHK_auth_challenge_purpose',
-  `"purpose" IN ('contact_verification', 'password_recovery')`,
+  `"purpose" IN ('contact_verification', 'password_recovery', 'login_verification')`,
 )
 @Check(
   'CHK_auth_challenge_attempts',

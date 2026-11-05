@@ -28,11 +28,13 @@ const PUBLIC_OPERATION_IDS = new Set([
   'AuthController_forgotPassword',
   'AuthController_googleLogin',
   'AuthController_login',
+  'AuthController_resendLogin',
   'AuthController_refreshToken',
   'AuthController_resendVerification',
   'AuthController_resetPassword',
   'AuthController_signup',
   'AuthController_verifySignup',
+  'AuthController_verifyLogin',
   'LaboratoryPostApprovalController_acceptStaffInvitation',
   'PharmacyController_register',
 ]);

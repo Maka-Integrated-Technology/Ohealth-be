@@ -23,6 +23,8 @@ interface IAuthAbuseRequest {
 const POLICY = new Map<string, { ip: number; subject: number }>([
   ['/auth/signup', { ip: 8, subject: 4 }],
   ['/auth/login', { ip: 20, subject: 8 }],
+  ['/auth/login/verify', { ip: 20, subject: 8 }],
+  ['/auth/login/resend', { ip: 8, subject: 4 }],
   ['/auth/verify', { ip: 20, subject: 8 }],
   ['/auth/verify/resend', { ip: 8, subject: 4 }],
   ['/auth/forgot-password', { ip: 8, subject: 4 }],

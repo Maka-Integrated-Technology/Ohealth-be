@@ -20,6 +20,7 @@ async function main() {
   for (const template of [
     EmailTemplateID.VERIFICATION_CODE,
     EmailTemplateID.OTP,
+    EmailTemplateID.LOGIN_CODE,
   ]) {
     rendered = undefined;
     await service.sendMail({
@@ -42,7 +43,7 @@ async function main() {
     assert.doesNotMatch(rendered, /\{\{|\{%/);
   }
   process.stdout.write(
-    'Worker verification and recovery templates rendered successfully.\n',
+    'Worker verification, recovery and login templates rendered successfully.\n',
   );
 }
 main().catch(() => {

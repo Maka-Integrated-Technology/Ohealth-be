@@ -102,6 +102,18 @@ export type AuthController_refreshTokenError =
   | operations['AuthController_refreshToken']['responses'][401]['content']['application/json']
   | operations['AuthController_refreshToken']['responses'][500]['content']['application/json'];
 
+export type AuthController_resendLoginRequest = Readonly<{
+  readonly body: NonNullable<
+    operations['AuthController_resendLogin']['requestBody']
+  >['content']['application/json'];
+  readonly headers?: ApiHeaders;
+}>;
+export type AuthController_resendLoginResponse =
+  operations['AuthController_resendLogin']['responses'][200]['content']['application/json'];
+export type AuthController_resendLoginError =
+  | operations['AuthController_resendLogin']['responses'][400]['content']['application/json']
+  | operations['AuthController_resendLogin']['responses'][500]['content']['application/json'];
+
 export type AuthController_resendVerificationRequest = Readonly<{
   readonly body: NonNullable<
     operations['AuthController_resendVerification']['requestBody']
@@ -173,6 +185,18 @@ export type AuthController_updateProfileError =
   | operations['AuthController_updateProfile']['responses'][400]['content']['application/json']
   | operations['AuthController_updateProfile']['responses'][401]['content']['application/json']
   | operations['AuthController_updateProfile']['responses'][500]['content']['application/json'];
+
+export type AuthController_verifyLoginRequest = Readonly<{
+  readonly body: NonNullable<
+    operations['AuthController_verifyLogin']['requestBody']
+  >['content']['application/json'];
+  readonly headers?: ApiHeaders;
+}>;
+export type AuthController_verifyLoginResponse =
+  operations['AuthController_verifyLogin']['responses'][200]['content']['application/json'];
+export type AuthController_verifyLoginError =
+  | operations['AuthController_verifyLogin']['responses'][400]['content']['application/json']
+  | operations['AuthController_verifyLogin']['responses'][500]['content']['application/json'];
 
 export type AuthController_verifySignupRequest = Readonly<{
   readonly body: NonNullable<
@@ -1252,6 +1276,9 @@ export interface ApiClient {
   readonly AuthController_refreshToken: (
     request: AuthController_refreshTokenRequest,
   ) => Promise<AuthController_refreshTokenResponse>;
+  readonly AuthController_resendLogin: (
+    request: AuthController_resendLoginRequest,
+  ) => Promise<AuthController_resendLoginResponse>;
   readonly AuthController_resendVerification: (
     request: AuthController_resendVerificationRequest,
   ) => Promise<AuthController_resendVerificationResponse>;
@@ -1270,6 +1297,9 @@ export interface ApiClient {
   readonly AuthController_updateProfile: (
     request: AuthController_updateProfileRequest,
   ) => Promise<AuthController_updateProfileResponse>;
+  readonly AuthController_verifyLogin: (
+    request: AuthController_verifyLoginRequest,
+  ) => Promise<AuthController_verifyLoginResponse>;
   readonly AuthController_verifySignup: (
     request: AuthController_verifySignupRequest,
   ) => Promise<AuthController_verifySignupResponse>;
@@ -1609,6 +1639,19 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
         },
         request,
       ),
+    AuthController_resendLogin: (request) =>
+      core.request<
+        AuthController_resendLoginResponse,
+        AuthController_resendLoginError
+      >(
+        {
+          operationId: 'AuthController_resendLogin',
+          method: 'POST',
+          path: '/api/auth/login/resend',
+          requestMediaType: 'application/json',
+        },
+        request,
+      ),
     AuthController_resendVerification: (request) =>
       core.request<
         AuthController_resendVerificationResponse,
@@ -1679,6 +1722,19 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
           operationId: 'AuthController_updateProfile',
           method: 'PATCH',
           path: '/api/auth/me',
+          requestMediaType: 'application/json',
+        },
+        request,
+      ),
+    AuthController_verifyLogin: (request) =>
+      core.request<
+        AuthController_verifyLoginResponse,
+        AuthController_verifyLoginError
+      >(
+        {
+          operationId: 'AuthController_verifyLogin',
+          method: 'POST',
+          path: '/api/auth/login/verify',
           requestMediaType: 'application/json',
         },
         request,

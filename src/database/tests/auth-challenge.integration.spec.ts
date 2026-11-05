@@ -77,6 +77,7 @@ integration('Purpose-bound auth challenges on PostgreSQL', () => {
       } as unknown as ConfigService,
       challenges,
       { sendMail: jest.fn() } as unknown as EmailService,
+      { recordInTransaction: jest.fn() } as never,
     );
     const receipt = await delivery.queueInTransaction(
       runner.manager,

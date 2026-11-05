@@ -1,4 +1,8 @@
-import { ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 
 import { UserAccountStatusHistory } from '../../user/entities/user-account-status-history.entity';
@@ -9,6 +13,7 @@ import { AccountAccessPolicyService } from '../account-access-policy.service';
 import { AuthDto } from '../dto/auth.dto';
 import { AuthSession } from '../entities/auth.entity';
 import { AuthSecurityAuditService } from '../security-audit/auth-security-audit.service';
+import { AuthSecurityEventType } from '../security-audit/auth-security-event.enum';
 
 import { AuthChallengeDeliveryService } from './auth-challenge-delivery.service';
 import { AuthChallengePurpose } from './auth-challenge.entity';
@@ -50,6 +55,7 @@ describe('SecureAuthChallengeFlowsService', () => {
     async (cb: (manager: EntityManager) => Promise<unknown>) =>
       cb(manager as unknown as EntityManager),
   );
+  const dataSourceQuery = jest.fn();
   const assertLiveFlowReady = jest.fn();
   const queueInTransaction = jest.fn().mockResolvedValue({
     challengeId: CHALLENGE,
@@ -57,6 +63,13 @@ describe('SecureAuthChallengeFlowsService', () => {
     expiresInSeconds: 600,
   });
   const recordInTransaction = jest.fn().mockResolvedValue(undefined);
+  const recordAttempt = jest.fn().mockResolvedValue(undefined);
+  const issueInTransaction = jest.fn().mockResolvedValue({
+    access_token: 'access-token',
+    refresh_token: 'refresh-token',
+    session_id: '25b45bce-c76b-4a3b-b96f-18a28d825f92',
+    session_expires_at: new Date('2026-11-12T12:00:00.000Z'),
+  });
   const consumeWithMutation = jest.fn(
     async (
       _challengeId: string,
@@ -66,14 +79,18 @@ describe('SecureAuthChallengeFlowsService', () => {
     ) => callback(manager as unknown as EntityManager, ID),
   );
   const service = new SecureAuthChallengeFlowsService(
-    { transaction } as unknown as DataSource,
+    { transaction, query: dataSourceQuery } as unknown as DataSource,
     {
       queueInTransaction,
       assertLiveFlowReady,
     } as unknown as AuthChallengeDeliveryService,
     { consumeWithMutation } as unknown as AuthChallengeService,
     new AccountAccessPolicyService(),
-    { recordInTransaction } as unknown as AuthSecurityAuditService,
+    {
+      recordInTransaction,
+      recordAttempt,
+    } as unknown as AuthSecurityAuditService,
+    { issueInTransaction } as never,
   );
 
   beforeEach(() => {
@@ -81,6 +98,7 @@ describe('SecureAuthChallengeFlowsService', () => {
     assertLiveFlowReady.mockReset();
     // Reset one-off answers as well as call counts between matrix cases.
     manager.query.mockReset().mockResolvedValue([]);
+    dataSourceQuery.mockReset().mockResolvedValue([]);
     manager.findOne.mockReset().mockResolvedValue({ ...user });
     manager.save.mockImplementation(async (_entity, value) => ({
       ...value,
@@ -92,6 +110,8 @@ describe('SecureAuthChallengeFlowsService', () => {
       expiresInSeconds: 600,
     });
     recordInTransaction.mockResolvedValue(undefined);
+    recordAttempt.mockResolvedValue(undefined);
+    issueInTransaction.mockClear();
     consumeWithMutation.mockImplementation(
       async (_challengeId, _purpose, _code, callback) =>
         callback(manager as unknown as EntityManager, ID),
@@ -166,6 +186,129 @@ describe('SecureAuthChallengeFlowsService', () => {
     );
   });
 
+  it('queues a purpose-bound login challenge after revalidating the password proof', async () => {
+    const active = {
+      ...user,
+      password: 'current-password-hash',
+      account_status: AccountStatus.ACTIVE,
+      email_verified_at: new Date(),
+      is_active: true,
+      is_verified: true,
+    } as User;
+    manager.findOne.mockResolvedValueOnce(active);
+
+    const result = await service.requestLogin(active);
+
+    expect(result).toMatchObject({
+      challenge_id: CHALLENGE,
+      resend_after_seconds: 60,
+      expires_in_seconds: 600,
+    });
+    expect(queueInTransaction).toHaveBeenCalledWith(
+      manager,
+      active,
+      AuthChallengePurpose.LOGIN_VERIFICATION,
+    );
+    expect(recordInTransaction).toHaveBeenCalledWith(
+      manager,
+      expect.objectContaining({
+        event_type: AuthSecurityEventType.LOGIN_CHALLENGE_REQUEST,
+      }),
+    );
+  });
+
+  it('consumes login proof and creates the session in the same transaction', async () => {
+    const active = {
+      ...user,
+      password: 'current-password-hash',
+      account_status: AccountStatus.ACTIVE,
+      email_verified_at: new Date(),
+      is_active: true,
+      is_verified: true,
+    } as User;
+    manager.findOne.mockResolvedValueOnce(active);
+
+    const result = await service.verifyLogin(CHALLENGE, '123456');
+
+    expect(consumeWithMutation).toHaveBeenCalledWith(
+      CHALLENGE,
+      AuthChallengePurpose.LOGIN_VERIFICATION,
+      '123456',
+      expect.any(Function),
+    );
+    expect(issueInTransaction).toHaveBeenCalledWith(manager, ID);
+    expect(result).toMatchObject({
+      user: { id: ID },
+      session: { access_token: 'access-token' },
+    });
+  });
+
+  it('records expired login proof distinctly without exposing a different response', async () => {
+    consumeWithMutation.mockRejectedValueOnce(
+      new BadRequestException('Invalid or expired authentication challenge.'),
+    );
+    dataSourceQuery.mockResolvedValueOnce([
+      {
+        purpose: AuthChallengePurpose.LOGIN_VERIFICATION,
+        subject_user_id: ID,
+        expires_at: new Date(Date.now() - 1_000),
+      },
+    ]);
+
+    await expect(service.verifyLogin(CHALLENGE, '123456')).rejects.toThrow(
+      'Invalid or expired authentication challenge.',
+    );
+    expect(recordAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_type: AuthSecurityEventType.LOGIN_CHALLENGE_EXPIRY,
+        subject_user_id: ID,
+      }),
+    );
+  });
+
+  it('audits rejection when account state changes before login verification', async () => {
+    consumeWithMutation.mockRejectedValueOnce(
+      new UnauthorizedException('User is inactive.'),
+    );
+    dataSourceQuery.mockResolvedValueOnce([
+      {
+        purpose: AuthChallengePurpose.LOGIN_VERIFICATION,
+        subject_user_id: ID,
+        expires_at: new Date(Date.now() + 60_000),
+      },
+    ]);
+
+    await expect(service.verifyLogin(CHALLENGE, '123456')).rejects.toThrow(
+      UnauthorizedException,
+    );
+    expect(recordAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_type: AuthSecurityEventType.LOGIN_CHALLENGE_VERIFICATION,
+        subject_user_id: ID,
+      }),
+    );
+  });
+
+  it('audits unavailable login delivery as an infrastructure failure', async () => {
+    const active = {
+      ...user,
+      password: 'current-password-hash',
+      account_status: AccountStatus.ACTIVE,
+      email_verified_at: new Date(),
+    } as User;
+    assertLiveFlowReady.mockRejectedValueOnce(new Error('worker unavailable'));
+
+    await expect(service.requestLogin(active)).rejects.toThrow(
+      'worker unavailable',
+    );
+    expect(recordAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        outcome: 'failed',
+        subject_user_id: ID,
+      }),
+    );
+  });
+
   it('refuses activation of a suspended account', async () => {
     manager.findOne.mockResolvedValueOnce({
       ...user,
@@ -200,6 +343,10 @@ describe('SecureAuthChallengeFlowsService', () => {
       AuthSession,
       expect.objectContaining({ user_id: ID }),
       expect.objectContaining({ revoked_at: expect.any(Date) }),
+    );
+    expect(manager.query).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE auth_challenges'),
+      [ID, AuthChallengePurpose.LOGIN_VERIFICATION],
     );
     expect(recordInTransaction).toHaveBeenCalledTimes(1);
   });
