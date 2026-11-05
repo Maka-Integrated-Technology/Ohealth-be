@@ -1,13 +1,11 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
-  IsDefined,
   IsEmail,
   IsEnum,
   IsNotEmpty,
   IsString,
   MaxLength,
-  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 
@@ -15,6 +13,7 @@ import { SignupIntent } from '../enums/signup-intent.enum';
 import { isSecurePassword } from '../password-policy/is-secure-password.decorator';
 import { PASSWORD_MIN_LENGTH } from '../password-policy/password-policy';
 
+import { isSignupOrganizationDetails } from './is-signup-organization-details.decorator';
 import { OrganizationRegistrationDto } from './organization-registration.dto';
 
 export class RegisterAccountDto {
@@ -44,7 +43,12 @@ export class RegisterAccountDto {
   @isSecurePassword()
   password: string;
 
-  @ApiProperty({ enum: SignupIntent })
+  @ApiProperty({
+    enum: SignupIntent,
+    enumName: 'SignupIntent',
+    description:
+      'Closed self-service account type that determines persona or organization type.',
+  })
   @IsEnum(SignupIntent)
   intent: SignupIntent;
 
@@ -61,10 +65,7 @@ export class RegisterAccountDto {
   accepted_privacy_version: string;
 
   @ApiPropertyOptional({ type: OrganizationRegistrationDto })
-  @ValidateIf(
-    (dto: RegisterAccountDto) => dto.intent === SignupIntent.ORGANIZATION,
-  )
-  @IsDefined()
+  @isSignupOrganizationDetails()
   @ValidateNested()
   @Type(() => OrganizationRegistrationDto)
   organization?: OrganizationRegistrationDto;
