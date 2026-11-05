@@ -27,6 +27,7 @@ import { AuthChallengeDeliveryService } from './challenges/auth-challenge-delive
 import { AuthChallengePurpose } from './challenges/auth-challenge.entity';
 import { SecureAuthChallengeFlowsService } from './challenges/secure-auth-challenge-flows.service';
 import { SELF_SERVICE_SIGNUP_ROLES } from './constants/self-service-signup-roles.constant';
+import { ResendAuthChallengeDto, VerifyAuthChallengeDto } from './contracts';
 import {
   AuthDto,
   ChangePasswordDto,
@@ -90,6 +91,7 @@ export class AuthService {
   async login(loginPayload: LoginDto) {
     // Reject pathological passwords before querying account existence.
     if (!isLoginPasswordWithinLimit(loginPayload.password)) {
+      await this.challengeFlows.rejectLoginAttempt();
       throw new UnauthorizedException(sysMsg.INVALID_CREDENTIALS);
     }
     const email = loginPayload.email.trim().toLowerCase();
@@ -102,23 +104,29 @@ export class AuthService {
       user?.password ?? null,
     );
     if (!user || !isPasswordValid) {
+      await this.challengeFlows.rejectLoginAttempt();
       throw new UnauthorizedException(sysMsg.INVALID_CREDENTIALS);
     }
-    this.accountAccessPolicy.assertCanAuthenticate(user);
+    return this.challengeFlows.requestLogin(user);
+  }
 
-    const [session, routing] = await Promise.all([
-      this.sessions.issue(user.id, user.password),
-      this.authRoutingService.resolve(user),
-    ]);
-
+  async verifyLogin(payload: VerifyAuthChallengeDto) {
+    const { user, session } = await this.challengeFlows.verifyLogin(
+      payload.challenge_id,
+      payload.code,
+    );
+    const routing = await this.authRoutingService.resolve(user);
     this.logger.info(sysMsg.LOGIN_SUCCESS);
-
     return {
       message: sysMsg.LOGIN_SUCCESS,
       user: this.toUserResponse(user),
       ...routing,
       ...session,
     };
+  }
+
+  resendLogin(payload: ResendAuthChallengeDto) {
+    return this.challengeFlows.resendLogin(payload.challenge_id);
   }
 
   // Shared credential boundary for laboratory/organization administrators.

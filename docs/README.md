@@ -17,6 +17,8 @@ must follow.
    legacy architecture.
 6. [Canonical refresh sessions](./canonical-refresh-sessions.md) — rotation,
    replay detection, revocation, migration and retention behaviour.
+7. [Password login-code verification](./login-code-verification.md) —
+   purpose-bound pre-session proof and client migration contract.
 
 ## Documentation status labels
 

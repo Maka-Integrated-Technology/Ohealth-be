@@ -1,8 +1,13 @@
-import { randomInt } from 'node:crypto';
+import { randomInt, timingSafeEqual } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  HttpException,
+  Injectable,
+} from '@nestjs/common';
 import { DataSource, IsNull, Raw } from 'typeorm';
 
 import * as sysMsg from '../../../constants/system.messages';
@@ -17,6 +22,10 @@ import {
   AuthSecurityEventOutcome,
   AuthSecurityEventType,
 } from '../security-audit/auth-security-event.enum';
+import {
+  IIssuedSession,
+  RefreshSessionService,
+} from '../sessions/refresh-session.service';
 
 import { AuthChallengeDeliveryService } from './auth-challenge-delivery.service';
 import { AuthChallengePurpose } from './auth-challenge.entity';
@@ -24,6 +33,14 @@ import { AuthChallengeService } from './auth-challenge.service';
 
 const QUEUED =
   'If this account is eligible, a verification message has been queued.';
+const LOGIN_QUEUED = 'Login verification queued';
+
+export interface ILoginChallengeResponse {
+  message: string;
+  challenge_id: string;
+  resend_after_seconds: number;
+  expires_in_seconds: number;
+}
 
 /**
  * Shared live contact-verification and recovery boundary for issue #75.
@@ -39,7 +56,214 @@ export class SecureAuthChallengeFlowsService {
     private readonly challenges: AuthChallengeService,
     private readonly policy: AccountAccessPolicyService,
     private readonly audit: AuthSecurityAuditService,
+    private readonly sessions: RefreshSessionService,
   ) {}
+
+  async requestLogin(
+    passwordProvenUser: User,
+  ): Promise<ILoginChallengeResponse> {
+    try {
+      await this.delivery.assertLiveFlowReady();
+      return await this.dataSource.transaction(async (manager) => {
+        const user = await manager.findOne(User, {
+          where: { id: passwordProvenUser.id },
+          lock: { mode: 'pessimistic_write' },
+        });
+        this.policy.assertCanAuthenticate(user);
+        if (
+          !user ||
+          !this.sameSecret(user.password, passwordProvenUser.password)
+        ) {
+          throw new BadRequestException(sysMsg.INVALID_CREDENTIALS);
+        }
+        const issued = await this.delivery.queueInTransaction(
+          manager,
+          user,
+          AuthChallengePurpose.LOGIN_VERIFICATION,
+        );
+        await this.audit.recordInTransaction(manager, {
+          event_type: AuthSecurityEventType.LOGIN_CHALLENGE_REQUEST,
+          outcome: AuthSecurityEventOutcome.SUCCEEDED,
+          subject_user_id: user.id,
+        });
+        return this.loginChallengeResponse(issued);
+      });
+    } catch (error) {
+      await this.audit.recordAttempt({
+        event_type: AuthSecurityEventType.LOGIN_CHALLENGE_REQUEST,
+        outcome:
+          error instanceof HttpException
+            ? AuthSecurityEventOutcome.DENIED
+            : AuthSecurityEventOutcome.FAILED,
+        subject_user_id: passwordProvenUser.id,
+      });
+      throw error;
+    }
+  }
+
+  async rejectLoginAttempt(): Promise<void> {
+    await this.audit.recordAttempt({
+      event_type: AuthSecurityEventType.LOGIN_CHALLENGE_REQUEST,
+      outcome: AuthSecurityEventOutcome.DENIED,
+    });
+  }
+
+  async verifyLogin(
+    challengeId: string,
+    code: string,
+  ): Promise<{ user: User; session: IIssuedSession }> {
+    try {
+      return await this.challenges.consumeWithMutation(
+        challengeId,
+        AuthChallengePurpose.LOGIN_VERIFICATION,
+        code,
+        async (manager, userId) => {
+          const user = await manager.findOne(User, {
+            where: { id: userId },
+            lock: { mode: 'pessimistic_write' },
+          });
+          this.policy.assertCanAuthenticate(user);
+          if (!user) throw new Error('Login challenge subject missing.');
+          const session = await this.sessions.issueInTransaction(
+            manager,
+            user.id,
+          );
+          await this.audit.recordInTransaction(manager, {
+            event_type: AuthSecurityEventType.LOGIN_CHALLENGE_VERIFICATION,
+            outcome: AuthSecurityEventOutcome.SUCCEEDED,
+            actor_user_id: user.id,
+            subject_user_id: user.id,
+            session_id: session.session_id,
+          });
+          return { user, session };
+        },
+      );
+    } catch (error) {
+      if (error instanceof HttpException) {
+        const rows: Array<{
+          purpose: AuthChallengePurpose;
+          subject_user_id: string;
+          expires_at: Date;
+        }> = await this.dataSource.query(
+          'SELECT purpose, subject_user_id, expires_at FROM auth_challenges ' +
+            'WHERE id = $1',
+          [challengeId],
+        );
+        const challenge = rows[0];
+        const isLoginChallenge =
+          challenge?.purpose === AuthChallengePurpose.LOGIN_VERIFICATION;
+        await this.audit.recordAttempt({
+          event_type:
+            isLoginChallenge &&
+            new Date(challenge.expires_at).getTime() <= Date.now()
+              ? AuthSecurityEventType.LOGIN_CHALLENGE_EXPIRY
+              : AuthSecurityEventType.LOGIN_CHALLENGE_VERIFICATION,
+          outcome: AuthSecurityEventOutcome.DENIED,
+          subject_user_id: isLoginChallenge
+            ? challenge.subject_user_id
+            : undefined,
+        });
+      }
+      throw error;
+    }
+  }
+
+  async resendLogin(challengeId: string): Promise<ILoginChallengeResponse> {
+    const started = performance.now();
+    const responseFloorMs = 350 + randomInt(0, 250);
+    let response = this.loginChallengeResponse({
+      challengeId,
+      resendAfterSeconds: 60,
+      expiresInSeconds: 600,
+    });
+    try {
+      await this.delivery.assertLiveFlowReady();
+      await this.dataSource.transaction(async (manager) => {
+        const references: Array<{ subject_user_id: string }> =
+          await manager.query(
+            'SELECT subject_user_id FROM auth_challenges ' +
+              'WHERE id = $1 AND purpose = $2',
+            [challengeId, AuthChallengePurpose.LOGIN_VERIFICATION],
+          );
+        if (!references.length) {
+          await this.recordDeniedLoginResend(manager);
+          return;
+        }
+        const user = await manager.findOne(User, {
+          where: { id: references[0].subject_user_id },
+          lock: { mode: 'pessimistic_write' },
+        });
+        try {
+          this.policy.assertCanAuthenticate(user);
+        } catch {
+          await this.recordDeniedLoginResend(
+            manager,
+            references[0].subject_user_id,
+          );
+          return;
+        }
+        if (!user) {
+          await this.recordDeniedLoginResend(manager);
+          return;
+        }
+        const latest: Array<{
+          id: string;
+          issued_at: Date;
+          expires_at: Date;
+        }> = await manager.query(
+          'SELECT id, issued_at, expires_at FROM auth_challenges ' +
+            'WHERE subject_user_id = $1 AND purpose = $2 ' +
+            'AND consumed_at IS NULL AND expires_at > now() ' +
+            'ORDER BY issued_at DESC LIMIT 1',
+          [user.id, AuthChallengePurpose.LOGIN_VERIFICATION],
+        );
+        const current = latest[0];
+        if (!current || current.id !== challengeId) {
+          await this.recordDeniedLoginResend(manager, user.id);
+          return;
+        }
+        const ageMs = Date.now() - new Date(current.issued_at).getTime();
+        response = this.loginChallengeResponse({
+          challengeId: current.id,
+          resendAfterSeconds: Math.max(0, Math.ceil((60_000 - ageMs) / 1000)),
+          expiresInSeconds: Math.max(
+            1,
+            Math.ceil(
+              (new Date(current.expires_at).getTime() - Date.now()) / 1000,
+            ),
+          ),
+        });
+        if (ageMs < 60_000) {
+          await this.recordDeniedLoginResend(manager, user.id);
+          return;
+        }
+        const issued = await this.delivery.queueInTransaction(
+          manager,
+          user,
+          AuthChallengePurpose.LOGIN_VERIFICATION,
+        );
+        await this.audit.recordInTransaction(manager, {
+          event_type: AuthSecurityEventType.LOGIN_CHALLENGE_RESEND,
+          outcome: AuthSecurityEventOutcome.SUCCEEDED,
+          subject_user_id: user.id,
+        });
+        response = this.loginChallengeResponse(issued);
+      });
+      return response;
+    } catch (error) {
+      await this.audit.recordAttempt({
+        event_type: AuthSecurityEventType.LOGIN_CHALLENGE_RESEND,
+        outcome:
+          error instanceof HttpException
+            ? AuthSecurityEventOutcome.DENIED
+            : AuthSecurityEventOutcome.FAILED,
+      });
+      throw error;
+    } finally {
+      const remaining = responseFloorMs - (performance.now() - started);
+      if (remaining > 0) await sleep(remaining);
+    }
+  }
 
   async signup(
     dto: AuthDto,
@@ -175,6 +399,11 @@ export class SecureAuthChallengeFlowsService {
           reset_token: null,
           reset_token_expiry: null,
         });
+        await manager.query(
+          'UPDATE auth_challenges SET consumed_at = now() ' +
+            'WHERE subject_user_id = $1 AND purpose = $2 AND consumed_at IS NULL',
+          [user.id, AuthChallengePurpose.LOGIN_VERIFICATION],
+        );
         await manager.update(
           AuthSession,
           { user_id: user.id, revoked_at: IsNull() },
@@ -245,5 +474,38 @@ export class SecureAuthChallengeFlowsService {
       const remaining = responseFloorMs - (performance.now() - started);
       if (remaining > 0) await sleep(remaining);
     }
+  }
+
+  private loginChallengeResponse(issued: {
+    challengeId: string;
+    resendAfterSeconds: number;
+    expiresInSeconds: number;
+  }): ILoginChallengeResponse {
+    return {
+      message: LOGIN_QUEUED,
+      challenge_id: issued.challengeId,
+      resend_after_seconds: issued.resendAfterSeconds,
+      expires_in_seconds: issued.expiresInSeconds,
+    };
+  }
+
+  private async recordDeniedLoginResend(
+    manager: Parameters<AuthSecurityAuditService['recordInTransaction']>[0],
+    subjectUserId?: string,
+  ): Promise<void> {
+    await this.audit.recordInTransaction(manager, {
+      event_type: AuthSecurityEventType.LOGIN_CHALLENGE_RESEND,
+      outcome: AuthSecurityEventOutcome.DENIED,
+      subject_user_id: subjectUserId,
+    });
+  }
+
+  private sameSecret(left: string, right: string): boolean {
+    const leftBytes = Buffer.from(left);
+    const rightBytes = Buffer.from(right);
+    return (
+      leftBytes.length === rightBytes.length &&
+      timingSafeEqual(leftBytes, rightBytes)
+    );
   }
 }

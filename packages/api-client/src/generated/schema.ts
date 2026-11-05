@@ -81,8 +81,42 @@ export interface paths {
     };
     readonly get?: never;
     readonly put?: never;
-    /** Login with email and password */
+    /** Validate password and queue a login verification code */
     readonly post: operations['AuthController_login'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly '/api/auth/login/resend': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Resend a pending login verification code */
+    readonly post: operations['AuthController_resendLogin'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly '/api/auth/login/verify': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Verify a login code and issue a session */
+    readonly post: operations['AuthController_verifyLogin'];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -1988,6 +2022,24 @@ export interface components {
        */
       readonly verification_status: PathsApiOrganizationsOnboardingReviewApplicationsGetParametersQueryVerification_status;
     };
+    readonly LoginChallengeResponseDto: {
+      /** Format: uuid */
+      readonly challenge_id: string;
+      /** @example 600 */
+      readonly expires_in_seconds: number;
+      /** @example Login verification queued */
+      readonly message: string;
+      /** @example 60 */
+      readonly resend_after_seconds: number;
+    };
+    readonly LoginChallengeResponseDtoData: {
+      /** Format: uuid */
+      readonly challenge_id: string;
+      /** @example 600 */
+      readonly expires_in_seconds: number;
+      /** @example 60 */
+      readonly resend_after_seconds: number;
+    };
     readonly LoginDto: {
       /**
        * @description User email address
@@ -2663,6 +2715,13 @@ export interface components {
       /** @example The submitted license number could not be verified. */
       readonly reason: string;
     };
+    readonly ResendAuthChallengeDto: {
+      /**
+       * Format: uuid
+       * @description Opaque login challenge ID returned after password proof
+       */
+      readonly challenge_id: string;
+    };
     readonly ResendVerificationDto: {
       /**
        * @description User email address
@@ -2951,6 +3010,12 @@ export interface components {
        *     ]
        */
       readonly role: readonly string[];
+    };
+    readonly VerifyAuthChallengeDto: {
+      /** Format: uuid */
+      readonly challenge_id: string;
+      /** @example 123456 */
+      readonly code: string;
     };
     readonly VerifySignupDto: {
       /**
@@ -3251,14 +3316,14 @@ export interface operations {
       };
     };
     readonly responses: {
-      /** @description login success */
+      /** @description Password accepted and login verification queued */
       readonly 200: {
         headers: {
           readonly [name: string]: unknown;
         };
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
-            readonly data: components['schemas']['LoginResponseDtoData'];
+            readonly data: components['schemas']['LoginChallengeResponseDtoData'];
           };
         };
       };
@@ -3273,6 +3338,94 @@ export interface operations {
       };
       /** @description invalid credentials */
       readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly AuthController_resendLogin: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly 'application/json': components['schemas']['ResendAuthChallengeDto'];
+      };
+    };
+    readonly responses: {
+      /** @description Generic queued response */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['LoginChallengeResponseDtoData'];
+          };
+        };
+      };
+      /** @description validation error */
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly AuthController_verifyLogin: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly 'application/json': components['schemas']['VerifyAuthChallengeDto'];
+      };
+    };
+    readonly responses: {
+      /** @description login success */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['LoginResponseDtoData'];
+          };
+        };
+      };
+      /** @description Invalid or expired authentication challenge */
+      readonly 400: {
         headers: {
           readonly [name: string]: unknown;
         };

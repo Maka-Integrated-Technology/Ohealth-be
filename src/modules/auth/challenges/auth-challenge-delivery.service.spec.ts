@@ -31,6 +31,7 @@ describe('leased and encrypted authentication delivery', () => {
   );
   const issueInTransaction = jest.fn();
   const sendMail = jest.fn();
+  const recordInTransaction = jest.fn();
   const config = {
     get: jest.fn((name: string) => {
       if (name === 'AUTH_CHALLENGE_DELIVERY_KEY') return key;
@@ -45,17 +46,19 @@ describe('leased and encrypted authentication delivery', () => {
     config as unknown as ConfigService,
     { issueInTransaction } as unknown as AuthChallengeService,
     { sendMail } as unknown as EmailService,
+    { recordInTransaction } as never,
   );
   const user = { id: '4b659a6c-9d3f-4cec-8122-2dccfae3095d' } as User;
 
   async function encryptedRow(
     overrides: Record<string, unknown> = {},
+    purpose = AuthChallengePurpose.CONTACT_VERIFICATION,
   ): Promise<Record<string, unknown>> {
     manager.query.mockResolvedValue([]);
     await service.queueInTransaction(
       manager as unknown as EntityManager,
       user,
-      AuthChallengePurpose.CONTACT_VERIFICATION,
+      purpose,
     );
     const args = manager.query.mock.calls[0][1] as string[];
     manager.query.mockReset();
@@ -64,7 +67,8 @@ describe('leased and encrypted authentication delivery', () => {
       iv: args[1],
       ciphertext: args[2],
       tag: args[3],
-      purpose: AuthChallengePurpose.CONTACT_VERIFICATION,
+      purpose,
+      subject_user_id: user.id,
       expires_at: new Date(Date.now() + 600000),
       consumed_at: null,
       email: 'patient@example.test',
@@ -93,6 +97,7 @@ describe('leased and encrypted authentication delivery', () => {
       expiresAt: new Date(Date.now() + 600000),
     });
     sendMail.mockResolvedValue(undefined);
+    recordInTransaction.mockResolvedValue(undefined);
     config.get.mockImplementation((name: string) => {
       if (name === 'AUTH_CHALLENGE_DELIVERY_KEY') return key;
       if (name === 'mail.from.address') return 'no-reply@ohealth.test';
@@ -197,6 +202,26 @@ describe('leased and encrypted authentication delivery', () => {
     expect(updates[0][0]).toContain("status = 'processing'");
     expect(updates[1][0]).toContain('lease_token = $2');
     expect(updates[1][0]).toContain('ciphertext = CASE');
+  });
+
+  it('uses the dedicated login template and audits accepted delivery', async () => {
+    const row = await encryptedRow({}, AuthChallengePurpose.LOGIN_VERIFICATION);
+    prepareClaim(row);
+
+    expect(await service.dispatchBatch(1)).toMatchObject({ accepted: 1 });
+    expect(sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        subject: 'Your OHealth login code',
+        templateNameID: 'login-code.njk',
+        templateData: expect.objectContaining({ code: '001234' }),
+      }),
+    );
+    expect(recordInTransaction).toHaveBeenCalledWith(
+      manager,
+      expect.objectContaining({
+        subject_user_id: user.id,
+      }),
+    );
   });
 
   it('does not hold the DB transaction while the provider is delayed', async () => {

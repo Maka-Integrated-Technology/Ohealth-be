@@ -18,6 +18,13 @@ describe('Purpose-bound auth challenge HTTP contracts (isolated e2e)', () => {
     resendVerification: jest.fn().mockResolvedValue({ message: secureMessage }),
     forgotPassword: jest.fn().mockResolvedValue({ message: secureMessage }),
     resetPassword: jest.fn().mockResolvedValue({ message: 'password changed' }),
+    verifyLogin: jest.fn().mockResolvedValue({ access_token: 'access-token' }),
+    resendLogin: jest.fn().mockResolvedValue({
+      message: 'Login verification queued',
+      challenge_id: challengeId,
+      resend_after_seconds: 60,
+      expires_in_seconds: 600,
+    }),
   };
 
   beforeAll(async () => {
@@ -122,5 +129,50 @@ describe('Purpose-bound auth challenge HTTP contracts (isolated e2e)', () => {
     expect(
       JSON.stringify(recovery.body) + JSON.stringify(resend.body),
     ).not.toContain('123456');
+  });
+
+  it('accepts only a UUID and six-digit code at login completion', async () => {
+    await request(app.getHttpServer())
+      .post('/api/auth/login/verify')
+      .send({
+        challenge_id: challengeId,
+        code: '123456',
+        email: 'must-not-reach-the-service@example.test',
+      })
+      .expect(200);
+    expect(service.verifyLogin).toHaveBeenCalledWith({
+      challenge_id: challengeId,
+      code: '123456',
+    });
+
+    for (const payload of [
+      {},
+      { challenge_id: 'not-a-uuid', code: '123456' },
+      { challenge_id: challengeId, code: '12345' },
+      { challenge_id: challengeId, code: '１２３４５６' },
+      { challenge_id: challengeId, code: '123456\u0000' },
+    ]) {
+      await request(app.getHttpServer())
+        .post('/api/auth/login/verify')
+        .send(payload)
+        .expect(400);
+    }
+    expect(service.verifyLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it('resends by opaque challenge ID and rejects email-only requests', async () => {
+    await request(app.getHttpServer())
+      .post('/api/auth/login/resend')
+      .send({ challenge_id: challengeId, email: 'ignored@example.test' })
+      .expect(200);
+    expect(service.resendLogin).toHaveBeenCalledWith({
+      challenge_id: challengeId,
+    });
+
+    await request(app.getHttpServer())
+      .post('/api/auth/login/resend')
+      .send({ email: 'patient@example.test' })
+      .expect(400);
+    expect(service.resendLogin).toHaveBeenCalledTimes(1);
   });
 });

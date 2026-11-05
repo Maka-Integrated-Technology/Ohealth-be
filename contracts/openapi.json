@@ -1523,6 +1523,55 @@
         ],
         "type": "object"
       },
+      "LoginChallengeResponseDto": {
+        "properties": {
+          "challenge_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "expires_in_seconds": {
+            "example": 600,
+            "type": "number"
+          },
+          "message": {
+            "example": "Login verification queued",
+            "type": "string"
+          },
+          "resend_after_seconds": {
+            "example": 60,
+            "type": "number"
+          }
+        },
+        "required": [
+          "message",
+          "challenge_id",
+          "resend_after_seconds",
+          "expires_in_seconds"
+        ],
+        "type": "object"
+      },
+      "LoginChallengeResponseDtoData": {
+        "properties": {
+          "challenge_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "expires_in_seconds": {
+            "example": 600,
+            "type": "number"
+          },
+          "resend_after_seconds": {
+            "example": 60,
+            "type": "number"
+          }
+        },
+        "required": [
+          "challenge_id",
+          "resend_after_seconds",
+          "expires_in_seconds"
+        ],
+        "type": "object"
+      },
       "LoginDto": {
         "properties": {
           "email": {
@@ -3665,6 +3714,19 @@
         ],
         "type": "object"
       },
+      "ResendAuthChallengeDto": {
+        "properties": {
+          "challenge_id": {
+            "description": "Opaque login challenge ID returned after password proof",
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "challenge_id"
+        ],
+        "type": "object"
+      },
       "ResendVerificationDto": {
         "properties": {
           "email": {
@@ -4309,6 +4371,23 @@
         ],
         "type": "object"
       },
+      "VerifyAuthChallengeDto": {
+        "properties": {
+          "challenge_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "code": {
+            "example": "123456",
+            "type": "string"
+          }
+        },
+        "required": [
+          "challenge_id",
+          "code"
+        ],
+        "type": "object"
+      },
       "VerifySignupDto": {
         "properties": {
           "challenge_id": {
@@ -4818,7 +4897,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/LoginResponseDtoData"
+                          "$ref": "#/components/schemas/LoginChallengeResponseDtoData"
                         }
                       },
                       "required": [
@@ -4830,7 +4909,7 @@
                 }
               }
             },
-            "description": "login success"
+            "description": "Password accepted and login verification queued"
           },
           "400": {
             "content": {
@@ -4863,7 +4942,141 @@
             "description": "Internal server error"
           }
         },
-        "summary": "Login with email and password",
+        "summary": "Validate password and queue a login verification code",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/login/resend": {
+      "post": {
+        "operationId": "AuthController_resendLogin",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResendAuthChallengeDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/LoginChallengeResponseDtoData"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Generic queued response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "validation error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Resend a pending login verification code",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/login/verify": {
+      "post": {
+        "operationId": "AuthController_verifyLogin",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyAuthChallengeDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/LoginResponseDtoData"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "login success"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Invalid or expired authentication challenge"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Verify a login code and issue a session",
         "tags": [
           "Authentication"
         ]

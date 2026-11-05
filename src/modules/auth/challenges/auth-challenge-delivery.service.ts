@@ -12,6 +12,11 @@ import { DataSource, EntityManager } from 'typeorm';
 import { EmailTemplateID } from '../../../constants/email-constants';
 import { EmailService } from '../../email/email.service';
 import { User } from '../../user/entities/user.entity';
+import { AuthSecurityAuditService } from '../security-audit/auth-security-audit.service';
+import {
+  AuthSecurityEventOutcome,
+  AuthSecurityEventType,
+} from '../security-audit/auth-security-event.enum';
 
 import { AuthChallengePurpose } from './auth-challenge.entity';
 import { AuthChallengeService } from './auth-challenge.service';
@@ -32,6 +37,7 @@ interface IPendingDelivery {
   consumed_at: Date | null;
   email: string;
   first_name: string;
+  subject_user_id: string;
   attempts: number;
 }
 
@@ -50,6 +56,7 @@ export class AuthChallengeDeliveryService {
     private readonly config: ConfigService,
     private readonly challenges: AuthChallengeService,
     private readonly email: EmailService,
+    private readonly audit: AuthSecurityAuditService,
   ) {}
 
   /** Validate the AES-GCM secret before any public or worker action. */
@@ -182,6 +189,8 @@ export class AuthChallengeDeliveryService {
           const appName = this.config.get<string>('app.name') || 'OHealth';
           const recovery =
             claim.purpose === AuthChallengePurpose.PASSWORD_RECOVERY;
+          const login =
+            claim.purpose === AuthChallengePurpose.LOGIN_VERIFICATION;
           const frontEndUrl = this.config.get<string>('frontend.url');
 
           // No active DB transaction while waiting on SMTP/Resend.
@@ -190,10 +199,14 @@ export class AuthChallengeDeliveryService {
             to: [{ email: claim.email, name: claim.first_name }],
             subject: recovery
               ? 'Reset your ' + appName + ' password'
-              : 'Verify your ' + appName + ' account',
+              : login
+                ? 'Your ' + appName + ' login code'
+                : 'Verify your ' + appName + ' account',
             templateNameID: recovery
               ? EmailTemplateID.OTP
-              : EmailTemplateID.VERIFICATION_CODE,
+              : login
+                ? EmailTemplateID.LOGIN_CODE
+                : EmailTemplateID.VERIFICATION_CODE,
             templateData: recovery
               ? {
                   name: claim.first_name,
@@ -208,18 +221,26 @@ export class AuthChallengeDeliveryService {
                     : undefined,
                   expiry_minutes: 10,
                 }
-              : {
-                  name: claim.first_name,
-                  app_name: appName,
-                  code,
-                  challenge_id: claim.challenge_id,
-                  verification_url: frontEndUrl
-                    ? frontEndUrl +
-                      '/verify-email?challenge_id=' +
-                      encodeURIComponent(claim.challenge_id)
-                    : undefined,
-                  expiry_minutes: 10,
-                },
+              : login
+                ? {
+                    name: claim.first_name,
+                    app_name: appName,
+                    code,
+                    challenge_id: claim.challenge_id,
+                    expiry_minutes: 10,
+                  }
+                : {
+                    name: claim.first_name,
+                    app_name: appName,
+                    code,
+                    challenge_id: claim.challenge_id,
+                    verification_url: frontEndUrl
+                      ? frontEndUrl +
+                        '/verify-email?challenge_id=' +
+                        encodeURIComponent(claim.challenge_id)
+                      : undefined,
+                    expiry_minutes: 10,
+                  },
           });
           outcome = 'accepted';
         } catch {
@@ -229,7 +250,15 @@ export class AuthChallengeDeliveryService {
         }
       }
       // A stale worker cannot finalize a lease reclaimed by another worker.
-      if (await this.finalize(claim.challenge_id, claim.lease_token, outcome)) {
+      if (
+        await this.finalize(
+          claim.challenge_id,
+          claim.lease_token,
+          claim.purpose,
+          claim.subject_user_id,
+          outcome,
+        )
+      ) {
         counts[outcome]++;
       }
     }
@@ -242,7 +271,8 @@ export class AuthChallengeDeliveryService {
     return this.dataSource.transaction(async (manager) => {
       const rows: IPendingDelivery[] = await manager.query(
         'SELECT d.challenge_id, d.iv, d.ciphertext, d.tag, d.attempts, ' +
-          'c.purpose, c.expires_at, c.consumed_at, u.email, u.first_name ' +
+          'c.purpose, c.subject_user_id, c.expires_at, c.consumed_at, ' +
+          'u.email, u.first_name ' +
           'FROM auth_challenge_deliveries d ' +
           'JOIN auth_challenges c ON c.id = d.challenge_id ' +
           'JOIN users u ON u.id = c.subject_user_id ' +
@@ -276,6 +306,8 @@ export class AuthChallengeDeliveryService {
   private async finalize(
     challengeId: string,
     leaseToken: string,
+    purpose: AuthChallengePurpose,
+    subjectUserId: string,
     outcome: 'accepted' | 'retried' | 'discarded',
   ): Promise<boolean> {
     return this.dataSource.transaction(async (manager) => {
@@ -294,7 +326,20 @@ export class AuthChallengeDeliveryService {
           'SELECT count(*)::integer AS updated FROM finalized',
         [challengeId, leaseToken, outcome],
       );
-      return rows[0]?.updated === 1;
+      const updated = rows[0]?.updated === 1;
+      if (updated && purpose === AuthChallengePurpose.LOGIN_VERIFICATION) {
+        await this.audit.recordInTransaction(manager, {
+          event_type: AuthSecurityEventType.LOGIN_CHALLENGE_DELIVERY,
+          outcome:
+            outcome === 'accepted'
+              ? AuthSecurityEventOutcome.SUCCEEDED
+              : outcome === 'retried'
+                ? AuthSecurityEventOutcome.FAILED
+                : AuthSecurityEventOutcome.DENIED,
+          subject_user_id: subjectUserId,
+        });
+      }
+      return updated;
     });
   }
 

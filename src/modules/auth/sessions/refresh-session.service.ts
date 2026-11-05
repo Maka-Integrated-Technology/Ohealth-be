@@ -49,59 +49,71 @@ export class RefreshSessionService {
     userId: string,
     expectedPasswordHash?: string,
   ): Promise<IIssuedSession> {
-    return this.dataSource.transaction(async (manager) => {
-      const user = await manager.findOne(User, {
-        where: { id: userId },
-        lock: { mode: 'pessimistic_write' },
-      });
-      this.accountPolicy.assertCanAuthenticate(user);
-      if (!user) throw new UnauthorizedException(sysMsg.USER_INACTIVE);
-      if (
-        expectedPasswordHash !== undefined &&
-        !this.sameSecret(expectedPasswordHash, user.password)
-      ) {
-        throw new UnauthorizedException(sysMsg.INVALID_CREDENTIALS);
-      }
+    return this.dataSource.transaction((manager) =>
+      this.issueInTransaction(manager, userId, expectedPasswordHash),
+    );
+  }
 
-      const settings = sessionSettings(this.config);
-      const now = new Date();
-      const expiresAt = new Date(
-        now.getTime() + settings.refreshDurationSeconds * 1000,
-      );
-      const sessionId = randomUUID();
-      const refreshToken = this.newRefreshToken();
-      const tokenHash = this.hash(refreshToken);
-
-      await manager.insert(AuthSession, {
-        session_id: sessionId,
-        user_id: user.id,
-        refresh_token_hash: tokenHash,
-        credential_version: 2,
-        last_used_at: now,
-        expires_at: expiresAt,
-        revoked_at: null,
-      });
-      await manager.insert(RefreshCredential, {
-        token_hash: tokenHash,
-        session_id: sessionId,
-        created_at: now,
-        consumed_at: null,
-      });
-      await this.audit.recordInTransaction(manager, {
-        event_type: AuthSecurityEventType.SIGN_IN,
-        outcome: AuthSecurityEventOutcome.SUCCEEDED,
-        actor_user_id: user.id,
-        subject_user_id: user.id,
-        session_id: sessionId,
-      });
-
-      return {
-        access_token: await this.signAccess(user.id, sessionId),
-        refresh_token: refreshToken,
-        session_id: sessionId,
-        session_expires_at: expiresAt,
-      };
+  /** Issue credentials inside a caller-owned proof transaction. */
+  async issueInTransaction(
+    manager: EntityManager,
+    userId: string,
+    expectedPasswordHash?: string,
+  ): Promise<IIssuedSession> {
+    if (!manager.queryRunner?.isTransactionActive) {
+      throw new Error('Session issuance requires an active transaction.');
+    }
+    const user = await manager.findOne(User, {
+      where: { id: userId },
+      lock: { mode: 'pessimistic_write' },
     });
+    this.accountPolicy.assertCanAuthenticate(user);
+    if (!user) throw new UnauthorizedException(sysMsg.USER_INACTIVE);
+    if (
+      expectedPasswordHash !== undefined &&
+      !this.sameSecret(expectedPasswordHash, user.password)
+    ) {
+      throw new UnauthorizedException(sysMsg.INVALID_CREDENTIALS);
+    }
+
+    const settings = sessionSettings(this.config);
+    const now = new Date();
+    const expiresAt = new Date(
+      now.getTime() + settings.refreshDurationSeconds * 1000,
+    );
+    const sessionId = randomUUID();
+    const refreshToken = this.newRefreshToken();
+    const tokenHash = this.hash(refreshToken);
+
+    await manager.insert(AuthSession, {
+      session_id: sessionId,
+      user_id: user.id,
+      refresh_token_hash: tokenHash,
+      credential_version: 2,
+      last_used_at: now,
+      expires_at: expiresAt,
+      revoked_at: null,
+    });
+    await manager.insert(RefreshCredential, {
+      token_hash: tokenHash,
+      session_id: sessionId,
+      created_at: now,
+      consumed_at: null,
+    });
+    await this.audit.recordInTransaction(manager, {
+      event_type: AuthSecurityEventType.SIGN_IN,
+      outcome: AuthSecurityEventOutcome.SUCCEEDED,
+      actor_user_id: user.id,
+      subject_user_id: user.id,
+      session_id: sessionId,
+    });
+
+    return {
+      access_token: await this.signAccess(user.id, sessionId),
+      refresh_token: refreshToken,
+      session_id: sessionId,
+      session_expires_at: expiresAt,
+    };
   }
 
   async rotate(
@@ -311,6 +323,11 @@ export class RefreshSessionService {
         throw new UnauthorizedException(sysMsg.INVALID_CURRENT_PASSWORD);
       }
       await manager.update(User, user.id, { password: newPasswordHash });
+      await manager.query(
+        'UPDATE auth_challenges SET consumed_at = now() ' +
+          'WHERE subject_user_id = $1 AND purpose = $2 AND consumed_at IS NULL',
+        [user.id, 'login_verification'],
+      );
       await manager.update(
         AuthSession,
         { user_id: user.id, revoked_at: IsNull() },

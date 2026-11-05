@@ -127,6 +127,20 @@ export class LoginResponseDto extends RoutedAuthResponseDto {
   session_expires_at?: Date;
 }
 
+export class LoginChallengeResponseDto {
+  @ApiProperty({ example: 'Login verification queued' })
+  message: string;
+
+  @ApiProperty({ format: 'uuid' })
+  challenge_id: string;
+
+  @ApiProperty({ example: 60 })
+  resend_after_seconds: number;
+
+  @ApiProperty({ example: 600 })
+  expires_in_seconds: number;
+}
+
 export class VerifySignupResponseDto extends LoginResponseDto {
   @ApiProperty({ example: 'account verified' })
   message: string;

@@ -17,6 +17,8 @@ describe('AuthController', () => {
   const mockAuthService = {
     signup: jest.fn(),
     login: jest.fn(),
+    verifyLogin: jest.fn(),
+    resendLogin: jest.fn(),
     googleLogin: jest.fn(),
     refreshToken: jest.fn(),
     forgotPassword: jest.fn(),
@@ -117,6 +119,26 @@ describe('AuthController', () => {
 
     expect(authService.verifySignup).toHaveBeenCalledWith(payload);
     expect(result).toEqual(expected);
+  });
+
+  it('routes login-code verification and resend to the auth service', async () => {
+    const verification = {
+      challenge_id: 'f64031c5-70e4-4b37-a92c-f193e59a6621',
+      code: '123456',
+    };
+    const resend = { challenge_id: verification.challenge_id };
+    mockAuthService.verifyLogin.mockResolvedValue({
+      access_token: 'access-token',
+    });
+    mockAuthService.resendLogin.mockResolvedValue({
+      message: 'Login verification queued',
+    });
+
+    await controller.verifyLogin(verification);
+    await controller.resendLogin(resend);
+
+    expect(authService.verifyLogin).toHaveBeenCalledWith(verification);
+    expect(authService.resendLogin).toHaveBeenCalledWith(resend);
   });
 
   it('should call resendVerification on auth service', async () => {

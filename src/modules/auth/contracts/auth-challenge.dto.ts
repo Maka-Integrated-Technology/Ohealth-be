@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, IsUUID, Matches } from 'class-validator';
+import { IsString, IsUUID, Matches } from 'class-validator';
 
 export class VerifyAuthChallengeDto {
   @ApiProperty({ format: 'uuid' })
@@ -13,7 +13,10 @@ export class VerifyAuthChallengeDto {
 }
 
 export class ResendAuthChallengeDto {
-  @ApiProperty({ format: 'email' })
-  @IsEmail()
-  email: string;
+  @ApiProperty({
+    format: 'uuid',
+    description: 'Opaque login challenge ID returned after password proof',
+  })
+  @IsUUID()
+  challenge_id: string;
 }

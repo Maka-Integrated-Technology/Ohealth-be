@@ -93,6 +93,10 @@ describe('AuthService', () => {
     completeRecovery: jest.fn(),
     verifyContact: jest.fn(),
     resend: jest.fn(),
+    requestLogin: jest.fn(),
+    verifyLogin: jest.fn(),
+    resendLogin: jest.fn(),
+    rejectLoginAttempt: jest.fn(),
   };
   const mockChallengeDelivery = { queueInTransaction: jest.fn() };
   const mockSessions = {
@@ -197,6 +201,13 @@ describe('AuthService', () => {
       session_id: '550e8400-e29b-41d4-a716-446655440000',
       session_expires_at: new Date('2026-07-11T16:16:13.000Z'),
     });
+    mockChallengeFlows.requestLogin.mockResolvedValue({
+      message: 'Login verification queued',
+      challenge_id: 'f64031c5-70e4-4b37-a92c-f193e59a6621',
+      resend_after_seconds: 60,
+      expires_in_seconds: 600,
+    });
+    mockChallengeFlows.rejectLoginAttempt.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -364,7 +375,7 @@ describe('AuthService', () => {
       ).rejects.toThrow(UnauthorizedException);
     });
 
-    it('should return the persisted role and resolved routing target', async () => {
+    it('queues a login challenge without issuing credentials', async () => {
       jest.spyOn(bcrypt, 'compare').mockImplementation(async () => true);
       const user = {
         id: 'user-id-1',
@@ -398,8 +409,46 @@ describe('AuthService', () => {
         password: 'Password123',
       });
 
-      expect(result.user.role).toEqual([UserRole.PATIENT]);
-      expect(result).toMatchObject(defaultRouting);
+      expect(result).toEqual({
+        message: 'Login verification queued',
+        challenge_id: 'f64031c5-70e4-4b37-a92c-f193e59a6621',
+        resend_after_seconds: 60,
+        expires_in_seconds: 600,
+      });
+      expect(mockChallengeFlows.requestLogin).toHaveBeenCalledWith(user);
+      expect(mockSessions.issue).not.toHaveBeenCalled();
+      expect(mockAuthRoutingService.resolve).not.toHaveBeenCalled();
+    });
+
+    it('returns credentials only after the login challenge is consumed', async () => {
+      const user = {
+        id: 'user-id-1',
+        email: 'patient@example.com',
+        first_name: 'Patient',
+        last_name: 'User',
+        role: [UserRole.PATIENT],
+      } as User;
+      mockChallengeFlows.verifyLogin.mockResolvedValue({
+        user,
+        session: {
+          access_token: 'access-token',
+          refresh_token: 'refresh-token',
+          session_id: '550e8400-e29b-41d4-a716-446655440000',
+          session_expires_at: new Date('2026-07-11T16:16:13.000Z'),
+        },
+      });
+
+      const result = await service.verifyLogin({
+        challenge_id: 'f64031c5-70e4-4b37-a92c-f193e59a6621',
+        code: '123456',
+      });
+
+      expect(result).toMatchObject({
+        message: sysMsg.LOGIN_SUCCESS,
+        access_token: 'access-token',
+        refresh_token: 'refresh-token',
+        user: { id: user.id },
+      });
       expect(mockAuthRoutingService.resolve).toHaveBeenCalledWith(user);
     });
   });

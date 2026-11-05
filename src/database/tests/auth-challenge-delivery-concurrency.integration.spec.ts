@@ -70,9 +70,15 @@ integration('Delivery leases across independent PostgreSQL connections', () => {
     } as ConfigService;
     const challenges = new AuthChallengeService(db, settings);
     mail = jest.fn().mockResolvedValue(undefined);
-    delivery = new AuthChallengeDeliveryService(db, settings, challenges, {
-      sendMail: (...args: unknown[]) => mail(...args),
-    } as unknown as EmailService);
+    delivery = new AuthChallengeDeliveryService(
+      db,
+      settings,
+      challenges,
+      {
+        sendMail: (...args: unknown[]) => mail(...args),
+      } as unknown as EmailService,
+      { recordInTransaction: jest.fn() } as never,
+    );
   });
 
   afterAll(async () => {

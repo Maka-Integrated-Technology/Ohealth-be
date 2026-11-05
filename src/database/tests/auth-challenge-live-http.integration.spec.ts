@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import * as bcrypt from 'bcrypt';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import * as request from 'supertest';
 import { DataSource, QueryRunner } from 'typeorm';
@@ -37,6 +38,7 @@ import { DurableAuthChallengeDelivery1793005000000 } from '../migrations/1793005
 import { LeasedAuthChallengeDelivery1793006000000 } from '../migrations/1793006000000-LeasedAuthChallengeDelivery';
 import { AuthChallengeWorkerHeartbeat1793007000000 } from '../migrations/1793007000000-AuthChallengeWorkerHeartbeat';
 import { CanonicalRefreshSessions1793400000000 } from '../migrations/1793400000000-CanonicalRefreshSessions';
+import { LoginVerificationChallenges1793500000000 } from '../migrations/1793500000000-LoginVerificationChallenges';
 
 // This suite deliberately uses the production controller, AuthService, abuse
 // guard, limit, challenge, delivery and audit services against real PostgreSQL.
@@ -109,7 +111,11 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         'event_type varchar NOT NULL, outcome varchar NOT NULL, ' +
         "request_source varchar NOT NULL DEFAULT 'unknown', " +
         'actor_user_id uuid, subject_user_id uuid, session_id uuid, ' +
-        'occurred_at timestamptz NOT NULL DEFAULT now())',
+        'occurred_at timestamptz NOT NULL DEFAULT now(), ' +
+        'CONSTRAINT "CHK_auth_security_events_type" CHECK (' +
+        "event_type IN ('sign_in', 'contact_verification', 'password_recovery', " +
+        "'password_change', 'session_refresh', 'session_reuse', 'logout', " +
+        "'account_state_change', 'oauth_link', 'registration', 'mfa')))",
     );
     const runner: QueryRunner = database.createQueryRunner();
     await runner.connect();
@@ -119,6 +125,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       await new DurableAuthChallengeDelivery1793005000000().up(runner);
       await new LeasedAuthChallengeDelivery1793006000000().up(runner);
       await new AuthChallengeWorkerHeartbeat1793007000000().up(runner);
+      await new LoginVerificationChallenges1793500000000().up(runner);
     } finally {
       await runner.release();
     }
@@ -243,6 +250,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
   async function createUser(
     name: string,
     status: 'pending_verification' | 'active' | 'suspended' | 'deactivated',
+    password = 'unused-password-hash',
   ): Promise<{ id: string; email: string }> {
     const id = randomUUID();
     const email = name + '+' + id + '@example.test';
@@ -255,7 +263,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       [
         id,
         email,
-        'unused-password-hash',
+        password,
         'Ada',
         'User',
         'PATIENT',
@@ -267,6 +275,189 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     );
     return { id, email };
   }
+
+  it('requires a purpose-bound login code and creates one session under concurrent verification', async () => {
+    const password = 'a memorable login passphrase';
+    const user = await createUser(
+      'login-code',
+      'active',
+      await bcrypt.hash(password, 10),
+    );
+
+    const login = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ email: user.email, password })
+      .expect(200);
+    expect(login.body.challenge_id).toMatch(/^[a-f0-9-]{36}$/i);
+    expect(login.body).not.toHaveProperty('access_token');
+    expect(login.body).not.toHaveProperty('refresh_token');
+    expect(login.body).not.toHaveProperty('session_id');
+
+    expect(await delivery.dispatchBatch(1)).toMatchObject({ accepted: 1 });
+    const mailed = mail.mock.calls[0][0] as {
+      templateNameID: string;
+      templateData: { code: string; challenge_id: string };
+    };
+    expect(mailed.templateNameID).toBe('login-code.njk');
+    expect(mailed.templateData.challenge_id).toBe(login.body.challenge_id);
+
+    await request(app.getHttpServer())
+      .post('/api/auth/verify')
+      .send({
+        challenge_id: login.body.challenge_id,
+        code: mailed.templateData.code,
+      })
+      .expect(400);
+
+    const replies = await Promise.all(
+      [app, secondApp].map((instance) =>
+        request(instance.getHttpServer()).post('/api/auth/login/verify').send({
+          challenge_id: login.body.challenge_id,
+          code: mailed.templateData.code,
+        }),
+      ),
+    );
+    expect(replies.map((reply) => reply.status).sort()).toEqual([200, 400]);
+    const success = replies.find((reply) => reply.status === 200)!;
+    expect(success.body).toMatchObject({
+      access_token: expect.any(String),
+      refresh_token: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
+      session_id: expect.stringMatching(/^[a-f0-9-]{36}$/i),
+    });
+    await request(app.getHttpServer())
+      .post('/api/auth/login/verify')
+      .send({
+        challenge_id: login.body.challenge_id,
+        code: mailed.templateData.code,
+      })
+      .expect(400);
+
+    await database.query(
+      "UPDATE auth_challenges SET issued_at = now() - interval '61 seconds' " +
+        'WHERE id = $1',
+      [login.body.challenge_id],
+    );
+    await request(app.getHttpServer())
+      .post('/api/auth/login/resend')
+      .send({ challenge_id: login.body.challenge_id })
+      .expect(200);
+    const postLoginChallenges: Array<{ count: number }> = await database.query(
+      'SELECT count(*)::int AS count FROM auth_challenges ' +
+        'WHERE subject_user_id = $1 AND purpose = $2',
+      [user.id, AuthChallengePurpose.LOGIN_VERIFICATION],
+    );
+    expect(postLoginChallenges[0].count).toBe(1);
+
+    const sessions: Array<{ count: number }> = await database.query(
+      'SELECT count(*)::int AS count FROM auth_sessions WHERE user_id = $1',
+      [user.id],
+    );
+    expect(sessions[0].count).toBe(1);
+    const events: Array<{ event_type: string }> = await database.query(
+      'SELECT event_type FROM auth_security_events WHERE subject_user_id = $1',
+      [user.id],
+    );
+    expect(events.map((event) => event.event_type)).toEqual(
+      expect.arrayContaining([
+        'login_challenge_request',
+        'login_challenge_delivery',
+        'login_challenge_verification',
+        'sign_in',
+      ]),
+    );
+  }, 30_000);
+
+  it('resends through the opaque challenge id and supersedes the prior login code', async () => {
+    const password = 'another memorable login passphrase';
+    const user = await createUser(
+      'login-resend',
+      'active',
+      await bcrypt.hash(password, 10),
+    );
+    const login = await request(app.getHttpServer())
+      .post('/api/auth/login')
+      .send({ email: user.email, password })
+      .expect(200);
+
+    const cooldown = await request(app.getHttpServer())
+      .post('/api/auth/login/resend')
+      .send({ challenge_id: login.body.challenge_id })
+      .expect(200);
+    expect(cooldown.body.challenge_id).toBe(login.body.challenge_id);
+
+    await database.query(
+      "UPDATE auth_challenges SET issued_at = now() - interval '61 seconds' " +
+        'WHERE id = $1',
+      [login.body.challenge_id],
+    );
+    const resent = await request(secondApp.getHttpServer())
+      .post('/api/auth/login/resend')
+      .send({ challenge_id: login.body.challenge_id })
+      .expect(200);
+    expect(resent.body.challenge_id).not.toBe(login.body.challenge_id);
+
+    const rows: Array<{ id: string; consumed_at: Date | null }> =
+      await database.query(
+        'SELECT id, consumed_at FROM auth_challenges ' +
+          'WHERE subject_user_id = $1 AND purpose = $2 ORDER BY issued_at',
+        [user.id, AuthChallengePurpose.LOGIN_VERIFICATION],
+      );
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({
+      id: login.body.challenge_id,
+      consumed_at: expect.any(Date),
+    });
+    expect(rows[1]).toMatchObject({ id: resent.body.challenge_id });
+    expect(rows[1].consumed_at).toBeNull();
+
+    const unknownId = randomUUID();
+    const unknown = await request(app.getHttpServer())
+      .post('/api/auth/login/resend')
+      .send({ challenge_id: unknownId })
+      .expect(200);
+    expect(unknown.body).toMatchObject({
+      message: 'Login verification queued',
+      challenge_id: unknownId,
+    });
+  }, 30_000);
+
+  it('revalidates account state before consuming login proof or issuing a session', async () => {
+    const user = await createUser('login-state-change', 'active');
+    const challenge = await app
+      .get(AuthChallengeService)
+      .issueForUser(user.id, AuthChallengePurpose.LOGIN_VERIFICATION);
+    await database.query(
+      "UPDATE users SET account_status = 'suspended' WHERE id = $1",
+      [user.id],
+    );
+
+    await request(app.getHttpServer())
+      .post('/api/auth/login/verify')
+      .send({ challenge_id: challenge.challengeId, code: challenge.code })
+      .expect(401);
+
+    const challenges: Array<{ consumed_at: Date | null }> =
+      await database.query(
+        'SELECT consumed_at FROM auth_challenges WHERE id = $1',
+        [challenge.challengeId],
+      );
+    expect(challenges[0].consumed_at).toBeNull();
+    const sessions: Array<{ count: number }> = await database.query(
+      'SELECT count(*)::int AS count FROM auth_sessions WHERE user_id = $1',
+      [user.id],
+    );
+    expect(sessions[0].count).toBe(0);
+    const events: Array<{ event_type: string; outcome: string }> =
+      await database.query(
+        'SELECT event_type, outcome FROM auth_security_events ' +
+          'WHERE subject_user_id = $1',
+        [user.id],
+      );
+    expect(events).toContainEqual({
+      event_type: 'login_challenge_verification',
+      outcome: 'denied',
+    });
+  });
 
   it('returns the same public message for unknown, pending, active and suspended resend targets', async () => {
     const pending = await createUser('pending-resend', 'pending_verification');
@@ -335,6 +526,9 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
   it('revokes canonical access and refresh credentials after recovery races rotation', async () => {
     const user = await createUser('reset-session-race', 'active');
     const issued = await app.get(RefreshSessionService).issue(user.id);
+    const pendingLogin = await app
+      .get(AuthChallengeService)
+      .issueForUser(user.id, AuthChallengePurpose.LOGIN_VERIFICATION);
     const challenge = await app
       .get(AuthChallengeService)
       .issueForUser(user.id, AuthChallengePurpose.PASSWORD_RECOVERY);
@@ -368,6 +562,13 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         .send({ refresh_token: refreshToken })
         .expect(401);
     }
+    await request(app.getHttpServer())
+      .post('/api/auth/login/verify')
+      .send({
+        challenge_id: pendingLogin.challengeId,
+        code: pendingLogin.code,
+      })
+      .expect(400);
   });
 
   it('uses the real guard and PostgreSQL counter for concurrent distributed budgets', async () => {

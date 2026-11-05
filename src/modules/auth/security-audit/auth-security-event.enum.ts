@@ -14,6 +14,11 @@ export enum AuthSecurityEventType {
   OAUTH_LINK = 'oauth_link',
   REGISTRATION = 'registration',
   MFA = 'mfa',
+  LOGIN_CHALLENGE_REQUEST = 'login_challenge_request',
+  LOGIN_CHALLENGE_RESEND = 'login_challenge_resend',
+  LOGIN_CHALLENGE_DELIVERY = 'login_challenge_delivery',
+  LOGIN_CHALLENGE_EXPIRY = 'login_challenge_expiry',
+  LOGIN_CHALLENGE_VERIFICATION = 'login_challenge_verification',
 }
 
 export enum AuthSecurityEventOutcome {

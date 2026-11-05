@@ -24,6 +24,7 @@ import * as sysMsg from '../../constants/system.messages';
 
 import { AuthService } from './auth.service';
 import { AuthAbuseGuard } from './challenges/auth-abuse.guard';
+import { ResendAuthChallengeDto, VerifyAuthChallengeDto } from './contracts';
 import { CurrentUser } from './decorators/current-user.decorator';
 import {
   ForgotPasswordDocs,
@@ -31,6 +32,7 @@ import {
   GetProfileDocs,
   GoogleLoginDocs,
   LoginDocs,
+  ResendLoginDocs,
   LogoutDocs,
   RefreshTokenDocs,
   ResendVerificationDocs,
@@ -38,6 +40,7 @@ import {
   SignupDocs,
   UpdateProfileDocs,
   VerifySignupDocs,
+  VerifyLoginDocs,
 } from './docs';
 import { LogoutResponseDto } from './dto/auth-response.dto';
 import {
@@ -77,6 +80,24 @@ export class AuthController {
   @UseGuards(AuthAbuseGuard)
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
+  }
+
+  @Public()
+  @Post('login/verify')
+  @HttpCode(HttpStatus.OK)
+  @VerifyLoginDocs()
+  @UseGuards(AuthAbuseGuard)
+  verifyLogin(@Body() payload: VerifyAuthChallengeDto) {
+    return this.authService.verifyLogin(payload);
+  }
+
+  @Public()
+  @Post('login/resend')
+  @HttpCode(HttpStatus.OK)
+  @ResendLoginDocs()
+  @UseGuards(AuthAbuseGuard)
+  resendLogin(@Body() payload: ResendAuthChallengeDto) {
+    return this.authService.resendLogin(payload);
   }
 
   @Public()
