@@ -1,21 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEmail,
-  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
   MaxLength,
 } from 'class-validator';
 
-import { OrganizationType } from '../../organization/enums/organization-type.enum';
-
 export class OrganizationRegistrationDto {
-  @ApiProperty({ enum: OrganizationType })
-  @IsEnum(OrganizationType)
-  organization_type: OrganizationType;
-
-  @ApiProperty({ example: 'OHealth Medical Centre' })
+  @ApiProperty({ example: 'OHealth Diagnostics' })
   @IsString()
   @IsNotEmpty()
   @MaxLength(160)

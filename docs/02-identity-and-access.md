@@ -17,15 +17,36 @@ A persona is never sufficient authorization by itself.
 
 ## Registration intents
 
-Public registration accepts exactly one initial intent:
+Public registration accepts exactly one initial intent from this closed list:
 
 - `patient`
 - `healthcare_professional`
-- `organization`
+- `pharmacy`
+- `laboratory`
+- `hospital`
 
 The intent creates onboarding state, not a client-selected authorization role.
-Organization registration creates the organization and an `owner` membership for
-the registering human in the same transaction.
+The intent itself determines the persona or organization type; public clients do
+not submit a separate role, permission, or organization type.
+
+| Intent                    | User-facing label       | Canonical mapping                                                         | Initial onboarding state                                                                                                                                |
+| ------------------------- | ----------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `patient`                 | Patient                 | Active patient persona and patient-profile ownership                      | Account remains pending until email verification; no session is issued before verification.                                                             |
+| `healthcare_professional` | Healthcare Professional | Active healthcare-professional persona                                    | Account remains pending until email verification; professional profile setup and professional verification remain required.                             |
+| `pharmacy`                | Pharmacy                | Pharmacy organization plus `owner` membership for the registering human   | Account remains pending until email verification; organization verification starts `pending` and operational access remains unavailable until approval. |
+| `laboratory`              | Laboratory              | Laboratory organization plus `owner` membership for the registering human | Account remains pending until email verification; organization verification starts `pending` and operational access remains unavailable until approval. |
+| `hospital`                | Hospital                | Hospital organization plus `owner` membership for the registering human   | Account remains pending until email verification; organization verification starts `pending` and operational access remains unavailable until approval. |
+
+Hospital self-service registration is included in the current Accounts and
+Sign-In scope. This decision expands the older MVP flow that deferred full
+hospital integration; it does not grant operational hospital access before
+organization review and approval. Laboratory and hospital remain distinct
+organization types with distinct verification and onboarding state.
+
+The canonical Accounts and Sign-In selector labels are Patient, Healthcare
+Professional, Pharmacy, Laboratory, and Hospital. The Figma selector must expose
+the same five choices. Older product copy that says “Doctor” for this selector
+maps to Healthcare Professional and does not create a separate signup intent.
 
 ## Registration flow
 
