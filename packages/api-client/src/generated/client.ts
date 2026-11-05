@@ -54,6 +54,15 @@ export type AuthController_googleLoginError =
   | operations['AuthController_googleLogin']['responses'][401]['content']['application/json']
   | operations['AuthController_googleLogin']['responses'][500]['content']['application/json'];
 
+export type AuthController_listSessionsRequest = Readonly<{
+  readonly headers?: ApiHeaders;
+}>;
+export type AuthController_listSessionsResponse =
+  operations['AuthController_listSessions']['responses'][200]['content']['application/json'];
+export type AuthController_listSessionsError =
+  | operations['AuthController_listSessions']['responses'][401]['content']['application/json']
+  | operations['AuthController_listSessions']['responses'][500]['content']['application/json'];
+
 export type AuthController_loginRequest = Readonly<{
   readonly body: NonNullable<
     operations['AuthController_login']['requestBody']
@@ -116,6 +125,28 @@ export type AuthController_resetPasswordResponse =
 export type AuthController_resetPasswordError =
   | operations['AuthController_resetPassword']['responses'][400]['content']['application/json']
   | operations['AuthController_resetPassword']['responses'][500]['content']['application/json'];
+
+export type AuthController_revokeAllSessionsRequest = Readonly<{
+  readonly headers?: ApiHeaders;
+}>;
+export type AuthController_revokeAllSessionsResponse =
+  operations['AuthController_revokeAllSessions']['responses'][200]['content']['application/json'];
+export type AuthController_revokeAllSessionsError =
+  | operations['AuthController_revokeAllSessions']['responses'][401]['content']['application/json']
+  | operations['AuthController_revokeAllSessions']['responses'][500]['content']['application/json'];
+
+export type AuthController_revokeSessionRequest = Readonly<{
+  readonly body: NonNullable<
+    operations['AuthController_revokeSession']['requestBody']
+  >['content']['application/json'];
+  readonly headers?: ApiHeaders;
+}>;
+export type AuthController_revokeSessionResponse =
+  operations['AuthController_revokeSession']['responses'][200]['content']['application/json'];
+export type AuthController_revokeSessionError =
+  | operations['AuthController_revokeSession']['responses'][400]['content']['application/json']
+  | operations['AuthController_revokeSession']['responses'][401]['content']['application/json']
+  | operations['AuthController_revokeSession']['responses'][500]['content']['application/json'];
 
 export type AuthController_signupRequest = Readonly<{
   readonly body: NonNullable<
@@ -1209,6 +1240,9 @@ export interface ApiClient {
   readonly AuthController_googleLogin: (
     request: AuthController_googleLoginRequest,
   ) => Promise<AuthController_googleLoginResponse>;
+  readonly AuthController_listSessions: (
+    request?: AuthController_listSessionsRequest,
+  ) => Promise<AuthController_listSessionsResponse>;
   readonly AuthController_login: (
     request: AuthController_loginRequest,
   ) => Promise<AuthController_loginResponse>;
@@ -1224,6 +1258,12 @@ export interface ApiClient {
   readonly AuthController_resetPassword: (
     request: AuthController_resetPasswordRequest,
   ) => Promise<AuthController_resetPasswordResponse>;
+  readonly AuthController_revokeAllSessions: (
+    request?: AuthController_revokeAllSessionsRequest,
+  ) => Promise<AuthController_revokeAllSessionsResponse>;
+  readonly AuthController_revokeSession: (
+    request: AuthController_revokeSessionRequest,
+  ) => Promise<AuthController_revokeSessionResponse>;
   readonly AuthController_signup: (
     request: AuthController_signupRequest,
   ) => Promise<AuthController_signupResponse>;
@@ -1524,6 +1564,18 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
         },
         request,
       ),
+    AuthController_listSessions: (request = {}) =>
+      core.request<
+        AuthController_listSessionsResponse,
+        AuthController_listSessionsError
+      >(
+        {
+          operationId: 'AuthController_listSessions',
+          method: 'GET',
+          path: '/api/auth/sessions',
+        },
+        request,
+      ),
     AuthController_login: (request) =>
       core.request<AuthController_loginResponse, AuthController_loginError>(
         {
@@ -1579,6 +1631,31 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
           operationId: 'AuthController_resetPassword',
           method: 'POST',
           path: '/api/auth/reset-password',
+          requestMediaType: 'application/json',
+        },
+        request,
+      ),
+    AuthController_revokeAllSessions: (request = {}) =>
+      core.request<
+        AuthController_revokeAllSessionsResponse,
+        AuthController_revokeAllSessionsError
+      >(
+        {
+          operationId: 'AuthController_revokeAllSessions',
+          method: 'POST',
+          path: '/api/auth/sessions/revoke-all',
+        },
+        request,
+      ),
+    AuthController_revokeSession: (request) =>
+      core.request<
+        AuthController_revokeSessionResponse,
+        AuthController_revokeSessionError
+      >(
+        {
+          operationId: 'AuthController_revokeSession',
+          method: 'POST',
+          path: '/api/auth/sessions/revoke',
           requestMediaType: 'application/json',
         },
         request,

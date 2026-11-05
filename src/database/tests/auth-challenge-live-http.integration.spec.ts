@@ -4,7 +4,9 @@ import { env } from 'node:process';
 
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
+import { PassportModule } from '@nestjs/passport';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
@@ -25,6 +27,8 @@ import { AuthSession } from '../../modules/auth/entities/auth.entity';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { PasswordCredentialsService } from '../../modules/auth/password-policy/password-credentials.service';
 import { AuthSecurityAuditService } from '../../modules/auth/security-audit/auth-security-audit.service';
+import { RefreshSessionService } from '../../modules/auth/sessions/refresh-session.service';
+import { JwtStrategy } from '../../modules/auth/strategies/jwt.strategy';
 import { EmailService } from '../../modules/email/email.service';
 import { User } from '../../modules/user/entities/user.entity';
 import { UserService } from '../../modules/user/user.service';
@@ -32,6 +36,7 @@ import { AuthChallengeFoundation1793000000000 } from '../migrations/179300000000
 import { DurableAuthChallengeDelivery1793005000000 } from '../migrations/1793005000000-DurableAuthChallengeDelivery';
 import { LeasedAuthChallengeDelivery1793006000000 } from '../migrations/1793006000000-LeasedAuthChallengeDelivery';
 import { AuthChallengeWorkerHeartbeat1793007000000 } from '../migrations/1793007000000-AuthChallengeWorkerHeartbeat';
+import { CanonicalRefreshSessions1793400000000 } from '../migrations/1793400000000-CanonicalRefreshSessions';
 
 // This suite deliberately uses the production controller, AuthService, abuse
 // guard, limit, challenge, delivery and audit services against real PostgreSQL.
@@ -109,6 +114,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     const runner: QueryRunner = database.createQueryRunner();
     await runner.connect();
     try {
+      await new CanonicalRefreshSessions1793400000000().up(runner);
       await new AuthChallengeFoundation1793000000000().up(runner);
       await new DurableAuthChallengeDelivery1793005000000().up(runner);
       await new LeasedAuthChallengeDelivery1793006000000().up(runner);
@@ -123,8 +129,9 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       ['AUTH_CHALLENGE_FLOWS_ENABLED', 'true'],
       ['AUTH_TRUSTED_PROXY_CIDRS', ''],
       ['HASH_SALT', '10'],
-      ['JWT_SECRET', 'integration-only-access-secret'],
-      ['JWT_REFRESH_SECRET', 'integration-only-refresh-secret'],
+      ['JWT_SECRET', 'integration-only-access-secret-at-least-32-chars'],
+      ['TOKEN_ACCESS_DURATION', '15m'],
+      ['TOKEN_REFRESH_DURATION', '7d'],
       ['mail.from.address', 'sender@example.test'],
       ['mail.from.name', 'OHealth'],
       ['app.name', 'OHealth'],
@@ -142,6 +149,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
 
   async function createApp(source: DataSource): Promise<INestApplication> {
     const module = await Test.createTestingModule({
+      imports: [PassportModule.register({ defaultStrategy: 'jwt' })],
       controllers: [AuthController],
       providers: [
         AuthService,
@@ -153,6 +161,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         AuthChallengeDeliveryService,
         SecureAuthChallengeFlowsService,
         AuthSecurityAuditService,
+        RefreshSessionService,
         PasswordCredentialsService,
         { provide: DataSource, useValue: source },
         { provide: ConfigService, useValue: config },
@@ -173,7 +182,9 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
           provide: AuthRoutingService,
           useValue: { resolve: jest.fn().mockResolvedValue({}) },
         },
-        { provide: JwtAuthGuard, useValue: { canActivate: () => false } },
+        JwtStrategy,
+        JwtAuthGuard,
+        { provide: APP_GUARD, useClass: JwtAuthGuard },
         {
           provide: WINSTON_MODULE_PROVIDER,
           useValue: {
@@ -289,6 +300,75 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     );
     expect(issued).toHaveLength(1);
   }, 15_000);
+
+  it('rotates over HTTP, lists safe metadata and enforces logout on access and refresh', async () => {
+    const user = await createUser('session-http', 'active');
+    const issued = await app.get(RefreshSessionService).issue(user.id);
+    const listed = await request(app.getHttpServer())
+      .get('/api/auth/sessions')
+      .set('Authorization', `Bearer ${issued.access_token}`)
+      .expect(200);
+    expect(listed.body).toHaveLength(1);
+    expect(Object.keys(listed.body[0]).sort()).toEqual(
+      ['session_id', 'created_at', 'last_used_at', 'expires_at'].sort(),
+    );
+    const rotated = await request(secondApp.getHttpServer())
+      .post('/api/auth/refresh')
+      .send({ refresh_token: issued.refresh_token })
+      .expect(200);
+    expect(rotated.body.session_id).toBe(issued.session_id);
+    await request(app.getHttpServer())
+      .post('/api/auth/logout')
+      .set('Authorization', `Bearer ${rotated.body.access_token}`)
+      .send({ session_id: issued.session_id })
+      .expect(200);
+    await request(secondApp.getHttpServer())
+      .get('/api/auth/sessions')
+      .set('Authorization', `Bearer ${issued.access_token}`)
+      .expect(401);
+    await request(app.getHttpServer())
+      .post('/api/auth/refresh')
+      .send({ refresh_token: rotated.body.refresh_token })
+      .expect(401);
+  });
+
+  it('revokes canonical access and refresh credentials after recovery races rotation', async () => {
+    const user = await createUser('reset-session-race', 'active');
+    const issued = await app.get(RefreshSessionService).issue(user.id);
+    const challenge = await app
+      .get(AuthChallengeService)
+      .issueForUser(user.id, AuthChallengePurpose.PASSWORD_RECOVERY);
+    const [reset, refresh] = await Promise.all([
+      request(app.getHttpServer()).post('/api/auth/reset-password').send({
+        challenge_id: challenge.challengeId,
+        code: challenge.code,
+        newPassword: 'a memorable replacement passphrase',
+      }),
+      request(secondApp.getHttpServer())
+        .post('/api/auth/refresh')
+        .send({ refresh_token: issued.refresh_token }),
+    ]);
+    expect(reset.status).toBe(201);
+    expect([200, 401]).toContain(refresh.status);
+    for (const accessToken of [
+      issued.access_token,
+      refresh.body.access_token,
+    ].filter(Boolean)) {
+      await request(app.getHttpServer())
+        .get('/api/auth/sessions')
+        .set('Authorization', `Bearer ${accessToken}`)
+        .expect(401);
+    }
+    for (const refreshToken of [
+      issued.refresh_token,
+      refresh.body.refresh_token,
+    ].filter(Boolean)) {
+      await request(secondApp.getHttpServer())
+        .post('/api/auth/refresh')
+        .send({ refresh_token: refreshToken })
+        .expect(401);
+    }
+  });
 
   it('uses the real guard and PostgreSQL counter for concurrent distributed budgets', async () => {
     const instances = Array.from({ length: 9 }, (_, i) =>

@@ -10,10 +10,17 @@ import {
   UseGuards,
   Req,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiExcludeEndpoint, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiExcludeEndpoint,
+  ApiOkResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 
 import { Public } from '../../common/decorators/public.decorator';
 import { IAuthUser, IRequestWithUser } from '../../common/types';
+import * as sysMsg from '../../constants/system.messages';
 
 import { AuthService } from './auth.service';
 import { AuthAbuseGuard } from './challenges/auth-abuse.guard';
@@ -32,6 +39,7 @@ import {
   UpdateProfileDocs,
   VerifySignupDocs,
 } from './docs';
+import { LogoutResponseDto } from './dto/auth-response.dto';
 import {
   AuthDto,
   ChangePasswordDto,
@@ -45,6 +53,7 @@ import {
   VerifySignupDto,
 } from './dto/auth.dto';
 import { LoginDto } from './dto/login.dto';
+import { RevokeOwnedSessionDto, SessionMetadataDto } from './dto/session.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @ApiTags('Authentication')
@@ -167,6 +176,37 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @LogoutDocs()
   async logout(@CurrentUser() user: IAuthUser, @Body() logoutDto: LogoutDto) {
-    return this.authService.logout(user.id, logoutDto);
+    return this.authService.logout(user.id, logoutDto, user.sessionId);
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List active sessions owned by the caller' })
+  @ApiOkResponse({ type: SessionMetadataDto, isArray: true })
+  @Get('sessions')
+  @HttpCode(HttpStatus.OK)
+  listSessions(@CurrentUser() user: IAuthUser): Promise<SessionMetadataDto[]> {
+    return this.authService.listSessions(user.id);
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Revoke a session owned by the caller' })
+  @ApiOkResponse({ type: LogoutResponseDto })
+  @Post('sessions/revoke')
+  @HttpCode(HttpStatus.OK)
+  async revokeSession(
+    @CurrentUser() user: IAuthUser,
+    @Body() dto: RevokeOwnedSessionDto,
+  ) {
+    await this.authService.logout(user.id, dto);
+    return { message: sysMsg.LOGOUT_SUCCESS };
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Revoke all sessions owned by the caller' })
+  @ApiOkResponse({ type: LogoutResponseDto })
+  @Post('sessions/revoke-all')
+  @HttpCode(HttpStatus.OK)
+  revokeAllSessions(@CurrentUser() user: IAuthUser) {
+    return this.authService.revokeAllSessions(user.id);
   }
 }

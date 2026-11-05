@@ -5,6 +5,7 @@ export interface IAuthUser {
   userId: string;
   email: string;
   roles: string[];
+  sessionId: string;
 }
 
 export interface IRequestWithUser extends Request {

@@ -26,6 +26,7 @@ import { VerifySignupDto } from './dto/auth.dto';
 import { AuthSession } from './entities/auth.entity';
 import { AuthAccessLevel, AuthRoutingTarget } from './enums/auth-routing.enum';
 import { PasswordCredentialsService } from './password-policy/password-credentials.service';
+import { RefreshSessionService } from './sessions/refresh-session.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -94,6 +95,14 @@ describe('AuthService', () => {
     resend: jest.fn(),
   };
   const mockChallengeDelivery = { queueInTransaction: jest.fn() };
+  const mockSessions = {
+    issue: jest.fn(),
+    rotate: jest.fn(),
+    revoke: jest.fn(),
+    revokeAll: jest.fn(),
+    replacePassword: jest.fn(),
+    list: jest.fn(),
+  };
 
   const defaultRouting = {
     routing_target: AuthRoutingTarget.PATIENT_HOME,
@@ -148,6 +157,10 @@ describe('AuthService', () => {
           useValue: mockChallengeDelivery,
         },
         {
+          provide: RefreshSessionService,
+          useValue: mockSessions,
+        },
+        {
           provide: AuthRoutingService,
           useValue: mockAuthRoutingService,
         },
@@ -177,6 +190,12 @@ describe('AuthService', () => {
     mockChallengeFlows.resend.mockResolvedValue({
       message:
         'If this account is eligible, a verification message has been queued.',
+    });
+    mockSessions.issue.mockResolvedValue({
+      access_token: 'access-token',
+      refresh_token: 'refresh-token',
+      session_id: '550e8400-e29b-41d4-a716-446655440000',
+      session_expires_at: new Date('2026-07-11T16:16:13.000Z'),
     });
   });
 
@@ -437,20 +456,12 @@ describe('AuthService', () => {
         email_verified_at: new Date(),
       } as User);
 
-      expect(mockJwtService.signAsync).toHaveBeenCalledTimes(2);
-      expect(mockSessionRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          session_id: expect.any(String),
-          user_id: 'user-id-1',
-          refresh_token_hash: expect.any(String),
-          revoked_at: null,
-        }),
-      );
+      expect(mockSessions.issue).toHaveBeenCalledWith('user-id-1', undefined);
       expect(result).toEqual({
         ...defaultRouting,
         access_token: 'access-token',
         refresh_token: 'refresh-token',
-        session_id: expect.any(String),
+        session_id: '550e8400-e29b-41d4-a716-446655440000',
         session_expires_at: expiresAt,
       });
     });
@@ -489,12 +500,9 @@ describe('AuthService', () => {
 
   describe('refreshToken', () => {
     it('should throw unauthorized exception when the session is missing', async () => {
-      mockJwtService.verifyAsync.mockResolvedValue({
-        sub: 'user-id-1',
-        email: 'user@example.com',
-        role: [UserRole.PATIENT],
-      });
-      mockSessionRepository.findOne.mockResolvedValue(null);
+      mockSessions.rotate.mockRejectedValueOnce(
+        new UnauthorizedException(sysMsg.TOKEN_INVALID),
+      );
 
       await expect(
         service.refreshToken({
@@ -516,28 +524,14 @@ describe('AuthService', () => {
         account_status: AccountStatus.ACTIVE,
         email_verified_at: new Date(),
       } as User;
-      mockJwtService.verifyAsync.mockResolvedValue({
-        sub: user.id,
-        email: user.email,
-        role: user.role,
-      });
-      mockSessionRepository.findOne.mockResolvedValue({
-        user_id: user.id,
-        revoked_at: null,
+      mockSessions.rotate.mockResolvedValueOnce({
+        userId: user.id,
+        access_token: 'new-access-token',
+        refresh_token: 'new-refresh-token',
+        session_id: '550e8400-e29b-41d4-a716-446655440000',
+        session_expires_at: expiresAt,
       });
       mockUserService.findById.mockResolvedValue(user);
-      mockJwtService.signAsync
-        .mockResolvedValueOnce('new-access-token')
-        .mockResolvedValueOnce('new-refresh-token');
-      mockJwtService.decode.mockReturnValue({
-        exp: Math.floor(expiresAt.getTime() / 1000),
-      });
-      mockSessionRepository.save.mockImplementation(
-        async (payload: Partial<AuthSession>) => payload,
-      );
-      mockSessionRepository.create.mockImplementation(
-        (payload: Partial<AuthSession>) => payload,
-      );
       mockAuthRoutingService.resolve.mockResolvedValueOnce({
         routing_target: AuthRoutingTarget.PROFESSIONAL_VERIFICATION,
         access_level: AuthAccessLevel.LIMITED,
@@ -548,44 +542,11 @@ describe('AuthService', () => {
         refresh_token: 'refresh-token',
       });
 
-      expect(mockJwtService.signAsync).toHaveBeenNthCalledWith(
-        1,
-        expect.objectContaining({
-          email: user.email,
-          role: user.role,
-        }),
-        expect.any(Object),
-      );
+      expect(mockSessions.rotate).toHaveBeenCalledWith('refresh-token');
       expect(result.user.role).toEqual(user.role);
       expect(result.routing_target).toBe(
         AuthRoutingTarget.PROFESSIONAL_VERIFICATION,
       );
-    });
-
-    it('should reject a refresh token whose role no longer matches the user', async () => {
-      mockJwtService.verifyAsync.mockResolvedValue({
-        sub: 'user-id-1',
-        email: 'user@example.com',
-        role: [UserRole.ADMIN],
-      });
-      mockSessionRepository.findOne.mockResolvedValue({
-        user_id: 'user-id-1',
-        revoked_at: null,
-      });
-      mockUserService.findById.mockResolvedValue({
-        id: 'user-id-1',
-        email: 'user@example.com',
-        role: [UserRole.PATIENT],
-        is_active: true,
-        is_verified: true,
-        account_status: AccountStatus.ACTIVE,
-        email_verified_at: new Date(),
-      });
-
-      await expect(
-        service.refreshToken({ refresh_token: 'refresh-token' }),
-      ).rejects.toThrow(sysMsg.TOKEN_INVALID);
-      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
     });
   });
 
@@ -596,14 +557,12 @@ describe('AuthService', () => {
   ])(
     'rejects refresh for %s even if legacy flags say active',
     async (accountStatus) => {
-      mockJwtService.verifyAsync.mockResolvedValue({
-        sub: 'blocked-user',
-        email: 'blocked@example.com',
-        role: [UserRole.PATIENT],
-      });
-      mockSessionRepository.findOne.mockResolvedValue({
-        user_id: 'blocked-user',
-        revoked_at: null,
+      mockSessions.rotate.mockResolvedValueOnce({
+        userId: 'blocked-user',
+        access_token: 'access-token',
+        refresh_token: 'refresh-token',
+        session_id: '550e8400-e29b-41d4-a716-446655440000',
+        session_expires_at: new Date(),
       });
       mockUserService.findById.mockResolvedValue({
         id: 'blocked-user',
@@ -616,7 +575,7 @@ describe('AuthService', () => {
       await expect(
         service.refreshToken({ refresh_token: 'existing-token' }),
       ).rejects.toThrow(UnauthorizedException);
-      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
+      expect(mockSessions.rotate).toHaveBeenCalled();
     },
   );
 
@@ -671,7 +630,10 @@ describe('AuthService', () => {
       });
 
       expect(result).toEqual({ message: sysMsg.LOGOUT_SUCCESS });
-      expect(mockSessionRepository.save).toHaveBeenCalled();
+      expect(mockSessions.revoke).toHaveBeenCalledWith(
+        'user-id-1',
+        'session-id-1',
+      );
       expect(mockLogger.info).toHaveBeenCalledWith(sysMsg.LOGOUT_SUCCESS);
     });
 
@@ -682,10 +644,9 @@ describe('AuthService', () => {
         session_id: 'session-id-1',
       });
 
-      expect(mockSessionRepository.findOne).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: expect.objectContaining({ user_id: 'caller-user-id' }),
-        }),
+      expect(mockSessions.revoke).toHaveBeenCalledWith(
+        'caller-user-id',
+        'session-id-1',
       );
     });
 
@@ -750,11 +711,11 @@ describe('AuthService', () => {
 
       expect(result).toMatchObject({
         message: sysMsg.ACCOUNT_VERIFIED,
-        access_token: 'first-access-token',
-        refresh_token: 'first-refresh-token',
+        access_token: 'access-token',
+        refresh_token: 'refresh-token',
         user: expect.objectContaining({ email: 'tunde@example.com' }),
       });
-      expect(mockSessionRepository.save).toHaveBeenCalledTimes(1);
+      expect(mockSessions.issue).toHaveBeenCalledTimes(1);
       expect(mockChallengeFlows.verifyContact).toHaveBeenCalledWith(
         payload.challenge_id,
         payload.code,
@@ -865,9 +826,9 @@ describe('AuthService', () => {
       mockSessionRepository.save.mockImplementation(async (details) => details);
 
       const response = await service.googleLogin('google-test-token');
-      expect(response.access_token).toBe('oauth-access');
-      expect(response.refresh_token).toBe('oauth-refresh');
-      expect(mockSessionRepository.save).toHaveBeenCalledTimes(1);
+      expect(response.access_token).toBe('access-token');
+      expect(response.refresh_token).toBe('refresh-token');
+      expect(mockSessions.issue).toHaveBeenCalledTimes(1);
     });
   });
 });

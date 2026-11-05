@@ -2,7 +2,6 @@
 
 A comprehensive healthcare booking platform built with NestJS, TypeORM, and PostgreSQL. OHealth connects patients with healthcare professionals through an intuitive appointment booking system.
 
-
 ## 🌟 Features
 
 - **User Authentication** - JWT-based authentication with refresh tokens, Google OAuth, password reset
@@ -66,8 +65,7 @@ DB_PASS=password
 DB_SSL=false
 
 # JWT
-JWT_SECRET=your_jwt_secret_here
-JWT_REFRESH_SECRET=your_refresh_secret_here
+JWT_SECRET=generate_at_least_32_random_characters
 TOKEN_ACCESS_DURATION=15m
 TOKEN_REFRESH_DURATION=7d
 
@@ -98,7 +96,6 @@ Interactive API documentation is available via Swagger UI:
 http://localhost:3000/docs
 ```
 
-
 ### AI Chat Endpoints
 
 - `POST /chat/send` - Send a message to the AI (requires authentication)
@@ -107,6 +104,7 @@ http://localhost:3000/docs
 ### API Endpoints
 
 #### Authentication
+
 - `POST /api/auth/signup` - Register new user
 - `POST /api/auth/login` - User login
 - `POST /api/auth/refresh` - Refresh access token
@@ -116,18 +114,20 @@ http://localhost:3000/docs
 - `POST /api/auth/reset-password` - Reset password
 
 #### Specialities
+
 - `GET /api/specialities` - Get all medical specialities
 
 #### Professionals
+
 - `GET /api/professionals?speciality_id={id}` - Get professionals by speciality
 - `GET /api/professionals/{id}` - Get professional details with availability
 
 #### Bookings
+
 - `POST /api/bookings` - Create new booking
 - `GET /api/bookings` - Get user's bookings
 - `GET /api/bookings/{id}` - Get booking details
 - `PATCH /api/bookings/{id}/cancel` - Cancel booking
-
 
 ## 🗄️ Database Schema
 
@@ -221,25 +221,23 @@ npm run build
 npm run start:prod
 ```
 
-
 ## 📝 Environment Variables
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `NODE_ENV` | Environment mode | `development` |
-| `PORT` | Server port | `3000` |
-| `DB_HOST` | Database host | `localhost` |
-| `DB_PORT` | Database port | `5432` |
-| `DB_NAME` | Database name | `ohealth_app_db` |
-| `DB_USER` | Database user | `postgres` |
-| `DB_PASS` | Database password | - |
-| `JWT_SECRET` | JWT secret key | - |
-| `JWT_REFRESH_SECRET` | JWT refresh secret | - |
-| `TOKEN_ACCESS_DURATION` | Access token expiry | `15m` |
-| `TOKEN_REFRESH_DURATION` | Refresh token expiry | `7d` |
-| `OPENROUTER_API_KEY` | OpenRouter API key for AI chat | - |
-| `OPENROUTER_BASE_URL` | OpenRouter API base URL | `https://openrouter.ai/api/v1` |
-| `OPENROUTER_MODEL` | OpenRouter model name | `gpt-4-turbo` |
+| Variable                 | Description                                           | Default                        |
+| ------------------------ | ----------------------------------------------------- | ------------------------------ |
+| `NODE_ENV`               | Environment mode                                      | `development`                  |
+| `PORT`                   | Server port                                           | `3000`                         |
+| `DB_HOST`                | Database host                                         | `localhost`                    |
+| `DB_PORT`                | Database port                                         | `5432`                         |
+| `DB_NAME`                | Database name                                         | `ohealth_app_db`               |
+| `DB_USER`                | Database user                                         | `postgres`                     |
+| `DB_PASS`                | Database password                                     | -                              |
+| `JWT_SECRET`             | Required access-token signing secret (32+ characters) | -                              |
+| `TOKEN_ACCESS_DURATION`  | Required access-token expiry, maximum 15 minutes      | -                              |
+| `TOKEN_REFRESH_DURATION` | Required absolute session expiry, maximum 30 days     | -                              |
+| `OPENROUTER_API_KEY`     | OpenRouter API key for AI chat                        | -                              |
+| `OPENROUTER_BASE_URL`    | OpenRouter API base URL                               | `https://openrouter.ai/api/v1` |
+| `OPENROUTER_MODEL`       | OpenRouter model name                                 | `gpt-4-turbo`                  |
 
 ## 🤝 Contributing
 
@@ -260,7 +258,6 @@ For support and questions, please open an issue in the repository.
 ---
 
 **OHealth** - Connecting patients with healthcare professionals seamlessly.
-
 
 ### Ai context
 

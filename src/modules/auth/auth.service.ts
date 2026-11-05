@@ -7,11 +7,9 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
-import { InjectRepository } from '@nestjs/typeorm';
 import { OAuth2Client } from 'google-auth-library';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
-import { EntityManager, IsNull, MoreThan, Repository } from 'typeorm';
+import { EntityManager } from 'typeorm';
 import { Logger } from 'winston';
 
 import { IRequestWithUser } from '../../common/types';
@@ -41,16 +39,9 @@ import {
   VerifySignupDto,
 } from './dto/auth.dto';
 import { LoginDto } from './dto/login.dto';
-import { AuthSession } from './entities/auth.entity';
 import { PasswordCredentialsService } from './password-policy/password-credentials.service';
 import { isLoginPasswordWithinLimit } from './password-policy/password-policy';
-import { haveSameRoles } from './utils/auth-role.util';
-
-interface IRefreshPayload {
-  sub: string;
-  email: string;
-  role: UserRole[] | UserRole;
-}
+import { RefreshSessionService } from './sessions/refresh-session.service';
 
 @Injectable()
 export class AuthService {
@@ -58,9 +49,6 @@ export class AuthService {
 
   constructor(
     private readonly userService: UserService,
-    @InjectRepository(AuthSession)
-    private readonly sessionRepository: Repository<AuthSession>,
-    private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
     private readonly authRoutingService: AuthRoutingService,
@@ -68,6 +56,7 @@ export class AuthService {
     private readonly passwordCredentials: PasswordCredentialsService,
     private readonly challengeFlows: SecureAuthChallengeFlowsService,
     private readonly challengeDelivery: AuthChallengeDeliveryService,
+    private readonly sessions: RefreshSessionService,
     @Inject(WINSTON_MODULE_PROVIDER) logger: Logger,
   ) {
     this.logger = logger.child({ context: AuthService.name });
@@ -117,11 +106,10 @@ export class AuthService {
     }
     this.accountAccessPolicy.assertCanAuthenticate(user);
 
-    const [tokens, routing] = await Promise.all([
-      this.generateTokens(user.id, user.email, user.role),
+    const [session, routing] = await Promise.all([
+      this.sessions.issue(user.id, user.password),
       this.authRoutingService.resolve(user),
     ]);
-    const session = await this.createSession(user.id, tokens.refresh_token);
 
     this.logger.info(sysMsg.LOGIN_SUCCESS);
 
@@ -129,9 +117,7 @@ export class AuthService {
       message: sysMsg.LOGIN_SUCCESS,
       user: this.toUserResponse(user),
       ...routing,
-      ...tokens,
-      session_id: session.session_id,
-      session_expires_at: session.expires_at,
+      ...session,
     };
   }
 
@@ -142,66 +128,25 @@ export class AuthService {
 
   async issueAuthSession(user: User) {
     this.accountAccessPolicy.assertCanAuthenticate(user);
-    const [tokens, routing] = await Promise.all([
-      this.generateTokens(user.id, user.email, user.role),
+    const [session, routing] = await Promise.all([
+      this.sessions.issue(user.id, user.password),
       this.authRoutingService.resolve(user),
     ]);
-    const session = await this.createSession(user.id, tokens.refresh_token);
 
     return {
       ...routing,
-      ...tokens,
-      session_id: session.session_id,
-      session_expires_at: session.expires_at,
+      ...session,
     };
   }
 
   async refreshToken(refreshToken: RefreshTokenDto) {
-    let payload: IRefreshPayload;
-    try {
-      payload = await this.jwtService.verifyAsync<IRefreshPayload>(
-        refreshToken.refresh_token,
-        {
-          secret: this.getRefreshSecret(),
-        },
-      );
-    } catch {
-      throw new UnauthorizedException(sysMsg.TOKEN_INVALID);
-    }
-
-    const session = await this.sessionRepository.findOne({
-      where: {
-        user_id: payload.sub,
-        refresh_token_hash: this.hashToken(refreshToken.refresh_token),
-        revoked_at: IsNull(),
-        expires_at: MoreThan(new Date()),
-      },
-    });
-
-    if (!session) {
-      throw new UnauthorizedException(sysMsg.TOKEN_INVALID);
-    }
-
-    const user = await this.userService.findById(payload.sub);
-    this.accountAccessPolicy.assertCanAuthenticate(user);
-    if (!user) {
-      throw new UnauthorizedException(sysMsg.USER_INACTIVE);
-    }
-    if (!haveSameRoles(payload.role, user.role)) {
-      throw new UnauthorizedException(sysMsg.TOKEN_INVALID);
-    }
-
-    const [tokens, routing] = await Promise.all([
-      this.generateTokens(user.id, user.email, user.role),
-      this.authRoutingService.resolve(user),
-    ]);
-
-    session.revoked_at = new Date();
-    await this.sessionRepository.save(session);
-    const newSession = await this.createSession(
-      payload.sub,
-      tokens.refresh_token,
+    const { userId, ...credentials } = await this.sessions.rotate(
+      refreshToken.refresh_token,
     );
+    const user = await this.userService.findById(userId);
+    this.accountAccessPolicy.assertCanAuthenticate(user);
+    if (!user) throw new UnauthorizedException(sysMsg.USER_INACTIVE);
+    const routing = await this.authRoutingService.resolve(user);
 
     this.logger.info(sysMsg.TOKEN_REFRESH_SUCCESS);
 
@@ -209,9 +154,7 @@ export class AuthService {
       message: sysMsg.TOKEN_REFRESH_SUCCESS,
       user: this.toUserResponse(user),
       ...routing,
-      ...tokens,
-      session_id: newSession.session_id,
-      session_expires_at: newSession.expires_at,
+      ...credentials,
     };
   }
 
@@ -375,19 +318,7 @@ export class AuthService {
     const password = await this.passwordCredentials.hashNewPassword(
       dto.newPassword,
     );
-    await this.userService.replaceAuthenticatedPassword(
-      user.id,
-      user.password,
-      password,
-    );
-
-    await this.sessionRepository
-      .createQueryBuilder()
-      .update(AuthSession)
-      .set({ revoked_at: new Date() })
-      .where('user_id = :userId', { userId: user.id })
-      .andWhere('revoked_at IS NULL')
-      .execute();
+    await this.sessions.replacePassword(user.id, user.password, password);
 
     this.logger.info(`Password changed for user ${user.id}`);
 
@@ -396,25 +327,30 @@ export class AuthService {
 
   // `userId` is always the authenticated caller. Trusting a user id from the
   // request body let anyone revoke another account's session.
-  async logout(userId: string, logoutPayload: LogoutDto) {
-    const session = await this.sessionRepository.findOne({
-      where: {
-        session_id: logoutPayload.session_id,
-        user_id: userId,
-        revoked_at: IsNull(),
-      },
-    });
-
-    if (session) {
-      session.revoked_at = new Date();
-      await this.sessionRepository.save(session);
+  async logout(
+    userId: string,
+    logoutPayload: LogoutDto,
+    currentSessionId?: string,
+  ) {
+    if (currentSessionId && logoutPayload.session_id !== currentSessionId) {
+      throw new UnauthorizedException(sysMsg.TOKEN_INVALID);
     }
+    await this.sessions.revoke(userId, logoutPayload.session_id);
 
     this.logger.info(sysMsg.LOGOUT_SUCCESS);
 
     return {
       message: sysMsg.LOGOUT_SUCCESS,
     };
+  }
+
+  listSessions(userId: string) {
+    return this.sessions.list(userId);
+  }
+
+  async revokeAllSessions(userId: string) {
+    await this.sessions.revokeAll(userId);
+    return { message: sysMsg.LOGOUT_SUCCESS };
   }
 
   async googleLogin(token: string) {
@@ -486,11 +422,10 @@ export class AuthService {
       );
     }
 
-    const [tokens, routing] = await Promise.all([
-      this.generateTokens(user.id, user.email, user.role),
+    const [session, routing] = await Promise.all([
+      this.sessions.issue(user.id, user.password),
       this.authRoutingService.resolve(user),
     ]);
-    const session = await this.createSession(user.id, tokens.refresh_token);
 
     if (isNewUser) {
       void this.sendWelcomeEmail(user);
@@ -503,9 +438,7 @@ export class AuthService {
         picture: payload.picture,
       },
       ...routing,
-      ...tokens,
-      session_id: session.session_id,
-      session_expires_at: session.expires_at,
+      ...session,
     };
   }
 
@@ -642,49 +575,6 @@ export class AuthService {
     }
   }
 
-  private async generateTokens(
-    userId: string,
-    email: string,
-    roles: UserRole[],
-  ) {
-    const payload = { sub: userId, email, role: roles };
-    const accessExpiresIn = this.parseDurationToSeconds(
-      this.configService.get<string>('TOKEN_ACCESS_DURATION', '15m'),
-      900,
-    );
-    const refreshExpiresIn = this.parseDurationToSeconds(
-      this.configService.get<string>('TOKEN_REFRESH_DURATION', '7d'),
-      604800,
-    );
-
-    const [accessToken, refreshToken] = await Promise.all([
-      this.jwtService.signAsync(payload, {
-        secret: this.getAccessSecret(),
-        expiresIn: accessExpiresIn,
-      }),
-      this.jwtService.signAsync(payload, {
-        secret: this.getRefreshSecret(),
-        expiresIn: refreshExpiresIn,
-      }),
-    ]);
-
-    return {
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    };
-  }
-
-  private async createSession(userId: string, refreshToken: string) {
-    const session = this.sessionRepository.create({
-      session_id: crypto.randomUUID(),
-      user_id: userId,
-      refresh_token_hash: this.hashToken(refreshToken),
-      expires_at: this.getTokenExpiry(refreshToken),
-      revoked_at: null,
-    });
-    return this.sessionRepository.save(session);
-  }
-
   private toUserResponse(user: User) {
     return {
       id: user.id,
@@ -693,51 +583,5 @@ export class AuthService {
       last_name: user.last_name,
       role: user.role,
     };
-  }
-
-  private hashToken(token: string) {
-    return crypto.createHash('sha256').update(token).digest('hex');
-  }
-
-  private getTokenExpiry(token: string): Date {
-    const decoded = this.jwtService.decode(token) as { exp?: number } | null;
-    if (decoded?.exp) {
-      return new Date(decoded.exp * 1000);
-    }
-    return new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-  }
-
-  private getAccessSecret() {
-    return this.configService.get<string>('JWT_SECRET', 'change_me');
-  }
-
-  private getRefreshSecret() {
-    return this.configService.get<string>('JWT_REFRESH_SECRET', 'change_me');
-  }
-
-  private parseDurationToSeconds(
-    value: string,
-    fallbackSeconds: number,
-  ): number {
-    const normalized = value.trim();
-    if (/^\d+$/.test(normalized)) {
-      return Number(normalized);
-    }
-
-    const match = normalized.match(/^(\d+)([smhd])$/i);
-    if (!match) {
-      return fallbackSeconds;
-    }
-
-    const amount = Number(match[1]);
-    const unit = match[2].toLowerCase();
-    const multipliers: Record<string, number> = {
-      s: 1,
-      m: 60,
-      h: 3600,
-      d: 86400,
-    };
-
-    return amount * multipliers[unit];
   }
 }

@@ -1563,8 +1563,8 @@
             "type": "string"
           },
           "refresh_token": {
-            "description": "JWT refresh token with 7 days expiration",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "description": "Opaque, rotating refresh credential",
+            "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
             "type": "string"
           },
           "routing_target": {
@@ -1642,8 +1642,8 @@
             "type": "string"
           },
           "refresh_token": {
-            "description": "JWT refresh token with 7 days expiration",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "description": "Opaque, rotating refresh credential",
+            "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
             "type": "string"
           },
           "routing_target": {
@@ -3466,8 +3466,9 @@
       "RefreshTokenDto": {
         "properties": {
           "refresh_token": {
-            "description": "JWT refresh token with 7 days expiration",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "description": "Opaque refresh credential",
+            "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
+            "pattern": "^[A-Za-z0-9_-]{43}$",
             "type": "string"
           }
         },
@@ -3497,8 +3498,8 @@
             "type": "string"
           },
           "refresh_token": {
-            "description": "JWT refresh token with 7 days expiration",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "description": "Opaque, rotating refresh credential",
+            "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
             "type": "string"
           },
           "routing_target": {
@@ -3574,8 +3575,8 @@
             "type": "string"
           },
           "refresh_token": {
-            "description": "JWT refresh token with 7 days expiration",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "description": "Opaque, rotating refresh credential",
+            "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
             "type": "string"
           },
           "routing_target": {
@@ -3739,6 +3740,18 @@
         ],
         "type": "object"
       },
+      "RevokeOwnedSessionDto": {
+        "properties": {
+          "session_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "type": "object"
+      },
       "SendChatMessageResponseDto": {
         "properties": {
           "ai": {
@@ -3771,6 +3784,34 @@
         },
         "required": [
           "content"
+        ],
+        "type": "object"
+      },
+      "SessionMetadataDto": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "last_used_at": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          },
+          "session_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "created_at",
+          "last_used_at",
+          "expires_at"
         ],
         "type": "object"
       },
@@ -4308,8 +4349,8 @@
             "type": "string"
           },
           "refresh_token": {
-            "description": "JWT refresh token with 7 days expiration",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "description": "Opaque, rotating refresh credential",
+            "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
             "type": "string"
           },
           "routing_target": {
@@ -4387,8 +4428,8 @@
             "type": "string"
           },
           "refresh_token": {
-            "description": "JWT refresh token with 7 days expiration",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+            "description": "Opaque, rotating refresh credential",
+            "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
             "type": "string"
           },
           "routing_target": {
@@ -5193,6 +5234,217 @@
           }
         },
         "summary": "Complete password recovery with challenge ID and code",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/sessions": {
+      "get": {
+        "operationId": "AuthController_listSessions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "items": {
+                            "$ref": "#/components/schemas/SessionMetadataDto"
+                          },
+                          "type": "array"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Authentication is required"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List active sessions owned by the caller",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/sessions/revoke": {
+      "post": {
+        "operationId": "AuthController_revokeSession",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokeOwnedSessionDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "example": null,
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Authentication is required"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Revoke a session owned by the caller",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/sessions/revoke-all": {
+      "post": {
+        "operationId": "AuthController_revokeAllSessions",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "example": null,
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Authentication is required"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Revoke all sessions owned by the caller",
         "tags": [
           "Authentication"
         ]

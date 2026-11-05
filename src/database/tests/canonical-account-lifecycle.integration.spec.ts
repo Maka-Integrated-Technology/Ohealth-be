@@ -9,6 +9,8 @@ import { AccountStatus } from '../../modules/user/enums/account-status.enum';
 import { UserService } from '../../modules/user/user.service';
 import { CanonicalAccountLifecycle1792750000000 } from '../migrations/1792750000000-CanonicalAccountLifecycle';
 
+import './canonical-refresh-sessions.integration.spec';
+
 const integration = env.PG_INTEGRATION_URL ? describe : describe.skip;
 
 integration('Canonical account lifecycle on real PostgreSQL', () => {

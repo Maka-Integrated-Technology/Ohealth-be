@@ -158,6 +158,57 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly '/api/auth/sessions': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** List active sessions owned by the caller */
+    readonly get: operations['AuthController_listSessions'];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly '/api/auth/sessions/revoke': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Revoke a session owned by the caller */
+    readonly post: operations['AuthController_revokeSession'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly '/api/auth/sessions/revoke-all': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Revoke all sessions owned by the caller */
+    readonly post: operations['AuthController_revokeAllSessions'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly '/api/auth/signup': {
     readonly parameters: {
       readonly query?: never;
@@ -1963,8 +2014,8 @@ export interface components {
       /** @example Login success */
       readonly message: string | null;
       /**
-       * @description JWT refresh token with 7 days expiration
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+       * @description Opaque, rotating refresh credential
+       * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
        */
       readonly refresh_token: string;
       /**
@@ -2000,8 +2051,8 @@ export interface components {
        */
       readonly access_token: string;
       /**
-       * @description JWT refresh token with 7 days expiration
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+       * @description Opaque, rotating refresh credential
+       * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
        */
       readonly refresh_token: string;
       /**
@@ -2522,8 +2573,8 @@ export interface components {
     };
     readonly RefreshTokenDto: {
       /**
-       * @description JWT refresh token with 7 days expiration
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+       * @description Opaque refresh credential
+       * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
        */
       readonly refresh_token: string;
     };
@@ -2541,8 +2592,8 @@ export interface components {
       /** @example Token refresh successful */
       readonly message: string | null;
       /**
-       * @description JWT refresh token with 7 days expiration
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+       * @description Opaque, rotating refresh credential
+       * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
        */
       readonly refresh_token: string;
       /**
@@ -2578,8 +2629,8 @@ export interface components {
        */
       readonly access_token: string;
       /**
-       * @description JWT refresh token with 7 days expiration
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+       * @description Opaque, rotating refresh credential
+       * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
        */
       readonly refresh_token: string;
       /**
@@ -2646,6 +2697,10 @@ export interface components {
       readonly rating: number;
       readonly reviewer_id: string;
     };
+    readonly RevokeOwnedSessionDto: {
+      /** Format: uuid */
+      readonly session_id: string;
+    };
     readonly SendChatMessageResponseDto: {
       /** @example Common flu symptoms include fever, cough, body aches, and fatigue. */
       readonly ai: string;
@@ -2663,6 +2718,16 @@ export interface components {
        * @example Hello, AI!
        */
       readonly content: string;
+    };
+    readonly SessionMetadataDto: {
+      /** Format: date-time */
+      readonly created_at: string;
+      /** Format: date-time */
+      readonly expires_at: string;
+      /** Format: date-time */
+      readonly last_used_at: string | null;
+      /** Format: uuid */
+      readonly session_id: string;
     };
     readonly SetLaboratoryOperatingHourDto: {
       /**
@@ -2913,8 +2978,8 @@ export interface components {
       /** @example account verified */
       readonly message: string | null;
       /**
-       * @description JWT refresh token with 7 days expiration
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+       * @description Opaque, rotating refresh credential
+       * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
        */
       readonly refresh_token: string;
       /**
@@ -2950,8 +3015,8 @@ export interface components {
        */
       readonly access_token: string;
       /**
-       * @description JWT refresh token with 7 days expiration
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+       * @description Opaque, rotating refresh credential
+       * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
        */
       readonly refresh_token: string;
       /**
@@ -3452,6 +3517,138 @@ export interface operations {
       };
       /** @description Reset code is invalid or expired */
       readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly AuthController_listSessions: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: readonly components['schemas']['SessionMetadataDto'][];
+          };
+        };
+      };
+      /** @description Authentication is required */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly AuthController_revokeSession: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly 'application/json': components['schemas']['RevokeOwnedSessionDto'];
+      };
+    };
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            /** @example null */
+            readonly data: unknown;
+          };
+        };
+      };
+      /** @description Request validation failed */
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Authentication is required */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly AuthController_revokeAllSessions: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            /** @example null */
+            readonly data: unknown;
+          };
+        };
+      };
+      /** @description Authentication is required */
+      readonly 401: {
         headers: {
           readonly [name: string]: unknown;
         };
