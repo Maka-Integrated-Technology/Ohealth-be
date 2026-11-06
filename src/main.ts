@@ -7,6 +7,7 @@ import { AppModule } from './app.module';
 import { LoggingInterceptor } from './middleware/logging.interceptor';
 import { AuthChallengeDeliveryService } from './modules/auth/challenges/auth-challenge-delivery.service';
 import { AuthChallengeService } from './modules/auth/challenges/auth-challenge.service';
+import { RegistrationService } from './modules/auth/registration/registration.service';
 import {
   createOpenApiDocument,
   mountOpenApiDocumentation,
@@ -29,6 +30,7 @@ async function bootstrap() {
     );
   }
   await app.get(AuthChallengeDeliveryService).assertLiveFlowReady();
+  app.get(RegistrationService).assertConfigured();
 
   const corsOrigins = configService.get<string[]>('cors.origins', []);
   app.enableCors({

@@ -4,23 +4,12 @@ import { validate } from 'class-validator';
 import { LaboratoryAdministratorSetupDto } from '../../laboratory/dto/laboratory-admin-setup.dto';
 import { AcceptLaboratoryStaffInvitationDto } from '../../laboratory/dto/laboratory-post-approval.dto';
 import { OrganizationAdministratorDto } from '../../organization/dto/organization-setup.dto';
-import { UserRole } from '../../user/enums/user-role.enum';
 import { RegisterAccountDto } from '../contracts/register-account.dto';
-import { AuthDto, ChangePasswordDto, ResetPasswordDto } from '../dto/auth.dto';
+import { ChangePasswordDto, ResetPasswordDto } from '../dto/auth.dto';
 import { SignupIntent } from '../enums/signup-intent.enum';
 
 describe('One password policy across all account intents', () => {
   const testCases = [
-    {
-      type: AuthDto,
-      field: 'password',
-      base: {
-        first_name: 'Ada',
-        last_name: 'Okafor',
-        email: 'ada@example.com',
-        role: [UserRole.PATIENT],
-      },
-    },
     {
       type: RegisterAccountDto,
       field: 'password',

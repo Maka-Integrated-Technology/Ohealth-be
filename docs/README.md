@@ -19,6 +19,8 @@ must follow.
    replay detection, revocation, migration and retention behaviour.
 7. [Password login-code verification](./login-code-verification.md) —
    purpose-bound pre-session proof and client migration contract.
+8. [Transactional intent registration](./transactional-intent-registration.md)
+   — atomic personas, organizations, legal acceptance, retries, and rollout.
 
 ## Documentation status labels
 
@@ -32,11 +34,11 @@ must follow.
 
 | Area                               | Status      |
 | ---------------------------------- | ----------- |
-| User personas                      | Foundation  |
-| Organization memberships           | Foundation  |
-| Legal acceptance records           | Foundation  |
+| User personas                      | Implemented |
+| Organization memberships           | Implemented |
+| Legal acceptance records           | Implemented |
 | Transactional outbox table         | Foundation  |
-| Role-free registration contracts   | Foundation  |
+| Role-free registration contracts   | Implemented |
 | Redis authentication challenges    | Target      |
 | Distributed rate limiting          | Target      |
 | BullMQ email worker                | Target      |

@@ -19,6 +19,7 @@ import { AuthRateLimitService } from '../src/modules/auth/challenges/auth-rate-l
 import { AuthSession } from '../src/modules/auth/entities/auth.entity';
 import { JwtAuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
 import { PasswordCredentialsService } from '../src/modules/auth/password-policy/password-credentials.service';
+import { RegistrationService } from '../src/modules/auth/registration/registration.service';
 import { EmailService } from '../src/modules/email/email.service';
 import { User } from '../src/modules/user/entities/user.entity';
 import { AccountStatus } from '../src/modules/user/enums/account-status.enum';
@@ -72,6 +73,7 @@ describe('Credential enumeration resistance (isolated HTTP e2e)', () => {
       controllers: [AuthController],
       providers: [
         AuthService,
+        { provide: RegistrationService, useValue: {} },
         { provide: RefreshSessionService, useValue: {} },
         {
           provide: SecureAuthChallengeFlowsService,

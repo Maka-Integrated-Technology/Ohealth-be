@@ -10,21 +10,22 @@ Unsupported/null statuses cause migration failure or a fail-closed authorization
 
 ## State and transition matrix
 
-| State | Login/OAuth/refresh/JWT/protected | Verify email code | Admin transitions |
-| --- | --- | --- | --- |
-| `pending_verification` | Denied | Can activate after correct unexpired code | suspended, deactivated |
-| `active` + `email_verified_at` | Allowed | Already verified | suspended, deactivated |
-| `active` without timestamp (invalid) | Denied | Denied | disallowed until repaired |
-| `suspended` | Denied | Denied | active only if verified, deactivated |
-| `deactivated` | Denied | Denied | none (terminal state) |
-| Unrecognized status | Denied; migration fails | Denied | Denied |
+| State                                | Login/OAuth/refresh/JWT/protected | Verify email code                         | Admin transitions                    |
+| ------------------------------------ | --------------------------------- | ----------------------------------------- | ------------------------------------ |
+| `pending_verification`               | Denied                            | Can activate after correct unexpired code | suspended, deactivated               |
+| `active` + `email_verified_at`       | Allowed                           | Already verified                          | suspended, deactivated               |
+| `active` without timestamp (invalid) | Denied                            | Denied                                    | disallowed until repaired            |
+| `suspended`                          | Denied                            | Denied                                    | active only if verified, deactivated |
+| `deactivated`                        | Denied                            | Denied                                    | none (terminal state)                |
+| Unrecognized status                  | Denied; migration fails           | Denied                                    | Denied                               |
 
 State `disabled` from the issue is implemented as the existing `deactivated`
 value, which is a permanent disabled state. Introducing a new string value is
 an explicit future migration, not an implicit alias.
 
-Password signup now returns only the pending user, verification routing and a
-message. **No JWT, refresh token or session is issued before email proof.**
+Password signup now returns only the pending challenge identifier, masked
+destination, expiry, resend wait, and message. **No user record, JWT, refresh
+token or session is returned before email proof.**
 Successful `POST /auth/verify` consumes the code and activates the account
 transactionally, then returns the **first** authenticated session and routing
 data. After verification, clients should store the returned tokens. This is an
@@ -80,6 +81,7 @@ and one-time code consumption. This is synthetic integration data, **not**
 evidence that the migration has been tested on a staging copy of production.
 
 Verification checklist on staging PostgreSQL:
+
 - Run migrations on a copied database containing every status/legacy combination.
 - Repeat migration check with an unsupported status (expect failure).
 - Verify a valid email code concurrently twice (exactly one transition and audit).

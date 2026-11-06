@@ -41,7 +41,8 @@
     "api-client:test": "node scripts/api-client/verify-api-client.mjs",
     "password-blocklist:generate": "node scripts/security/update-password-blocklist.mjs --write",
     "password-blocklist:check": "node scripts/security/update-password-blocklist.mjs --check",
-    "auth-challenge-delivery:dispatch": "ts-node -r tsconfig-paths/register scripts/maintenance/dispatch-auth-challenge-deliveries.ts"
+    "auth-challenge-delivery:dispatch": "ts-node -r tsconfig-paths/register scripts/maintenance/dispatch-auth-challenge-deliveries.ts",
+    "registration-retries:prune": "ts-node -r tsconfig-paths/register scripts/maintenance/prune-registration-retries.ts"
   },
   "lint-staged": {
     "src/**/*.ts": [

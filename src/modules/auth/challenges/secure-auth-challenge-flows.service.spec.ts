@@ -1,16 +1,10 @@
-import {
-  BadRequestException,
-  ConflictException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { DataSource, EntityManager } from 'typeorm';
 
 import { UserAccountStatusHistory } from '../../user/entities/user-account-status-history.entity';
 import { User } from '../../user/entities/user.entity';
 import { AccountStatus } from '../../user/enums/account-status.enum';
-import { UserRole } from '../../user/enums/user-role.enum';
 import { AccountAccessPolicyService } from '../account-access-policy.service';
-import { AuthDto } from '../dto/auth.dto';
 import { AuthSession } from '../entities/auth.entity';
 import { AuthSecurityAuditService } from '../security-audit/auth-security-audit.service';
 import { AuthSecurityEventType } from '../security-audit/auth-security-event.enum';
@@ -22,14 +16,6 @@ import { SecureAuthChallengeFlowsService } from './secure-auth-challenge-flows.s
 
 const ID = '4b659a6c-9d3f-4cec-8122-2dccfae3095d';
 const CHALLENGE = 'f64031c5-70e4-4b37-a92c-f193e59a6621';
-const dto: AuthDto = {
-  email: ' ADA@Example.test ',
-  first_name: ' Ada ',
-  last_name: ' Okafor ',
-  password: 'a sufficiently long passphrase',
-  role: [UserRole.PATIENT],
-};
-
 describe('SecureAuthChallengeFlowsService', () => {
   const user: User = {
     id: ID,
@@ -118,55 +104,6 @@ describe('SecureAuthChallengeFlowsService', () => {
     );
   });
 
-  it('creates a pending account and queues the challenge in one transaction without legacy codes', async () => {
-    const result = await service.signup(dto, 'approved-hash');
-    expect(result.challengeId).toBe(CHALLENGE);
-    expect(transaction).toHaveBeenCalledTimes(1);
-    expect(manager.create).toHaveBeenCalledWith(
-      User,
-      expect.objectContaining({
-        email: 'ada@example.test',
-        password: 'approved-hash',
-        verification_code: null,
-        reset_token: null,
-      }),
-    );
-    expect(queueInTransaction).toHaveBeenCalledWith(
-      manager,
-      expect.objectContaining({ id: ID }),
-      AuthChallengePurpose.CONTACT_VERIFICATION,
-    );
-    expect(recordInTransaction).toHaveBeenCalledWith(
-      manager,
-      expect.objectContaining({ subject_user_id: ID }),
-    );
-  });
-
-  it('rejects duplicate normalized email before any identity or challenge writes', async () => {
-    manager.query.mockResolvedValueOnce([{ id: ID }]);
-    await expect(service.signup(dto, 'approved-hash')).rejects.toThrow(
-      ConflictException,
-    );
-    expect(manager.save).not.toHaveBeenCalled();
-    expect(queueInTransaction).not.toHaveBeenCalled();
-  });
-
-  it('rejects concurrent unique conflicts with a controlled response', async () => {
-    manager.save.mockRejectedValueOnce({ code: '23505' });
-    await expect(service.signup(dto, 'approved-hash')).rejects.toThrow(
-      ConflictException,
-    );
-  });
-
-  it('requires challenge delivery to be transactionally queued before returning signup success', async () => {
-    queueInTransaction.mockRejectedValueOnce(
-      new Error('encrypted delivery unavailable'),
-    );
-    await expect(service.signup(dto, 'approved-hash')).rejects.toThrow(
-      'encrypted delivery unavailable',
-    );
-  });
-
   it('uses purpose-bound single-use consumption before activating and auditing a user', async () => {
     const result = await service.verifyContact(CHALLENGE, '123456');
     expect(consumeWithMutation).toHaveBeenCalledWith(
@@ -175,8 +112,10 @@ describe('SecureAuthChallengeFlowsService', () => {
       '123456',
       expect.any(Function),
     );
-    expect(result.account_status).toBe(AccountStatus.ACTIVE);
-    expect(result.email_verified_at).toBeInstanceOf(Date);
+    expect(result.user.account_status).toBe(AccountStatus.ACTIVE);
+    expect(result.user.email_verified_at).toBeInstanceOf(Date);
+    expect(result.session.access_token).toBe('access-token');
+    expect(issueInTransaction).toHaveBeenCalledWith(manager, ID);
     expect(manager.insert).toHaveBeenCalledWith(
       UserAccountStatusHistory,
       expect.objectContaining({
@@ -483,13 +422,5 @@ describe('SecureAuthChallengeFlowsService', () => {
     await service.resend('ada@example.test');
     expect(assertLiveFlowReady).toHaveBeenCalledTimes(1);
     expect(queueInTransaction).not.toHaveBeenCalled();
-  });
-
-  it('checks live readiness before a signup transaction', async () => {
-    assertLiveFlowReady.mockRejectedValueOnce(new Error('worker unavailable'));
-    await expect(service.signup(dto, 'approved-hash')).rejects.toThrow(
-      'worker unavailable',
-    );
-    expect(transaction).not.toHaveBeenCalled();
   });
 });

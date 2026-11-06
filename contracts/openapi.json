@@ -149,87 +149,6 @@
         ],
         "type": "object"
       },
-      "AuthDto": {
-        "properties": {
-          "dob": {
-            "description": "Date of birth in YYYY-MM-DD format",
-            "example": "2000-01-15",
-            "type": "string"
-          },
-          "email": {
-            "description": "User email address",
-            "example": "john.doe@example.com",
-            "type": "string"
-          },
-          "first_name": {
-            "description": "User first name",
-            "example": "John",
-            "type": "string"
-          },
-          "gender": {
-            "description": "User gender",
-            "enum": [
-              "Male",
-              "Female",
-              "Other"
-            ],
-            "example": "Male",
-            "type": "string"
-          },
-          "is_active": {
-            "default": true,
-            "description": "Account active status",
-            "example": true,
-            "type": "boolean"
-          },
-          "last_name": {
-            "description": "User last name",
-            "example": "Doe",
-            "type": "string"
-          },
-          "middle_name": {
-            "description": "User middle name",
-            "example": "Michael",
-            "type": "string"
-          },
-          "password": {
-            "description": "Password: 15+ Unicode characters, no composition rule, max 1024 UTF-8 bytes",
-            "example": "a memorable patient passphrase",
-            "minLength": 15,
-            "type": "string"
-          },
-          "phone": {
-            "description": "User phone number",
-            "example": "+1234567890",
-            "type": "string"
-          },
-          "role": {
-            "description": "Single self-service account role selected during signup",
-            "example": [
-              "PATIENT"
-            ],
-            "items": {
-              "enum": [
-                "PATIENT",
-                "DOCTOR",
-                "THERAPIST",
-                "COUNSELLOR",
-                "LAB_PROFESSIONAL"
-              ],
-              "type": "string"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "first_name",
-          "last_name",
-          "email",
-          "role",
-          "password"
-        ],
-        "type": "object"
-      },
       "AuthMeResponseDto": {
         "properties": {
           "created_at": {
@@ -1982,6 +1901,38 @@
         ],
         "type": "object"
       },
+      "OrganizationRegistrationDto": {
+        "properties": {
+          "contact_email": {
+            "example": "operations@example.com",
+            "format": "email",
+            "type": "string"
+          },
+          "contact_phone": {
+            "example": "+2348012345678",
+            "type": "string"
+          },
+          "location": {
+            "example": "12 Adeola Odeku Street, Lagos",
+            "type": "string"
+          },
+          "name": {
+            "example": "OHealth Diagnostics",
+            "type": "string"
+          },
+          "registration_number": {
+            "example": "RC-123456",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "registration_number",
+          "location",
+          "contact_email"
+        ],
+        "type": "object"
+      },
       "OrganizationResponseDto": {
         "properties": {
           "contact_email": {
@@ -3678,6 +3629,117 @@
         ],
         "type": "object"
       },
+      "RegisterAccountDto": {
+        "properties": {
+          "accepted_privacy_version": {
+            "example": "2026-08-01",
+            "type": "string"
+          },
+          "accepted_terms_version": {
+            "example": "2026-08-01",
+            "type": "string"
+          },
+          "email": {
+            "example": "ada@example.com",
+            "format": "email",
+            "type": "string"
+          },
+          "first_name": {
+            "example": "Ada",
+            "type": "string"
+          },
+          "intent": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SignupIntent"
+              }
+            ],
+            "description": "Closed self-service account type that determines persona or organization type."
+          },
+          "last_name": {
+            "example": "Okafor",
+            "type": "string"
+          },
+          "organization": {
+            "$ref": "#/components/schemas/OrganizationRegistrationDto"
+          },
+          "password": {
+            "description": "15+ Unicode characters, no composition rule, max 1024 UTF-8 bytes",
+            "format": "password",
+            "minLength": 15,
+            "type": "string"
+          }
+        },
+        "required": [
+          "first_name",
+          "last_name",
+          "email",
+          "password",
+          "intent",
+          "accepted_terms_version",
+          "accepted_privacy_version"
+        ],
+        "type": "object"
+      },
+      "RegistrationPendingResponseDto": {
+        "properties": {
+          "challenge_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "delivery_target": {
+            "example": "a***@example.com",
+            "type": "string"
+          },
+          "expires_in_seconds": {
+            "example": 600,
+            "type": "number"
+          },
+          "message": {
+            "example": "Verification code sent",
+            "type": "string"
+          },
+          "resend_after_seconds": {
+            "example": 60,
+            "type": "number"
+          }
+        },
+        "required": [
+          "message",
+          "challenge_id",
+          "delivery_target",
+          "resend_after_seconds",
+          "expires_in_seconds"
+        ],
+        "type": "object"
+      },
+      "RegistrationPendingResponseDtoData": {
+        "properties": {
+          "challenge_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "delivery_target": {
+            "example": "a***@example.com",
+            "type": "string"
+          },
+          "expires_in_seconds": {
+            "example": 600,
+            "type": "number"
+          },
+          "resend_after_seconds": {
+            "example": 60,
+            "type": "number"
+          }
+        },
+        "required": [
+          "challenge_id",
+          "delivery_target",
+          "resend_after_seconds",
+          "expires_in_seconds"
+        ],
+        "type": "object"
+      },
       "RejectLaboratoryVerificationDto": {
         "properties": {
           "reason": {
@@ -3978,123 +4040,16 @@
         ],
         "type": "object"
       },
-      "SignupResponseDto": {
-        "properties": {
-          "access_level": {
-            "enum": [
-              "full",
-              "limited"
-            ],
-            "example": "limited",
-            "type": "string"
-          },
-          "challenge_id": {
-            "description": "Pending contact verification challenge ID",
-            "format": "uuid",
-            "type": "string"
-          },
-          "message": {
-            "example": "account created",
-            "nullable": true,
-            "type": "string"
-          },
-          "routing_target": {
-            "enum": [
-              "email_verification",
-              "admin_dashboard",
-              "patient_home",
-              "professional_verification",
-              "professional_dashboard",
-              "hospital_verification",
-              "hospital_dashboard",
-              "laboratory_verification",
-              "laboratory_dashboard",
-              "pharmacy_verification",
-              "pharmacy_dashboard",
-              "account_setup",
-              "account_restricted"
-            ],
-            "example": "email_verification",
-            "type": "string"
-          },
-          "status_code": {
-            "example": 201,
-            "nullable": true,
-            "type": "number"
-          },
-          "user": {
-            "$ref": "#/components/schemas/UserDto"
-          },
-          "verification_status": {
-            "description": "Current provider verification state; signup grants no session.",
-            "example": null,
-            "nullable": true,
-            "type": "string"
-          }
-        },
-        "required": [
-          "challenge_id",
-          "user",
-          "verification_status",
-          "routing_target",
-          "access_level",
-          "status_code",
-          "message"
+      "SignupIntent": {
+        "description": "Closed self-service account type that determines persona or organization type.",
+        "enum": [
+          "patient",
+          "healthcare_professional",
+          "pharmacy",
+          "laboratory",
+          "hospital"
         ],
-        "type": "object"
-      },
-      "SignupResponseDtoData": {
-        "properties": {
-          "access_level": {
-            "enum": [
-              "full",
-              "limited"
-            ],
-            "example": "limited",
-            "type": "string"
-          },
-          "challenge_id": {
-            "description": "Pending contact verification challenge ID",
-            "format": "uuid",
-            "type": "string"
-          },
-          "routing_target": {
-            "enum": [
-              "email_verification",
-              "admin_dashboard",
-              "patient_home",
-              "professional_verification",
-              "professional_dashboard",
-              "hospital_verification",
-              "hospital_dashboard",
-              "laboratory_verification",
-              "laboratory_dashboard",
-              "pharmacy_verification",
-              "pharmacy_dashboard",
-              "account_setup",
-              "account_restricted"
-            ],
-            "example": "email_verification",
-            "type": "string"
-          },
-          "user": {
-            "$ref": "#/components/schemas/UserDto"
-          },
-          "verification_status": {
-            "description": "Current provider verification state; signup grants no session.",
-            "example": null,
-            "nullable": true,
-            "type": "string"
-          }
-        },
-        "required": [
-          "challenge_id",
-          "user",
-          "verification_status",
-          "routing_target",
-          "access_level"
-        ],
-        "type": "object"
+        "type": "string"
       },
       "SpecialityResponseDto": {
         "properties": {
@@ -5666,12 +5621,23 @@
     "/api/auth/signup": {
       "post": {
         "operationId": "AuthController_signup",
-        "parameters": [],
+        "parameters": [
+          {
+            "description": "UUID v4 used to safely replay an identical registration",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/AuthDto"
+                "$ref": "#/components/schemas/RegisterAccountDto"
               }
             }
           },
@@ -5689,7 +5655,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/SignupResponseDtoData"
+                          "$ref": "#/components/schemas/RegistrationPendingResponseDtoData"
                         }
                       },
                       "required": [
@@ -5734,7 +5700,7 @@
             "description": "Internal server error"
           }
         },
-        "summary": "Register a new user",
+        "summary": "Create a pending intent-based account",
         "tags": [
           "Authentication"
         ]

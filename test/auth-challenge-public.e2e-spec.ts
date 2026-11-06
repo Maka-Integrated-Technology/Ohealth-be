@@ -6,6 +6,7 @@ import { AuthController } from '../src/modules/auth/auth.controller';
 import { AuthService } from '../src/modules/auth/auth.service';
 import { AuthAbuseGuard } from '../src/modules/auth/challenges/auth-abuse.guard';
 import { AuthRateLimitService } from '../src/modules/auth/challenges/auth-rate-limit.service';
+import { SignupIntent } from '../src/modules/auth/enums/signup-intent.enum';
 import { JwtAuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
 
 describe('Purpose-bound auth challenge HTTP contracts (isolated e2e)', () => {
@@ -14,6 +15,13 @@ describe('Purpose-bound auth challenge HTTP contracts (isolated e2e)', () => {
     'If this account is eligible, a verification message has been queued.';
   const challengeId = 'f64031c5-70e4-4b37-a92c-f193e59a6621';
   const service = {
+    signup: jest.fn().mockResolvedValue({
+      message: 'Verification queued',
+      challenge_id: challengeId,
+      delivery_target: 'a***@example.test',
+      resend_after_seconds: 60,
+      expires_in_seconds: 600,
+    }),
     verifySignup: jest.fn().mockResolvedValue({ message: 'verified' }),
     resendVerification: jest.fn().mockResolvedValue({ message: secureMessage }),
     forgotPassword: jest.fn().mockResolvedValue({ message: secureMessage }),
@@ -49,7 +57,11 @@ describe('Purpose-bound auth challenge HTTP contracts (isolated e2e)', () => {
     app = module.createNestApplication();
     app.setGlobalPrefix('api');
     app.useGlobalPipes(
-      new ValidationPipe({ whitelist: true, transform: true }),
+      new ValidationPipe({
+        whitelist: true,
+        forbidNonWhitelisted: true,
+        transform: true,
+      }),
     );
     await app.init();
   });
@@ -59,6 +71,70 @@ describe('Purpose-bound auth challenge HTTP contracts (isolated e2e)', () => {
   });
 
   beforeEach(() => jest.clearAllMocks());
+
+  it.each([
+    SignupIntent.PATIENT,
+    SignupIntent.HEALTHCARE_PROFESSIONAL,
+    SignupIntent.PHARMACY,
+    SignupIntent.LABORATORY,
+    SignupIntent.HOSPITAL,
+  ])('accepts the controlled %s registration intent', async (intent) => {
+    const organization = [
+      SignupIntent.PHARMACY,
+      SignupIntent.LABORATORY,
+      SignupIntent.HOSPITAL,
+    ].includes(intent)
+      ? {
+          name: 'OHealth Centre',
+          registration_number: `RC-${intent}`,
+          location: 'Lagos',
+          contact_email: 'contact@example.test',
+        }
+      : undefined;
+    const response = await request(app.getHttpServer())
+      .post('/api/auth/signup')
+      .set('Idempotency-Key', '550e8400-e29b-41d4-a716-446655440000')
+      .send({
+        first_name: 'Ada',
+        last_name: 'Okafor',
+        email: 'ada@example.test',
+        password: 'a memorable registration passphrase',
+        intent,
+        accepted_terms_version: 'terms-v1',
+        accepted_privacy_version: 'privacy-v1',
+        ...(organization ? { organization } : {}),
+      })
+      .expect(201);
+    expect(response.body).not.toHaveProperty('access_token');
+    expect(response.body).not.toHaveProperty('refresh_token');
+    expect(service.signup).toHaveBeenCalledWith(
+      expect.objectContaining({ intent }),
+      '550e8400-e29b-41d4-a716-446655440000',
+      expect.objectContaining({ ipAddress: expect.any(String) }),
+    );
+  });
+
+  it.each([
+    { role: ['ADMIN'] },
+    { is_active: true },
+    { account_status: 'active' },
+    { organization_type: 'hospital' },
+  ])('rejects client-controlled registration state %#', async (hostile) => {
+    await request(app.getHttpServer())
+      .post('/api/auth/signup')
+      .send({
+        first_name: 'Ada',
+        last_name: 'Okafor',
+        email: 'ada@example.test',
+        password: 'a memorable registration passphrase',
+        intent: SignupIntent.PATIENT,
+        accepted_terms_version: 'terms-v1',
+        accepted_privacy_version: 'privacy-v1',
+        ...hostile,
+      })
+      .expect(400);
+    expect(service.signup).not.toHaveBeenCalled();
+  });
 
   it('rejects old email-only verification requests before reaching a handler', async () => {
     await request(app.getHttpServer())
@@ -98,7 +174,7 @@ describe('Purpose-bound auth challenge HTTP contracts (isolated e2e)', () => {
     expect(service.resetPassword).not.toHaveBeenCalled();
   });
 
-  it('accepts challenge-bound reset proof and never forwards legacy token fields', async () => {
+  it('rejects legacy token fields even when challenge proof is present', async () => {
     await request(app.getHttpServer())
       .post('/api/auth/reset-password')
       .send({
@@ -107,12 +183,8 @@ describe('Purpose-bound auth challenge HTTP contracts (isolated e2e)', () => {
         newPassword: 'a secure memorable replacement passphrase',
         token: 'should-be-stripped',
       })
-      .expect(201);
-    expect(service.resetPassword).toHaveBeenCalledWith({
-      challenge_id: challengeId,
-      code: '123456',
-      newPassword: 'a secure memorable replacement passphrase',
-    });
+      .expect(400);
+    expect(service.resetPassword).not.toHaveBeenCalled();
   });
 
   it('returns the same generic recovery and resend message without a secret', async () => {
@@ -139,6 +211,12 @@ describe('Purpose-bound auth challenge HTTP contracts (isolated e2e)', () => {
         code: '123456',
         email: 'must-not-reach-the-service@example.test',
       })
+      .expect(400);
+    expect(service.verifyLogin).not.toHaveBeenCalled();
+
+    await request(app.getHttpServer())
+      .post('/api/auth/login/verify')
+      .send({ challenge_id: challengeId, code: '123456' })
       .expect(200);
     expect(service.verifyLogin).toHaveBeenCalledWith({
       challenge_id: challengeId,
@@ -164,6 +242,12 @@ describe('Purpose-bound auth challenge HTTP contracts (isolated e2e)', () => {
     await request(app.getHttpServer())
       .post('/api/auth/login/resend')
       .send({ challenge_id: challengeId, email: 'ignored@example.test' })
+      .expect(400);
+    expect(service.resendLogin).not.toHaveBeenCalled();
+
+    await request(app.getHttpServer())
+      .post('/api/auth/login/resend')
+      .send({ challenge_id: challengeId })
       .expect(200);
     expect(service.resendLogin).toHaveBeenCalledWith({
       challenge_id: challengeId,

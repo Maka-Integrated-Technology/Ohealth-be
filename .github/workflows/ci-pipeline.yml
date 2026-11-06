@@ -104,6 +104,7 @@ jobs:
       - name: Verify operator delivery command input and formatting
         run: |
           npx prettier --check scripts/maintenance/dispatch-auth-challenge-deliveries.ts
+          npx prettier --check scripts/maintenance/prune-registration-retries.ts
           check_invalid_usage() {
             set +e
             result=$(npm run auth-challenge-delivery:dispatch -- "$@" 2>&1)
@@ -119,6 +120,21 @@ jobs:
           check_invalid_usage --batch-size=NaN
           check_invalid_usage --unknown
           check_invalid_usage --batch-size=1 --batch-size=2
+          check_invalid_prune_usage() {
+            set +e
+            result=$(npm run registration-retries:prune -- "$@" 2>&1)
+            status=$?
+            set -e
+            if [ "$status" -eq 0 ] || ! printf '%s\n' "$result" | grep -qx 'Invalid registration retry prune arguments.'; then
+              printf 'Registration retry prune did not reject invalid arguments before database access.\n' >&2
+              exit 1
+            fi
+          }
+          check_invalid_prune_usage --batch-size=0
+          check_invalid_prune_usage --batch-size=501
+          check_invalid_prune_usage --batch-size=NaN
+          check_invalid_prune_usage --unknown
+          check_invalid_prune_usage --batch-size=1 --batch-size=2
 
       - name: Verify formatting
         run: npm run format:check
@@ -130,6 +146,7 @@ jobs:
         run: |
           npx tsc --noEmit -p tsconfig.worker.json
           npx eslint scripts/maintenance/dispatch-auth-challenge-deliveries.ts
+          npx eslint scripts/maintenance/prune-registration-retries.ts
 
       - name: Run Tests
         run: npm test

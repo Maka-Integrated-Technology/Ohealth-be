@@ -3,18 +3,25 @@ import {
   ApiBadRequestResponse,
   ApiConflictResponse,
   ApiCreatedResponse,
+  ApiHeader,
   ApiOperation,
 } from '@nestjs/swagger';
 
 import * as sysMsg from '../../../constants/system.messages';
-import { SignupResponseDto } from '../dto/auth-response.dto';
+import { RegistrationPendingResponseDto } from '../contracts';
 
 export const SignupDocs = () =>
   applyDecorators(
-    ApiOperation({ summary: 'Register a new user' }),
+    ApiOperation({ summary: 'Create a pending intent-based account' }),
+    ApiHeader({
+      name: 'Idempotency-Key',
+      required: false,
+      description: 'UUID v4 used to safely replay an identical registration',
+      schema: { type: 'string', format: 'uuid' },
+    }),
     ApiCreatedResponse({
       description: sysMsg.ACCOUNT_CREATED,
-      type: SignupResponseDto,
+      type: RegistrationPendingResponseDto,
     }),
     ApiConflictResponse({
       description: sysMsg.ACCOUNT_ALREADY_EXISTS,

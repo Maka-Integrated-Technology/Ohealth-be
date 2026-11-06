@@ -17,6 +17,7 @@ import {
   ApiOperation,
   ApiTags,
 } from '@nestjs/swagger';
+import { Request } from 'express';
 
 import { Public } from '../../common/decorators/public.decorator';
 import { IAuthUser, IRequestWithUser } from '../../common/types';
@@ -24,7 +25,11 @@ import * as sysMsg from '../../constants/system.messages';
 
 import { AuthService } from './auth.service';
 import { AuthAbuseGuard } from './challenges/auth-abuse.guard';
-import { ResendAuthChallengeDto, VerifyAuthChallengeDto } from './contracts';
+import {
+  RegisterAccountDto,
+  ResendAuthChallengeDto,
+  VerifyAuthChallengeDto,
+} from './contracts';
 import { CurrentUser } from './decorators/current-user.decorator';
 import {
   ForgotPasswordDocs,
@@ -44,7 +49,6 @@ import {
 } from './docs';
 import { LogoutResponseDto } from './dto/auth-response.dto';
 import {
-  AuthDto,
   ChangePasswordDto,
   ForgotPasswordDto,
   LogoutDto,
@@ -69,8 +73,11 @@ export class AuthController {
   @HttpCode(HttpStatus.CREATED)
   @Post('signup')
   @UseGuards(AuthAbuseGuard)
-  signup(@Body() signupDto: AuthDto) {
-    return this.authService.signup(signupDto);
+  signup(@Body() signupDto: RegisterAccountDto, @Req() request?: Request) {
+    return this.authService.signup(signupDto, request?.get('idempotency-key'), {
+      ipAddress: request?.ip,
+      userAgent: request?.get('user-agent'),
+    });
   }
 
   @Public()
