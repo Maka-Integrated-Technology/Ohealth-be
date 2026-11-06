@@ -92,36 +92,58 @@ export class RegistrationService {
             'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
             [retry.keyHash],
           );
-          const previous: Array<{
+          const receipts: Array<{
             request_fingerprint: string;
-            email: string;
-            account_status: AccountStatus;
-            challenge_id: string | null;
-            issued_at: Date | null;
-            expires_at: Date | null;
+            user_id: string;
           }> = await manager.query(
-            `SELECT ra.request_fingerprint, u.email, u.account_status,
-                    current_challenge.id AS challenge_id,
-                    current_challenge.issued_at,
-                    current_challenge.expires_at
-             FROM registration_attempts ra
-             JOIN users u ON u.id = ra.user_id
-             LEFT JOIN LATERAL (
-               SELECT id, issued_at, expires_at
+            `SELECT request_fingerprint, user_id
+             FROM registration_attempts
+             WHERE request_key_hash = $1
+             FOR UPDATE`,
+            [retry.keyHash],
+          );
+          if (receipts.length) {
+            const receipt = receipts[0];
+            const users: Array<{
+              email: string;
+              account_status: AccountStatus;
+            }> = await manager.query(
+              `SELECT email, account_status
+               FROM users
+               WHERE id = $1
+               FOR UPDATE`,
+              [receipt.user_id],
+            );
+            if (!users.length) {
+              throw new ConflictException('Registration retry is unavailable.');
+            }
+            const challenges: Array<{
+              challenge_id: string;
+              issued_at: Date;
+              expires_at: Date;
+            }> = await manager.query(
+              `SELECT id AS challenge_id, issued_at, expires_at
                FROM auth_challenges
-               WHERE subject_user_id = ra.user_id
+               WHERE subject_user_id = $1
                  AND purpose = $2
                  AND consumed_at IS NULL
                  AND expires_at > now()
                ORDER BY issued_at DESC
                LIMIT 1
-             ) current_challenge ON true
-             WHERE ra.request_key_hash = $1
-             FOR UPDATE OF ra`,
-            [retry.keyHash, AuthChallengePurpose.CONTACT_VERIFICATION],
-          );
-          if (previous.length) {
-            return this.replay(previous[0], retry.fingerprint);
+               FOR UPDATE`,
+              [receipt.user_id, AuthChallengePurpose.CONTACT_VERIFICATION],
+            );
+            return this.replay(
+              {
+                request_fingerprint: receipt.request_fingerprint,
+                email: users[0].email,
+                account_status: users[0].account_status,
+                challenge_id: challenges[0]?.challenge_id ?? null,
+                issued_at: challenges[0]?.issued_at ?? null,
+                expires_at: challenges[0]?.expires_at ?? null,
+              },
+              retry.fingerprint,
+            );
           }
         }
 

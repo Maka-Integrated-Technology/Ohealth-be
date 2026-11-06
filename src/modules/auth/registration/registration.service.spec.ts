@@ -209,8 +209,21 @@ describe('RegistrationService', () => {
         return [
           {
             request_fingerprint: fingerprint,
+            user_id: 'user-id',
+          },
+        ];
+      }
+      if (sql.includes('FROM users') && sql.includes('WHERE id = $1')) {
+        return [
+          {
             email: 'ada@example.com',
             account_status: AccountStatus.PENDING_VERIFICATION,
+          },
+        ];
+      }
+      if (sql.includes('FROM auth_challenges')) {
+        return [
+          {
             challenge_id: 'f64031c5-70e4-4b37-a92c-f193e59a6621',
             issued_at: new Date(now),
             expires_at: new Date(now + 600_000),
@@ -224,6 +237,18 @@ describe('RegistrationService', () => {
     jest.clearAllMocks();
     const replayed = await service.register(base(SignupIntent.PATIENT), key);
     expect(replayed.challenge_id).toBe('f64031c5-70e4-4b37-a92c-f193e59a6621');
+    const replayQueries = query.mock.calls.map(([sql]) => sql);
+    expect(
+      replayQueries.findIndex((sql) => sql.includes('FROM users')),
+    ).toBeLessThan(
+      replayQueries.findIndex((sql) => sql.includes('FROM auth_challenges')),
+    );
+    expect(replayQueries).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/FROM users[\s\S]*FOR UPDATE/),
+        expect.stringMatching(/FROM auth_challenges[\s\S]*FOR UPDATE/),
+      ]),
+    );
     expect(manager.save).not.toHaveBeenCalled();
     expect(delivery.queueInTransaction).not.toHaveBeenCalled();
     await expect(

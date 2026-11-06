@@ -58,12 +58,14 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
   let secondApp: INestApplication;
   let secondDatabase: DataSource;
   let schema: string;
+  let applicationName: string;
   let delivery: AuthChallengeDeliveryService;
   let config: ConfigService;
   const mail = jest.fn().mockResolvedValue(undefined);
 
   beforeAll(async () => {
     schema = 'auth_live_' + randomUUID().replaceAll('-', '');
+    applicationName = 'ohealth_' + schema;
     admin = new DataSource({ type: 'postgres', url: env.PG_INTEGRATION_URL });
     await admin.initialize();
     await admin.query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
@@ -74,7 +76,10 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       url: env.PG_INTEGRATION_URL,
       entities: [__dirname + '/../../modules/**/*.entity.ts'],
       synchronize: false,
-      extra: { options: '-c search_path=' + schema + ',public' },
+      extra: {
+        options: '-c search_path=' + schema + ',public',
+        application_name: applicationName,
+      },
     });
     await database.initialize();
     await database.query(
@@ -318,6 +323,24 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       ],
     );
     return { id, email };
+  }
+
+  async function waitForLockWaiters(expected: number): Promise<void> {
+    const deadline = performance.now() + 5_000;
+    while (performance.now() < deadline) {
+      const rows: Array<{ count: number }> = await admin.query(
+        `SELECT count(*)::int AS count
+         FROM pg_stat_activity
+         WHERE application_name = $1
+           AND wait_event_type = 'Lock'`,
+        [applicationName],
+      );
+      if (rows[0].count >= expected) return;
+      await new Promise((resolve) => {
+        setTimeout(resolve, 20);
+      });
+    }
+    throw new Error(`Timed out waiting for ${expected} database lock waiters.`);
   }
 
   it('requires a purpose-bound login code and creates one session under concurrent verification', async () => {
@@ -864,6 +887,127 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     );
     expect(retries.map((reply) => reply.status)).toEqual([201, 201]);
     expect(retries[0].body.challenge_id).toBe(retries[1].body.challenge_id);
+  }, 30_000);
+
+  it('fails a registration replay that races behind contact verification', async () => {
+    const suffix = randomUUID();
+    const email = `verify-replay+${suffix}@example.test`;
+    const key = randomUUID();
+    const payload = {
+      first_name: 'Ada',
+      last_name: 'Replay',
+      email,
+      password: 'a memorable registration passphrase',
+      intent: 'patient',
+      accepted_terms_version: 'terms-v1',
+      accepted_privacy_version: 'privacy-v1',
+    };
+    const registered = await request(app.getHttpServer())
+      .post('/api/auth/signup')
+      .set('Idempotency-Key', key)
+      .send(payload)
+      .expect(201);
+    expect(await delivery.dispatchBatch(1)).toMatchObject({ accepted: 1 });
+    const mailed = mail.mock.calls[0][0] as {
+      templateData: { code: string };
+    };
+    const users: Array<{ id: string }> = await database.query(
+      'SELECT id FROM users WHERE email = $1',
+      [email],
+    );
+    const blocker = database.createQueryRunner();
+    await blocker.connect();
+    await blocker.startTransaction();
+    try {
+      await blocker.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [
+        users[0].id,
+      ]);
+      const verification = request(secondApp.getHttpServer())
+        .post('/api/auth/verify')
+        .send({
+          challenge_id: registered.body.challenge_id,
+          code: mailed.templateData.code,
+        })
+        .then((reply) => reply);
+      await waitForLockWaiters(1);
+      const replay = request(app.getHttpServer())
+        .post('/api/auth/signup')
+        .set('Idempotency-Key', key)
+        .send(payload)
+        .then((reply) => reply);
+      await waitForLockWaiters(2);
+      await blocker.commitTransaction();
+      const [verified, retried] = await Promise.all([verification, replay]);
+      expect(verified.status).toBe(200);
+      expect(retried.status).toBe(409);
+    } finally {
+      if (blocker.isTransactionActive) await blocker.rollbackTransaction();
+      await blocker.release();
+    }
+  }, 30_000);
+
+  it('returns the replacement challenge when replay races behind resend', async () => {
+    const suffix = randomUUID();
+    const email = `resend-replay+${suffix}@example.test`;
+    const key = randomUUID();
+    const payload = {
+      first_name: 'Ada',
+      last_name: 'Replay',
+      email,
+      password: 'a memorable registration passphrase',
+      intent: 'patient',
+      accepted_terms_version: 'terms-v1',
+      accepted_privacy_version: 'privacy-v1',
+    };
+    const registered = await request(app.getHttpServer())
+      .post('/api/auth/signup')
+      .set('Idempotency-Key', key)
+      .send(payload)
+      .expect(201);
+    await database.query(
+      `UPDATE auth_challenges
+       SET issued_at = now() - interval '61 seconds'
+       WHERE id = $1`,
+      [registered.body.challenge_id],
+    );
+    const users: Array<{ id: string }> = await database.query(
+      'SELECT id FROM users WHERE email = $1',
+      [email],
+    );
+    const blocker = database.createQueryRunner();
+    await blocker.connect();
+    await blocker.startTransaction();
+    try {
+      await blocker.query('SELECT id FROM users WHERE id = $1 FOR UPDATE', [
+        users[0].id,
+      ]);
+      const resend = request(secondApp.getHttpServer())
+        .post('/api/auth/verify/resend')
+        .send({ email })
+        .then((reply) => reply);
+      await waitForLockWaiters(1);
+      const replay = request(app.getHttpServer())
+        .post('/api/auth/signup')
+        .set('Idempotency-Key', key)
+        .send(payload)
+        .then((reply) => reply);
+      await waitForLockWaiters(2);
+      await blocker.commitTransaction();
+      const [resent, retried] = await Promise.all([resend, replay]);
+      expect(resent.status).toBe(200);
+      expect(retried.status).toBe(201);
+      const current: Array<{ id: string }> = await database.query(
+        `SELECT id FROM auth_challenges
+         WHERE subject_user_id = $1 AND consumed_at IS NULL
+         ORDER BY issued_at DESC LIMIT 1`,
+        [users[0].id],
+      );
+      expect(current[0].id).not.toBe(registered.body.challenge_id);
+      expect(retried.body.challenge_id).toBe(current[0].id);
+    } finally {
+      if (blocker.isTransactionActive) await blocker.rollbackTransaction();
+      await blocker.release();
+    }
   }, 30_000);
 
   it('rolls back identity and legal records when durable delivery cannot queue', async () => {
