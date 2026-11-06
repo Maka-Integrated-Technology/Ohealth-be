@@ -25,7 +25,9 @@ import { SecureAuthChallengeFlowsService } from './challenges/secure-auth-challe
 import { VerifySignupDto } from './dto/auth.dto';
 import { AuthSession } from './entities/auth.entity';
 import { AuthAccessLevel, AuthRoutingTarget } from './enums/auth-routing.enum';
+import { SignupIntent } from './enums/signup-intent.enum';
 import { PasswordCredentialsService } from './password-policy/password-credentials.service';
+import { RegistrationService } from './registration/registration.service';
 import { RefreshSessionService } from './sessions/refresh-session.service';
 
 describe('AuthService', () => {
@@ -88,7 +90,6 @@ describe('AuthService', () => {
     sendMail: jest.fn(),
   };
   const mockChallengeFlows = {
-    signup: jest.fn(),
     requestRecovery: jest.fn(),
     completeRecovery: jest.fn(),
     verifyContact: jest.fn(),
@@ -99,6 +100,7 @@ describe('AuthService', () => {
     rejectLoginAttempt: jest.fn(),
   };
   const mockChallengeDelivery = { queueInTransaction: jest.fn() };
+  const mockRegistration = { register: jest.fn() };
   const mockSessions = {
     issue: jest.fn(),
     rotate: jest.fn(),
@@ -165,6 +167,10 @@ describe('AuthService', () => {
           useValue: mockSessions,
         },
         {
+          provide: RegistrationService,
+          useValue: mockRegistration,
+        },
+        {
           provide: AuthRoutingService,
           useValue: mockAuthRoutingService,
         },
@@ -177,15 +183,12 @@ describe('AuthService', () => {
 
     service = module.get<AuthService>(AuthService);
     jest.clearAllMocks();
-    mockChallengeFlows.signup.mockResolvedValue({
-      user: {
-        id: 'user-id-1',
-        email: 'tunde@example.com',
-        first_name: 'Tunde',
-        last_name: 'Adebayo',
-        role: [UserRole.PATIENT],
-      },
-      challengeId: 'f64031c5-70e4-4b37-a92c-f193e59a6621',
+    mockRegistration.register.mockResolvedValue({
+      message: 'Verification queued',
+      challenge_id: 'f64031c5-70e4-4b37-a92c-f193e59a6621',
+      delivery_target: 't***@example.com',
+      resend_after_seconds: 60,
+      expires_in_seconds: 600,
     });
     mockChallengeFlows.requestRecovery.mockResolvedValue({
       message:
@@ -220,61 +223,35 @@ describe('AuthService', () => {
 
   describe('signup', () => {
     it('creates a pending user with no access, refresh, or session credentials', async () => {
-      jest
-        .spyOn(bcrypt, 'hash')
-        .mockImplementation(async () => 'hashed-password');
-
-      mockUserService.findByEmail.mockResolvedValue(null);
-      mockUserService.create.mockImplementation(
-        (payload: Record<string, unknown>) => ({
-          id: 'user-id-1',
-          ...payload,
-        }),
-      );
-      mockJwtService.signAsync
-        .mockResolvedValueOnce('access-token')
-        .mockResolvedValueOnce('refresh-token');
-      mockJwtService.decode.mockReturnValue({
-        exp: Math.floor(Date.now() / 1000) + 3600,
-      });
-
-      mockSessionRepository.create.mockImplementation(
-        (payload: Partial<AuthSession>) => ({
-          id: 'session-db-id',
-          ...payload,
-        }),
-      );
-      mockSessionRepository.save.mockImplementation(
-        async (payload: Partial<AuthSession>) => payload,
-      );
-
-      const result = await service.signup({
+      const payload = {
         first_name: 'Tunde',
         last_name: 'Adebayo',
         email: 'tunde@example.com',
         password: 'a memorable patient passphrase',
-        role: [UserRole.PATIENT],
+        intent: SignupIntent.PATIENT,
+        accepted_terms_version: 'terms-v1',
+        accepted_privacy_version: 'privacy-v1',
+      };
+      const result = await service.signup(payload, 'request-key', {
+        ipAddress: '127.0.0.1',
+        userAgent: 'test-agent',
       });
 
       expect(result.message).toBe('Verification queued');
-      expect(result.user.email).toBe('tunde@example.com');
       expect(result).not.toHaveProperty('access_token');
       expect(result).not.toHaveProperty('refresh_token');
       expect(result).not.toHaveProperty('session_id');
-      expect(mockJwtService.signAsync).not.toHaveBeenCalled();
-      expect(mockSessionRepository.save).not.toHaveBeenCalled();
-      expect(result).toMatchObject(defaultRouting);
-      expect(mockChallengeFlows.signup).toHaveBeenCalledWith(
-        expect.objectContaining({ role: [UserRole.PATIENT] }),
-        expect.any(String),
+      expect(mockRegistration.register).toHaveBeenCalledWith(
+        payload,
+        'request-key',
+        { ipAddress: '127.0.0.1', userAgent: 'test-agent' },
       );
       expect(result.challenge_id).toMatch(/^[0-9a-f-]{36}$/);
       expect(mockLogger.info).toHaveBeenCalledWith(sysMsg.ACCOUNT_CREATED);
-      expect(mockEmailService.sendMail).not.toHaveBeenCalled();
     });
 
     it('should throw conflict exception for duplicate email', async () => {
-      mockChallengeFlows.signup.mockRejectedValueOnce(
+      mockRegistration.register.mockRejectedValueOnce(
         new ConflictException(sysMsg.ACCOUNT_ALREADY_EXISTS),
       );
       await expect(
@@ -283,33 +260,11 @@ describe('AuthService', () => {
           last_name: 'Okeke',
           email: 'grace@example.com',
           password: 'a strong registration passphrase',
-          role: [UserRole.PATIENT],
+          intent: SignupIntent.PATIENT,
+          accepted_terms_version: 'terms-v1',
+          accepted_privacy_version: 'privacy-v1',
         }),
       ).rejects.toThrow(ConflictException);
-    });
-
-    it('should reject privileged and multiple-role signup attempts', async () => {
-      await expect(
-        service.signup({
-          first_name: 'Platform',
-          last_name: 'Admin',
-          email: 'admin@example.com',
-          password: 'Password123',
-          role: [UserRole.ADMIN],
-        }),
-      ).rejects.toThrow(sysMsg.INVALID_SIGNUP_ROLE);
-
-      await expect(
-        service.signup({
-          first_name: 'Multiple',
-          last_name: 'Roles',
-          email: 'roles@example.com',
-          password: 'Password123',
-          role: [UserRole.PATIENT, UserRole.DOCTOR],
-        }),
-      ).rejects.toThrow(sysMsg.INVALID_SIGNUP_ROLE);
-
-      expect(mockUserService.findByEmail).not.toHaveBeenCalled();
     });
   });
 
@@ -734,27 +689,24 @@ describe('AuthService', () => {
         code: '123456',
       };
       mockChallengeFlows.verifyContact.mockResolvedValue({
-        id: 'user-id-1',
-        email: 'tunde@example.com',
-        first_name: 'Tunde',
-        last_name: 'Adebayo',
-        role: [UserRole.PATIENT],
-        is_active: true,
-        is_verified: true,
-        account_status: AccountStatus.ACTIVE,
-        email_verified_at: new Date(),
+        user: {
+          id: 'user-id-1',
+          email: 'tunde@example.com',
+          first_name: 'Tunde',
+          last_name: 'Adebayo',
+          role: [UserRole.PATIENT],
+          is_active: true,
+          is_verified: true,
+          account_status: AccountStatus.ACTIVE,
+          email_verified_at: new Date(),
+        },
+        session: {
+          access_token: 'access-token',
+          refresh_token: 'refresh-token',
+          session_id: '550e8400-e29b-41d4-a716-446655440000',
+          session_expires_at: new Date('2026-07-11T16:16:13.000Z'),
+        },
       });
-      mockJwtService.signAsync
-        .mockReset()
-        .mockResolvedValueOnce('first-access-token')
-        .mockResolvedValueOnce('first-refresh-token');
-      mockJwtService.decode.mockReturnValue({
-        exp: Math.floor(Date.now() / 1000) + 3600,
-      });
-      mockSessionRepository.create.mockImplementation(
-        (details: Partial<AuthSession>) => details,
-      );
-      mockSessionRepository.save.mockImplementation(async (details) => details);
 
       const result = await service.verifySignup(payload);
 
@@ -764,7 +716,7 @@ describe('AuthService', () => {
         refresh_token: 'refresh-token',
         user: expect.objectContaining({ email: 'tunde@example.com' }),
       });
-      expect(mockSessions.issue).toHaveBeenCalledTimes(1);
+      expect(mockSessions.issue).not.toHaveBeenCalled();
       expect(mockChallengeFlows.verifyContact).toHaveBeenCalledWith(
         payload.challenge_id,
         payload.code,

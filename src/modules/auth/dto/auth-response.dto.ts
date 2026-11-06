@@ -58,49 +58,6 @@ class RoutedAuthResponseDto extends TokensDto {
   verification_status: string | null;
 }
 
-export class SignupResponseDto {
-  @ApiProperty({
-    format: 'uuid',
-    description: 'Pending contact verification challenge ID',
-  })
-  challenge_id: string;
-
-  @ApiProperty({ type: UserDto })
-  user: UserDto;
-
-  @ApiProperty({
-    example: null,
-    nullable: true,
-    description:
-      'Current provider verification state; signup grants no session.',
-  })
-  verification_status: string | null;
-
-  @ApiProperty({
-    enum: AuthRoutingTarget,
-    example: AuthRoutingTarget.EMAIL_VERIFICATION,
-  })
-  routing_target: AuthRoutingTarget;
-
-  @ApiProperty({
-    enum: AuthAccessLevel,
-    example: AuthAccessLevel.LIMITED,
-  })
-  access_level: AuthAccessLevel;
-
-  @ApiProperty({
-    example: 201,
-    nullable: true,
-  })
-  status_code?: number;
-
-  @ApiProperty({
-    example: 'account created',
-    nullable: true,
-  })
-  message?: string;
-}
-
 export class LoginResponseDto extends RoutedAuthResponseDto {
   @ApiProperty({
     example: 200,

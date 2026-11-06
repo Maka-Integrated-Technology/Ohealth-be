@@ -252,7 +252,7 @@ export interface paths {
     };
     readonly get?: never;
     readonly put?: never;
-    /** Register a new user */
+    /** Create a pending intent-based account */
     readonly post: operations['AuthController_signup'];
     readonly delete?: never;
     readonly options?: never;
@@ -1463,62 +1463,6 @@ export interface components {
       /** @example 200 */
       readonly status_code: number;
     };
-    readonly AuthDto: {
-      /**
-       * @description Date of birth in YYYY-MM-DD format
-       * @example 2000-01-15
-       */
-      readonly dob?: string;
-      /**
-       * @description User email address
-       * @example john.doe@example.com
-       */
-      readonly email: string;
-      /**
-       * @description User first name
-       * @example John
-       */
-      readonly first_name: string;
-      /**
-       * @description User gender
-       * @example Male
-       * @enum {string}
-       */
-      readonly gender?: AuthDtoGender;
-      /**
-       * @description Account active status
-       * @default true
-       * @example true
-       */
-      readonly is_active: boolean;
-      /**
-       * @description User last name
-       * @example Doe
-       */
-      readonly last_name: string;
-      /**
-       * @description User middle name
-       * @example Michael
-       */
-      readonly middle_name?: string;
-      /**
-       * @description Password: 15+ Unicode characters, no composition rule, max 1024 UTF-8 bytes
-       * @example a memorable patient passphrase
-       */
-      readonly password: string;
-      /**
-       * @description User phone number
-       * @example +1234567890
-       */
-      readonly phone?: string;
-      /**
-       * @description Single self-service account role selected during signup
-       * @example [
-       *       "PATIENT"
-       *     ]
-       */
-      readonly role: readonly AuthDtoRole[];
-    };
     readonly AuthMeResponseDto: {
       /**
        * Format: date-time
@@ -2192,6 +2136,21 @@ export interface components {
       /** Format: date-time */
       readonly updated_at: string;
     };
+    readonly OrganizationRegistrationDto: {
+      /**
+       * Format: email
+       * @example operations@example.com
+       */
+      readonly contact_email: string;
+      /** @example +2348012345678 */
+      readonly contact_phone?: string;
+      /** @example 12 Adeola Odeku Street, Lagos */
+      readonly location: string;
+      /** @example OHealth Diagnostics */
+      readonly name: string;
+      /** @example RC-123456 */
+      readonly registration_number: string;
+    };
     readonly OrganizationResponseDto: {
       readonly contact_email: string;
       readonly contact_phone: string | null;
@@ -2704,6 +2663,51 @@ export interface components {
        */
       readonly verification_status: string | null;
     };
+    readonly RegisterAccountDto: {
+      /** @example 2026-08-01 */
+      readonly accepted_privacy_version: string;
+      /** @example 2026-08-01 */
+      readonly accepted_terms_version: string;
+      /**
+       * Format: email
+       * @example ada@example.com
+       */
+      readonly email: string;
+      /** @example Ada */
+      readonly first_name: string;
+      /** @description Closed self-service account type that determines persona or organization type. */
+      readonly intent: components['schemas']['SignupIntent'];
+      /** @example Okafor */
+      readonly last_name: string;
+      readonly organization?: components['schemas']['OrganizationRegistrationDto'];
+      /**
+       * Format: password
+       * @description 15+ Unicode characters, no composition rule, max 1024 UTF-8 bytes
+       */
+      readonly password: string;
+    };
+    readonly RegistrationPendingResponseDto: {
+      /** Format: uuid */
+      readonly challenge_id: string;
+      /** @example a***@example.com */
+      readonly delivery_target: string;
+      /** @example 600 */
+      readonly expires_in_seconds: number;
+      /** @example Verification code sent */
+      readonly message: string;
+      /** @example 60 */
+      readonly resend_after_seconds: number;
+    };
+    readonly RegistrationPendingResponseDtoData: {
+      /** Format: uuid */
+      readonly challenge_id: string;
+      /** @example a***@example.com */
+      readonly delivery_target: string;
+      /** @example 600 */
+      readonly expires_in_seconds: number;
+      /** @example 60 */
+      readonly resend_after_seconds: number;
+    };
     readonly RejectLaboratoryVerificationDto: {
       /** @example The accreditation certificate is not readable. */
       readonly reason: string;
@@ -2823,56 +2827,11 @@ export interface components {
       readonly administrator: components['schemas']['OrganizationAdministratorResponseDto'];
       readonly organization: components['schemas']['OrganizationResponseDto'];
     };
-    readonly SignupResponseDto: {
-      /**
-       * @example limited
-       * @enum {string}
-       */
-      readonly access_level: LoginResponseDtoAccess_level;
-      /**
-       * Format: uuid
-       * @description Pending contact verification challenge ID
-       */
-      readonly challenge_id: string;
-      /** @example account created */
-      readonly message: string | null;
-      /**
-       * @example email_verification
-       * @enum {string}
-       */
-      readonly routing_target: LoginResponseDtoRouting_target;
-      /** @example 201 */
-      readonly status_code: number | null;
-      readonly user: components['schemas']['UserDto'];
-      /**
-       * @description Current provider verification state; signup grants no session.
-       * @example null
-       */
-      readonly verification_status: string | null;
-    };
-    readonly SignupResponseDtoData: {
-      /**
-       * @example limited
-       * @enum {string}
-       */
-      readonly access_level: LoginResponseDtoAccess_level;
-      /**
-       * Format: uuid
-       * @description Pending contact verification challenge ID
-       */
-      readonly challenge_id: string;
-      /**
-       * @example email_verification
-       * @enum {string}
-       */
-      readonly routing_target: LoginResponseDtoRouting_target;
-      readonly user: components['schemas']['UserDto'];
-      /**
-       * @description Current provider verification state; signup grants no session.
-       * @example null
-       */
-      readonly verification_status: string | null;
-    };
+    /**
+     * @description Closed self-service account type that determines persona or organization type.
+     * @enum {string}
+     */
+    readonly SignupIntent: SignupIntent;
     readonly SpecialityResponseDto: {
       /** Format: date-time */
       readonly created_at: string;
@@ -2945,7 +2904,7 @@ export interface components {
        * @example Male
        * @enum {string|null}
        */
-      readonly gender?: AuthDtoGender;
+      readonly gender?: UpdateProfileDtoGender;
       /**
        * @description User avatar image URL
        * @example https://res.cloudinary.com/ohealth/image/upload/v123/avatar.png
@@ -3823,13 +3782,16 @@ export interface operations {
   readonly AuthController_signup: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header?: {
+        /** @description UUID v4 used to safely replay an identical registration */
+        readonly 'Idempotency-Key'?: string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
     readonly requestBody: {
       readonly content: {
-        readonly 'application/json': components['schemas']['AuthDto'];
+        readonly 'application/json': components['schemas']['RegisterAccountDto'];
       };
     };
     readonly responses: {
@@ -3840,7 +3802,7 @@ export interface operations {
         };
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
-            readonly data: components['schemas']['SignupResponseDtoData'];
+            readonly data: components['schemas']['RegistrationPendingResponseDtoData'];
           };
         };
       };
@@ -8017,18 +7979,6 @@ export enum PathsApiProfessionalsMePatientsGetParametersQuerySort_order {
   asc = 'asc',
   desc = 'desc',
 }
-export enum AuthDtoGender {
-  Male = 'Male',
-  Female = 'Female',
-  Other = 'Other',
-}
-export enum AuthDtoRole {
-  PATIENT = 'PATIENT',
-  DOCTOR = 'DOCTOR',
-  THERAPIST = 'THERAPIST',
-  COUNSELLOR = 'COUNSELLOR',
-  LAB_PROFESSIONAL = 'LAB_PROFESSIONAL',
-}
 export enum BookingResponseDtoPayment_status {
   paid = 'paid',
   unpaid = 'unpaid',
@@ -8126,4 +8076,16 @@ export enum ProfessionalAppointmentResponseDtoStatus {
   confirmed = 'confirmed',
   completed = 'completed',
   cancelled = 'cancelled',
+}
+export enum SignupIntent {
+  patient = 'patient',
+  healthcare_professional = 'healthcare_professional',
+  pharmacy = 'pharmacy',
+  laboratory = 'laboratory',
+  hospital = 'hospital',
+}
+export enum UpdateProfileDtoGender {
+  Male = 'Male',
+  Female = 'Female',
+  Other = 'Other',
 }

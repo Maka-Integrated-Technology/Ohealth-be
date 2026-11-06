@@ -26,10 +26,12 @@ import { AuthRoutingService } from './auth-routing.service';
 import { AuthChallengeDeliveryService } from './challenges/auth-challenge-delivery.service';
 import { AuthChallengePurpose } from './challenges/auth-challenge.entity';
 import { SecureAuthChallengeFlowsService } from './challenges/secure-auth-challenge-flows.service';
-import { SELF_SERVICE_SIGNUP_ROLES } from './constants/self-service-signup-roles.constant';
-import { ResendAuthChallengeDto, VerifyAuthChallengeDto } from './contracts';
 import {
-  AuthDto,
+  RegisterAccountDto,
+  ResendAuthChallengeDto,
+  VerifyAuthChallengeDto,
+} from './contracts';
+import {
   ChangePasswordDto,
   ForgotPasswordDto,
   LogoutDto,
@@ -42,6 +44,7 @@ import {
 import { LoginDto } from './dto/login.dto';
 import { PasswordCredentialsService } from './password-policy/password-credentials.service';
 import { isLoginPasswordWithinLimit } from './password-policy/password-policy';
+import { RegistrationService } from './registration/registration.service';
 import { RefreshSessionService } from './sessions/refresh-session.service';
 
 @Injectable()
@@ -58,34 +61,24 @@ export class AuthService {
     private readonly challengeFlows: SecureAuthChallengeFlowsService,
     private readonly challengeDelivery: AuthChallengeDeliveryService,
     private readonly sessions: RefreshSessionService,
+    private readonly registration: RegistrationService,
     @Inject(WINSTON_MODULE_PROVIDER) logger: Logger,
   ) {
     this.logger = logger.child({ context: AuthService.name });
   }
 
-  async signup(signupPayload: AuthDto) {
-    if (
-      !Array.isArray(signupPayload.role) ||
-      signupPayload.role.length !== 1 ||
-      !SELF_SERVICE_SIGNUP_ROLES.includes(signupPayload.role[0])
-    ) {
-      throw new BadRequestException(sysMsg.INVALID_SIGNUP_ROLE);
-    }
-    const hashedPassword = await this.passwordCredentials.hashNewPassword(
-      signupPayload.password,
-    );
-    const { user, challengeId } = await this.challengeFlows.signup(
+  async signup(
+    signupPayload: RegisterAccountDto,
+    idempotencyKey?: string,
+    metadata?: { ipAddress?: string; userAgent?: string },
+  ) {
+    const response = await this.registration.register(
       signupPayload,
-      hashedPassword,
+      idempotencyKey,
+      metadata,
     );
-    const routing = await this.authRoutingService.resolve(user);
     this.logger.info(sysMsg.ACCOUNT_CREATED);
-    return {
-      message: 'Verification queued',
-      challenge_id: challengeId,
-      user: this.toUserResponse(user),
-      ...routing,
-    };
+    return response;
   }
 
   async login(loginPayload: LoginDto) {
@@ -185,17 +178,16 @@ export class AuthService {
   }
 
   async verifySignup(payload: VerifySignupDto) {
-    const verifiedUser = await this.challengeFlows.verifyContact(
+    const { user, session } = await this.challengeFlows.verifyContact(
       payload.challenge_id,
       payload.code,
     );
-    // Canonical refresh/session rotation belongs to #77. On #75's current
-    // session model, credentials still require a committed verified account.
-    const session = await this.issueAuthSession(verifiedUser);
-    void this.sendWelcomeEmail(verifiedUser);
+    const routing = await this.authRoutingService.resolve(user);
+    void this.sendWelcomeEmail(user);
     return {
       message: sysMsg.ACCOUNT_VERIFIED,
-      user: this.toUserResponse(verifiedUser),
+      user: this.toUserResponse(user),
+      ...routing,
       ...session,
     };
   }

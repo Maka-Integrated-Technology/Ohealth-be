@@ -161,6 +161,9 @@ export type AuthController_revokeSessionError =
   | operations['AuthController_revokeSession']['responses'][500]['content']['application/json'];
 
 export type AuthController_signupRequest = Readonly<{
+  readonly headerParameters?: NonNullable<
+    operations['AuthController_signup']['parameters']['header']
+  >;
   readonly body: NonNullable<
     operations['AuthController_signup']['requestBody']
   >['content']['application/json'];
