@@ -1,6 +1,7 @@
 import { ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { IS_PUBLIC_KEY } from '../../common/decorators/public.decorator';
 import { IRequestWithUser } from '../../common/types';
 import * as sysMsg from '../../constants/system.messages';
 
@@ -16,6 +17,7 @@ describe('AuthController', () => {
 
   const mockAuthService = {
     signup: jest.fn(),
+    getRegistrationBootstrap: jest.fn(),
     login: jest.fn(),
     verifyLogin: jest.fn(),
     resendLogin: jest.fn(),
@@ -61,6 +63,18 @@ describe('AuthController', () => {
 
   it('should be defined', () => {
     expect(controller).toBeDefined();
+  });
+
+  it('returns public registration metadata without session context', () => {
+    expect(Reflect.getMetadata(IS_PUBLIC_KEY, AuthController.prototype.getRegistrationBootstrap)).toBe(true);
+    const expected = {
+      intents: [{ intent: SignupIntent.PATIENT, label: 'Patient' }],
+      terms: { document_type: 'terms_of_service', version: 'terms-v1' },
+      privacy: { document_type: 'privacy_policy', version: 'privacy-v1' },
+    };
+    mockAuthService.getRegistrationBootstrap.mockReturnValue(expected);
+    expect(controller.getRegistrationBootstrap()).toEqual(expected);
+    expect(mockAuthService.getRegistrationBootstrap).toHaveBeenCalledTimes(1);
   });
 
   it('should call signup on auth service', async () => {

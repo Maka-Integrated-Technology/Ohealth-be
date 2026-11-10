@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   HttpCode,
   HttpStatus,
+  Header,
   Patch,
   Post,
   Get,
@@ -27,6 +28,7 @@ import { AuthService } from './auth.service';
 import { AuthAbuseGuard } from './challenges/auth-abuse.guard';
 import {
   RegisterAccountDto,
+  RegistrationBootstrapDto,
   ResendAuthChallengeDto,
   VerifyAuthChallengeDto,
 } from './contracts';
@@ -67,6 +69,15 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  @Public()
+  @Get('registration/bootstrap')
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Get current self-service registration and legal-document metadata' })
+  @ApiOkResponse({ type: RegistrationBootstrapDto })
+  getRegistrationBootstrap(): RegistrationBootstrapDto {
+    return this.authService.getRegistrationBootstrap();
+  }
 
   @SignupDocs()
   @Public()
