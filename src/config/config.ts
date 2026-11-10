@@ -62,6 +62,12 @@ export default () => ({
     expirationDays: parseInt(process.env.INVITE_EXPIRATION_DAYS, 10) || 7,
   },
 
+  registration: {
+    termsVersion: process.env.REGISTRATION_TERMS_VERSION,
+    privacyVersion: process.env.REGISTRATION_PRIVACY_VERSION,
+    idempotencyPepper: process.env.REGISTRATION_IDEMPOTENCY_PEPPER,
+  },
+
   storage: {
     aws: {
       region: process.env.AWS_REGION,

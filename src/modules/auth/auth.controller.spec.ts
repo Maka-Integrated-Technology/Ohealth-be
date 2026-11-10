@@ -3,12 +3,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { IRequestWithUser } from '../../common/types';
 import * as sysMsg from '../../constants/system.messages';
-import { UserRole } from '../user/enums/user-role.enum';
 
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthAbuseGuard } from './challenges/auth-abuse.guard';
 import { AuthRateLimitService } from './challenges/auth-rate-limit.service';
+import { SignupIntent } from './enums/signup-intent.enum';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -68,15 +68,20 @@ describe('AuthController', () => {
       first_name: 'Grace',
       last_name: 'Okeke',
       email: 'grace@example.com',
-      password: 'Password123',
-      role: [UserRole.PATIENT],
+      password: 'a memorable patient passphrase',
+      intent: SignupIntent.PATIENT,
+      accepted_terms_version: 'terms-v1',
+      accepted_privacy_version: 'privacy-v1',
     };
     const expected = { message: sysMsg.ACCOUNT_CREATED };
     mockAuthService.signup.mockResolvedValue(expected);
 
     const result = await controller.signup(payload);
 
-    expect(authService.signup).toHaveBeenCalledWith(payload);
+    expect(authService.signup).toHaveBeenCalledWith(payload, undefined, {
+      ipAddress: undefined,
+      userAgent: undefined,
+    });
     expect(result).toEqual(expected);
   });
 

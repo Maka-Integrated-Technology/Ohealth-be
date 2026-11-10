@@ -1,118 +1,16 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
-  IsArray,
-  IsBoolean,
   IsNotEmpty,
   IsEmail,
   Matches,
+  IsOptional,
   IsString,
   IsUUID,
-  IsOptional,
-  ArrayNotEmpty,
-  ArrayMaxSize,
-  IsIn,
 } from 'class-validator';
 
 import { UserRole } from '../../user/enums/user-role.enum';
-import { SELF_SERVICE_SIGNUP_ROLES } from '../constants/self-service-signup-roles.constant';
 import { isSecurePassword } from '../password-policy/is-secure-password.decorator';
 import { PASSWORD_MIN_LENGTH } from '../password-policy/password-policy';
-
-export class AuthDto {
-  @ApiProperty({
-    description: 'User first name',
-    example: 'John',
-  })
-  @IsString()
-  @IsNotEmpty()
-  first_name: string;
-
-  @ApiProperty({
-    description: 'User last name',
-    example: 'Doe',
-  })
-  @IsString()
-  @IsNotEmpty()
-  last_name: string;
-
-  @ApiProperty({
-    description: 'User middle name',
-    example: 'Michael',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  middle_name?: string;
-
-  @ApiProperty({
-    description: 'User gender',
-    example: 'Male',
-    enum: ['Male', 'Female', 'Other'],
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  gender?: string;
-
-  @ApiProperty({
-    description: 'Date of birth in YYYY-MM-DD format',
-    example: '2000-01-15',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  dob?: string;
-
-  @ApiProperty({
-    description: 'User email address',
-    example: 'john.doe@example.com',
-  })
-  @IsEmail()
-  @IsNotEmpty()
-  email: string;
-
-  @ApiProperty({
-    description: 'User phone number',
-    example: '+1234567890',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  phone?: string;
-
-  @ApiProperty({
-    description: 'Single self-service account role selected during signup',
-    enum: SELF_SERVICE_SIGNUP_ROLES,
-    isArray: true,
-    example: [UserRole.PATIENT],
-    required: true,
-  })
-  @IsArray()
-  @ArrayNotEmpty()
-  @ArrayMaxSize(1)
-  @IsIn(SELF_SERVICE_SIGNUP_ROLES, { each: true })
-  role: UserRole[];
-
-  @ApiProperty({
-    description:
-      'Password: 15+ Unicode characters, no composition rule, max 1024 UTF-8 bytes',
-    example: 'a memorable patient passphrase',
-    minLength: PASSWORD_MIN_LENGTH,
-  })
-  @IsString()
-  @IsNotEmpty()
-  @isSecurePassword()
-  password: string;
-
-  @ApiProperty({
-    description: 'Account active status',
-    example: true,
-    required: false,
-    default: true,
-  })
-  @IsBoolean()
-  is_active?: boolean = true;
-}
 
 export class ForgotPasswordDto {
   @ApiProperty({

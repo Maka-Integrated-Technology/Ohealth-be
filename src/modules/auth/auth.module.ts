@@ -20,6 +20,7 @@ import { User2fa } from './entities/user-2fa.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { PasswordCredentialsService } from './password-policy/password-credentials.service';
+import { RegistrationModule } from './registration/registration.module';
 import { AuthSecurityAuditModule } from './security-audit/auth-security-audit.module';
 import { RefreshSessionModule } from './sessions/refresh-session.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
@@ -31,6 +32,7 @@ import { TwoFactorAuthService } from './two-factor-auth.service';
     AuthChallengeModule,
     AuthSecurityAuditModule,
     RefreshSessionModule,
+    RegistrationModule,
     ConfigModule,
     EmailModule,
     UserModule,
@@ -58,6 +60,7 @@ import { TwoFactorAuthService } from './two-factor-auth.service';
   exports: [
     AuthChallengeModule,
     RefreshSessionModule,
+    RegistrationModule,
     AuthService,
     PasswordCredentialsService,
     JwtAuthGuard,

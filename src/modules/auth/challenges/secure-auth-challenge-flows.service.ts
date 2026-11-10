@@ -2,12 +2,7 @@ import { randomInt, timingSafeEqual } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-import {
-  BadRequestException,
-  ConflictException,
-  HttpException,
-  Injectable,
-} from '@nestjs/common';
+import { BadRequestException, HttpException, Injectable } from '@nestjs/common';
 import { DataSource, IsNull, Raw } from 'typeorm';
 
 import * as sysMsg from '../../../constants/system.messages';
@@ -15,7 +10,6 @@ import { UserAccountStatusHistory } from '../../user/entities/user-account-statu
 import { User } from '../../user/entities/user.entity';
 import { AccountStatus } from '../../user/enums/account-status.enum';
 import { AccountAccessPolicyService } from '../account-access-policy.service';
-import { AuthDto } from '../dto/auth.dto';
 import { AuthSession } from '../entities/auth.entity';
 import { AuthSecurityAuditService } from '../security-audit/auth-security-audit.service';
 import {
@@ -265,65 +259,6 @@ export class SecureAuthChallengeFlowsService {
     }
   }
 
-  async signup(
-    dto: AuthDto,
-    hashedPassword: string,
-  ): Promise<{ user: User; challengeId: string }> {
-    await this.delivery.assertLiveFlowReady();
-    const email = dto.email.trim().toLowerCase();
-    try {
-      return await this.dataSource.transaction(async (manager) => {
-        // Legacy casing can exist before the normalized-uniqueness migration
-        // from #78. New signups always persist normalized email.
-        const matches: Array<{ id: string }> = await manager.query(
-          'SELECT id FROM users WHERE lower(btrim(email)) = $1 LIMIT 1',
-          [email],
-        );
-        if (matches.length) {
-          throw new ConflictException(sysMsg.ACCOUNT_ALREADY_EXISTS);
-        }
-        const user = await manager.save(
-          User,
-          manager.create(User, {
-            email,
-            password: hashedPassword,
-            first_name: dto.first_name.trim(),
-            last_name: dto.last_name.trim(),
-            middle_name: dto.middle_name?.trim() || null,
-            gender: dto.gender ?? null,
-            dob: dto.dob ?? null,
-            phone: dto.phone ?? null,
-            role: dto.role,
-            is_active: false,
-            is_verified: false,
-            account_status: AccountStatus.PENDING_VERIFICATION,
-            email_verified_at: null,
-            verification_code: null,
-            verification_code_expires_at: null,
-            reset_token: null,
-            reset_token_expiry: null,
-          }),
-        );
-        const issued = await this.delivery.queueInTransaction(
-          manager,
-          user,
-          AuthChallengePurpose.CONTACT_VERIFICATION,
-        );
-        await this.audit.recordInTransaction(manager, {
-          event_type: AuthSecurityEventType.REGISTRATION,
-          outcome: AuthSecurityEventOutcome.SUCCEEDED,
-          subject_user_id: user.id,
-        });
-        return { user, challengeId: issued.challengeId };
-      });
-    } catch (error: unknown) {
-      if ((error as { code?: string })?.code === '23505') {
-        throw new ConflictException(sysMsg.ACCOUNT_ALREADY_EXISTS);
-      }
-      throw error;
-    }
-  }
-
   async resend(email: string): Promise<{ message: string }> {
     await this.queueForEligibleAccount(
       email,
@@ -340,7 +275,10 @@ export class SecureAuthChallengeFlowsService {
     return { message: QUEUED };
   }
 
-  async verifyContact(challengeId: string, code: string): Promise<User> {
+  async verifyContact(
+    challengeId: string,
+    code: string,
+  ): Promise<{ user: User; session: IIssuedSession }> {
     return this.challenges.consumeWithMutation(
       challengeId,
       AuthChallengePurpose.CONTACT_VERIFICATION,
@@ -372,7 +310,11 @@ export class SecureAuthChallengeFlowsService {
           outcome: AuthSecurityEventOutcome.SUCCEEDED,
           subject_user_id: user.id,
         });
-        return saved;
+        const session = await this.sessions.issueInTransaction(
+          manager,
+          user.id,
+        );
+        return { user: saved, session };
       },
     );
   }

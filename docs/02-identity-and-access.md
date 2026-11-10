@@ -54,9 +54,10 @@ maps to Healthcare Professional and does not create a separate signup intent.
 2. Create the user in `pending_verification` state.
 3. Create the requested persona, or the organization and owner membership.
 4. Record terms and privacy-policy acceptance.
-5. Create an authentication challenge and a non-sensitive outbox event.
+5. Create an authentication challenge and encrypted durable delivery record.
 6. Commit all durable records atomically.
-7. Deliver the verification message asynchronously.
+7. Deliver the verification message asynchronously through the challenge
+   delivery worker.
 8. Return the challenge identifier, masked destination, expiry, and resend wait.
 
 Registration does not return an ordinary access or refresh token.
