@@ -2264,8 +2264,7 @@ export interface components {
       readonly appointment_requests: readonly components['schemas']['ProfessionalAppointmentResponseDto'][];
       readonly date: string;
       readonly next_appointment?:
-        | components['schemas']['ProfessionalAppointmentResponseDto']
-        | null;
+        components['schemas']['ProfessionalAppointmentResponseDto'] | null;
       readonly profile: components['schemas']['ProfessionalMeProfileDto'];
       readonly setup: Record<string, never>;
       readonly stats: components['schemas']['ProfessionalDashboardStatsDto'];
@@ -2318,8 +2317,7 @@ export interface components {
     };
     readonly ProfessionalMeResponseDto: {
       readonly profile?:
-        | components['schemas']['ProfessionalMeProfileDto']
-        | null;
+        components['schemas']['ProfessionalMeProfileDto'] | null;
       readonly setup: components['schemas']['ProfessionalSetupStatusDto'];
       readonly user: components['schemas']['ProfessionalMeUserDto'];
     };

@@ -430,10 +430,9 @@ export type LaboratoryVerificationDocumentsController_downloadLaboratoryDocument
 export type LaboratoryVerificationDocumentsController_downloadLaboratoryDocumentResponse =
   operations['LaboratoryVerificationDocumentsController_downloadLaboratoryDocument']['responses'][200]['content']['application/json'];
 export type LaboratoryVerificationDocumentsController_downloadLaboratoryDocumentError =
-
-    | operations['LaboratoryVerificationDocumentsController_downloadLaboratoryDocument']['responses'][401]['content']['application/json']
-    | operations['LaboratoryVerificationDocumentsController_downloadLaboratoryDocument']['responses'][404]['content']['application/json']
-    | operations['LaboratoryVerificationDocumentsController_downloadLaboratoryDocument']['responses'][500]['content']['application/json'];
+  | operations['LaboratoryVerificationDocumentsController_downloadLaboratoryDocument']['responses'][401]['content']['application/json']
+  | operations['LaboratoryVerificationDocumentsController_downloadLaboratoryDocument']['responses'][404]['content']['application/json']
+  | operations['LaboratoryVerificationDocumentsController_downloadLaboratoryDocument']['responses'][500]['content']['application/json'];
 
 export type LaboratoryVerificationDocumentsController_downloadMyDocumentRequest =
   Readonly<{
@@ -459,9 +458,8 @@ export type LaboratoryVerificationDocumentsController_listLaboratoryDocumentsReq
 export type LaboratoryVerificationDocumentsController_listLaboratoryDocumentsResponse =
   operations['LaboratoryVerificationDocumentsController_listLaboratoryDocuments']['responses'][200]['content']['application/json'];
 export type LaboratoryVerificationDocumentsController_listLaboratoryDocumentsError =
-
-    | operations['LaboratoryVerificationDocumentsController_listLaboratoryDocuments']['responses'][401]['content']['application/json']
-    | operations['LaboratoryVerificationDocumentsController_listLaboratoryDocuments']['responses'][500]['content']['application/json'];
+  | operations['LaboratoryVerificationDocumentsController_listLaboratoryDocuments']['responses'][401]['content']['application/json']
+  | operations['LaboratoryVerificationDocumentsController_listLaboratoryDocuments']['responses'][500]['content']['application/json'];
 
 export type LaboratoryVerificationDocumentsController_listMyDocumentsRequest =
   Readonly<{
@@ -1081,9 +1079,8 @@ export type ProfessionalVerificationDocumentsController_downloadMyDocumentReques
 export type ProfessionalVerificationDocumentsController_downloadMyDocumentResponse =
   operations['ProfessionalVerificationDocumentsController_downloadMyDocument']['responses'][200]['content']['application/json'];
 export type ProfessionalVerificationDocumentsController_downloadMyDocumentError =
-
-    | operations['ProfessionalVerificationDocumentsController_downloadMyDocument']['responses'][401]['content']['application/json']
-    | operations['ProfessionalVerificationDocumentsController_downloadMyDocument']['responses'][500]['content']['application/json'];
+  | operations['ProfessionalVerificationDocumentsController_downloadMyDocument']['responses'][401]['content']['application/json']
+  | operations['ProfessionalVerificationDocumentsController_downloadMyDocument']['responses'][500]['content']['application/json'];
 
 export type ProfessionalVerificationDocumentsController_downloadProfessionalDocumentRequest =
   Readonly<{
@@ -1095,9 +1092,8 @@ export type ProfessionalVerificationDocumentsController_downloadProfessionalDocu
 export type ProfessionalVerificationDocumentsController_downloadProfessionalDocumentResponse =
   operations['ProfessionalVerificationDocumentsController_downloadProfessionalDocument']['responses'][200]['content']['application/json'];
 export type ProfessionalVerificationDocumentsController_downloadProfessionalDocumentError =
-
-    | operations['ProfessionalVerificationDocumentsController_downloadProfessionalDocument']['responses'][401]['content']['application/json']
-    | operations['ProfessionalVerificationDocumentsController_downloadProfessionalDocument']['responses'][500]['content']['application/json'];
+  | operations['ProfessionalVerificationDocumentsController_downloadProfessionalDocument']['responses'][401]['content']['application/json']
+  | operations['ProfessionalVerificationDocumentsController_downloadProfessionalDocument']['responses'][500]['content']['application/json'];
 
 export type ProfessionalVerificationDocumentsController_listMyDocumentsRequest =
   Readonly<{
@@ -1119,9 +1115,8 @@ export type ProfessionalVerificationDocumentsController_listProfessionalDocument
 export type ProfessionalVerificationDocumentsController_listProfessionalDocumentsResponse =
   operations['ProfessionalVerificationDocumentsController_listProfessionalDocuments']['responses'][200]['content']['application/json'];
 export type ProfessionalVerificationDocumentsController_listProfessionalDocumentsError =
-
-    | operations['ProfessionalVerificationDocumentsController_listProfessionalDocuments']['responses'][401]['content']['application/json']
-    | operations['ProfessionalVerificationDocumentsController_listProfessionalDocuments']['responses'][500]['content']['application/json'];
+  | operations['ProfessionalVerificationDocumentsController_listProfessionalDocuments']['responses'][401]['content']['application/json']
+  | operations['ProfessionalVerificationDocumentsController_listProfessionalDocuments']['responses'][500]['content']['application/json'];
 
 export type ProfessionalVerificationDocumentsController_uploadMyDocumentRequest =
   Readonly<{

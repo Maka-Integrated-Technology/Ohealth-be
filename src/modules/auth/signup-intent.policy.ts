@@ -77,9 +77,7 @@ export const SIGNUP_INTENT_DEFINITIONS = {
 export function isOrganizationSignupIntent(
   intent: SignupIntent,
 ): intent is
-  | SignupIntent.PHARMACY
-  | SignupIntent.LABORATORY
-  | SignupIntent.HOSPITAL {
+  SignupIntent.PHARMACY | SignupIntent.LABORATORY | SignupIntent.HOSPITAL {
   return (
     intent === SignupIntent.PHARMACY ||
     intent === SignupIntent.LABORATORY ||
