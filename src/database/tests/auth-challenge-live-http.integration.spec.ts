@@ -4,16 +4,20 @@ import { env } from 'node:process';
 
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
+import {
+  WINSTON_MODULE_NEST_PROVIDER,
+  WINSTON_MODULE_PROVIDER,
+} from 'nest-winston';
 import * as request from 'supertest';
 import { DataSource, QueryRunner } from 'typeorm';
 
+import { GlobalExceptionFilter } from '../../common/exceptions/filters/global-exception.filter';
 import { AccountAccessPolicyService } from '../../modules/auth/account-access-policy.service';
 import { AuthRoutingService } from '../../modules/auth/auth-routing.service';
 import { AuthController } from '../../modules/auth/auth.controller';
@@ -246,6 +250,14 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         JwtStrategy,
         JwtAuthGuard,
         { provide: APP_GUARD, useClass: JwtAuthGuard },
+        { provide: APP_FILTER, useClass: GlobalExceptionFilter },
+        {
+          provide: WINSTON_MODULE_NEST_PROVIDER,
+          useValue: {
+            error: jest.fn(),
+            warn: jest.fn(),
+          },
+        },
         {
           provide: WINSTON_MODULE_PROVIDER,
           useValue: {
@@ -1020,7 +1032,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         accepted_terms_version: 'terms-v1',
         accepted_privacy_version: 'privacy-v1',
       })
-      .expect(500);
+      .expect(503);
     queue.mockRestore();
     const rows: Array<{ count: number }> = await database.query(
       'SELECT count(*)::int AS count FROM users WHERE email = $1',
@@ -1186,7 +1198,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     await request(app.getHttpServer())
       .post('/api/auth/forgot-password')
       .send({ email: user.email })
-      .expect(201);
+      .expect(202);
     // Exercise the real 30-second provider timeout without faking clocks or
     // replacing delivery/persistence services.
     mail.mockImplementationOnce(() => new Promise<void>(() => {}));
