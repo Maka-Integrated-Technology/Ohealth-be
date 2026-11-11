@@ -6,6 +6,14 @@ export enum AuthChallengePurpose {
   LOGIN_VERIFICATION = 'login_verification',
 }
 
+export enum AuthChallengeTerminalReason {
+  VERIFIED = 'verified',
+  SUPERSEDED = 'superseded',
+  ATTEMPTS_EXHAUSTED = 'attempts_exhausted',
+  ADMINISTRATIVELY_REVOKED = 'administratively_revoked',
+  LEGACY_CONSUMED = 'legacy_consumed',
+}
+
 @Index('IDX_auth_challenges_subject_issued', [
   'subject_user_id',
   'purpose',
@@ -42,6 +50,21 @@ export class AuthChallenge {
 
   @Column({ type: 'int', default: 0 })
   attempt_count: number;
+
+  @Column({ type: 'uuid' })
+  lineage_id: string;
+
+  @Column({ type: 'uuid', nullable: true })
+  replaced_by_challenge_id: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  terminal_reason: AuthChallengeTerminalReason | null;
+
+  @Column({ type: 'int', default: 0 })
+  replacement_count: number;
+
+  @Column({ type: 'timestamp with time zone' })
+  flow_expires_at: Date;
 
   @Column({ type: 'timestamp with time zone', nullable: true })
   consumed_at: Date | null;

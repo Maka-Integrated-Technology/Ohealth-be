@@ -62,6 +62,7 @@ export class AuthChallengeDeliveryService {
   /** Validate the AES-GCM secret before any public or worker action. */
   assertConfigured(): void {
     this.getEncryptionKey();
+    this.getRecoveryContinuationUrl('00000000-0000-4000-8000-000000000000');
   }
 
   /** A live caller must never issue when disabled, misconfigured or unwatched. */
@@ -108,22 +109,12 @@ export class AuthChallengeDeliveryService {
       user.id,
       purpose,
     );
-    const iv = randomBytes(12);
-    const cipher = createCipheriv('aes-256-gcm', key, iv);
-    cipher.setAAD(this.additionalData(challenge.challengeId, purpose));
-    const ciphertext = Buffer.concat([
-      cipher.update(challenge.code, 'utf8'),
-      cipher.final(),
-    ]);
-    await manager.query(
-      'INSERT INTO auth_challenge_deliveries ' +
-        '(challenge_id, iv, ciphertext, tag) VALUES ($1, $2, $3, $4)',
-      [
-        challenge.challengeId,
-        iv.toString('hex'),
-        ciphertext.toString('hex'),
-        cipher.getAuthTag().toString('hex'),
-      ],
+    await this.stageEnvelope(
+      manager,
+      challenge.challengeId,
+      purpose,
+      challenge.code,
+      key,
     );
     return {
       challengeId: challenge.challengeId,
@@ -131,6 +122,46 @@ export class AuthChallengeDeliveryService {
       expiresInSeconds: Math.max(
         1,
         Math.ceil((challenge.expiresAt.getTime() - Date.now()) / 1000),
+      ),
+    };
+  }
+
+  async replaceInTransaction(
+    manager: EntityManager,
+    challengeId: string,
+    purpose: AuthChallengePurpose,
+  ): Promise<{
+    challengeId: string;
+    resendAfterSeconds: number;
+    expiresInSeconds: number;
+  }> {
+    if (!manager.queryRunner?.isTransactionActive) {
+      throw new Error('Challenge delivery requires a database transaction.');
+    }
+    const key = this.getEncryptionKey();
+    if (this.config.get<string>('AUTH_CHALLENGE_FLOWS_ENABLED') === 'true') {
+      await this.assertWorkerReady(manager);
+    }
+    const replacement = await this.challenges.replaceInTransaction(
+      manager,
+      challengeId,
+      purpose,
+    );
+    if (replacement.created && replacement.code) {
+      await this.stageEnvelope(
+        manager,
+        replacement.challengeId,
+        purpose,
+        replacement.code,
+        key,
+      );
+    }
+    return {
+      challengeId: replacement.challengeId,
+      resendAfterSeconds: replacement.resendAfterSeconds,
+      expiresInSeconds: Math.max(
+        1,
+        Math.ceil((replacement.expiresAt.getTime() - Date.now()) / 1000),
       ),
     };
   }
@@ -214,11 +245,9 @@ export class AuthChallengeDeliveryService {
                   otp: code,
                   otp_digits: code.split(''),
                   challenge_id: claim.challenge_id,
-                  reset_url: frontEndUrl
-                    ? frontEndUrl +
-                      '/reset-password?challenge_id=' +
-                      encodeURIComponent(claim.challenge_id)
-                    : undefined,
+                  reset_url: this.getRecoveryContinuationUrl(
+                    claim.challenge_id,
+                  ),
                   expiry_minutes: 10,
                 }
               : login
@@ -364,6 +393,59 @@ export class AuthChallengeDeliveryService {
 
   private additionalData(id: string, purpose: AuthChallengePurpose): Buffer {
     return Buffer.from('ohealth:challenge-delivery:v1:' + id + ':' + purpose);
+  }
+
+  private async stageEnvelope(
+    manager: EntityManager,
+    challengeId: string,
+    purpose: AuthChallengePurpose,
+    code: string,
+    key: Buffer,
+  ): Promise<void> {
+    const iv = randomBytes(12);
+    const cipher = createCipheriv('aes-256-gcm', key, iv);
+    cipher.setAAD(this.additionalData(challengeId, purpose));
+    const ciphertext = Buffer.concat([
+      cipher.update(code, 'utf8'),
+      cipher.final(),
+    ]);
+    await manager.query(
+      'INSERT INTO auth_challenge_deliveries ' +
+        '(challenge_id, iv, ciphertext, tag) VALUES ($1, $2, $3, $4)',
+      [
+        challengeId,
+        iv.toString('hex'),
+        ciphertext.toString('hex'),
+        cipher.getAuthTag().toString('hex'),
+      ],
+    );
+  }
+
+  private getRecoveryContinuationUrl(challengeId: string): string {
+    const configured = this.config.get<string>('auth.recoveryContinuationUrl');
+    if (!configured) {
+      throw new Error('AUTH_RECOVERY_CONTINUATION_URL is required.');
+    }
+    let url: URL;
+    try {
+      url = new URL(configured);
+    } catch {
+      throw new Error('AUTH_RECOVERY_CONTINUATION_URL must be a valid URL.');
+    }
+    if (
+      url.protocol !== 'https:' ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash ||
+      url.origin === 'null'
+    ) {
+      throw new Error(
+        'AUTH_RECOVERY_CONTINUATION_URL must be an HTTPS URL without credentials, query, or fragment.',
+      );
+    }
+    url.searchParams.set('challenge_id', challengeId);
+    return url.toString();
   }
 
   private getEncryptionKey(): Buffer {

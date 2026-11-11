@@ -21,6 +21,7 @@ import { GlobalExceptionFilter } from './global-exception.filter';
 interface IMockResponse {
   status: jest.Mock;
   json: jest.Mock;
+  setHeader: jest.Mock;
 }
 
 interface IMockRequest {
@@ -70,6 +71,7 @@ describe('GlobalExceptionFilter', () => {
     mockResponse = {
       status: jest.fn().mockReturnThis(),
       json: jest.fn().mockReturnThis(),
+      setHeader: jest.fn().mockReturnThis(),
     };
 
     mockArgumentsHost = {
@@ -141,6 +143,27 @@ describe('GlobalExceptionFilter', () => {
           status_code: 400,
           message: expect.arrayContaining(['Error 1', 'Error 2']),
           data: null,
+        }),
+      );
+    });
+
+    it('preserves stable machine codes and retry metadata', () => {
+      const exception = new HttpException(
+        {
+          message: 'Please wait before requesting another code.',
+          error_code: 'AUTH_CHALLENGE_COOLDOWN',
+          retry_after_seconds: 42,
+        },
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+
+      filter.catch(exception, mockArgumentsHost);
+
+      expect(mockResponse.setHeader).toHaveBeenCalledWith('Retry-After', '42');
+      expect(mockResponse.json).toHaveBeenCalledWith(
+        expect.objectContaining({
+          error_code: 'AUTH_CHALLENGE_COOLDOWN',
+          retry_after_seconds: 42,
         }),
       );
     });
