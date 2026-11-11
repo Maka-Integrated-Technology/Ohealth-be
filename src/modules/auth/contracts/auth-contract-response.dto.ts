@@ -4,7 +4,7 @@ import { ApiErrorResponseDto } from '../../../common/dto/response.dto';
 import { AuthChallengeErrorCode } from '../challenges/auth-challenge.error';
 
 export class AuthChallengeErrorResponseDto extends ApiErrorResponseDto {
-  @ApiProperty({ enum: AuthChallengeErrorCode })
+  @ApiProperty({ enum: AuthChallengeErrorCode, required: true })
   declare error_code: AuthChallengeErrorCode;
 
   @ApiPropertyOptional({ type: 'integer', minimum: 1, example: 42 })

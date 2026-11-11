@@ -9,16 +9,20 @@ Challenge creation and safe replacement return one continuation shape:
 
 ```json
 {
+  "status_code": 200,
   "message": "Verification code queued",
-  "challenge_id": "opaque-uuid",
-  "resend_after_seconds": 60,
-  "expires_in_seconds": 600
+  "data": {
+    "challenge_id": "opaque-uuid",
+    "resend_after_seconds": 60,
+    "expires_in_seconds": 600
+  }
 }
 ```
 
-Signup may additionally return a masked delivery target. The client stores the
-opaque handle only for the current flow. It never supplies a purpose; the route
-selects contact verification, login verification, or password recovery.
+Signup may additionally return a masked delivery target under `data`. The
+client stores the opaque handle only for the current flow. It never supplies a
+purpose; the route selects contact verification, login verification, or
+password recovery.
 
 Resend routes are challenge-bound:
 
@@ -68,3 +72,21 @@ Malformed, unknown, and wrong-purpose handles collapse to
 state. Persistence records lineage, replacement, replacement count, flow
 lifetime, and terminal reason. Raw codes remain HMAC-only in challenge storage
 and encrypted only in the short-lived delivery envelope.
+
+## Rollout order
+
+The resend request change from `email` to `challenge_id` is breaking. Production
+promotion remains blocked until migration issues or pull requests are linked for
+mobile, dashboard, and patient web, and an authorized maintainer applies the
+`api-breaking-change-approved` label.
+
+1. Each consumer first ships dual-contract support: retain the legacy email
+   request when no continuation handle was returned, and prefer `challenge_id`
+   when the response supplies one.
+2. Mobile adoption or a minimum-supported-version gate must make legacy-only
+   installed clients safe to retire before the backend removes email resend.
+3. Deploy this backend contract to staging, activate the consumer continuation
+   path there, and verify signup, login, resend, and recovery end to end.
+4. Promote the backend only after all three consumer migrations and staging
+   evidence are linked. Consumer support must be live before the production
+   backend stops accepting the legacy request.

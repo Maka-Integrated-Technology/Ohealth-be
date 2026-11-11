@@ -1,8 +1,10 @@
 import { HttpStatus, INestApplication, ValidationPipe } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import * as request from 'supertest';
 
 import { GlobalExceptionFilter } from '../src/common/exceptions/filters/global-exception.filter';
+import { TransformInterceptor } from '../src/common/interceptors/transform.interceptor';
 import { AuthController } from '../src/modules/auth/auth.controller';
 import { AuthService } from '../src/modules/auth/auth.service';
 import { AuthAbuseGuard } from '../src/modules/auth/challenges/auth-abuse.guard';
@@ -68,6 +70,7 @@ describe('Purpose-bound auth challenge HTTP contracts (isolated e2e)', () => {
         },
         { provide: AuthAbuseGuard, useValue: { canActivate: () => true } },
         { provide: JwtAuthGuard, useValue: { canActivate: () => false } },
+        { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
       ],
     }).compile();
     app = module.createNestApplication();
@@ -130,8 +133,8 @@ describe('Purpose-bound auth challenge HTTP contracts (isolated e2e)', () => {
         ...(organization ? { organization } : {}),
       })
       .expect(201);
-    expect(response.body).not.toHaveProperty('access_token');
-    expect(response.body).not.toHaveProperty('refresh_token');
+    expect(response.body.data).not.toHaveProperty('access_token');
+    expect(response.body.data).not.toHaveProperty('refresh_token');
     expect(service.signup).toHaveBeenCalledWith(
       expect.objectContaining({ intent }),
       '550e8400-e29b-41d4-a716-446655440000',
@@ -222,7 +225,19 @@ describe('Purpose-bound auth challenge HTTP contracts (isolated e2e)', () => {
       .send({ challenge_id: challengeId })
       .expect(200);
     expect(recovery.body.message).toBe(secureMessage);
-    expect(resend.body.challenge_id).toBe(challengeId);
+    expect(recovery.body).toMatchObject({
+      status_code: 202,
+      data: null,
+    });
+    expect(resend.body).toMatchObject({
+      status_code: 200,
+      message: 'Verification code queued',
+      data: {
+        challenge_id: challengeId,
+        resend_after_seconds: 60,
+        expires_in_seconds: 600,
+      },
+    });
     expect(
       JSON.stringify(recovery.body) + JSON.stringify(resend.body),
     ).not.toContain('123456');

@@ -4,7 +4,7 @@ import { env } from 'node:process';
 
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { APP_FILTER, APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { Test } from '@nestjs/testing';
@@ -18,6 +18,7 @@ import * as request from 'supertest';
 import { DataSource, QueryRunner } from 'typeorm';
 
 import { GlobalExceptionFilter } from '../../common/exceptions/filters/global-exception.filter';
+import { TransformInterceptor } from '../../common/interceptors/transform.interceptor';
 import { AccountAccessPolicyService } from '../../modules/auth/account-access-policy.service';
 import { AuthRoutingService } from '../../modules/auth/auth-routing.service';
 import { AuthController } from '../../modules/auth/auth.controller';
@@ -251,6 +252,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         JwtAuthGuard,
         { provide: APP_GUARD, useClass: JwtAuthGuard },
         { provide: APP_FILTER, useClass: GlobalExceptionFilter },
+        { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
         {
           provide: WINSTON_MODULE_NEST_PROVIDER,
           useValue: {
@@ -373,10 +375,10 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       .post('/api/auth/login')
       .send({ email: user.email, password })
       .expect(200);
-    expect(login.body.challenge_id).toMatch(/^[a-f0-9-]{36}$/i);
-    expect(login.body).not.toHaveProperty('access_token');
-    expect(login.body).not.toHaveProperty('refresh_token');
-    expect(login.body).not.toHaveProperty('session_id');
+    expect(login.body.data.challenge_id).toMatch(/^[a-f0-9-]{36}$/i);
+    expect(login.body.data).not.toHaveProperty('access_token');
+    expect(login.body.data).not.toHaveProperty('refresh_token');
+    expect(login.body.data).not.toHaveProperty('session_id');
 
     expect(await delivery.dispatchBatch(1)).toMatchObject({ accepted: 1 });
     const mailed = mail.mock.calls[0][0] as {
@@ -384,12 +386,12 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       templateData: { code: string; challenge_id: string };
     };
     expect(mailed.templateNameID).toBe('login-code.njk');
-    expect(mailed.templateData.challenge_id).toBe(login.body.challenge_id);
+    expect(mailed.templateData.challenge_id).toBe(login.body.data.challenge_id);
 
     await request(app.getHttpServer())
       .post('/api/auth/verify')
       .send({
-        challenge_id: login.body.challenge_id,
+        challenge_id: login.body.data.challenge_id,
         code: mailed.templateData.code,
       })
       .expect(400);
@@ -397,7 +399,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     const replies = await Promise.all(
       [app, secondApp].map((instance) =>
         request(instance.getHttpServer()).post('/api/auth/login/verify').send({
-          challenge_id: login.body.challenge_id,
+          challenge_id: login.body.data.challenge_id,
           code: mailed.templateData.code,
         }),
       ),
@@ -412,7 +414,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     await request(app.getHttpServer())
       .post('/api/auth/login/verify')
       .send({
-        challenge_id: login.body.challenge_id,
+        challenge_id: login.body.data.challenge_id,
         code: mailed.templateData.code,
       })
       .expect(400);
@@ -420,11 +422,11 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     await database.query(
       "UPDATE auth_challenges SET issued_at = now() - interval '61 seconds' " +
         'WHERE id = $1',
-      [login.body.challenge_id],
+      [login.body.data.challenge_id],
     );
     await request(app.getHttpServer())
       .post('/api/auth/login/resend')
-      .send({ challenge_id: login.body.challenge_id })
+      .send({ challenge_id: login.body.data.challenge_id })
       .expect(400);
     const postLoginChallenges: Array<{ count: number }> = await database.query(
       'SELECT count(*)::int AS count FROM auth_challenges ' +
@@ -466,7 +468,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
 
     const cooldown = await request(app.getHttpServer())
       .post('/api/auth/login/resend')
-      .send({ challenge_id: login.body.challenge_id })
+      .send({ challenge_id: login.body.data.challenge_id })
       .expect(429);
     expect(cooldown.body.error_code).toBe('AUTH_CHALLENGE_COOLDOWN');
     expect(cooldown.headers['retry-after']).toBeDefined();
@@ -474,13 +476,15 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     await database.query(
       "UPDATE auth_challenges SET issued_at = now() - interval '61 seconds' " +
         'WHERE id = $1',
-      [login.body.challenge_id],
+      [login.body.data.challenge_id],
     );
     const resent = await request(secondApp.getHttpServer())
       .post('/api/auth/login/resend')
-      .send({ challenge_id: login.body.challenge_id })
+      .send({ challenge_id: login.body.data.challenge_id })
       .expect(200);
-    expect(resent.body.challenge_id).not.toBe(login.body.challenge_id);
+    expect(resent.body.data.challenge_id).not.toBe(
+      login.body.data.challenge_id,
+    );
 
     const rows: Array<{ id: string; consumed_at: Date | null }> =
       await database.query(
@@ -490,10 +494,10 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       );
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({
-      id: login.body.challenge_id,
+      id: login.body.data.challenge_id,
       consumed_at: expect.any(Date),
     });
-    expect(rows[1]).toMatchObject({ id: resent.body.challenge_id });
+    expect(rows[1]).toMatchObject({ id: resent.body.data.challenge_id });
     expect(rows[1].consumed_at).toBeNull();
 
     const unknownId = randomUUID();
@@ -557,7 +561,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       .post('/api/auth/verify/resend')
       .send({ challenge_id: challenge.challengeId })
       .expect(200);
-    expect(response.body.challenge_id).not.toBe(challenge.challengeId);
+    expect(response.body.data.challenge_id).not.toBe(challenge.challengeId);
     await request(app.getHttpServer())
       .post('/api/auth/verify/resend')
       .send({ email: pending.email })
@@ -579,10 +583,10 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       .post('/api/auth/refresh')
       .send({ refresh_token: issued.refresh_token })
       .expect(200);
-    expect(rotated.body.session_id).toBe(issued.session_id);
+    expect(rotated.body.data.session_id).toBe(issued.session_id);
     await request(app.getHttpServer())
       .post('/api/auth/logout')
-      .set('Authorization', `Bearer ${rotated.body.access_token}`)
+      .set('Authorization', `Bearer ${rotated.body.data.access_token}`)
       .send({ session_id: issued.session_id })
       .expect(200);
     await request(secondApp.getHttpServer())
@@ -591,7 +595,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       .expect(401);
     await request(app.getHttpServer())
       .post('/api/auth/refresh')
-      .send({ refresh_token: rotated.body.refresh_token })
+      .send({ refresh_token: rotated.body.data.refresh_token })
       .expect(401);
   });
 
@@ -618,7 +622,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     expect([200, 401]).toContain(refresh.status);
     for (const accessToken of [
       issued.access_token,
-      refresh.body.access_token,
+      refresh.body.data?.access_token,
     ].filter(Boolean)) {
       await request(app.getHttpServer())
         .get('/api/auth/sessions')
@@ -627,7 +631,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     }
     for (const refreshToken of [
       issued.refresh_token,
-      refresh.body.refresh_token,
+      refresh.body.data?.refresh_token,
     ].filter(Boolean)) {
       await request(secondApp.getHttpServer())
         .post('/api/auth/refresh')
@@ -745,7 +749,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         accepted_privacy_version: 'privacy-v1',
       })
       .expect(201);
-    const challengeId = registered.body.challenge_id as string;
+    const challengeId = registered.body.data.challenge_id as string;
     expect(challengeId).toMatch(/^[a-f0-9-]{36}$/i);
     const before: Array<{
       account_status: string;
@@ -892,7 +896,9 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       ),
     );
     expect(retries.map((reply) => reply.status)).toEqual([201, 201]);
-    expect(retries[0].body.challenge_id).toBe(retries[1].body.challenge_id);
+    expect(retries[0].body.data.challenge_id).toBe(
+      retries[1].body.data.challenge_id,
+    );
   }, 30_000);
 
   it('fails a registration replay that races behind contact verification', async () => {
@@ -931,7 +937,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       const verification = request(secondApp.getHttpServer())
         .post('/api/auth/verify')
         .send({
-          challenge_id: registered.body.challenge_id,
+          challenge_id: registered.body.data.challenge_id,
           code: mailed.templateData.code,
         })
         .then((reply) => reply);
@@ -974,7 +980,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       `UPDATE auth_challenges
        SET issued_at = now() - interval '61 seconds'
        WHERE id = $1`,
-      [registered.body.challenge_id],
+      [registered.body.data.challenge_id],
     );
     const users: Array<{ id: string }> = await database.query(
       'SELECT id FROM users WHERE email = $1',
@@ -989,7 +995,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       ]);
       const resend = request(secondApp.getHttpServer())
         .post('/api/auth/verify/resend')
-        .send({ challenge_id: registered.body.challenge_id })
+        .send({ challenge_id: registered.body.data.challenge_id })
         .then((reply) => reply);
       await waitForLockWaiters(1);
       const replay = request(app.getHttpServer())
@@ -1008,8 +1014,8 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
          ORDER BY issued_at DESC LIMIT 1`,
         [users[0].id],
       );
-      expect(current[0].id).not.toBe(registered.body.challenge_id);
-      expect(retried.body.challenge_id).toBe(current[0].id);
+      expect(current[0].id).not.toBe(registered.body.data.challenge_id);
+      expect(retried.body.data.challenge_id).toBe(current[0].id);
     } finally {
       if (blocker.isTransactionActive) await blocker.rollbackTransaction();
       await blocker.release();
@@ -1080,7 +1086,9 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       ),
     );
     expect(replies.map((reply) => reply.status)).toEqual([200, 200]);
-    expect(replies[0].body.challenge_id).toBe(replies[1].body.challenge_id);
+    expect(replies[0].body.data.challenge_id).toBe(
+      replies[1].body.data.challenge_id,
+    );
     const rows: Array<{ id: string; consumed_at: Date | null }> =
       await database.query(
         'SELECT id, consumed_at FROM auth_challenges WHERE subject_user_id = $1',

@@ -1535,7 +1535,7 @@ export interface components {
        * @example AUTH_CHALLENGE_COOLDOWN
        * @enum {string}
        */
-      readonly error_code?: AuthChallengeErrorResponseDtoError_code;
+      readonly error_code: AuthChallengeErrorResponseDtoError_code;
       readonly message: string | readonly string[];
       /** @example POST */
       readonly method: string;
@@ -3305,7 +3305,7 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       /** @description Internal server error */
@@ -3322,7 +3322,7 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
     };
@@ -3355,7 +3355,7 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       readonly 429: {
@@ -3363,7 +3363,7 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       /** @description Internal server error */
@@ -3380,7 +3380,7 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
     };
@@ -3485,7 +3485,7 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       /** @description Internal server error */
@@ -3502,7 +3502,7 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
     };
@@ -3537,7 +3537,7 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       readonly 429: {
@@ -3545,7 +3545,7 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       /** @description Internal server error */
@@ -3562,7 +3562,7 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
     };
@@ -3597,7 +3597,7 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       /** @description Internal server error */
@@ -3871,7 +3871,7 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       /** @description Internal server error */
@@ -4076,7 +4076,7 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
     };
@@ -4110,7 +4110,7 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       /** @description Internal server error */
@@ -4152,7 +4152,7 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       readonly 429: {
@@ -4160,7 +4160,7 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       /** @description Internal server error */
@@ -4177,7 +4177,7 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
     };

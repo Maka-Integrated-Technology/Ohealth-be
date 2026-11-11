@@ -128,4 +128,53 @@ describe('assertOpenApiDocumentComplete', () => {
       'non-synthetic email domain',
     );
   });
+
+  it('requires challenge operations to retain their route-specific error schema', () => {
+    const document = createCompleteDocument();
+    const operation = document.paths['/api/items/{id}'].get;
+    operation.operationId = 'AuthController_signup';
+    operation.security = [];
+    operation.responses['503'] = {
+      description: 'Unavailable',
+      content: {
+        'application/json': {
+          schema: { $ref: '#/components/schemas/ApiErrorResponseDto' },
+        },
+      },
+    };
+    document.components.schemas.AuthChallengeErrorResponseDto = {
+      type: 'object',
+      required: ['status_code', 'message', 'data', 'error_code'],
+      properties: {
+        status_code: { type: 'integer' },
+        message: { type: 'string' },
+        data: { nullable: true },
+        error_code: {
+          type: 'string',
+          enum: [
+            'AUTH_CHALLENGE_INVALID',
+            'AUTH_CHALLENGE_CODE_INVALID',
+            'AUTH_CHALLENGE_EXPIRED',
+            'AUTH_CHALLENGE_CONSUMED',
+            'AUTH_CHALLENGE_SUPERSEDED',
+            'AUTH_CHALLENGE_ATTEMPTS_EXHAUSTED',
+            'AUTH_CHALLENGE_COOLDOWN',
+            'AUTH_CHALLENGE_DELIVERY_UNAVAILABLE',
+            'AUTH_SERVICE_TEMPORARILY_UNAVAILABLE',
+            'AUTH_RATE_LIMITED',
+          ],
+        },
+      },
+    };
+
+    expect(() => assertOpenApiDocumentComplete(document)).toThrow(
+      'response 503 must reference AuthChallengeErrorResponseDto',
+    );
+
+    const unavailable = operation.responses['503'] as ResponseObject;
+    unavailable.content['application/json'].schema = {
+      $ref: '#/components/schemas/AuthChallengeErrorResponseDto',
+    };
+    expect(() => assertOpenApiDocumentComplete(document)).not.toThrow();
+  });
 });

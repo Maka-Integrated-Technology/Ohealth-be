@@ -286,6 +286,7 @@
           "status_code",
           "message",
           "error",
+          "error_code",
           "data",
           "timestamp",
           "path",
@@ -4937,7 +4938,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
                 }
               }
             },
@@ -4957,7 +4958,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
                 }
               }
             },
@@ -5014,7 +5015,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
                 }
               }
             },
@@ -5024,7 +5025,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
                 }
               }
             },
@@ -5044,7 +5045,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
                 }
               }
             },
@@ -5198,7 +5199,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
                 }
               }
             },
@@ -5218,7 +5219,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
                 }
               }
             },
@@ -5275,7 +5276,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
                 }
               }
             },
@@ -5285,7 +5286,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
                 }
               }
             },
@@ -5305,7 +5306,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
                 }
               }
             },
@@ -5362,7 +5363,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
                 }
               }
             },
@@ -5779,7 +5780,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
                 }
               }
             },
@@ -6098,7 +6099,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
                 }
               }
             },
@@ -6155,7 +6156,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
                 }
               }
             },
@@ -6222,7 +6223,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
                 }
               }
             },
@@ -6232,7 +6233,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
                 }
               }
             },
@@ -6252,7 +6253,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
                 }
               }
             },
