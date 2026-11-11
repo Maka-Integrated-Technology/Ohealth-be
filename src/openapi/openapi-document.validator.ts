@@ -29,6 +29,7 @@ const PUBLIC_OPERATION_IDS = new Set([
   'AuthController_googleLogin',
   'AuthController_login',
   'AuthController_resendLogin',
+  'AuthController_getRegistrationBootstrap',
   'AuthController_refreshToken',
   'AuthController_resendVerification',
   'AuthController_resetPassword',

@@ -1442,6 +1442,13 @@
         ],
         "type": "object"
       },
+      "LegalDocumentType": {
+        "enum": [
+          "terms_of_service",
+          "privacy_policy"
+        ],
+        "type": "string"
+      },
       "LoginChallengeResponseDto": {
         "properties": {
           "challenge_id": {
@@ -3681,6 +3688,69 @@
         ],
         "type": "object"
       },
+      "RegistrationBootstrapDto": {
+        "properties": {
+          "intents": {
+            "items": {
+              "$ref": "#/components/schemas/RegistrationBootstrapIntentDto"
+            },
+            "type": "array"
+          },
+          "privacy": {
+            "$ref": "#/components/schemas/RegistrationBootstrapLegalDocumentDto"
+          },
+          "terms": {
+            "$ref": "#/components/schemas/RegistrationBootstrapLegalDocumentDto"
+          }
+        },
+        "required": [
+          "intents",
+          "terms",
+          "privacy"
+        ],
+        "type": "object"
+      },
+      "RegistrationBootstrapIntentDto": {
+        "properties": {
+          "intent": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SignupIntent"
+              }
+            ],
+            "description": "Closed self-service account type that determines persona or organization type."
+          },
+          "label": {
+            "example": "Patient",
+            "type": "string"
+          }
+        },
+        "required": [
+          "intent",
+          "label"
+        ],
+        "type": "object"
+      },
+      "RegistrationBootstrapLegalDocumentDto": {
+        "properties": {
+          "document_type": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LegalDocumentType"
+              }
+            ]
+          },
+          "version": {
+            "example": "2026-08-01",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document_type",
+          "version"
+        ],
+        "type": "object"
+      },
       "RegistrationPendingResponseDto": {
         "properties": {
           "challenge_id": {
@@ -5334,6 +5404,53 @@
           }
         },
         "summary": "Refresh access token using refresh token",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/registration/bootstrap": {
+      "get": {
+        "operationId": "AuthController_getRegistrationBootstrap",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/RegistrationBootstrapDto"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Get current self-service registration and legal-document metadata",
         "tags": [
           "Authentication"
         ]

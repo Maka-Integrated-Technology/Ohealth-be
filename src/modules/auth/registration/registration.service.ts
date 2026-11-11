@@ -25,12 +25,15 @@ import { AuthChallengeDeliveryService } from '../challenges/auth-challenge-deliv
 import { AuthChallengePurpose } from '../challenges/auth-challenge.entity';
 import { RegistrationPendingResponseDto } from '../contracts/auth-contract-response.dto';
 import { RegisterAccountDto } from '../contracts/register-account.dto';
+import { RegistrationBootstrapDto } from '../contracts/registration-bootstrap.dto';
+import { SignupIntent } from '../enums/signup-intent.enum';
 import { PasswordCredentialsService } from '../password-policy/password-credentials.service';
 import { AuthSecurityAuditService } from '../security-audit/auth-security-audit.service';
 import {
   AuthSecurityEventOutcome,
   AuthSecurityEventType,
 } from '../security-audit/auth-security-event.enum';
+import { SIGNUP_INTENT_DEFINITIONS } from '../signup-intent.policy';
 
 import {
   IRegistrationLegalVersions,
@@ -65,6 +68,25 @@ export class RegistrationService {
 
   assertConfigured(): void {
     this.registrationConfiguration();
+  }
+
+  /** Public metadata; never expose the registration retry HMAC pepper. */
+  getBootstrap(): RegistrationBootstrapDto {
+    const configuration = this.registrationConfiguration();
+    return {
+      intents: Object.values(SignupIntent).map((intent) => ({
+        intent,
+        label: SIGNUP_INTENT_DEFINITIONS[intent].label,
+      })),
+      terms: {
+        document_type: LegalDocumentType.TERMS_OF_SERVICE,
+        version: configuration.terms.trim(),
+      },
+      privacy: {
+        document_type: LegalDocumentType.PRIVACY_POLICY,
+        version: configuration.privacy.trim(),
+      },
+    };
   }
 
   async register(

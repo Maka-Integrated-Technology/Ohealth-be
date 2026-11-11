@@ -4,6 +4,7 @@ import { DataSource } from 'typeorm';
 
 import { LegalAcceptance } from '../../identity/entities/legal-acceptance.entity';
 import { UserPersona } from '../../identity/entities/user-persona.entity';
+import { LegalDocumentType } from '../../identity/enums/legal-document-type.enum';
 import { UserPersonaType } from '../../identity/enums/user-persona-type.enum';
 import { OrganizationMembership } from '../../organization/entities/organization-membership.entity';
 import { Organization } from '../../organization/entities/organization.entity';
@@ -105,6 +106,54 @@ describe('RegistrationService', () => {
       ...values,
       id: entity === User ? 'user-id' : 'organization-id',
     }));
+  });
+
+  it('serves only canonical intent labels and versioned legal identifiers', () => {
+    const result = service.getBootstrap();
+    expect(result).toEqual({
+      intents: Object.values(SignupIntent).map((intent) => ({
+        intent,
+        label: expect.any(String),
+      })),
+      terms: {
+        document_type: LegalDocumentType.TERMS_OF_SERVICE,
+        version: 'terms-v1',
+      },
+      privacy: {
+        document_type: LegalDocumentType.PRIVACY_POLICY,
+        version: 'privacy-v1',
+      },
+    });
+    expect(
+      result.intents.find((entry) => entry.intent === SignupIntent.PATIENT)
+        ?.label,
+    ).toBe('Patient');
+    expect(JSON.stringify(result)).not.toContain('idempotencyPepper');
+    expect(JSON.stringify(result)).not.toContain('pppppppp');
+    expect(dataSource.transaction).not.toHaveBeenCalled();
+    expect(delivery.queueInTransaction).not.toHaveBeenCalled();
+  });
+
+  it('reflects rotation without accepting old versions implicitly', async () => {
+    settings.set('registration.termsVersion', 'terms-v2');
+    try {
+      expect(service.getBootstrap().terms.version).toBe('terms-v2');
+      await expect(
+        service.register(base(SignupIntent.PATIENT)),
+      ).rejects.toThrow(BadRequestException);
+      expect(dataSource.transaction).not.toHaveBeenCalled();
+    } finally {
+      settings.set('registration.termsVersion', 'terms-v1');
+    }
+  });
+
+  it('does not disclose incomplete legal configuration', () => {
+    settings.set('registration.privacyVersion', '');
+    try {
+      expect(() => service.getBootstrap()).toThrow();
+    } finally {
+      settings.set('registration.privacyVersion', 'privacy-v1');
+    }
   });
 
   it.each([

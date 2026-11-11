@@ -27,6 +27,7 @@ import { AuthChallengeDeliveryService } from './challenges/auth-challenge-delive
 import { AuthChallengePurpose } from './challenges/auth-challenge.entity';
 import { SecureAuthChallengeFlowsService } from './challenges/secure-auth-challenge-flows.service';
 import {
+  RegistrationBootstrapDto,
   RegisterAccountDto,
   ResendAuthChallengeDto,
   VerifyAuthChallengeDto,
@@ -79,6 +80,10 @@ export class AuthService {
     );
     this.logger.info(sysMsg.ACCOUNT_CREATED);
     return response;
+  }
+
+  getRegistrationBootstrap(): RegistrationBootstrapDto {
+    return this.registration.getBootstrap();
   }
 
   async login(loginPayload: LoginDto) {
