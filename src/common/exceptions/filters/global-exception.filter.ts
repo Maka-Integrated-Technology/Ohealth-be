@@ -16,6 +16,8 @@ import { BaseException } from '../base-exception';
 interface IHttpExceptionResponse {
   message?: string | string[];
   error?: string | null;
+  error_code?: string;
+  retry_after_seconds?: number;
 }
 
 interface IValidationErrorResponse {
@@ -45,6 +47,8 @@ interface IErrorResponse {
   path: string;
   method: string;
   stack?: string;
+  error_code?: string;
+  retry_after_seconds?: number;
 }
 
 interface IRequestWithUser extends Request {
@@ -69,6 +73,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     let message: string | string[];
     let error: string | null = null;
     let stack: string | undefined;
+    let errorCode: string | undefined;
+    let retryAfterSeconds: number | undefined;
     const isDev = config().env !== 'production';
 
     // Handle HttpException and its subclasses (including BaseException)
@@ -85,6 +91,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         const responseObj = exceptionResponse as IHttpExceptionResponse;
         message = responseObj.message || 'An error occurred';
         error = responseObj.error || null;
+        errorCode = responseObj.error_code;
+        retryAfterSeconds = responseObj.retry_after_seconds;
       } else {
         message = 'An error occurred';
       }
@@ -181,6 +189,16 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       path: request.url,
       method: request.method,
     };
+
+    if (errorCode) errorResponse.error_code = errorCode;
+    if (
+      Number.isInteger(retryAfterSeconds) &&
+      retryAfterSeconds !== undefined &&
+      retryAfterSeconds > 0
+    ) {
+      errorResponse.retry_after_seconds = retryAfterSeconds;
+      response.setHeader('Retry-After', String(retryAfterSeconds));
+    }
 
     // Only include stack trace in development
     if (isDev && stack) {

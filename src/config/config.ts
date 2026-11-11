@@ -68,6 +68,10 @@ export default () => ({
     idempotencyPepper: process.env.REGISTRATION_IDEMPOTENCY_PEPPER,
   },
 
+  auth: {
+    recoveryContinuationUrl: process.env.AUTH_RECOVERY_CONTINUATION_URL,
+  },
+
   storage: {
     aws: {
       region: process.env.AWS_REGION,

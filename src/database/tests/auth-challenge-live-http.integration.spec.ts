@@ -41,6 +41,7 @@ import { AuthChallengeWorkerHeartbeat1793007000000 } from '../migrations/1793007
 import { CanonicalRefreshSessions1793400000000 } from '../migrations/1793400000000-CanonicalRefreshSessions';
 import { LoginVerificationChallenges1793500000000 } from '../migrations/1793500000000-LoginVerificationChallenges';
 import { TransactionalIntentRegistration1793600000000 } from '../migrations/1793600000000-TransactionalIntentRegistration';
+import { AuthChallengeContinuation1793700000000 } from '../migrations/1793700000000-AuthChallengeContinuation';
 
 // This suite deliberately uses the production controller, AuthService, abuse
 // guard, limit, challenge, delivery and audit services against real PostgreSQL.
@@ -170,6 +171,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       await new AuthChallengeWorkerHeartbeat1793007000000().up(runner);
       await new LoginVerificationChallenges1793500000000().up(runner);
       await new TransactionalIntentRegistration1793600000000().up(runner);
+      await new AuthChallengeContinuation1793700000000().up(runner);
     } finally {
       await runner.release();
     }

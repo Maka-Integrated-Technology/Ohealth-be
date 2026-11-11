@@ -13,6 +13,7 @@ import { AuthChallengeFoundation1793000000000 } from '../migrations/179300000000
 import { DurableAuthChallengeDelivery1793005000000 } from '../migrations/1793005000000-DurableAuthChallengeDelivery';
 import { LeasedAuthChallengeDelivery1793006000000 } from '../migrations/1793006000000-LeasedAuthChallengeDelivery';
 import { AuthChallengeWorkerHeartbeat1793007000000 } from '../migrations/1793007000000-AuthChallengeWorkerHeartbeat';
+import { AuthChallengeContinuation1793700000000 } from '../migrations/1793700000000-AuthChallengeContinuation';
 
 const integration = env.PG_INTEGRATION_URL ? describe : describe.skip;
 
@@ -52,6 +53,7 @@ integration('Delivery leases across independent PostgreSQL connections', () => {
       await new DurableAuthChallengeDelivery1793005000000().up(runner);
       await new LeasedAuthChallengeDelivery1793006000000().up(runner);
       await new AuthChallengeWorkerHeartbeat1793007000000().up(runner);
+      await new AuthChallengeContinuation1793700000000().up(runner);
     } finally {
       await runner.release();
     }
