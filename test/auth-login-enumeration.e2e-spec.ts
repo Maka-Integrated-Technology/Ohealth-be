@@ -82,7 +82,7 @@ describe('Credential enumeration resistance (isolated HTTP e2e)', () => {
             requestLogin: jest.fn(async (user: User) => {
               new AccountAccessPolicyService().assertCanAuthenticate(user);
               return {
-                message: 'Login verification queued',
+                message: 'Verification code queued',
                 challenge_id: 'f64031c5-70e4-4b37-a92c-f193e59a6621',
                 resend_after_seconds: 60,
                 expires_in_seconds: 600,

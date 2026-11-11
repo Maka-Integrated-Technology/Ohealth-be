@@ -3,13 +3,16 @@ import { BlockList, isIP } from 'node:net';
 import {
   CanActivate,
   ExecutionContext,
-  HttpException,
   HttpStatus,
   Injectable,
   Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import {
+  AuthChallengeErrorCode,
+  AuthChallengeException,
+} from './auth-challenge.error';
 import { AuthRateLimitService } from './auth-rate-limit.service';
 
 interface IAuthAbuseRequest {
@@ -28,6 +31,7 @@ const POLICY = new Map<string, { ip: number; subject: number }>([
   ['/auth/verify', { ip: 20, subject: 8 }],
   ['/auth/verify/resend', { ip: 8, subject: 4 }],
   ['/auth/forgot-password', { ip: 8, subject: 4 }],
+  ['/auth/forgot-password/resend', { ip: 8, subject: 4 }],
   ['/auth/reset-password', { ip: 8, subject: 5 }],
 ]);
 
@@ -127,12 +131,10 @@ export class AuthAbuseGuard implements CanActivate {
   ): Promise<void> {
     const result = await this.rates.consume(scope, key, limit, 60);
     if (!result.allowed) {
-      throw new HttpException(
-        {
-          message: 'Too many requests. Try again later.',
-          retryAfter: result.retryAfterSeconds,
-        },
+      throw new AuthChallengeException(
+        AuthChallengeErrorCode.RATE_LIMITED,
         HttpStatus.TOO_MANY_REQUESTS,
+        result.retryAfterSeconds,
       );
     }
   }

@@ -38,6 +38,19 @@ export class ApiErrorResponseDto {
   @ApiProperty({ example: 'Bad Request', nullable: true, type: String })
   error: string | null;
 
+  @ApiPropertyOptional({
+    example: 'AUTH_CHALLENGE_COOLDOWN',
+    description: 'Stable machine-readable error code when defined',
+  })
+  error_code?: string;
+
+  @ApiPropertyOptional({
+    type: 'integer',
+    example: 42,
+    description: 'Bounded retry delay for retryable failures',
+  })
+  retry_after_seconds?: number;
+
   @ApiProperty({ example: null, nullable: true, type: Object })
   data: null;
 

@@ -15,7 +15,7 @@ export class VerifyAuthChallengeDto {
 export class ResendAuthChallengeDto {
   @ApiProperty({
     format: 'uuid',
-    description: 'Opaque login challenge ID returned after password proof',
+    description: 'Opaque challenge ID returned by the current auth flow',
   })
   @IsUUID()
   challenge_id: string;

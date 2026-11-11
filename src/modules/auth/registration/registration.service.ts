@@ -4,6 +4,8 @@ import { isIP } from 'node:net';
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
+  HttpStatus,
   Injectable,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -23,6 +25,10 @@ import { User } from '../../user/entities/user.entity';
 import { AccountStatus } from '../../user/enums/account-status.enum';
 import { AuthChallengeDeliveryService } from '../challenges/auth-challenge-delivery.service';
 import { AuthChallengePurpose } from '../challenges/auth-challenge.entity';
+import {
+  AuthChallengeErrorCode,
+  AuthChallengeException,
+} from '../challenges/auth-challenge.error';
 import { RegistrationPendingResponseDto } from '../contracts/auth-contract-response.dto';
 import { RegisterAccountDto } from '../contracts/register-account.dto';
 import { RegistrationBootstrapDto } from '../contracts/registration-bootstrap.dto';
@@ -105,7 +111,16 @@ export class RegistrationService {
         )
       : null;
 
-    await this.delivery.assertLiveFlowReady();
+    try {
+      await this.delivery.assertLiveFlowReady();
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      throw new AuthChallengeException(
+        AuthChallengeErrorCode.SERVICE_TEMPORARILY_UNAVAILABLE,
+        HttpStatus.SERVICE_UNAVAILABLE,
+        30,
+      );
+    }
     const hashedPassword = await this.passwords.hashNewPassword(dto.password);
     try {
       return await this.dataSource.transaction(async (manager) => {
@@ -256,11 +271,25 @@ export class RegistrationService {
           },
         ]);
 
-        const challenge = await this.delivery.queueInTransaction(
-          manager,
-          user,
-          AuthChallengePurpose.CONTACT_VERIFICATION,
-        );
+        let challenge: {
+          challengeId: string;
+          resendAfterSeconds: number;
+          expiresInSeconds: number;
+        };
+        try {
+          challenge = await this.delivery.queueInTransaction(
+            manager,
+            user,
+            AuthChallengePurpose.CONTACT_VERIFICATION,
+          );
+        } catch (error) {
+          if (error instanceof HttpException) throw error;
+          throw new AuthChallengeException(
+            AuthChallengeErrorCode.DELIVERY_UNAVAILABLE,
+            HttpStatus.SERVICE_UNAVAILABLE,
+            30,
+          );
+        }
         await this.audit.recordInTransaction(manager, {
           event_type: AuthSecurityEventType.REGISTRATION,
           outcome: AuthSecurityEventOutcome.SUCCEEDED,
@@ -275,7 +304,7 @@ export class RegistrationService {
           );
         }
         return {
-          message: 'Verification queued',
+          message: 'Verification code queued',
           challenge_id: challenge.challengeId,
           delivery_target: maskRegistrationEmail(input.email),
           resend_after_seconds: challenge.resendAfterSeconds,
@@ -315,7 +344,7 @@ export class RegistrationService {
     }
     const now = Date.now();
     return {
-      message: 'Verification queued',
+      message: 'Verification code queued',
       challenge_id: previous.challenge_id,
       delivery_target: maskRegistrationEmail(previous.email),
       resend_after_seconds: Math.max(

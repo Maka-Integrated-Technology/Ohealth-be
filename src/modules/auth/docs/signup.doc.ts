@@ -5,10 +5,14 @@ import {
   ApiCreatedResponse,
   ApiHeader,
   ApiOperation,
+  ApiServiceUnavailableResponse,
 } from '@nestjs/swagger';
 
 import * as sysMsg from '../../../constants/system.messages';
-import { RegistrationPendingResponseDto } from '../contracts';
+import {
+  AuthChallengeErrorResponseDto,
+  RegistrationPendingResponseDto,
+} from '../contracts';
 
 export const SignupDocs = () =>
   applyDecorators(
@@ -29,4 +33,5 @@ export const SignupDocs = () =>
     ApiBadRequestResponse({
       description: sysMsg.VALIDATION_ERROR,
     }),
+    ApiServiceUnavailableResponse({ type: AuthChallengeErrorResponseDto }),
   );

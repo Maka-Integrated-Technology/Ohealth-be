@@ -1,11 +1,16 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { HttpStatus, INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import * as request from 'supertest';
 
+import { GlobalExceptionFilter } from '../src/common/exceptions/filters/global-exception.filter';
 import { AuthController } from '../src/modules/auth/auth.controller';
 import { AuthService } from '../src/modules/auth/auth.service';
 import { AuthAbuseGuard } from '../src/modules/auth/challenges/auth-abuse.guard';
 import { AuthRateLimitService } from '../src/modules/auth/challenges/auth-rate-limit.service';
+import {
+  AuthChallengeErrorCode,
+  AuthChallengeException,
+} from '../src/modules/auth/challenges/auth-challenge.error';
 import { SignupIntent } from '../src/modules/auth/enums/signup-intent.enum';
 import { JwtAuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
 
@@ -16,19 +21,30 @@ describe('Purpose-bound auth challenge HTTP contracts (isolated e2e)', () => {
   const challengeId = 'f64031c5-70e4-4b37-a92c-f193e59a6621';
   const service = {
     signup: jest.fn().mockResolvedValue({
-      message: 'Verification queued',
+      message: 'Verification code queued',
       challenge_id: challengeId,
       delivery_target: 'a***@example.test',
       resend_after_seconds: 60,
       expires_in_seconds: 600,
     }),
     verifySignup: jest.fn().mockResolvedValue({ message: 'verified' }),
-    resendVerification: jest.fn().mockResolvedValue({ message: secureMessage }),
+    resendVerification: jest.fn().mockResolvedValue({
+      message: 'Verification code queued',
+      challenge_id: challengeId,
+      resend_after_seconds: 60,
+      expires_in_seconds: 600,
+    }),
     forgotPassword: jest.fn().mockResolvedValue({ message: secureMessage }),
+    resendRecovery: jest.fn().mockResolvedValue({
+      message: 'Verification code queued',
+      challenge_id: challengeId,
+      resend_after_seconds: 60,
+      expires_in_seconds: 600,
+    }),
     resetPassword: jest.fn().mockResolvedValue({ message: 'password changed' }),
     verifyLogin: jest.fn().mockResolvedValue({ access_token: 'access-token' }),
     resendLogin: jest.fn().mockResolvedValue({
-      message: 'Login verification queued',
+      message: 'Verification code queued',
       challenge_id: challengeId,
       resend_after_seconds: 60,
       expires_in_seconds: 600,
@@ -56,6 +72,15 @@ describe('Purpose-bound auth challenge HTTP contracts (isolated e2e)', () => {
     }).compile();
     app = module.createNestApplication();
     app.setGlobalPrefix('api');
+    app.useGlobalFilters(
+      new GlobalExceptionFilter({
+        log: jest.fn(),
+        error: jest.fn(),
+        warn: jest.fn(),
+        debug: jest.fn(),
+        verbose: jest.fn(),
+      }),
+    );
     app.useGlobalPipes(
       new ValidationPipe({
         whitelist: true,
@@ -187,20 +212,31 @@ describe('Purpose-bound auth challenge HTTP contracts (isolated e2e)', () => {
     expect(service.resetPassword).not.toHaveBeenCalled();
   });
 
-  it('returns the same generic recovery and resend message without a secret', async () => {
+  it('keeps email recovery generic and resends only by opaque handle', async () => {
     const recovery = await request(app.getHttpServer())
       .post('/api/auth/forgot-password')
       .send({ email: 'unknown@example.test' })
-      .expect(201);
+      .expect(202);
     const resend = await request(app.getHttpServer())
       .post('/api/auth/verify/resend')
-      .send({ email: 'unknown@example.test' })
+      .send({ challenge_id: challengeId })
       .expect(200);
     expect(recovery.body.message).toBe(secureMessage);
-    expect(resend.body.message).toBe(secureMessage);
+    expect(resend.body.challenge_id).toBe(challengeId);
     expect(
       JSON.stringify(recovery.body) + JSON.stringify(resend.body),
     ).not.toContain('123456');
+    await request(app.getHttpServer())
+      .post('/api/auth/verify/resend')
+      .send({ email: 'unknown@example.test' })
+      .expect(400);
+    await request(app.getHttpServer())
+      .post('/api/auth/forgot-password/resend')
+      .send({ challenge_id: challengeId })
+      .expect(200);
+    expect(service.resendRecovery).toHaveBeenCalledWith({
+      challenge_id: challengeId,
+    });
   });
 
   it('accepts only a UUID and six-digit code at login completion', async () => {
@@ -258,5 +294,24 @@ describe('Purpose-bound auth challenge HTTP contracts (isolated e2e)', () => {
       .send({ email: 'patient@example.test' })
       .expect(400);
     expect(service.resendLogin).toHaveBeenCalledTimes(1);
+  });
+
+  it('preserves machine-readable cooldown metadata and Retry-After', async () => {
+    service.resendLogin.mockRejectedValueOnce(
+      new AuthChallengeException(
+        AuthChallengeErrorCode.COOLDOWN,
+        HttpStatus.TOO_MANY_REQUESTS,
+        42,
+      ),
+    );
+    const response = await request(app.getHttpServer())
+      .post('/api/auth/login/resend')
+      .send({ challenge_id: challengeId })
+      .expect(429);
+    expect(response.headers['retry-after']).toBe('42');
+    expect(response.body).toMatchObject({
+      error_code: 'AUTH_CHALLENGE_COOLDOWN',
+      retry_after_seconds: 42,
+    });
   });
 });

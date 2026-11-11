@@ -1,12 +1,19 @@
 import { applyDecorators } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
+  ApiAcceptedResponse,
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiServiceUnavailableResponse,
+  ApiTooManyRequestsResponse,
 } from '@nestjs/swagger';
 
 import { ApiMessageResponseDto } from '../../../common/dto/response.dto';
+import {
+  AuthChallengeContinuationDto,
+  AuthChallengeErrorResponseDto,
+} from '../contracts';
 import { VerifySignupResponseDto } from '../dto/auth-response.dto';
 
 export const ForgotPasswordDocs = () =>
@@ -15,8 +22,10 @@ export const ForgotPasswordDocs = () =>
       summary:
         'Queue a purpose-bound password-recovery challenge (generic response)',
     }),
-    ApiCreatedResponse({ type: ApiMessageResponseDto }),
+    ApiAcceptedResponse({ type: ApiMessageResponseDto }),
     ApiBadRequestResponse({ description: 'Email validation failed' }),
+    ApiTooManyRequestsResponse({ type: AuthChallengeErrorResponseDto }),
+    ApiServiceUnavailableResponse({ type: AuthChallengeErrorResponseDto }),
   );
 
 export const ResetPasswordDocs = () =>
@@ -25,7 +34,10 @@ export const ResetPasswordDocs = () =>
       summary: 'Complete password recovery with challenge ID and code',
     }),
     ApiCreatedResponse({ type: ApiMessageResponseDto }),
-    ApiBadRequestResponse({ description: 'Reset code is invalid or expired' }),
+    ApiBadRequestResponse({
+      description: 'Reset code is invalid or expired',
+      type: AuthChallengeErrorResponseDto,
+    }),
   );
 
 export const VerifySignupDocs = () =>
@@ -36,13 +48,17 @@ export const VerifySignupDocs = () =>
     ApiOkResponse({ type: VerifySignupResponseDto }),
     ApiBadRequestResponse({
       description: 'Verification code is invalid or expired',
+      type: AuthChallengeErrorResponseDto,
     }),
   );
 
 export const ResendVerificationDocs = () =>
   applyDecorators(
     ApiOperation({
-      summary: 'Queue a new verification challenge for an eligible account',
+      summary: 'Replace a purpose-bound challenge using its opaque handle',
     }),
-    ApiOkResponse({ type: ApiMessageResponseDto }),
+    ApiOkResponse({ type: AuthChallengeContinuationDto }),
+    ApiBadRequestResponse({ type: AuthChallengeErrorResponseDto }),
+    ApiTooManyRequestsResponse({ type: AuthChallengeErrorResponseDto }),
+    ApiServiceUnavailableResponse({ type: AuthChallengeErrorResponseDto }),
   );
