@@ -93,7 +93,8 @@ describe('AuthService', () => {
     requestRecovery: jest.fn(),
     completeRecovery: jest.fn(),
     verifyContact: jest.fn(),
-    resend: jest.fn(),
+    resendContact: jest.fn(),
+    resendRecovery: jest.fn(),
     requestLogin: jest.fn(),
     verifyLogin: jest.fn(),
     resendLogin: jest.fn(),
@@ -184,7 +185,7 @@ describe('AuthService', () => {
     service = module.get<AuthService>(AuthService);
     jest.clearAllMocks();
     mockRegistration.register.mockResolvedValue({
-      message: 'Verification queued',
+      message: 'Verification code queued',
       challenge_id: 'f64031c5-70e4-4b37-a92c-f193e59a6621',
       delivery_target: 't***@example.com',
       resend_after_seconds: 60,
@@ -194,7 +195,7 @@ describe('AuthService', () => {
       message:
         'If this account is eligible, a verification message has been queued.',
     });
-    mockChallengeFlows.resend.mockResolvedValue({
+    mockChallengeFlows.resendContact.mockResolvedValue({
       message:
         'If this account is eligible, a verification message has been queued.',
     });
@@ -205,7 +206,7 @@ describe('AuthService', () => {
       session_expires_at: new Date('2026-07-11T16:16:13.000Z'),
     });
     mockChallengeFlows.requestLogin.mockResolvedValue({
-      message: 'Login verification queued',
+      message: 'Verification code queued',
       challenge_id: 'f64031c5-70e4-4b37-a92c-f193e59a6621',
       resend_after_seconds: 60,
       expires_in_seconds: 600,
@@ -237,7 +238,7 @@ describe('AuthService', () => {
         userAgent: 'test-agent',
       });
 
-      expect(result.message).toBe('Verification queued');
+      expect(result.message).toBe('Verification code queued');
       expect(result).not.toHaveProperty('access_token');
       expect(result).not.toHaveProperty('refresh_token');
       expect(result).not.toHaveProperty('session_id');
@@ -365,7 +366,7 @@ describe('AuthService', () => {
       });
 
       expect(result).toEqual({
-        message: 'Login verification queued',
+        message: 'Verification code queued',
         challenge_id: 'f64031c5-70e4-4b37-a92c-f193e59a6621',
         resend_after_seconds: 60,
         expires_in_seconds: 600,
@@ -667,13 +668,14 @@ describe('AuthService', () => {
   });
 
   describe('resendVerification', () => {
-    it('delegates to the secure challenge flow for pending or unknown accounts', async () => {
+    it('delegates with the opaque continuation handle', async () => {
+      const challengeId = 'f64031c5-70e4-4b37-a92c-f193e59a6621';
       const result = await service.resendVerification({
-        email: 'tunde@example.com',
+        challenge_id: challengeId,
       });
       expect(result.message).toContain('queued');
-      expect(mockChallengeFlows.resend).toHaveBeenCalledWith(
-        'tunde@example.com',
+      expect(mockChallengeFlows.resendContact).toHaveBeenCalledWith(
+        challengeId,
       );
       expect(
         mockUserService.rotateVerificationChallenge,

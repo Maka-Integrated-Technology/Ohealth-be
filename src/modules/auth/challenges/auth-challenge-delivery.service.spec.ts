@@ -38,6 +38,9 @@ describe('leased and encrypted authentication delivery', () => {
       if (name === 'mail.from.address') return 'no-reply@ohealth.test';
       if (name === 'mail.from.name') return 'OHealth';
       if (name === 'app.name') return 'OHealth';
+      if (name === 'auth.recoveryContinuationUrl') {
+        return 'https://app.ohealth.test/reset-password';
+      }
       return undefined;
     }),
   };
@@ -103,6 +106,9 @@ describe('leased and encrypted authentication delivery', () => {
       if (name === 'mail.from.address') return 'no-reply@ohealth.test';
       if (name === 'mail.from.name') return 'OHealth';
       if (name === 'app.name') return 'OHealth';
+      if (name === 'auth.recoveryContinuationUrl') {
+        return 'https://app.ohealth.test/reset-password';
+      }
       return undefined;
     });
   });
@@ -130,6 +136,9 @@ describe('leased and encrypted authentication delivery', () => {
     config.get.mockImplementation((name: string) => {
       if (name === 'AUTH_CHALLENGE_DELIVERY_KEY') return key;
       if (name === 'AUTH_CHALLENGE_FLOWS_ENABLED') return 'true';
+      if (name === 'auth.recoveryContinuationUrl') {
+        return 'https://app.ohealth.test/reset-password';
+      }
       return undefined;
     });
     manager.query.mockResolvedValue([{ id: 'delivery' }]);
@@ -145,6 +154,9 @@ describe('leased and encrypted authentication delivery', () => {
     config.get.mockImplementation((name: string) => {
       if (name === 'AUTH_CHALLENGE_DELIVERY_KEY') return key;
       if (name === 'AUTH_CHALLENGE_FLOWS_ENABLED') return 'true';
+      if (name === 'auth.recoveryContinuationUrl') {
+        return 'https://app.ohealth.test/reset-password';
+      }
       return undefined;
     });
     manager.query.mockResolvedValue([]);
@@ -221,6 +233,37 @@ describe('leased and encrypted authentication delivery', () => {
       expect.objectContaining({
         subject_user_id: user.id,
       }),
+    );
+  });
+
+  it('builds recovery continuation from the configured HTTPS URL with only the opaque handle', async () => {
+    const row = await encryptedRow({}, AuthChallengePurpose.PASSWORD_RECOVERY);
+    prepareClaim(row);
+
+    expect(await service.dispatchBatch(1)).toMatchObject({ accepted: 1 });
+    expect(sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        templateData: expect.objectContaining({
+          reset_url:
+            'https://app.ohealth.test/reset-password?challenge_id=' +
+            challengeId,
+        }),
+      }),
+    );
+    const resetUrl = sendMail.mock.calls[0][0].templateData.reset_url as string;
+    expect(resetUrl).not.toContain('001234');
+  });
+
+  it('rejects an injectable recovery continuation URL at configuration time', () => {
+    config.get.mockImplementation((name: string) => {
+      if (name === 'AUTH_CHALLENGE_DELIVERY_KEY') return key;
+      if (name === 'auth.recoveryContinuationUrl') {
+        return 'https://attacker.test/reset?next=https://ohealth.test';
+      }
+      return undefined;
+    });
+    expect(() => service.assertConfigured()).toThrow(
+      'without credentials, query, or fragment',
     );
   });
 

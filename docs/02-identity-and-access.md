@@ -71,10 +71,13 @@ challenges. A challenge contains or resolves:
 challengeId
 userId
 purpose
+lineageId
+replacementChallengeId
 codeHmac
 attemptCount
 maximumAttempts
 expiresAt
+flowExpiresAt
 deliveryTargetHash
 ```
 
@@ -86,8 +89,17 @@ Rules:
 - Increment attempts and consume a successful challenge atomically.
 - Expire challenges after a short period.
 - Invalidate an older challenge when a replacement is issued.
+- Return the authoritative replacement when an old handle is retried after a
+  lost response; concurrent resends create at most one replacement.
+- Record successful use, supersession, attempt exhaustion, and administrative
+  revocation as distinct terminal reasons.
 - Rate-limit by IP, normalized identity, challenge, and delivery destination.
 - Return generic responses for unknown accounts.
+
+Public resend is challenge-bound and purpose-bound by its route. Initial
+email-based recovery remains generic and returns no handle. Stable error codes,
+retry metadata, and the trusted recovery-link contract are documented in
+`auth-challenge-continuation.md`.
 
 Raw codes and reset tokens must not enter PostgreSQL, logs, outbox events, failed
 jobs, or analytics.

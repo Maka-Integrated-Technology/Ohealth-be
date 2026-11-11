@@ -155,7 +155,7 @@ describe('AuthController', () => {
       access_token: 'access-token',
     });
     mockAuthService.resendLogin.mockResolvedValue({
-      message: 'Login verification queued',
+      message: 'Verification code queued',
     });
 
     await controller.verifyLogin(verification);
@@ -166,7 +166,9 @@ describe('AuthController', () => {
   });
 
   it('should call resendVerification on auth service', async () => {
-    const payload = { email: 'user@example.com' };
+    const payload = {
+      challenge_id: 'f64031c5-70e4-4b37-a92c-f193e59a6621',
+    };
     const expected = { message: sysMsg.VERIFICATION_CODE_SENT };
     mockAuthService.resendVerification.mockResolvedValue(expected);
 

@@ -37,7 +37,6 @@ import {
   ForgotPasswordDto,
   LogoutDto,
   RefreshTokenDto,
-  ResendVerificationDto,
   ResetPasswordDto,
   UpdateProfileDto,
   VerifySignupDto,
@@ -220,10 +219,12 @@ export class AuthService {
     );
   }
 
-  async resendVerification(
-    payload: ResendVerificationDto,
-  ): Promise<{ message: string }> {
-    return this.challengeFlows.resend(payload.email);
+  async resendVerification(payload: ResendAuthChallengeDto) {
+    return this.challengeFlows.resendContact(payload.challenge_id);
+  }
+
+  resendRecovery(payload: ResendAuthChallengeDto) {
+    return this.challengeFlows.resendRecovery(payload.challenge_id);
   }
 
   async getProfile(req: IRequestWithUser) {

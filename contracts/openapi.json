@@ -62,6 +62,11 @@
             "nullable": true,
             "type": "string"
           },
+          "error_code": {
+            "description": "Stable machine-readable error code when defined",
+            "example": "AUTH_CHALLENGE_COOLDOWN",
+            "type": "string"
+          },
           "message": {
             "oneOf": [
               {
@@ -86,6 +91,11 @@
           "path": {
             "example": "/api/auth/login",
             "type": "string"
+          },
+          "retry_after_seconds": {
+            "description": "Bounded retry delay for retryable failures",
+            "example": 42,
+            "type": "integer"
           },
           "stack": {
             "description": "Development environments only",
@@ -146,6 +156,140 @@
           "status_code",
           "message",
           "data"
+        ],
+        "type": "object"
+      },
+      "AuthChallengeContinuationDto": {
+        "properties": {
+          "challenge_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "expires_in_seconds": {
+            "example": 600,
+            "type": "number"
+          },
+          "message": {
+            "example": "Verification code queued",
+            "type": "string"
+          },
+          "resend_after_seconds": {
+            "example": 60,
+            "type": "number"
+          }
+        },
+        "required": [
+          "message",
+          "challenge_id",
+          "resend_after_seconds",
+          "expires_in_seconds"
+        ],
+        "type": "object"
+      },
+      "AuthChallengeContinuationDtoData": {
+        "properties": {
+          "challenge_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "expires_in_seconds": {
+            "example": 600,
+            "type": "number"
+          },
+          "resend_after_seconds": {
+            "example": 60,
+            "type": "number"
+          }
+        },
+        "required": [
+          "challenge_id",
+          "resend_after_seconds",
+          "expires_in_seconds"
+        ],
+        "type": "object"
+      },
+      "AuthChallengeErrorResponseDto": {
+        "properties": {
+          "data": {
+            "example": null,
+            "nullable": true,
+            "type": "object"
+          },
+          "error": {
+            "example": "Bad Request",
+            "nullable": true,
+            "type": "string"
+          },
+          "error_code": {
+            "description": "Stable machine-readable error code when defined",
+            "enum": [
+              "AUTH_CHALLENGE_INVALID",
+              "AUTH_CHALLENGE_CODE_INVALID",
+              "AUTH_CHALLENGE_EXPIRED",
+              "AUTH_CHALLENGE_CONSUMED",
+              "AUTH_CHALLENGE_SUPERSEDED",
+              "AUTH_CHALLENGE_ATTEMPTS_EXHAUSTED",
+              "AUTH_CHALLENGE_COOLDOWN",
+              "AUTH_CHALLENGE_DELIVERY_UNAVAILABLE",
+              "AUTH_SERVICE_TEMPORARILY_UNAVAILABLE",
+              "AUTH_RATE_LIMITED"
+            ],
+            "example": "AUTH_CHALLENGE_COOLDOWN",
+            "type": "string"
+          },
+          "message": {
+            "oneOf": [
+              {
+                "example": "Validation failed",
+                "type": "string"
+              },
+              {
+                "example": [
+                  "email must be an email"
+                ],
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ]
+          },
+          "method": {
+            "example": "POST",
+            "type": "string"
+          },
+          "path": {
+            "example": "/api/auth/login",
+            "type": "string"
+          },
+          "retry_after_seconds": {
+            "description": "Bounded retry delay for retryable failures",
+            "example": 42,
+            "minimum": 1,
+            "type": "integer"
+          },
+          "stack": {
+            "description": "Development environments only",
+            "type": "string"
+          },
+          "status_code": {
+            "example": 400,
+            "type": "integer"
+          },
+          "timestamp": {
+            "example": "2026-01-15T10:30:00.000Z",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status_code",
+          "message",
+          "error",
+          "data",
+          "timestamp",
+          "path",
+          "method"
         ],
         "type": "object"
       },
@@ -1460,7 +1604,7 @@
             "type": "number"
           },
           "message": {
-            "example": "Login verification queued",
+            "example": "Verification code queued",
             "type": "string"
           },
           "resend_after_seconds": {
@@ -3766,7 +3910,7 @@
             "type": "number"
           },
           "message": {
-            "example": "Verification code sent",
+            "example": "Verification code queued",
             "type": "string"
           },
           "resend_after_seconds": {
@@ -3777,9 +3921,9 @@
         "required": [
           "message",
           "challenge_id",
-          "delivery_target",
           "resend_after_seconds",
-          "expires_in_seconds"
+          "expires_in_seconds",
+          "delivery_target"
         ],
         "type": "object"
       },
@@ -3804,9 +3948,9 @@
         },
         "required": [
           "challenge_id",
-          "delivery_target",
           "resend_after_seconds",
-          "expires_in_seconds"
+          "expires_in_seconds",
+          "delivery_target"
         ],
         "type": "object"
       },
@@ -3849,26 +3993,13 @@
       "ResendAuthChallengeDto": {
         "properties": {
           "challenge_id": {
-            "description": "Opaque login challenge ID returned after password proof",
+            "description": "Opaque challenge ID returned by the current auth flow",
             "format": "uuid",
             "type": "string"
           }
         },
         "required": [
           "challenge_id"
-        ],
-        "type": "object"
-      },
-      "ResendVerificationDto": {
-        "properties": {
-          "email": {
-            "description": "User email address",
-            "example": "user@example.com",
-            "type": "string"
-          }
-        },
-        "required": [
-          "email"
         ],
         "type": "object"
       },
@@ -4766,7 +4897,7 @@
           "required": true
         },
         "responses": {
-          "201": {
+          "202": {
             "content": {
               "application/json": {
                 "schema": {
@@ -4802,6 +4933,16 @@
             },
             "description": "Email validation failed"
           },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
           "500": {
             "content": {
               "application/json": {
@@ -4811,9 +4952,106 @@
               }
             },
             "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
           }
         },
         "summary": "Queue a purpose-bound password-recovery challenge (generic response)",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/forgot-password/resend": {
+      "post": {
+        "operationId": "AuthController_resendRecovery",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResendAuthChallengeDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/AuthChallengeContinuationDtoData"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Replace a purpose-bound challenge using its opaque handle",
         "tags": [
           "Authentication"
         ]
@@ -4956,6 +5194,16 @@
             },
             "description": "invalid credentials"
           },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
           "500": {
             "content": {
               "application/json": {
@@ -4965,6 +5213,16 @@
               }
             },
             "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
           }
         },
         "summary": "Validate password and queue a login verification code",
@@ -5023,6 +5281,16 @@
             },
             "description": "validation error"
           },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
           "500": {
             "content": {
               "application/json": {
@@ -5032,6 +5300,16 @@
               }
             },
             "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
           }
         },
         "summary": "Resend a pending login verification code",
@@ -5815,6 +6093,16 @@
               }
             },
             "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
           }
         },
         "summary": "Create a pending intent-based account",
@@ -5898,7 +6186,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/ResendVerificationDto"
+                "$ref": "#/components/schemas/ResendAuthChallengeDto"
               }
             }
           },
@@ -5916,8 +6204,7 @@
                     {
                       "properties": {
                         "data": {
-                          "example": null,
-                          "nullable": true
+                          "$ref": "#/components/schemas/AuthChallengeContinuationDtoData"
                         }
                       },
                       "required": [
@@ -5939,7 +6226,17 @@
                 }
               }
             },
-            "description": "Request validation failed"
+            "description": ""
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
           },
           "500": {
             "content": {
@@ -5950,9 +6247,19 @@
               }
             },
             "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
           }
         },
-        "summary": "Queue a new verification challenge for an eligible account",
+        "summary": "Replace a purpose-bound challenge using its opaque handle",
         "tags": [
           "Authentication"
         ]

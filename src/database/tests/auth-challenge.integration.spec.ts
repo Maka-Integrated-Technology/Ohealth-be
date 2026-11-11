@@ -14,6 +14,7 @@ import { AuthChallengeFoundation1793000000000 } from '../migrations/179300000000
 import { DurableAuthChallengeDelivery1793005000000 } from '../migrations/1793005000000-DurableAuthChallengeDelivery';
 import { LeasedAuthChallengeDelivery1793006000000 } from '../migrations/1793006000000-LeasedAuthChallengeDelivery';
 import { AuthChallengeWorkerHeartbeat1793007000000 } from '../migrations/1793007000000-AuthChallengeWorkerHeartbeat';
+import { AuthChallengeContinuation1793700000000 } from '../migrations/1793700000000-AuthChallengeContinuation';
 
 const integration = env.PG_INTEGRATION_URL ? describe : describe.skip;
 const PEPPER = 'auth-challenge-test-key-please-do-not-use-in-production';
@@ -53,6 +54,7 @@ integration('Purpose-bound auth challenges on PostgreSQL', () => {
     await new DurableAuthChallengeDelivery1793005000000().up(runner);
     await new LeasedAuthChallengeDelivery1793006000000().up(runner);
     await new AuthChallengeWorkerHeartbeat1793007000000().up(runner);
+    await new AuthChallengeContinuation1793700000000().up(runner);
   });
 
   afterEach(async () => {
@@ -136,6 +138,11 @@ integration('Purpose-bound auth challenges on PostgreSQL', () => {
         'expires_at',
         'attempt_count',
         'consumed_at',
+        'lineage_id',
+        'replaced_by_challenge_id',
+        'terminal_reason',
+        'replacement_count',
+        'flow_expires_at',
       ].sort(),
     );
   });
@@ -211,16 +218,16 @@ integration('Purpose-bound auth challenges on PostgreSQL', () => {
     expect(rows[0].consumed_at).toBeInstanceOf(Date);
   });
 
-  it('enforces resend cooldown and invalidates the older usable challenge', async () => {
+  it('atomically replaces a challenge and makes lost-response retries authoritative', async () => {
     const first = await challenges.issueInTransaction(
       runner.manager,
       userId,
       AuthChallengePurpose.CONTACT_VERIFICATION,
     );
     await expect(
-      challenges.issueInTransaction(
+      challenges.replaceInTransaction(
         runner.manager,
-        userId,
+        first.challengeId,
         AuthChallengePurpose.CONTACT_VERIFICATION,
       ),
     ).rejects.toThrow('Please wait');
@@ -229,12 +236,22 @@ integration('Purpose-bound auth challenges on PostgreSQL', () => {
        WHERE id = $1`,
       [first.challengeId],
     );
-    const second = await challenges.issueInTransaction(
+    const second = await challenges.replaceInTransaction(
       runner.manager,
-      userId,
+      first.challengeId,
       AuthChallengePurpose.CONTACT_VERIFICATION,
     );
     expect(second.challengeId).not.toBe(first.challengeId);
+    expect(second.created).toBe(true);
+    const retry = await challenges.replaceInTransaction(
+      runner.manager,
+      first.challengeId,
+      AuthChallengePurpose.CONTACT_VERIFICATION,
+    );
+    expect(retry).toMatchObject({
+      challengeId: second.challengeId,
+      created: false,
+    });
     expect(
       await challenges.consumeInTransaction(
         runner.manager,
@@ -248,9 +265,35 @@ integration('Purpose-bound auth challenges on PostgreSQL', () => {
         runner.manager,
         second.challengeId,
         AuthChallengePurpose.CONTACT_VERIFICATION,
-        second.code,
+        second.code!,
       ),
     ).toBe(userId);
+    const lineage: Array<{
+      id: string;
+      lineage_id: string;
+      terminal_reason: string | null;
+      replaced_by_challenge_id: string | null;
+      replacement_count: number;
+    }> = await runner.query(
+      `SELECT id, lineage_id, terminal_reason, replaced_by_challenge_id,
+              replacement_count
+       FROM auth_challenges ORDER BY replacement_count`,
+    );
+    expect(lineage).toEqual([
+      expect.objectContaining({
+        id: first.challengeId,
+        lineage_id: first.challengeId,
+        terminal_reason: 'superseded',
+        replaced_by_challenge_id: second.challengeId,
+        replacement_count: 0,
+      }),
+      expect.objectContaining({
+        id: second.challengeId,
+        lineage_id: first.challengeId,
+        terminal_reason: 'verified',
+        replacement_count: 1,
+      }),
+    ]);
   });
 
   it('rejects expired challenges and replay after successful consumption', async () => {
