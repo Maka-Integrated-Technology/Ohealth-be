@@ -24,16 +24,16 @@ import { AccountStatus } from '../../user/enums/account-status.enum';
 import { AuthChallengeDeliveryService } from '../challenges/auth-challenge-delivery.service';
 import { AuthChallengePurpose } from '../challenges/auth-challenge.entity';
 import { RegistrationPendingResponseDto } from '../contracts/auth-contract-response.dto';
-import { RegistrationBootstrapDto } from '../contracts/registration-bootstrap.dto';
 import { RegisterAccountDto } from '../contracts/register-account.dto';
+import { RegistrationBootstrapDto } from '../contracts/registration-bootstrap.dto';
 import { SignupIntent } from '../enums/signup-intent.enum';
 import { PasswordCredentialsService } from '../password-policy/password-credentials.service';
-import { SIGNUP_INTENT_DEFINITIONS } from '../signup-intent.policy';
 import { AuthSecurityAuditService } from '../security-audit/auth-security-audit.service';
 import {
   AuthSecurityEventOutcome,
   AuthSecurityEventType,
 } from '../security-audit/auth-security-event.enum';
+import { SIGNUP_INTENT_DEFINITIONS } from '../signup-intent.policy';
 
 import {
   IRegistrationLegalVersions,

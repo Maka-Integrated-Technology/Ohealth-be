@@ -1,7 +1,9 @@
 import { INestApplication } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import * as request from 'supertest';
 
+import { TransformInterceptor } from '../src/common/interceptors/transform.interceptor';
 import { AuthController } from '../src/modules/auth/auth.controller';
 import { AuthService } from '../src/modules/auth/auth.service';
 import { AuthAbuseGuard } from '../src/modules/auth/challenges/auth-abuse.guard';
@@ -38,6 +40,7 @@ describe('Registration bootstrap public HTTP contract (#136)', () => {
         { provide: AuthRateLimitService, useValue: { consume: jest.fn() } },
         { provide: AuthAbuseGuard, useValue: { canActivate: () => true } },
         { provide: JwtAuthGuard, useValue: { canActivate: () => false } },
+        { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
       ],
     }).compile();
     app = module.createNestApplication();
@@ -51,11 +54,15 @@ describe('Registration bootstrap public HTTP contract (#136)', () => {
     const result = await request(app.getHttpServer())
       .get('/api/auth/registration/bootstrap')
       .expect(200);
-    expect(result.body).toEqual(metadata);
+    expect(result.body).toEqual({
+      status_code: 200,
+      message: null,
+      data: metadata,
+    });
     expect(result.headers['cache-control']).toContain('no-store');
-    expect(result.body).not.toHaveProperty('roles');
-    expect(result.body).not.toHaveProperty('account_status');
-    expect(result.body).not.toHaveProperty('idempotencyPepper');
+    expect(result.body.data).not.toHaveProperty('roles');
+    expect(result.body.data).not.toHaveProperty('account_status');
+    expect(result.body.data).not.toHaveProperty('idempotencyPepper');
     expect(authService.getRegistrationBootstrap).toHaveBeenCalled();
   });
 });

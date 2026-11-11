@@ -3717,7 +3717,8 @@
               {
                 "$ref": "#/components/schemas/SignupIntent"
               }
-            ]
+            ],
+            "description": "Closed self-service account type that determines persona or organization type."
           },
           "label": {
             "example": "Patient",
@@ -4110,6 +4111,7 @@
         "type": "object"
       },
       "SignupIntent": {
+        "description": "Closed self-service account type that determines persona or organization type.",
         "enum": [
           "patient",
           "healthcare_professional",

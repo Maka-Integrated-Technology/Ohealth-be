@@ -2709,6 +2709,7 @@ export interface components {
       readonly terms: components['schemas']['RegistrationBootstrapLegalDocumentDto'];
     };
     readonly RegistrationBootstrapIntentDto: {
+      /** @description Closed self-service account type that determines persona or organization type. */
       readonly intent: components['schemas']['SignupIntent'];
       /** @example Patient */
       readonly label: string;
@@ -2859,7 +2860,10 @@ export interface components {
       readonly administrator: components['schemas']['OrganizationAdministratorResponseDto'];
       readonly organization: components['schemas']['OrganizationResponseDto'];
     };
-    /** @enum {string} */
+    /**
+     * @description Closed self-service account type that determines persona or organization type.
+     * @enum {string}
+     */
     readonly SignupIntent: SignupIntent;
     readonly SpecialityResponseDto: {
       /** Format: date-time */

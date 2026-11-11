@@ -3,8 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 
 import { LegalAcceptance } from '../../identity/entities/legal-acceptance.entity';
-import { LegalDocumentType } from '../../identity/enums/legal-document-type.enum';
 import { UserPersona } from '../../identity/entities/user-persona.entity';
+import { LegalDocumentType } from '../../identity/enums/legal-document-type.enum';
 import { UserPersonaType } from '../../identity/enums/user-persona-type.enum';
 import { OrganizationMembership } from '../../organization/entities/organization-membership.entity';
 import { Organization } from '../../organization/entities/organization.entity';

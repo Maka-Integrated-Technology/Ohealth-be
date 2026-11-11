@@ -4,7 +4,12 @@ import { LegalDocumentType } from '../../identity/enums/legal-document-type.enum
 import { SignupIntent } from '../enums/signup-intent.enum';
 
 export class RegistrationBootstrapIntentDto {
-  @ApiProperty({ enum: SignupIntent, enumName: 'SignupIntent' })
+  @ApiProperty({
+    enum: SignupIntent,
+    enumName: 'SignupIntent',
+    description:
+      'Closed self-service account type that determines persona or organization type.',
+  })
   intent: SignupIntent;
 
   @ApiProperty({ example: 'Patient' })

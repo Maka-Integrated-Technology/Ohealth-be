@@ -8,15 +8,22 @@ Sample shape (versions are deployment configuration, **not** constants):
 
 ```json
 {
-  "intents": [
-    {"intent": "patient", "label": "Patient"},
-    {"intent": "healthcare_professional", "label": "Healthcare Professional"},
-    {"intent": "pharmacy", "label": "Pharmacy"},
-    {"intent": "laboratory", "label": "Laboratory"},
-    {"intent": "hospital", "label": "Hospital"}
-  ],
-  "terms": {"document_type": "terms_of_service", "version": "terms-v1"},
-  "privacy": {"document_type": "privacy_policy", "version": "privacy-v1"}
+  "status_code": 200,
+  "message": null,
+  "data": {
+    "intents": [
+      { "intent": "patient", "label": "Patient" },
+      {
+        "intent": "healthcare_professional",
+        "label": "Healthcare Professional"
+      },
+      { "intent": "pharmacy", "label": "Pharmacy" },
+      { "intent": "laboratory", "label": "Laboratory" },
+      { "intent": "hospital", "label": "Hospital" }
+    ],
+    "terms": { "document_type": "terms_of_service", "version": "terms-v1" },
+    "privacy": { "document_type": "privacy_policy", "version": "privacy-v1" }
+  }
 }
 ```
 
