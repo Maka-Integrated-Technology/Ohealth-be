@@ -406,7 +406,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     );
     expect(replies.map((reply) => reply.status).sort()).toEqual([200, 400]);
     const success = replies.find((reply) => reply.status === 200)!;
-    expect(success.body).toMatchObject({
+    expect(success.body.data).toMatchObject({
       access_token: expect.any(String),
       refresh_token: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
       session_id: expect.stringMatching(/^[a-f0-9-]{36}$/i),
@@ -575,8 +575,8 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       .get('/api/auth/sessions')
       .set('Authorization', `Bearer ${issued.access_token}`)
       .expect(200);
-    expect(listed.body).toHaveLength(1);
-    expect(Object.keys(listed.body[0]).sort()).toEqual(
+    expect(listed.body.data).toHaveLength(1);
+    expect(Object.keys(listed.body.data[0]).sort()).toEqual(
       ['session_id', 'created_at', 'last_used_at', 'expires_at'].sort(),
     );
     const rotated = await request(secondApp.getHttpServer())
@@ -1271,7 +1271,11 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
           .send({ email: targets[index] })
           .expect(202);
         samples[index].push(performance.now() - start);
-        expect(response.body).toEqual({ message: publicMessage });
+        expect(response.body).toEqual({
+          status_code: 202,
+          message: publicMessage,
+          data: null,
+        });
       }
     }
     const medians = samples.map(
