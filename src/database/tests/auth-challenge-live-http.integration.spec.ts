@@ -188,6 +188,10 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       ['mail.from.address', 'sender@example.test'],
       ['mail.from.name', 'OHealth'],
       ['app.name', 'OHealth'],
+      [
+        'auth.recoveryContinuationUrl',
+        'https://app.ohealth.test/reset-password',
+      ],
       ['registration.termsVersion', 'terms-v1'],
       ['registration.privacyVersion', 'privacy-v1'],
       ['registration.idempotencyPepper', 'r'.repeat(32)],
