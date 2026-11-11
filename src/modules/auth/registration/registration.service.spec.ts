@@ -124,7 +124,10 @@ describe('RegistrationService', () => {
         version: 'privacy-v1',
       },
     });
-    expect(result.intents.find((entry) => entry.intent === SignupIntent.PATIENT)?.label).toBe('Patient');
+    expect(
+      result.intents.find((entry) => entry.intent === SignupIntent.PATIENT)
+        ?.label,
+    ).toBe('Patient');
     expect(JSON.stringify(result)).not.toContain('idempotencyPepper');
     expect(JSON.stringify(result)).not.toContain('pppppppp');
     expect(dataSource.transaction).not.toHaveBeenCalled();
@@ -135,9 +138,9 @@ describe('RegistrationService', () => {
     settings.set('registration.termsVersion', 'terms-v2');
     try {
       expect(service.getBootstrap().terms.version).toBe('terms-v2');
-      await expect(service.register(base(SignupIntent.PATIENT))).rejects.toThrow(
-        BadRequestException,
-      );
+      await expect(
+        service.register(base(SignupIntent.PATIENT)),
+      ).rejects.toThrow(BadRequestException);
       expect(dataSource.transaction).not.toHaveBeenCalled();
     } finally {
       settings.set('registration.termsVersion', 'terms-v1');

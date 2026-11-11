@@ -41,6 +41,14 @@ export type AuthController_getProfileError =
   | operations['AuthController_getProfile']['responses'][401]['content']['application/json']
   | operations['AuthController_getProfile']['responses'][500]['content']['application/json'];
 
+export type AuthController_getRegistrationBootstrapRequest = Readonly<{
+  readonly headers?: ApiHeaders;
+}>;
+export type AuthController_getRegistrationBootstrapResponse =
+  operations['AuthController_getRegistrationBootstrap']['responses'][200]['content']['application/json'];
+export type AuthController_getRegistrationBootstrapError =
+  operations['AuthController_getRegistrationBootstrap']['responses'][500]['content']['application/json'];
+
 export type AuthController_googleLoginRequest = Readonly<{
   readonly body: NonNullable<
     operations['AuthController_googleLogin']['requestBody']
@@ -1259,6 +1267,9 @@ export interface ApiClient {
   readonly AuthController_getProfile: (
     request?: AuthController_getProfileRequest,
   ) => Promise<AuthController_getProfileResponse>;
+  readonly AuthController_getRegistrationBootstrap: (
+    request?: AuthController_getRegistrationBootstrapRequest,
+  ) => Promise<AuthController_getRegistrationBootstrapResponse>;
   readonly AuthController_googleLogin: (
     request: AuthController_googleLoginRequest,
   ) => Promise<AuthController_googleLoginResponse>;
@@ -1576,6 +1587,18 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
           operationId: 'AuthController_getProfile',
           method: 'GET',
           path: '/api/auth/me',
+        },
+        request,
+      ),
+    AuthController_getRegistrationBootstrap: (request = {}) =>
+      core.request<
+        AuthController_getRegistrationBootstrapResponse,
+        AuthController_getRegistrationBootstrapError
+      >(
+        {
+          operationId: 'AuthController_getRegistrationBootstrap',
+          method: 'GET',
+          path: '/api/auth/registration/bootstrap',
         },
         request,
       ),

@@ -15,7 +15,10 @@ describe('Registration bootstrap public HTTP contract (#136)', () => {
   const metadata = {
     intents: [
       { intent: SignupIntent.PATIENT, label: 'Patient' },
-      { intent: SignupIntent.HEALTHCARE_PROFESSIONAL, label: 'Healthcare Professional' },
+      {
+        intent: SignupIntent.HEALTHCARE_PROFESSIONAL,
+        label: 'Healthcare Professional',
+      },
       { intent: SignupIntent.PHARMACY, label: 'Pharmacy' },
       { intent: SignupIntent.LABORATORY, label: 'Laboratory' },
       { intent: SignupIntent.HOSPITAL, label: 'Hospital' },
@@ -23,7 +26,9 @@ describe('Registration bootstrap public HTTP contract (#136)', () => {
     terms: { document_type: 'terms_of_service', version: 'terms-v1' },
     privacy: { document_type: 'privacy_policy', version: 'privacy-v1' },
   };
-  const authService = { getRegistrationBootstrap: jest.fn().mockReturnValue(metadata) };
+  const authService = {
+    getRegistrationBootstrap: jest.fn().mockReturnValue(metadata),
+  };
 
   beforeAll(async () => {
     const module = await Test.createTestingModule({

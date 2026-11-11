@@ -66,7 +66,12 @@ describe('AuthController', () => {
   });
 
   it('returns public registration metadata without session context', () => {
-    expect(Reflect.getMetadata(IS_PUBLIC_KEY, AuthController.prototype.getRegistrationBootstrap)).toBe(true);
+    expect(
+      Reflect.getMetadata(
+        IS_PUBLIC_KEY,
+        AuthController.prototype.getRegistrationBootstrap,
+      ),
+    ).toBe(true);
     const expected = {
       intents: [{ intent: SignupIntent.PATIENT, label: 'Patient' }],
       terms: { document_type: 'terms_of_service', version: 'terms-v1' },

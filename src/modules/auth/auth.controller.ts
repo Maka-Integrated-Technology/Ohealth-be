@@ -73,7 +73,10 @@ export class AuthController {
   @Public()
   @Get('registration/bootstrap')
   @Header('Cache-Control', 'no-store')
-  @ApiOperation({ summary: 'Get current self-service registration and legal-document metadata' })
+  @ApiOperation({
+    summary:
+      'Get current self-service registration and legal-document metadata',
+  })
   @ApiOkResponse({ type: RegistrationBootstrapDto })
   getRegistrationBootstrap(): RegistrationBootstrapDto {
     return this.authService.getRegistrationBootstrap();

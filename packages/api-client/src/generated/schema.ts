@@ -175,6 +175,23 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly '/api/auth/registration/bootstrap': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Get current self-service registration and legal-document metadata */
+    readonly get: operations['AuthController_getRegistrationBootstrap'];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly '/api/auth/reset-password': {
     readonly parameters: {
       readonly query?: never;
@@ -1966,6 +1983,8 @@ export interface components {
        */
       readonly verification_status: PathsApiOrganizationsOnboardingReviewApplicationsGetParametersQueryVerification_status;
     };
+    /** @enum {string} */
+    readonly LegalDocumentType: LegalDocumentType;
     readonly LoginChallengeResponseDto: {
       /** Format: uuid */
       readonly challenge_id: string;
@@ -2684,6 +2703,21 @@ export interface components {
        */
       readonly password: string;
     };
+    readonly RegistrationBootstrapDto: {
+      readonly intents: readonly components['schemas']['RegistrationBootstrapIntentDto'][];
+      readonly privacy: components['schemas']['RegistrationBootstrapLegalDocumentDto'];
+      readonly terms: components['schemas']['RegistrationBootstrapLegalDocumentDto'];
+    };
+    readonly RegistrationBootstrapIntentDto: {
+      readonly intent: components['schemas']['SignupIntent'];
+      /** @example Patient */
+      readonly label: string;
+    };
+    readonly RegistrationBootstrapLegalDocumentDto: {
+      readonly document_type: components['schemas']['LegalDocumentType'];
+      /** @example 2026-08-01 */
+      readonly version: string;
+    };
     readonly RegistrationPendingResponseDto: {
       /** Format: uuid */
       readonly challenge_id: string;
@@ -2825,10 +2859,7 @@ export interface components {
       readonly administrator: components['schemas']['OrganizationAdministratorResponseDto'];
       readonly organization: components['schemas']['OrganizationResponseDto'];
     };
-    /**
-     * @description Closed self-service account type that determines persona or organization type.
-     * @enum {string}
-     */
+    /** @enum {string} */
     readonly SignupIntent: SignupIntent;
     readonly SpecialityResponseDto: {
       /** Format: date-time */
@@ -3588,6 +3619,36 @@ export interface operations {
         };
         content: {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly AuthController_getRegistrationBootstrap: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['RegistrationBootstrapDto'];
+          };
         };
       };
       /** @description Internal server error */
@@ -8037,6 +8098,10 @@ export enum LaboratorySetupResponseDtoOnboarding_status {
 export enum LaboratoryStaffResponseDtoStatus {
   invited = 'invited',
   active = 'active',
+}
+export enum LegalDocumentType {
+  terms_of_service = 'terms_of_service',
+  privacy_policy = 'privacy_policy',
 }
 export enum LoginResponseDtoAccess_level {
   full = 'full',
