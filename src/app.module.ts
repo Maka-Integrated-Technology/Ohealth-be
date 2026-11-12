@@ -20,6 +20,7 @@ import { OrganizationModule } from './modules/organization/organization.module';
 import { PharmacyModule } from './modules/pharmacy/pharmacy.module';
 import { PlatformEventsModule } from './modules/platform-events/platform-events.module';
 import { ProfessionalModule } from './modules/professional/professional.module';
+import { PublicDiscoveryModule } from './modules/public-discovery/public-discovery.module';
 import { SpecialityModule } from './modules/speciality/speciality.module';
 import { isOpenApiContractGenerationEnabled } from './openapi/openapi-generation-context';
 
@@ -63,6 +64,7 @@ import { isOpenApiContractGenerationEnabled } from './openapi/openapi-generation
     OrganizationModule,
     PharmacyModule,
     PlatformEventsModule,
+    PublicDiscoveryModule,
   ],
   controllers: [AppController],
   providers: [

@@ -33,6 +33,10 @@ export function createOpenApiDocument(app: INestApplication): OpenAPIObject {
       'Shared hospital, laboratory, and pharmacy onboarding',
     )
     .addTag('Bookings', 'Appointment booking and management')
+    .addTag(
+      'Public Discovery',
+      'Unauthenticated, read-only speciality and professional discovery',
+    )
     .addBearerAuth({
       type: 'http',
       scheme: 'bearer',

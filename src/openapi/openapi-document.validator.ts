@@ -6,6 +6,12 @@ import {
 } from '../common/dto/response.dto';
 import { AuthChallengeErrorCode } from '../modules/auth/challenges/auth-challenge.error';
 import { AuthChallengeErrorResponseDto } from '../modules/auth/contracts/auth-contract-response.dto';
+import {
+  PUBLIC_DISCOVERY_API_TAG,
+  PUBLIC_DISCOVERY_ROUTE_NAMESPACE,
+} from '../modules/public-discovery/public-discovery.constants';
+
+import { OPENAPI_API_PREFIX } from './openapi.constants';
 
 import type {
   OpenAPIObject,
@@ -42,7 +48,10 @@ const PUBLIC_OPERATION_IDS = new Set([
   'AuthController_verifyLogin',
   'LaboratoryPostApprovalController_acceptStaffInvitation',
   'PharmacyController_register',
+  'PublicDiscoveryController_getContract',
 ]);
+
+const PUBLIC_DISCOVERY_PATH_PREFIX = `/${OPENAPI_API_PREFIX}/${PUBLIC_DISCOVERY_ROUTE_NAMESPACE}/`;
 
 const AUTH_CHALLENGE_ERROR_RESPONSES = new Map<string, readonly string[]>([
   ['AuthController_forgotPassword', ['429', '503']],
@@ -167,6 +176,30 @@ function validateMultipartBody(
   }
 }
 
+function validatePublicDiscoveryBoundary(
+  label: string,
+  path: string,
+  method: string,
+  operation: OperationObject,
+  errors: string[],
+): void {
+  if (!path.startsWith(PUBLIC_DISCOVERY_PATH_PREFIX)) return;
+
+  if (method !== 'get') {
+    errors.push(`${label} public discovery operation must be read-only`);
+  }
+  if ((operation.security ?? []).length > 0) {
+    errors.push(
+      `${label} public discovery operation must not declare a security requirement`,
+    );
+  }
+  if (!operation.tags?.includes(PUBLIC_DISCOVERY_API_TAG)) {
+    errors.push(
+      `${label} public discovery operation must use the ${PUBLIC_DISCOVERY_API_TAG} tag`,
+    );
+  }
+}
+
 function validateSecurity(
   label: string,
   operation: OperationObject,
@@ -278,6 +311,7 @@ function validateOperation(
   if (!operation.tags?.length) errors.push(`${label} is missing tags`);
 
   validateSecurity(label, operation, errors);
+  validatePublicDiscoveryBoundary(label, path, method, operation, errors);
   validateResponses(document, label, operation, errors);
 
   const pathParameters = new Set(
