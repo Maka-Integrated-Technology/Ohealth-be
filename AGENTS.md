@@ -17,13 +17,14 @@ sessions, email delivery, or background jobs.
 
 ## Required reading
 
-| Work area                                               | Read first                       |
-| ------------------------------------------------------- | -------------------------------- |
-| Any architectural change                                | `docs/01-architecture.md`        |
-| Authentication, sessions, OTP, MFA, permissions         | `docs/02-identity-and-access.md` |
-| Users, personas, professionals, patients, organizations | `docs/03-domain-model.md`        |
-| Redis, BullMQ, email, outbox, workers                   | `docs/04-queues-and-redis.md`    |
-| Schema replacement or migration                         | `docs/05-rework-plan.md`         |
+| Work area                                               | Read first                          |
+| ------------------------------------------------------- | ----------------------------------- |
+| Any architectural change                                | `docs/01-architecture.md`           |
+| Authentication, sessions, OTP, MFA, permissions         | `docs/02-identity-and-access.md`    |
+| Users, personas, professionals, patients, organizations | `docs/03-domain-model.md`           |
+| Redis, BullMQ, email, outbox, workers                   | `docs/04-queues-and-redis.md`       |
+| Schema replacement or migration                         | `docs/05-rework-plan.md`            |
+| Public speciality or professional discovery             | `docs/public-discovery-contract.md` |
 
 `docs/README.md` is the documentation index and implementation-status summary.
 
@@ -104,6 +105,7 @@ src/
     professional/      healthcare professional profile and operations
     speciality/        professional disciplines and specialities
     organization/      hospitals, laboratories, pharmacies, and memberships
+    public-discovery/  unauthenticated read-only discovery boundary and policy
     platform-events/   transactional outbox foundation
     email/             email rendering and transport
     storage/           private object storage
