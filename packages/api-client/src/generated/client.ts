@@ -1218,6 +1218,14 @@ export type ProfessionalVerificationStatusController_verifyError =
   | operations['ProfessionalVerificationStatusController_verify']['responses'][401]['content']['application/json']
   | operations['ProfessionalVerificationStatusController_verify']['responses'][500]['content']['application/json'];
 
+export type PublicDiscoveryController_getContractRequest = Readonly<{
+  readonly headers?: ApiHeaders;
+}>;
+export type PublicDiscoveryController_getContractResponse =
+  operations['PublicDiscoveryController_getContract']['responses'][200]['content']['application/json'];
+export type PublicDiscoveryController_getContractError =
+  operations['PublicDiscoveryController_getContract']['responses'][500]['content']['application/json'];
+
 export type SpecialityController_createRequest = Readonly<{
   readonly body: NonNullable<
     operations['SpecialityController_create']['requestBody']
@@ -1557,6 +1565,9 @@ export interface ApiClient {
   readonly ProfessionalVerificationStatusController_verify: (
     request: ProfessionalVerificationStatusController_verifyRequest,
   ) => Promise<ProfessionalVerificationStatusController_verifyResponse>;
+  readonly PublicDiscoveryController_getContract: (
+    request?: PublicDiscoveryController_getContractRequest,
+  ) => Promise<PublicDiscoveryController_getContractResponse>;
   readonly SpecialityController_create: (
     request: SpecialityController_createRequest,
   ) => Promise<SpecialityController_createResponse>;
@@ -2735,6 +2746,18 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
           operationId: 'ProfessionalVerificationStatusController_verify',
           method: 'POST',
           path: '/api/professionals/{professionalId}/verify',
+        },
+        request,
+      ),
+    PublicDiscoveryController_getContract: (request = {}) =>
+      core.request<
+        PublicDiscoveryController_getContractResponse,
+        PublicDiscoveryController_getContractError
+      >(
+        {
+          operationId: 'PublicDiscoveryController_getContract',
+          method: 'GET',
+          path: '/api/public/discovery/contract',
         },
         request,
       ),

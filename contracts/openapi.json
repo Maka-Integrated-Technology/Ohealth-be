@@ -614,6 +614,14 @@
         ],
         "type": "object"
       },
+      "ConsultationType": {
+        "enum": [
+          "chat",
+          "video",
+          "both"
+        ],
+        "type": "string"
+      },
       "CreateBookingDto": {
         "properties": {
           "booking_date": {
@@ -3612,6 +3620,367 @@
           "professional_id",
           "verification_status",
           "documents_complete"
+        ],
+        "type": "object"
+      },
+      "PublicAvailabilityDayDto": {
+        "properties": {
+          "date": {
+            "example": "2026-01-15",
+            "format": "date",
+            "type": "string"
+          },
+          "slots": {
+            "items": {
+              "$ref": "#/components/schemas/PublicAvailabilitySlotDto"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "date",
+          "slots"
+        ],
+        "type": "object"
+      },
+      "PublicAvailabilitySlotDto": {
+        "properties": {
+          "end_time": {
+            "example": "09:30:00",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "start_time": {
+            "example": "09:00:00",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "start_time",
+          "end_time"
+        ],
+        "type": "object"
+      },
+      "PublicDiscoveryContractDto": {
+        "properties": {
+          "consultation_types": {
+            "items": {
+              "$ref": "#/components/schemas/ConsultationType"
+            },
+            "type": "array"
+          },
+          "max_availability_range_days": {
+            "type": "integer"
+          },
+          "pagination": {
+            "$ref": "#/components/schemas/PublicDiscoveryPaginationContractDto"
+          },
+          "professional_sort": {
+            "$ref": "#/components/schemas/PublicDiscoveryProfessionalSortContractDto"
+          },
+          "search": {
+            "$ref": "#/components/schemas/PublicDiscoverySearchContractDto"
+          }
+        },
+        "required": [
+          "pagination",
+          "search",
+          "professional_sort",
+          "consultation_types",
+          "max_availability_range_days"
+        ],
+        "type": "object"
+      },
+      "PublicDiscoveryPaginationContractDto": {
+        "properties": {
+          "default_limit": {
+            "type": "integer"
+          },
+          "max_limit": {
+            "type": "integer"
+          },
+          "max_page": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "default_limit",
+          "max_limit",
+          "max_page"
+        ],
+        "type": "object"
+      },
+      "PublicDiscoveryProfessionalSortContractDto": {
+        "properties": {
+          "default_field": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicProfessionalSortField"
+              }
+            ]
+          },
+          "default_order": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PublicSortOrder"
+              }
+            ]
+          },
+          "fields": {
+            "items": {
+              "$ref": "#/components/schemas/PublicProfessionalSortField"
+            },
+            "type": "array"
+          },
+          "orders": {
+            "items": {
+              "$ref": "#/components/schemas/PublicSortOrder"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "fields",
+          "orders",
+          "default_field",
+          "default_order"
+        ],
+        "type": "object"
+      },
+      "PublicDiscoverySearchContractDto": {
+        "properties": {
+          "max_length": {
+            "type": "integer"
+          },
+          "min_length": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "min_length",
+          "max_length"
+        ],
+        "type": "object"
+      },
+      "PublicPaginationMetaDto": {
+        "properties": {
+          "has_next": {
+            "type": "boolean"
+          },
+          "has_previous": {
+            "type": "boolean"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "page": {
+            "type": "integer"
+          },
+          "total": {
+            "type": "integer"
+          },
+          "total_pages": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "page",
+          "limit",
+          "total",
+          "total_pages",
+          "has_next",
+          "has_previous"
+        ],
+        "type": "object"
+      },
+      "PublicProfessionalDetailDto": {
+        "properties": {
+          "about": {
+            "nullable": true,
+            "type": "string"
+          },
+          "consultation_fee": {
+            "example": 5000,
+            "type": "number"
+          },
+          "consultation_type": {
+            "enum": [
+              "chat",
+              "video",
+              "both"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "image": {
+            "description": "Absolute HTTPS image address, when one is published",
+            "format": "uri",
+            "nullable": true,
+            "type": "string"
+          },
+          "is_available": {
+            "type": "boolean"
+          },
+          "name": {
+            "example": "Ada Obi",
+            "type": "string"
+          },
+          "rating": {
+            "example": 4.5,
+            "type": "number"
+          },
+          "speciality": {
+            "$ref": "#/components/schemas/PublicProfessionalSpecialityDto"
+          },
+          "total_reviews": {
+            "example": 12,
+            "type": "integer"
+          },
+          "years_of_experience": {
+            "example": 8,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "image",
+          "speciality",
+          "rating",
+          "total_reviews",
+          "consultation_fee",
+          "years_of_experience",
+          "consultation_type",
+          "is_available",
+          "about"
+        ],
+        "type": "object"
+      },
+      "PublicProfessionalSortField": {
+        "enum": [
+          "rating",
+          "experience",
+          "consultation_fee",
+          "name"
+        ],
+        "type": "string"
+      },
+      "PublicProfessionalSpecialityDto": {
+        "properties": {
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "example": "Cardiology",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "type": "object"
+      },
+      "PublicProfessionalSummaryDto": {
+        "properties": {
+          "consultation_fee": {
+            "example": 5000,
+            "type": "number"
+          },
+          "consultation_type": {
+            "enum": [
+              "chat",
+              "video",
+              "both"
+            ],
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "image": {
+            "description": "Absolute HTTPS image address, when one is published",
+            "format": "uri",
+            "nullable": true,
+            "type": "string"
+          },
+          "is_available": {
+            "type": "boolean"
+          },
+          "name": {
+            "example": "Ada Obi",
+            "type": "string"
+          },
+          "rating": {
+            "example": 4.5,
+            "type": "number"
+          },
+          "speciality": {
+            "$ref": "#/components/schemas/PublicProfessionalSpecialityDto"
+          },
+          "total_reviews": {
+            "example": 12,
+            "type": "integer"
+          },
+          "years_of_experience": {
+            "example": 8,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "image",
+          "speciality",
+          "rating",
+          "total_reviews",
+          "consultation_fee",
+          "years_of_experience",
+          "consultation_type",
+          "is_available"
+        ],
+        "type": "object"
+      },
+      "PublicSortOrder": {
+        "enum": [
+          "asc",
+          "desc"
+        ],
+        "type": "string"
+      },
+      "PublicSpecialityDto": {
+        "properties": {
+          "description": {
+            "nullable": true,
+            "type": "string"
+          },
+          "icon": {
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "name": {
+            "example": "Cardiology",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "icon"
         ],
         "type": "object"
       },
@@ -12504,6 +12873,53 @@
         ]
       }
     },
+    "/api/public/discovery/contract": {
+      "get": {
+        "operationId": "PublicDiscoveryController_getContract",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/PublicDiscoveryContractDto"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Get the query limits and allowlists for public discovery",
+        "tags": [
+          "Public Discovery"
+        ]
+      }
+    },
     "/api/specialities": {
       "get": {
         "operationId": "SpecialityController_findAll",
@@ -12867,6 +13283,10 @@
     {
       "description": "Appointment booking and management",
       "name": "Bookings"
+    },
+    {
+      "description": "Unauthenticated, read-only speciality and professional discovery",
+      "name": "Public Discovery"
     }
   ]
 }
