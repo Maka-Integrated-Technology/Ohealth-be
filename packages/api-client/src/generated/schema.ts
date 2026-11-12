@@ -55,6 +55,23 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly '/api/auth/forgot-password/resend': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Replace a purpose-bound challenge using its opaque handle */
+    readonly post: operations['AuthController_resendRecovery'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly '/api/auth/google-login': {
     readonly parameters: {
       readonly query?: never;
@@ -303,7 +320,7 @@ export interface paths {
     };
     readonly get?: never;
     readonly put?: never;
-    /** Queue a new verification challenge for an eligible account */
+    /** Replace a purpose-bound challenge using its opaque handle */
     readonly post: operations['AuthController_resendVerification'];
     readonly delete?: never;
     readonly options?: never;
@@ -1453,11 +1470,21 @@ export interface components {
       readonly data: Record<string, never> | null;
       /** @example Bad Request */
       readonly error: string | null;
+      /**
+       * @description Stable machine-readable error code when defined
+       * @example AUTH_CHALLENGE_COOLDOWN
+       */
+      readonly error_code?: string;
       readonly message: string | readonly string[];
       /** @example POST */
       readonly method: string;
       /** @example /api/auth/login */
       readonly path: string;
+      /**
+       * @description Bounded retry delay for retryable failures
+       * @example 42
+       */
+      readonly retry_after_seconds?: number;
       /** @description Development environments only */
       readonly stack?: string;
       /** @example 400 */
@@ -1479,6 +1506,55 @@ export interface components {
       readonly meta?: Record<string, never>;
       /** @example 200 */
       readonly status_code: number;
+    };
+    readonly AuthChallengeContinuationDto: {
+      /** Format: uuid */
+      readonly challenge_id: string;
+      /** @example 600 */
+      readonly expires_in_seconds: number;
+      /** @example Verification code queued */
+      readonly message: string;
+      /** @example 60 */
+      readonly resend_after_seconds: number;
+    };
+    readonly AuthChallengeContinuationDtoData: {
+      /** Format: uuid */
+      readonly challenge_id: string;
+      /** @example 600 */
+      readonly expires_in_seconds: number;
+      /** @example 60 */
+      readonly resend_after_seconds: number;
+    };
+    readonly AuthChallengeErrorResponseDto: {
+      /** @example null */
+      readonly data: Record<string, never> | null;
+      /** @example Bad Request */
+      readonly error: string | null;
+      /**
+       * @description Stable machine-readable error code when defined
+       * @example AUTH_CHALLENGE_COOLDOWN
+       * @enum {string}
+       */
+      readonly error_code: AuthChallengeErrorResponseDtoError_code;
+      readonly message: string | readonly string[];
+      /** @example POST */
+      readonly method: string;
+      /** @example /api/auth/login */
+      readonly path: string;
+      /**
+       * @description Bounded retry delay for retryable failures
+       * @example 42
+       */
+      readonly retry_after_seconds?: number;
+      /** @description Development environments only */
+      readonly stack?: string;
+      /** @example 400 */
+      readonly status_code: number;
+      /**
+       * Format: date-time
+       * @example 2026-01-15T10:30:00.000Z
+       */
+      readonly timestamp: string;
     };
     readonly AuthMeResponseDto: {
       /**
@@ -1990,7 +2066,7 @@ export interface components {
       readonly challenge_id: string;
       /** @example 600 */
       readonly expires_in_seconds: number;
-      /** @example Login verification queued */
+      /** @example Verification code queued */
       readonly message: string;
       /** @example 60 */
       readonly resend_after_seconds: number;
@@ -2726,7 +2802,7 @@ export interface components {
       readonly delivery_target: string;
       /** @example 600 */
       readonly expires_in_seconds: number;
-      /** @example Verification code sent */
+      /** @example Verification code queued */
       readonly message: string;
       /** @example 60 */
       readonly resend_after_seconds: number;
@@ -2755,16 +2831,9 @@ export interface components {
     readonly ResendAuthChallengeDto: {
       /**
        * Format: uuid
-       * @description Opaque login challenge ID returned after password proof
+       * @description Opaque challenge ID returned by the current auth flow
        */
       readonly challenge_id: string;
-    };
-    readonly ResendVerificationDto: {
-      /**
-       * @description User email address
-       * @example user@example.com
-       */
-      readonly email: string;
     };
     readonly ResetPasswordDto: {
       /**
@@ -3211,7 +3280,7 @@ export interface operations {
       };
     };
     readonly responses: {
-      readonly 201: {
+      readonly 202: {
         headers: {
           readonly [name: string]: unknown;
         };
@@ -3231,6 +3300,14 @@ export interface operations {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
         };
       };
+      readonly 429: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
       /** @description Internal server error */
       readonly 500: {
         headers: {
@@ -3238,6 +3315,72 @@ export interface operations {
         };
         content: {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 503: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly AuthController_resendRecovery: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly 'application/json': components['schemas']['ResendAuthChallengeDto'];
+      };
+    };
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['AuthChallengeContinuationDtoData'];
+          };
+        };
+      };
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
+      readonly 429: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 503: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
     };
@@ -3337,6 +3480,14 @@ export interface operations {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
         };
       };
+      readonly 429: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
       /** @description Internal server error */
       readonly 500: {
         headers: {
@@ -3344,6 +3495,14 @@ export interface operations {
         };
         content: {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 503: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
     };
@@ -3378,7 +3537,15 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
+      readonly 429: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       /** @description Internal server error */
@@ -3388,6 +3555,14 @@ export interface operations {
         };
         content: {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 503: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
     };
@@ -3422,7 +3597,7 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       /** @description Internal server error */
@@ -3696,7 +3871,7 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       /** @description Internal server error */
@@ -3896,6 +4071,14 @@ export interface operations {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
         };
       };
+      readonly 503: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
     };
   };
   readonly AuthController_verifySignup: {
@@ -3927,7 +4110,7 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       /** @description Internal server error */
@@ -3950,7 +4133,7 @@ export interface operations {
     };
     readonly requestBody: {
       readonly content: {
-        readonly 'application/json': components['schemas']['ResendVerificationDto'];
+        readonly 'application/json': components['schemas']['ResendAuthChallengeDto'];
       };
     };
     readonly responses: {
@@ -3960,18 +4143,24 @@ export interface operations {
         };
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
-            /** @example null */
-            readonly data: unknown;
+            readonly data: components['schemas']['AuthChallengeContinuationDtoData'];
           };
         };
       };
-      /** @description Request validation failed */
       readonly 400: {
         headers: {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
+      readonly 429: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       /** @description Internal server error */
@@ -3981,6 +4170,14 @@ export interface operations {
         };
         content: {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 503: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
     };
@@ -8041,6 +8238,18 @@ export enum PathsApiProfessionalsMePatientsGetParametersQuerySort_by {
 export enum PathsApiProfessionalsMePatientsGetParametersQuerySort_order {
   asc = 'asc',
   desc = 'desc',
+}
+export enum AuthChallengeErrorResponseDtoError_code {
+  AUTH_CHALLENGE_INVALID = 'AUTH_CHALLENGE_INVALID',
+  AUTH_CHALLENGE_CODE_INVALID = 'AUTH_CHALLENGE_CODE_INVALID',
+  AUTH_CHALLENGE_EXPIRED = 'AUTH_CHALLENGE_EXPIRED',
+  AUTH_CHALLENGE_CONSUMED = 'AUTH_CHALLENGE_CONSUMED',
+  AUTH_CHALLENGE_SUPERSEDED = 'AUTH_CHALLENGE_SUPERSEDED',
+  AUTH_CHALLENGE_ATTEMPTS_EXHAUSTED = 'AUTH_CHALLENGE_ATTEMPTS_EXHAUSTED',
+  AUTH_CHALLENGE_COOLDOWN = 'AUTH_CHALLENGE_COOLDOWN',
+  AUTH_CHALLENGE_DELIVERY_UNAVAILABLE = 'AUTH_CHALLENGE_DELIVERY_UNAVAILABLE',
+  AUTH_SERVICE_TEMPORARILY_UNAVAILABLE = 'AUTH_SERVICE_TEMPORARILY_UNAVAILABLE',
+  AUTH_RATE_LIMITED = 'AUTH_RATE_LIMITED',
 }
 export enum BookingResponseDtoPayment_status {
   paid = 'paid',

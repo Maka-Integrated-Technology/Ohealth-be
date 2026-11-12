@@ -3,10 +3,13 @@ import {
   ApiBadRequestResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiServiceUnavailableResponse,
+  ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 
 import * as sysMsg from '../../../constants/system.messages';
+import { AuthChallengeErrorResponseDto } from '../contracts';
 import {
   LoginChallengeResponseDto,
   LoginResponseDto,
@@ -27,6 +30,8 @@ export const LoginDocs = () =>
     ApiBadRequestResponse({
       description: sysMsg.VALIDATION_ERROR,
     }),
+    ApiTooManyRequestsResponse({ type: AuthChallengeErrorResponseDto }),
+    ApiServiceUnavailableResponse({ type: AuthChallengeErrorResponseDto }),
   );
 
 export const VerifyLoginDocs = () =>
@@ -38,6 +43,7 @@ export const VerifyLoginDocs = () =>
     }),
     ApiBadRequestResponse({
       description: 'Invalid or expired authentication challenge',
+      type: AuthChallengeErrorResponseDto,
     }),
   );
 
@@ -48,5 +54,10 @@ export const ResendLoginDocs = () =>
       description: 'Generic queued response',
       type: LoginChallengeResponseDto,
     }),
-    ApiBadRequestResponse({ description: sysMsg.VALIDATION_ERROR }),
+    ApiBadRequestResponse({
+      description: sysMsg.VALIDATION_ERROR,
+      type: AuthChallengeErrorResponseDto,
+    }),
+    ApiTooManyRequestsResponse({ type: AuthChallengeErrorResponseDto }),
+    ApiServiceUnavailableResponse({ type: AuthChallengeErrorResponseDto }),
   );

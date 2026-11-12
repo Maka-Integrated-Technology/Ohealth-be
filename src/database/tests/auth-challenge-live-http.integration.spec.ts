@@ -2,24 +2,30 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { env } from 'node:process';
 
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
+import {
+  WINSTON_MODULE_NEST_PROVIDER,
+  WINSTON_MODULE_PROVIDER,
+} from 'nest-winston';
 import * as request from 'supertest';
 import { DataSource, QueryRunner } from 'typeorm';
 
+import { GlobalExceptionFilter } from '../../common/exceptions/filters/global-exception.filter';
+import { TransformInterceptor } from '../../common/interceptors/transform.interceptor';
 import { AccountAccessPolicyService } from '../../modules/auth/account-access-policy.service';
 import { AuthRoutingService } from '../../modules/auth/auth-routing.service';
 import { AuthController } from '../../modules/auth/auth.controller';
 import { AuthService } from '../../modules/auth/auth.service';
 import { AuthAbuseGuard } from '../../modules/auth/challenges/auth-abuse.guard';
 import { AuthChallengeDeliveryService } from '../../modules/auth/challenges/auth-challenge-delivery.service';
+import { AuthChallengeValidationPipe } from '../../modules/auth/challenges/auth-challenge-validation.pipe';
 import { AuthChallengePurpose } from '../../modules/auth/challenges/auth-challenge.entity';
 import { AuthChallengeService } from '../../modules/auth/challenges/auth-challenge.service';
 import { AuthRateLimitService } from '../../modules/auth/challenges/auth-rate-limit.service';
@@ -246,6 +252,15 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         JwtStrategy,
         JwtAuthGuard,
         { provide: APP_GUARD, useClass: JwtAuthGuard },
+        { provide: APP_FILTER, useClass: GlobalExceptionFilter },
+        { provide: APP_INTERCEPTOR, useClass: TransformInterceptor },
+        {
+          provide: WINSTON_MODULE_NEST_PROVIDER,
+          useValue: {
+            error: jest.fn(),
+            warn: jest.fn(),
+          },
+        },
         {
           provide: WINSTON_MODULE_PROVIDER,
           useValue: {
@@ -262,7 +277,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     const instance = module.createNestApplication();
     instance.setGlobalPrefix('api');
     instance.useGlobalPipes(
-      new ValidationPipe({
+      new AuthChallengeValidationPipe({
         whitelist: true,
         forbidNonWhitelisted: true,
         transform: true,
@@ -361,10 +376,10 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       .post('/api/auth/login')
       .send({ email: user.email, password })
       .expect(200);
-    expect(login.body.challenge_id).toMatch(/^[a-f0-9-]{36}$/i);
-    expect(login.body).not.toHaveProperty('access_token');
-    expect(login.body).not.toHaveProperty('refresh_token');
-    expect(login.body).not.toHaveProperty('session_id');
+    expect(login.body.data.challenge_id).toMatch(/^[a-f0-9-]{36}$/i);
+    expect(login.body.data).not.toHaveProperty('access_token');
+    expect(login.body.data).not.toHaveProperty('refresh_token');
+    expect(login.body.data).not.toHaveProperty('session_id');
 
     expect(await delivery.dispatchBatch(1)).toMatchObject({ accepted: 1 });
     const mailed = mail.mock.calls[0][0] as {
@@ -372,12 +387,12 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       templateData: { code: string; challenge_id: string };
     };
     expect(mailed.templateNameID).toBe('login-code.njk');
-    expect(mailed.templateData.challenge_id).toBe(login.body.challenge_id);
+    expect(mailed.templateData.challenge_id).toBe(login.body.data.challenge_id);
 
     await request(app.getHttpServer())
       .post('/api/auth/verify')
       .send({
-        challenge_id: login.body.challenge_id,
+        challenge_id: login.body.data.challenge_id,
         code: mailed.templateData.code,
       })
       .expect(400);
@@ -385,14 +400,14 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     const replies = await Promise.all(
       [app, secondApp].map((instance) =>
         request(instance.getHttpServer()).post('/api/auth/login/verify').send({
-          challenge_id: login.body.challenge_id,
+          challenge_id: login.body.data.challenge_id,
           code: mailed.templateData.code,
         }),
       ),
     );
     expect(replies.map((reply) => reply.status).sort()).toEqual([200, 400]);
     const success = replies.find((reply) => reply.status === 200)!;
-    expect(success.body).toMatchObject({
+    expect(success.body.data).toMatchObject({
       access_token: expect.any(String),
       refresh_token: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
       session_id: expect.stringMatching(/^[a-f0-9-]{36}$/i),
@@ -400,7 +415,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     await request(app.getHttpServer())
       .post('/api/auth/login/verify')
       .send({
-        challenge_id: login.body.challenge_id,
+        challenge_id: login.body.data.challenge_id,
         code: mailed.templateData.code,
       })
       .expect(400);
@@ -408,12 +423,12 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     await database.query(
       "UPDATE auth_challenges SET issued_at = now() - interval '61 seconds' " +
         'WHERE id = $1',
-      [login.body.challenge_id],
+      [login.body.data.challenge_id],
     );
     await request(app.getHttpServer())
       .post('/api/auth/login/resend')
-      .send({ challenge_id: login.body.challenge_id })
-      .expect(200);
+      .send({ challenge_id: login.body.data.challenge_id })
+      .expect(400);
     const postLoginChallenges: Array<{ count: number }> = await database.query(
       'SELECT count(*)::int AS count FROM auth_challenges ' +
         'WHERE subject_user_id = $1 AND purpose = $2',
@@ -454,20 +469,23 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
 
     const cooldown = await request(app.getHttpServer())
       .post('/api/auth/login/resend')
-      .send({ challenge_id: login.body.challenge_id })
-      .expect(200);
-    expect(cooldown.body.challenge_id).toBe(login.body.challenge_id);
+      .send({ challenge_id: login.body.data.challenge_id })
+      .expect(429);
+    expect(cooldown.body.error_code).toBe('AUTH_CHALLENGE_COOLDOWN');
+    expect(cooldown.headers['retry-after']).toBeDefined();
 
     await database.query(
       "UPDATE auth_challenges SET issued_at = now() - interval '61 seconds' " +
         'WHERE id = $1',
-      [login.body.challenge_id],
+      [login.body.data.challenge_id],
     );
     const resent = await request(secondApp.getHttpServer())
       .post('/api/auth/login/resend')
-      .send({ challenge_id: login.body.challenge_id })
+      .send({ challenge_id: login.body.data.challenge_id })
       .expect(200);
-    expect(resent.body.challenge_id).not.toBe(login.body.challenge_id);
+    expect(resent.body.data.challenge_id).not.toBe(
+      login.body.data.challenge_id,
+    );
 
     const rows: Array<{ id: string; consumed_at: Date | null }> =
       await database.query(
@@ -477,20 +495,19 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       );
     expect(rows).toHaveLength(2);
     expect(rows[0]).toMatchObject({
-      id: login.body.challenge_id,
+      id: login.body.data.challenge_id,
       consumed_at: expect.any(Date),
     });
-    expect(rows[1]).toMatchObject({ id: resent.body.challenge_id });
+    expect(rows[1]).toMatchObject({ id: resent.body.data.challenge_id });
     expect(rows[1].consumed_at).toBeNull();
 
     const unknownId = randomUUID();
     const unknown = await request(app.getHttpServer())
       .post('/api/auth/login/resend')
       .send({ challenge_id: unknownId })
-      .expect(200);
+      .expect(400);
     expect(unknown.body).toMatchObject({
-      message: 'Login verification queued',
-      challenge_id: unknownId,
+      error_code: 'AUTH_CHALLENGE_INVALID',
     });
   }, 30_000);
 
@@ -532,37 +549,24 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     });
   });
 
-  it('returns the same public message for unknown, pending, active and suspended resend targets', async () => {
+  it('binds contact resend to the opaque challenge and rejects email-only targets', async () => {
     const pending = await createUser('pending-resend', 'pending_verification');
-    const active = await createUser('active-resend', 'active');
-    const suspended = await createUser('suspended-resend', 'suspended');
-    const unknown = 'missing+' + randomUUID() + '@example.test';
-    const results = [];
-    for (const email of [
-      unknown,
-      pending.email,
-      active.email,
-      suspended.email,
-    ]) {
-      const response = await request(app.getHttpServer())
-        .post('/api/auth/verify/resend')
-        .send({ email })
-        .expect(200);
-      results.push(response.body);
-    }
-    expect(results).toEqual([
-      {
-        message: publicMessage,
-      },
-      { message: publicMessage },
-      { message: publicMessage },
-      { message: publicMessage },
-    ]);
-    const issued: Array<{ subject_user_id: string }> = await database.query(
-      'SELECT subject_user_id FROM auth_challenges WHERE purpose = $1 AND subject_user_id = $2',
-      ['contact_verification', pending.id],
+    const challenge = await app
+      .get(AuthChallengeService)
+      .issueForUser(pending.id, AuthChallengePurpose.CONTACT_VERIFICATION);
+    await database.query(
+      "UPDATE auth_challenges SET issued_at = now() - interval '61 seconds' WHERE id = $1",
+      [challenge.challengeId],
     );
-    expect(issued).toHaveLength(1);
+    const response = await request(app.getHttpServer())
+      .post('/api/auth/verify/resend')
+      .send({ challenge_id: challenge.challengeId })
+      .expect(200);
+    expect(response.body.data.challenge_id).not.toBe(challenge.challengeId);
+    await request(app.getHttpServer())
+      .post('/api/auth/verify/resend')
+      .send({ email: pending.email })
+      .expect(400);
   }, 15_000);
 
   it('rotates over HTTP, lists safe metadata and enforces logout on access and refresh', async () => {
@@ -572,18 +576,18 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       .get('/api/auth/sessions')
       .set('Authorization', `Bearer ${issued.access_token}`)
       .expect(200);
-    expect(listed.body).toHaveLength(1);
-    expect(Object.keys(listed.body[0]).sort()).toEqual(
+    expect(listed.body.data).toHaveLength(1);
+    expect(Object.keys(listed.body.data[0]).sort()).toEqual(
       ['session_id', 'created_at', 'last_used_at', 'expires_at'].sort(),
     );
     const rotated = await request(secondApp.getHttpServer())
       .post('/api/auth/refresh')
       .send({ refresh_token: issued.refresh_token })
       .expect(200);
-    expect(rotated.body.session_id).toBe(issued.session_id);
+    expect(rotated.body.data.session_id).toBe(issued.session_id);
     await request(app.getHttpServer())
       .post('/api/auth/logout')
-      .set('Authorization', `Bearer ${rotated.body.access_token}`)
+      .set('Authorization', `Bearer ${rotated.body.data.access_token}`)
       .send({ session_id: issued.session_id })
       .expect(200);
     await request(secondApp.getHttpServer())
@@ -592,7 +596,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       .expect(401);
     await request(app.getHttpServer())
       .post('/api/auth/refresh')
-      .send({ refresh_token: rotated.body.refresh_token })
+      .send({ refresh_token: rotated.body.data.refresh_token })
       .expect(401);
   });
 
@@ -619,7 +623,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     expect([200, 401]).toContain(refresh.status);
     for (const accessToken of [
       issued.access_token,
-      refresh.body.access_token,
+      refresh.body.data?.access_token,
     ].filter(Boolean)) {
       await request(app.getHttpServer())
         .get('/api/auth/sessions')
@@ -628,7 +632,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     }
     for (const refreshToken of [
       issued.refresh_token,
-      refresh.body.refresh_token,
+      refresh.body.data?.refresh_token,
     ].filter(Boolean)) {
       await request(secondApp.getHttpServer())
         .post('/api/auth/refresh')
@@ -652,7 +656,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     );
     const responses = await Promise.all(instances);
     expect(
-      responses.filter((response) => response.status === 200),
+      responses.filter((response) => response.status === 400),
     ).toHaveLength(8);
     expect(
       responses.filter((response) => response.status === 429),
@@ -671,12 +675,13 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     const unknown = await request(app.getHttpServer())
       .post('/api/auth/forgot-password')
       .send({ email: 'absent+' + randomUUID() + '@example.test' })
-      .expect(500);
+      .expect(503);
     const known = await request(app.getHttpServer())
       .post('/api/auth/forgot-password')
       .send({ email: active.email })
-      .expect(500);
-    expect(known.body.statusCode).toBe(unknown.body.statusCode);
+      .expect(503);
+    expect(known.body.error_code).toBe('AUTH_SERVICE_TEMPORARILY_UNAVAILABLE');
+    expect(known.body.error_code).toBe(unknown.body.error_code);
     const rows: Array<{ count: number }> = await database.query(
       'SELECT count(*)::int AS count FROM auth_challenges WHERE subject_user_id = $1',
       [active.id],
@@ -689,7 +694,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     await request(app.getHttpServer())
       .post('/api/auth/forgot-password')
       .send({ email: active.email })
-      .expect(201);
+      .expect(202);
     const deliveries: Array<{ challenge_id: string }> = await database.query(
       'SELECT d.challenge_id FROM auth_challenge_deliveries d ' +
         'JOIN auth_challenges c ON c.id = d.challenge_id ' +
@@ -745,7 +750,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         accepted_privacy_version: 'privacy-v1',
       })
       .expect(201);
-    const challengeId = registered.body.challenge_id as string;
+    const challengeId = registered.body.data.challenge_id as string;
     expect(challengeId).toMatch(/^[a-f0-9-]{36}$/i);
     const before: Array<{
       account_status: string;
@@ -892,7 +897,9 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       ),
     );
     expect(retries.map((reply) => reply.status)).toEqual([201, 201]);
-    expect(retries[0].body.challenge_id).toBe(retries[1].body.challenge_id);
+    expect(retries[0].body.data.challenge_id).toBe(
+      retries[1].body.data.challenge_id,
+    );
   }, 30_000);
 
   it('fails a registration replay that races behind contact verification', async () => {
@@ -931,7 +938,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       const verification = request(secondApp.getHttpServer())
         .post('/api/auth/verify')
         .send({
-          challenge_id: registered.body.challenge_id,
+          challenge_id: registered.body.data.challenge_id,
           code: mailed.templateData.code,
         })
         .then((reply) => reply);
@@ -974,7 +981,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       `UPDATE auth_challenges
        SET issued_at = now() - interval '61 seconds'
        WHERE id = $1`,
-      [registered.body.challenge_id],
+      [registered.body.data.challenge_id],
     );
     const users: Array<{ id: string }> = await database.query(
       'SELECT id FROM users WHERE email = $1',
@@ -989,7 +996,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       ]);
       const resend = request(secondApp.getHttpServer())
         .post('/api/auth/verify/resend')
-        .send({ email })
+        .send({ challenge_id: registered.body.data.challenge_id })
         .then((reply) => reply);
       await waitForLockWaiters(1);
       const replay = request(app.getHttpServer())
@@ -1008,8 +1015,8 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
          ORDER BY issued_at DESC LIMIT 1`,
         [users[0].id],
       );
-      expect(current[0].id).not.toBe(registered.body.challenge_id);
-      expect(retried.body.challenge_id).toBe(current[0].id);
+      expect(current[0].id).not.toBe(registered.body.data.challenge_id);
+      expect(retried.body.data.challenge_id).toBe(current[0].id);
     } finally {
       if (blocker.isTransactionActive) await blocker.rollbackTransaction();
       await blocker.release();
@@ -1032,7 +1039,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         accepted_terms_version: 'terms-v1',
         accepted_privacy_version: 'privacy-v1',
       })
-      .expect(500);
+      .expect(503);
     queue.mockRestore();
     const rows: Array<{ count: number }> = await database.query(
       'SELECT count(*)::int AS count FROM users WHERE email = $1',
@@ -1046,7 +1053,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     await request(app.getHttpServer())
       .post('/api/auth/forgot-password')
       .send({ email: user.email })
-      .expect(201);
+      .expect(202);
     expect(await delivery.dispatchBatch(1)).toMatchObject({ accepted: 1 });
     const mailed = mail.mock.calls[0][0] as {
       templateData: { otp: string; challenge_id: string };
@@ -1065,37 +1072,34 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
 
   it('serializes simultaneous resend and supersedes the older challenge after cooldown', async () => {
     const user = await createUser('racing-resend', 'pending_verification');
+    const initial = await app
+      .get(AuthChallengeService)
+      .issueForUser(user.id, AuthChallengePurpose.CONTACT_VERIFICATION);
+    await database.query(
+      "UPDATE auth_challenges SET issued_at = now() - interval '61 seconds' WHERE id = $1",
+      [initial.challengeId],
+    );
     const replies = await Promise.all(
       [app, secondApp].map((instance) =>
         request(instance.getHttpServer())
           .post('/api/auth/verify/resend')
-          .send({ email: user.email }),
+          .send({ challenge_id: initial.challengeId }),
       ),
     );
     expect(replies.map((reply) => reply.status)).toEqual([200, 200]);
-    let rows: Array<{ id: string; consumed_at: Date | null }> =
+    expect(replies[0].body.data.challenge_id).toBe(
+      replies[1].body.data.challenge_id,
+    );
+    const rows: Array<{ id: string; consumed_at: Date | null }> =
       await database.query(
         'SELECT id, consumed_at FROM auth_challenges WHERE subject_user_id = $1',
         [user.id],
       );
-    expect(rows).toHaveLength(1);
-    const firstId = rows[0].id;
-    await database.query(
-      "UPDATE auth_challenges SET issued_at = now() - interval '61 seconds' " +
-        'WHERE id = $1',
-      [firstId],
-    );
-    await request(app.getHttpServer())
-      .post('/api/auth/verify/resend')
-      .send({ email: user.email })
-      .expect(200);
-    rows = await database.query(
-      'SELECT id, consumed_at FROM auth_challenges WHERE subject_user_id = $1',
-      [user.id],
-    );
     expect(rows).toHaveLength(2);
     expect(rows.filter((row) => row.consumed_at === null)).toHaveLength(1);
-    expect(rows.find((row) => row.id === firstId)?.consumed_at).toBeTruthy();
+    expect(
+      rows.find((row) => row.id === initial.challengeId)?.consumed_at,
+    ).toBeTruthy();
   }, 15_000);
 
   it('enforces the same PostgreSQL budget across two independent service instances', async () => {
@@ -1203,7 +1207,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     await request(app.getHttpServer())
       .post('/api/auth/forgot-password')
       .send({ email: user.email })
-      .expect(201);
+      .expect(202);
     // Exercise the real 30-second provider timeout without faking clocks or
     // replacing delivery/persistence services.
     mail.mockImplementationOnce(() => new Promise<void>(() => {}));
@@ -1266,9 +1270,13 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         )
           .post('/api/auth/forgot-password')
           .send({ email: targets[index] })
-          .expect(201);
+          .expect(202);
         samples[index].push(performance.now() - start);
-        expect(response.body).toEqual({ message: publicMessage });
+        expect(response.body).toEqual({
+          status_code: 202,
+          message: publicMessage,
+          data: null,
+        });
       }
     }
     const medians = samples.map(

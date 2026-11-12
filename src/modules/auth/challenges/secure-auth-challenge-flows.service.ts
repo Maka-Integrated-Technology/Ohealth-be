@@ -2,7 +2,12 @@ import { randomInt, timingSafeEqual } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-import { BadRequestException, HttpException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+} from '@nestjs/common';
 import { DataSource, IsNull, Raw } from 'typeorm';
 
 import * as sysMsg from '../../../constants/system.messages';
@@ -23,13 +28,17 @@ import {
 
 import { AuthChallengeDeliveryService } from './auth-challenge-delivery.service';
 import { AuthChallengePurpose } from './auth-challenge.entity';
+import {
+  AuthChallengeErrorCode,
+  AuthChallengeException,
+} from './auth-challenge.error';
 import { AuthChallengeService } from './auth-challenge.service';
 
 const QUEUED =
   'If this account is eligible, a verification message has been queued.';
-const LOGIN_QUEUED = 'Login verification queued';
+const CHALLENGE_QUEUED = 'Verification code queued';
 
-export interface ILoginChallengeResponse {
+export interface IAuthChallengeContinuationResponse {
   message: string;
   challenge_id: string;
   resend_after_seconds: number;
@@ -55,7 +64,7 @@ export class SecureAuthChallengeFlowsService {
 
   async requestLogin(
     passwordProvenUser: User,
-  ): Promise<ILoginChallengeResponse> {
+  ): Promise<IAuthChallengeContinuationResponse> {
     try {
       await this.delivery.assertLiveFlowReady();
       return await this.dataSource.transaction(async (manager) => {
@@ -70,27 +79,48 @@ export class SecureAuthChallengeFlowsService {
         ) {
           throw new BadRequestException(sysMsg.INVALID_CREDENTIALS);
         }
-        const issued = await this.delivery.queueInTransaction(
-          manager,
-          user,
-          AuthChallengePurpose.LOGIN_VERIFICATION,
-        );
+        let issued: {
+          challengeId: string;
+          resendAfterSeconds: number;
+          expiresInSeconds: number;
+        };
+        try {
+          issued = await this.delivery.queueInTransaction(
+            manager,
+            user,
+            AuthChallengePurpose.LOGIN_VERIFICATION,
+          );
+        } catch (error) {
+          if (error instanceof HttpException) throw error;
+          throw new AuthChallengeException(
+            AuthChallengeErrorCode.DELIVERY_UNAVAILABLE,
+            HttpStatus.SERVICE_UNAVAILABLE,
+            30,
+          );
+        }
         await this.audit.recordInTransaction(manager, {
           event_type: AuthSecurityEventType.LOGIN_CHALLENGE_REQUEST,
           outcome: AuthSecurityEventOutcome.SUCCEEDED,
           subject_user_id: user.id,
         });
-        return this.loginChallengeResponse(issued);
+        return this.challengeResponse(issued);
       });
     } catch (error) {
       await this.audit.recordAttempt({
         event_type: AuthSecurityEventType.LOGIN_CHALLENGE_REQUEST,
         outcome:
-          error instanceof HttpException
+          error instanceof HttpException && error.getStatus() < 500
             ? AuthSecurityEventOutcome.DENIED
             : AuthSecurityEventOutcome.FAILED,
         subject_user_id: passwordProvenUser.id,
       });
+      if (!(error instanceof HttpException)) {
+        throw new AuthChallengeException(
+          AuthChallengeErrorCode.SERVICE_TEMPORARILY_UNAVAILABLE,
+          HttpStatus.SERVICE_UNAVAILABLE,
+          30,
+        );
+      }
       throw error;
     }
   }
@@ -162,109 +192,34 @@ export class SecureAuthChallengeFlowsService {
     }
   }
 
-  async resendLogin(challengeId: string): Promise<ILoginChallengeResponse> {
-    const started = performance.now();
-    const responseFloorMs = 350 + randomInt(0, 250);
-    let response = this.loginChallengeResponse({
+  resendLogin(
+    challengeId: string,
+  ): Promise<IAuthChallengeContinuationResponse> {
+    return this.resendChallenge(
       challengeId,
-      resendAfterSeconds: 60,
-      expiresInSeconds: 600,
-    });
-    try {
-      await this.delivery.assertLiveFlowReady();
-      await this.dataSource.transaction(async (manager) => {
-        const references: Array<{ subject_user_id: string }> =
-          await manager.query(
-            'SELECT subject_user_id FROM auth_challenges ' +
-              'WHERE id = $1 AND purpose = $2',
-            [challengeId, AuthChallengePurpose.LOGIN_VERIFICATION],
-          );
-        if (!references.length) {
-          await this.recordDeniedLoginResend(manager);
-          return;
-        }
-        const user = await manager.findOne(User, {
-          where: { id: references[0].subject_user_id },
-          lock: { mode: 'pessimistic_write' },
-        });
-        try {
-          this.policy.assertCanAuthenticate(user);
-        } catch {
-          await this.recordDeniedLoginResend(
-            manager,
-            references[0].subject_user_id,
-          );
-          return;
-        }
-        if (!user) {
-          await this.recordDeniedLoginResend(manager);
-          return;
-        }
-        const latest: Array<{
-          id: string;
-          issued_at: Date;
-          expires_at: Date;
-        }> = await manager.query(
-          'SELECT id, issued_at, expires_at FROM auth_challenges ' +
-            'WHERE subject_user_id = $1 AND purpose = $2 ' +
-            'AND consumed_at IS NULL AND expires_at > now() ' +
-            'ORDER BY issued_at DESC LIMIT 1',
-          [user.id, AuthChallengePurpose.LOGIN_VERIFICATION],
-        );
-        const current = latest[0];
-        if (!current || current.id !== challengeId) {
-          await this.recordDeniedLoginResend(manager, user.id);
-          return;
-        }
-        const ageMs = Date.now() - new Date(current.issued_at).getTime();
-        response = this.loginChallengeResponse({
-          challengeId: current.id,
-          resendAfterSeconds: Math.max(0, Math.ceil((60_000 - ageMs) / 1000)),
-          expiresInSeconds: Math.max(
-            1,
-            Math.ceil(
-              (new Date(current.expires_at).getTime() - Date.now()) / 1000,
-            ),
-          ),
-        });
-        if (ageMs < 60_000) {
-          await this.recordDeniedLoginResend(manager, user.id);
-          return;
-        }
-        const issued = await this.delivery.queueInTransaction(
-          manager,
-          user,
-          AuthChallengePurpose.LOGIN_VERIFICATION,
-        );
-        await this.audit.recordInTransaction(manager, {
-          event_type: AuthSecurityEventType.LOGIN_CHALLENGE_RESEND,
-          outcome: AuthSecurityEventOutcome.SUCCEEDED,
-          subject_user_id: user.id,
-        });
-        response = this.loginChallengeResponse(issued);
-      });
-      return response;
-    } catch (error) {
-      await this.audit.recordAttempt({
-        event_type: AuthSecurityEventType.LOGIN_CHALLENGE_RESEND,
-        outcome:
-          error instanceof HttpException
-            ? AuthSecurityEventOutcome.DENIED
-            : AuthSecurityEventOutcome.FAILED,
-      });
-      throw error;
-    } finally {
-      const remaining = responseFloorMs - (performance.now() - started);
-      if (remaining > 0) await sleep(remaining);
-    }
+      AuthChallengePurpose.LOGIN_VERIFICATION,
+      AuthSecurityEventType.LOGIN_CHALLENGE_RESEND,
+    );
   }
 
-  async resend(email: string): Promise<{ message: string }> {
-    await this.queueForEligibleAccount(
-      email,
+  resendContact(
+    challengeId: string,
+  ): Promise<IAuthChallengeContinuationResponse> {
+    return this.resendChallenge(
+      challengeId,
       AuthChallengePurpose.CONTACT_VERIFICATION,
+      AuthSecurityEventType.CONTACT_VERIFICATION,
     );
-    return { message: QUEUED };
+  }
+
+  resendRecovery(
+    challengeId: string,
+  ): Promise<IAuthChallengeContinuationResponse> {
+    return this.resendChallenge(
+      challengeId,
+      AuthChallengePurpose.PASSWORD_RECOVERY,
+      AuthSecurityEventType.PASSWORD_RECOVERY,
+    );
   }
 
   async requestRecovery(email: string): Promise<{ message: string }> {
@@ -342,9 +297,13 @@ export class SecureAuthChallengeFlowsService {
           reset_token_expiry: null,
         });
         await manager.query(
-          'UPDATE auth_challenges SET consumed_at = now() ' +
-            'WHERE subject_user_id = $1 AND purpose = $2 AND consumed_at IS NULL',
-          [user.id, AuthChallengePurpose.LOGIN_VERIFICATION],
+          'UPDATE auth_challenges SET consumed_at = now(), terminal_reason = $3 ' +
+            'WHERE subject_user_id = $1 AND purpose = $2 AND terminal_reason IS NULL',
+          [
+            user.id,
+            AuthChallengePurpose.LOGIN_VERIFICATION,
+            'administratively_revoked',
+          ],
         );
         await manager.update(
           AuthSession,
@@ -410,36 +369,130 @@ export class SecureAuthChallengeFlowsService {
           Date.now() - new Date(issuedRecently[0].issued_at).getTime() < 60_000
         )
           return;
-        await this.delivery.queueInTransaction(manager, user, purpose);
+        try {
+          await this.delivery.queueInTransaction(manager, user, purpose);
+        } catch (error) {
+          if (error instanceof HttpException) throw error;
+          throw new AuthChallengeException(
+            AuthChallengeErrorCode.DELIVERY_UNAVAILABLE,
+            HttpStatus.SERVICE_UNAVAILABLE,
+            30,
+          );
+        }
       });
+    } catch (error) {
+      if (error instanceof HttpException) throw error;
+      throw new AuthChallengeException(
+        AuthChallengeErrorCode.SERVICE_TEMPORARILY_UNAVAILABLE,
+        HttpStatus.SERVICE_UNAVAILABLE,
+        30,
+      );
     } finally {
       const remaining = responseFloorMs - (performance.now() - started);
       if (remaining > 0) await sleep(remaining);
     }
   }
 
-  private loginChallengeResponse(issued: {
+  private async resendChallenge(
+    challengeId: string,
+    purpose: AuthChallengePurpose,
+    eventType: AuthSecurityEventType,
+  ): Promise<IAuthChallengeContinuationResponse> {
+    const started = performance.now();
+    const responseFloorMs = 350 + randomInt(0, 250);
+    try {
+      await this.delivery.assertLiveFlowReady();
+      return await this.dataSource.transaction(async (manager) => {
+        const references: Array<{ subject_user_id: string }> =
+          await manager.query(
+            'SELECT subject_user_id FROM auth_challenges WHERE id = $1 AND purpose = $2',
+            [challengeId, purpose],
+          );
+        if (references.length) {
+          const user = await manager.findOne(User, {
+            where: { id: references[0].subject_user_id },
+          });
+          const eligible =
+            purpose === AuthChallengePurpose.CONTACT_VERIFICATION
+              ? user?.account_status === AccountStatus.PENDING_VERIFICATION &&
+                !user.email_verified_at
+              : purpose === AuthChallengePurpose.PASSWORD_RECOVERY
+                ? user?.account_status === AccountStatus.ACTIVE &&
+                  !!user.email_verified_at
+                : this.canAuthenticate(user);
+          if (!eligible) {
+            throw new AuthChallengeException(
+              AuthChallengeErrorCode.INVALID,
+              HttpStatus.BAD_REQUEST,
+            );
+          }
+        }
+        let issued: {
+          challengeId: string;
+          resendAfterSeconds: number;
+          expiresInSeconds: number;
+        };
+        try {
+          issued = await this.delivery.replaceInTransaction(
+            manager,
+            challengeId,
+            purpose,
+          );
+        } catch (error) {
+          if (error instanceof HttpException) throw error;
+          throw new AuthChallengeException(
+            AuthChallengeErrorCode.DELIVERY_UNAVAILABLE,
+            HttpStatus.SERVICE_UNAVAILABLE,
+            30,
+          );
+        }
+        await this.audit.recordInTransaction(manager, {
+          event_type: eventType,
+          outcome: AuthSecurityEventOutcome.SUCCEEDED,
+          subject_user_id: references[0]?.subject_user_id,
+        });
+        return this.challengeResponse(issued);
+      });
+    } catch (error) {
+      await this.audit.recordAttempt({
+        event_type: eventType,
+        outcome:
+          error instanceof HttpException && error.getStatus() < 500
+            ? AuthSecurityEventOutcome.DENIED
+            : AuthSecurityEventOutcome.FAILED,
+      });
+      if (error instanceof HttpException) throw error;
+      throw new AuthChallengeException(
+        AuthChallengeErrorCode.SERVICE_TEMPORARILY_UNAVAILABLE,
+        HttpStatus.SERVICE_UNAVAILABLE,
+        30,
+      );
+    } finally {
+      const remaining = responseFloorMs - (performance.now() - started);
+      if (remaining > 0) await sleep(remaining);
+    }
+  }
+
+  private challengeResponse(issued: {
     challengeId: string;
     resendAfterSeconds: number;
     expiresInSeconds: number;
-  }): ILoginChallengeResponse {
+  }): IAuthChallengeContinuationResponse {
     return {
-      message: LOGIN_QUEUED,
+      message: CHALLENGE_QUEUED,
       challenge_id: issued.challengeId,
       resend_after_seconds: issued.resendAfterSeconds,
       expires_in_seconds: issued.expiresInSeconds,
     };
   }
 
-  private async recordDeniedLoginResend(
-    manager: Parameters<AuthSecurityAuditService['recordInTransaction']>[0],
-    subjectUserId?: string,
-  ): Promise<void> {
-    await this.audit.recordInTransaction(manager, {
-      event_type: AuthSecurityEventType.LOGIN_CHALLENGE_RESEND,
-      outcome: AuthSecurityEventOutcome.DENIED,
-      subject_user_id: subjectUserId,
-    });
+  private canAuthenticate(user: User | null): boolean {
+    try {
+      this.policy.assertCanAuthenticate(user);
+      return !!user;
+    } catch {
+      return false;
+    }
   }
 
   private sameSecret(left: string, right: string): boolean {

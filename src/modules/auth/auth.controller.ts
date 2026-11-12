@@ -55,7 +55,6 @@ import {
   ForgotPasswordDto,
   LogoutDto,
   RefreshTokenDto,
-  ResendVerificationDto,
   ResetPasswordDto,
   GoogleLoginDto,
   UpdateProfileDto,
@@ -140,9 +139,19 @@ export class AuthController {
   @ForgotPasswordDocs()
   @Public()
   @Post('forgot-password')
+  @HttpCode(HttpStatus.ACCEPTED)
   @UseGuards(AuthAbuseGuard)
   forgotPassword(@Body() payload: ForgotPasswordDto) {
     return this.authService.forgotPassword(payload);
+  }
+
+  @Public()
+  @Post('forgot-password/resend')
+  @HttpCode(HttpStatus.OK)
+  @ResendVerificationDocs()
+  @UseGuards(AuthAbuseGuard)
+  resendRecovery(@Body() payload: ResendAuthChallengeDto) {
+    return this.authService.resendRecovery(payload);
   }
 
   @ResetPasswordDocs()
@@ -167,7 +176,7 @@ export class AuthController {
   @Post('verify/resend')
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthAbuseGuard)
-  resendVerification(@Body() payload: ResendVerificationDto) {
+  resendVerification(@Body() payload: ResendAuthChallengeDto) {
     return this.authService.resendVerification(payload);
   }
 

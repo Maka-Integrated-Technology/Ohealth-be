@@ -1,4 +1,3 @@
-import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
@@ -6,6 +5,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { AppModule } from './app.module';
 import { LoggingInterceptor } from './middleware/logging.interceptor';
 import { AuthChallengeDeliveryService } from './modules/auth/challenges/auth-challenge-delivery.service';
+import { AuthChallengeValidationPipe } from './modules/auth/challenges/auth-challenge-validation.pipe';
 import { AuthChallengeService } from './modules/auth/challenges/auth-challenge.service';
 import { RegistrationService } from './modules/auth/registration/registration.service';
 import {
@@ -46,7 +46,7 @@ async function bootstrap() {
 
   // Validation
   app.useGlobalPipes(
-    new ValidationPipe({
+    new AuthChallengeValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,

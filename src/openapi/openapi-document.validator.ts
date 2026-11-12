@@ -4,6 +4,8 @@ import {
   ApiErrorResponseDto,
   ApiSuccessResponseDto,
 } from '../common/dto/response.dto';
+import { AuthChallengeErrorCode } from '../modules/auth/challenges/auth-challenge.error';
+import { AuthChallengeErrorResponseDto } from '../modules/auth/contracts/auth-contract-response.dto';
 
 import type {
   OpenAPIObject,
@@ -11,6 +13,7 @@ import type {
   ReferenceObject,
   RequestBodyObject,
   ResponseObject,
+  SchemaObject,
 } from '@nestjs/swagger/dist/interfaces/open-api-spec.interface';
 
 const HTTP_METHODS = [
@@ -29,6 +32,7 @@ const PUBLIC_OPERATION_IDS = new Set([
   'AuthController_googleLogin',
   'AuthController_login',
   'AuthController_resendLogin',
+  'AuthController_resendRecovery',
   'AuthController_getRegistrationBootstrap',
   'AuthController_refreshToken',
   'AuthController_resendVerification',
@@ -38,6 +42,18 @@ const PUBLIC_OPERATION_IDS = new Set([
   'AuthController_verifyLogin',
   'LaboratoryPostApprovalController_acceptStaffInvitation',
   'PharmacyController_register',
+]);
+
+const AUTH_CHALLENGE_ERROR_RESPONSES = new Map<string, readonly string[]>([
+  ['AuthController_forgotPassword', ['429', '503']],
+  ['AuthController_login', ['429', '503']],
+  ['AuthController_resendLogin', ['400', '429', '503']],
+  ['AuthController_resendRecovery', ['400', '429', '503']],
+  ['AuthController_resendVerification', ['400', '429', '503']],
+  ['AuthController_resetPassword', ['400']],
+  ['AuthController_signup', ['503']],
+  ['AuthController_verifyLogin', ['400']],
+  ['AuthController_verifySignup', ['400']],
 ]);
 
 function isReferenceObject(value: object): value is ReferenceObject {
@@ -63,6 +79,55 @@ function hasEnvelopeReference(
 
   return (schema.allOf ?? []).some(
     (entry) => isReferenceObject(entry) && entry.$ref === schemaPath,
+  );
+}
+
+function hasErrorEnvelope(
+  document: OpenAPIObject,
+  response: ReferenceObject | ResponseObject,
+): boolean {
+  if (hasEnvelopeReference(response, getSchemaPath(ApiErrorResponseDto))) {
+    return true;
+  }
+  if (isReferenceObject(response)) return false;
+
+  const schema = response.content?.['application/json']?.schema;
+  if (!schema || !isReferenceObject(schema)) return false;
+  const componentName = schema.$ref.replace('#/components/schemas/', '');
+  const component = document.components.schemas?.[componentName];
+  if (!component || isReferenceObject(component)) return false;
+
+  const required = new Set(component.required ?? []);
+  return ['status_code', 'message', 'data'].every(
+    (property) =>
+      property in (component.properties ?? {}) && required.has(property),
+  );
+}
+
+function hasDirectSchemaReference(
+  response: ReferenceObject | ResponseObject,
+  schemaPath: string,
+): boolean {
+  if (isReferenceObject(response)) return false;
+  const schema = response.content?.['application/json']?.schema;
+  return Boolean(
+    schema && isReferenceObject(schema) && schema.$ref === schemaPath,
+  );
+}
+
+function hasValidAuthChallengeErrorSchema(document: OpenAPIObject): boolean {
+  const schema = document.components.schemas?.[
+    AuthChallengeErrorResponseDto.name
+  ] as SchemaObject | ReferenceObject | undefined;
+  if (!schema || isReferenceObject(schema)) return false;
+
+  const errorCode = schema.properties?.error_code;
+  return Boolean(
+    schema.required?.includes('error_code') &&
+    errorCode &&
+    !isReferenceObject(errorCode) &&
+    JSON.stringify(errorCode.enum) ===
+      JSON.stringify(Object.values(AuthChallengeErrorCode)),
   );
 }
 
@@ -122,6 +187,7 @@ function validateSecurity(
 }
 
 function validateResponses(
+  document: OpenAPIObject,
   label: string,
   operation: OperationObject,
   errors: string[],
@@ -161,15 +227,37 @@ function validateResponses(
   errorResponses.forEach(([status, response]) => {
     if (!hasJsonSchema(response)) {
       errors.push(`${label} response ${status} is missing an error schema`);
-    } else if (
-      !hasEnvelopeReference(response, getSchemaPath(ApiErrorResponseDto))
-    ) {
+    } else if (!hasErrorEnvelope(document, response)) {
       errors.push(`${label} response ${status} is missing the error envelope`);
     }
   });
+
+  const challengeStatuses = operation.operationId
+    ? AUTH_CHALLENGE_ERROR_RESPONSES.get(operation.operationId)
+    : undefined;
+  challengeStatuses?.forEach((status) => {
+    const response = operation.responses[status];
+    if (
+      !response ||
+      !hasDirectSchemaReference(
+        response,
+        getSchemaPath(AuthChallengeErrorResponseDto),
+      )
+    ) {
+      errors.push(
+        `${label} response ${status} must reference AuthChallengeErrorResponseDto`,
+      );
+    }
+  });
+  if (challengeStatuses && !hasValidAuthChallengeErrorSchema(document)) {
+    errors.push(
+      'AuthChallengeErrorResponseDto.error_code must be required and expose the complete enum catalogue',
+    );
+  }
 }
 
 function validateOperation(
+  document: OpenAPIObject,
   path: string,
   method: string,
   operation: OperationObject,
@@ -190,7 +278,7 @@ function validateOperation(
   if (!operation.tags?.length) errors.push(`${label} is missing tags`);
 
   validateSecurity(label, operation, errors);
-  validateResponses(label, operation, errors);
+  validateResponses(document, label, operation, errors);
 
   const pathParameters = new Set(
     (operation.parameters ?? [])
@@ -261,7 +349,14 @@ export function assertOpenApiDocumentComplete(document: OpenAPIObject): void {
     HTTP_METHODS.forEach((method) => {
       const operation = pathItem?.[method] as OperationObject | undefined;
       if (operation) {
-        validateOperation(path, method, operation, operationIds, errors);
+        validateOperation(
+          document,
+          path,
+          method,
+          operation,
+          operationIds,
+          errors,
+        );
       }
     });
   });

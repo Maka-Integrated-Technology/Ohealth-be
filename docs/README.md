@@ -21,6 +21,8 @@ must follow.
    purpose-bound pre-session proof and client migration contract.
 8. [Transactional intent registration](./transactional-intent-registration.md)
    — atomic personas, organizations, legal acceptance, retries, and rollout.
+9. [Authentication challenge continuation](./auth-challenge-continuation.md)
+   — handle-bound resend, lineage, stable errors, and recovery links.
 
 ## Documentation status labels
 

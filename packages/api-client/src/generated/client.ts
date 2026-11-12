@@ -27,10 +27,12 @@ export type AuthController_forgotPasswordRequest = Readonly<{
   readonly headers?: ApiHeaders;
 }>;
 export type AuthController_forgotPasswordResponse =
-  operations['AuthController_forgotPassword']['responses'][201]['content']['application/json'];
+  operations['AuthController_forgotPassword']['responses'][202]['content']['application/json'];
 export type AuthController_forgotPasswordError =
   | operations['AuthController_forgotPassword']['responses'][400]['content']['application/json']
-  | operations['AuthController_forgotPassword']['responses'][500]['content']['application/json'];
+  | operations['AuthController_forgotPassword']['responses'][429]['content']['application/json']
+  | operations['AuthController_forgotPassword']['responses'][500]['content']['application/json']
+  | operations['AuthController_forgotPassword']['responses'][503]['content']['application/json'];
 
 export type AuthController_getProfileRequest = Readonly<{
   readonly headers?: ApiHeaders;
@@ -82,7 +84,9 @@ export type AuthController_loginResponse =
 export type AuthController_loginError =
   | operations['AuthController_login']['responses'][400]['content']['application/json']
   | operations['AuthController_login']['responses'][401]['content']['application/json']
-  | operations['AuthController_login']['responses'][500]['content']['application/json'];
+  | operations['AuthController_login']['responses'][429]['content']['application/json']
+  | operations['AuthController_login']['responses'][500]['content']['application/json']
+  | operations['AuthController_login']['responses'][503]['content']['application/json'];
 
 export type AuthController_logoutRequest = Readonly<{
   readonly body: NonNullable<
@@ -120,7 +124,23 @@ export type AuthController_resendLoginResponse =
   operations['AuthController_resendLogin']['responses'][200]['content']['application/json'];
 export type AuthController_resendLoginError =
   | operations['AuthController_resendLogin']['responses'][400]['content']['application/json']
-  | operations['AuthController_resendLogin']['responses'][500]['content']['application/json'];
+  | operations['AuthController_resendLogin']['responses'][429]['content']['application/json']
+  | operations['AuthController_resendLogin']['responses'][500]['content']['application/json']
+  | operations['AuthController_resendLogin']['responses'][503]['content']['application/json'];
+
+export type AuthController_resendRecoveryRequest = Readonly<{
+  readonly body: NonNullable<
+    operations['AuthController_resendRecovery']['requestBody']
+  >['content']['application/json'];
+  readonly headers?: ApiHeaders;
+}>;
+export type AuthController_resendRecoveryResponse =
+  operations['AuthController_resendRecovery']['responses'][200]['content']['application/json'];
+export type AuthController_resendRecoveryError =
+  | operations['AuthController_resendRecovery']['responses'][400]['content']['application/json']
+  | operations['AuthController_resendRecovery']['responses'][429]['content']['application/json']
+  | operations['AuthController_resendRecovery']['responses'][500]['content']['application/json']
+  | operations['AuthController_resendRecovery']['responses'][503]['content']['application/json'];
 
 export type AuthController_resendVerificationRequest = Readonly<{
   readonly body: NonNullable<
@@ -132,7 +152,9 @@ export type AuthController_resendVerificationResponse =
   operations['AuthController_resendVerification']['responses'][200]['content']['application/json'];
 export type AuthController_resendVerificationError =
   | operations['AuthController_resendVerification']['responses'][400]['content']['application/json']
-  | operations['AuthController_resendVerification']['responses'][500]['content']['application/json'];
+  | operations['AuthController_resendVerification']['responses'][429]['content']['application/json']
+  | operations['AuthController_resendVerification']['responses'][500]['content']['application/json']
+  | operations['AuthController_resendVerification']['responses'][503]['content']['application/json'];
 
 export type AuthController_resetPasswordRequest = Readonly<{
   readonly body: NonNullable<
@@ -182,7 +204,8 @@ export type AuthController_signupResponse =
 export type AuthController_signupError =
   | operations['AuthController_signup']['responses'][400]['content']['application/json']
   | operations['AuthController_signup']['responses'][409]['content']['application/json']
-  | operations['AuthController_signup']['responses'][500]['content']['application/json'];
+  | operations['AuthController_signup']['responses'][500]['content']['application/json']
+  | operations['AuthController_signup']['responses'][503]['content']['application/json'];
 
 export type AuthController_updateProfileRequest = Readonly<{
   readonly body: NonNullable<
@@ -1288,6 +1311,9 @@ export interface ApiClient {
   readonly AuthController_resendLogin: (
     request: AuthController_resendLoginRequest,
   ) => Promise<AuthController_resendLoginResponse>;
+  readonly AuthController_resendRecovery: (
+    request: AuthController_resendRecoveryRequest,
+  ) => Promise<AuthController_resendRecoveryResponse>;
   readonly AuthController_resendVerification: (
     request: AuthController_resendVerificationRequest,
   ) => Promise<AuthController_resendVerificationResponse>;
@@ -1669,6 +1695,19 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
           operationId: 'AuthController_resendLogin',
           method: 'POST',
           path: '/api/auth/login/resend',
+          requestMediaType: 'application/json',
+        },
+        request,
+      ),
+    AuthController_resendRecovery: (request) =>
+      core.request<
+        AuthController_resendRecoveryResponse,
+        AuthController_resendRecoveryError
+      >(
+        {
+          operationId: 'AuthController_resendRecovery',
+          method: 'POST',
+          path: '/api/auth/forgot-password/resend',
           requestMediaType: 'application/json',
         },
         request,

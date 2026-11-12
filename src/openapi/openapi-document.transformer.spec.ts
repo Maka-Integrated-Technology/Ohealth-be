@@ -36,6 +36,14 @@ describe('transformOpenApiDocument', () => {
                 },
               },
               404: { description: 'Not found' },
+              429: {
+                description: 'Rate limited',
+                content: {
+                  'application/json': {
+                    schema: { $ref: '#/components/schemas/SpecificError' },
+                  },
+                },
+              },
             },
           },
         },
@@ -77,6 +85,10 @@ describe('transformOpenApiDocument', () => {
             properties: { data: { type: 'object' } },
           },
           [ApiErrorResponseDto.name]: { type: 'object' },
+          SpecificError: {
+            type: 'object',
+            properties: { error_code: { type: 'string' } },
+          },
           RawResponse: {
             type: 'object',
             required: ['status_code', 'message', 'id'],
@@ -116,6 +128,10 @@ describe('transformOpenApiDocument', () => {
       expect(errorResponse.content['application/json'].schema).toEqual({
         $ref: '#/components/schemas/ApiErrorResponseDto',
       });
+    });
+    const specificError = operation.responses['429'] as ResponseObject;
+    expect(specificError.content['application/json'].schema).toEqual({
+      $ref: '#/components/schemas/SpecificError',
     });
 
     const profileResponse = document.paths['/api/profile'].get.responses[

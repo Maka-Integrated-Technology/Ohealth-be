@@ -130,10 +130,13 @@ function normalizeDataSchema(
 }
 
 function ensureJsonErrorSchema(response: ResponseObject): void {
+  const existingJson = response.content?.[JSON_MEDIA_TYPE];
+  if (existingJson?.schema) return;
+
   response.content = {
     ...response.content,
     [JSON_MEDIA_TYPE]: {
-      ...response.content?.['application/json'],
+      ...existingJson,
       schema: { $ref: getSchemaPath(ApiErrorResponseDto) },
     },
   };

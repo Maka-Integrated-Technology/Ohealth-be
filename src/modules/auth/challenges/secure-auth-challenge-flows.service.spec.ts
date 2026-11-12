@@ -48,6 +48,11 @@ describe('SecureAuthChallengeFlowsService', () => {
     resendAfterSeconds: 60,
     expiresInSeconds: 600,
   });
+  const replaceInTransaction = jest.fn().mockResolvedValue({
+    challengeId: CHALLENGE,
+    resendAfterSeconds: 60,
+    expiresInSeconds: 600,
+  });
   const recordInTransaction = jest.fn().mockResolvedValue(undefined);
   const recordAttempt = jest.fn().mockResolvedValue(undefined);
   const issueInTransaction = jest.fn().mockResolvedValue({
@@ -68,6 +73,7 @@ describe('SecureAuthChallengeFlowsService', () => {
     { transaction, query: dataSourceQuery } as unknown as DataSource,
     {
       queueInTransaction,
+      replaceInTransaction,
       assertLiveFlowReady,
     } as unknown as AuthChallengeDeliveryService,
     { consumeWithMutation } as unknown as AuthChallengeService,
@@ -91,6 +97,11 @@ describe('SecureAuthChallengeFlowsService', () => {
       id: ID,
     }));
     queueInTransaction.mockReset().mockResolvedValue({
+      challengeId: CHALLENGE,
+      resendAfterSeconds: 60,
+      expiresInSeconds: 600,
+    });
+    replaceInTransaction.mockReset().mockResolvedValue({
       challengeId: CHALLENGE,
       resendAfterSeconds: 60,
       expiresInSeconds: 600,
@@ -238,13 +249,37 @@ describe('SecureAuthChallengeFlowsService', () => {
     assertLiveFlowReady.mockRejectedValueOnce(new Error('worker unavailable'));
 
     await expect(service.requestLogin(active)).rejects.toThrow(
-      'worker unavailable',
+      'temporarily unavailable',
     );
     expect(recordAttempt).toHaveBeenCalledWith(
       expect.objectContaining({
         outcome: 'failed',
         subject_user_id: ID,
       }),
+    );
+  });
+
+  it('returns a stable delivery-unavailable code when durable queuing fails', async () => {
+    const active = {
+      ...user,
+      password: 'current-password-hash',
+      account_status: AccountStatus.ACTIVE,
+      email_verified_at: new Date(),
+      is_active: true,
+      is_verified: true,
+    } as User;
+    manager.findOne.mockResolvedValueOnce(active);
+    queueInTransaction.mockRejectedValueOnce(new Error('database unavailable'));
+
+    await expect(service.requestLogin(active)).rejects.toMatchObject({
+      response: {
+        error_code: 'AUTH_CHALLENGE_DELIVERY_UNAVAILABLE',
+        retry_after_seconds: 30,
+      },
+      status: 503,
+    });
+    expect(recordAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({ outcome: 'failed' }),
     );
   });
 
@@ -285,7 +320,7 @@ describe('SecureAuthChallengeFlowsService', () => {
     );
     expect(manager.query).toHaveBeenCalledWith(
       expect.stringContaining('UPDATE auth_challenges'),
-      [ID, AuthChallengePurpose.LOGIN_VERIFICATION],
+      [ID, AuthChallengePurpose.LOGIN_VERIFICATION, 'administratively_revoked'],
     );
     expect(recordInTransaction).toHaveBeenCalledTimes(1);
   });
@@ -306,38 +341,30 @@ describe('SecureAuthChallengeFlowsService', () => {
     },
   );
 
-  it('returns the same resend response for unknown, active and pending accounts', async () => {
-    manager.findOne.mockResolvedValueOnce(null);
-    const unknown = await service.resend('ada@example.test');
+  it('replaces contact verification by opaque handle and returns continuation', async () => {
+    manager.query.mockResolvedValueOnce([{ subject_user_id: ID }]);
+    const response = await service.resendContact(CHALLENGE);
+    expect(replaceInTransaction).toHaveBeenCalledWith(
+      manager,
+      CHALLENGE,
+      AuthChallengePurpose.CONTACT_VERIFICATION,
+    );
+    expect(response).toMatchObject({ challenge_id: CHALLENGE });
+  });
+
+  it('replaces recovery by opaque handle only for an active verified account', async () => {
+    manager.query.mockResolvedValueOnce([{ subject_user_id: ID }]);
     manager.findOne.mockResolvedValueOnce({
       ...user,
       account_status: AccountStatus.ACTIVE,
       email_verified_at: new Date(),
     });
-    const active = await service.resend('ada@example.test');
-    const pending = await service.resend('ada@example.test');
-    expect(unknown).toEqual(active);
-    expect(active).toEqual(pending);
-    expect(queueInTransaction).toHaveBeenCalledTimes(1);
-  });
-
-  it('fails identically for unknown and known email when delivery encryption is unconfigured', async () => {
-    assertLiveFlowReady.mockImplementation(() => {
-      throw new Error('Challenge encryption unavailable');
-    });
-    await expect(service.resend('ghost@example.test')).rejects.toThrow(
-      'Challenge encryption unavailable',
+    await service.resendRecovery(CHALLENGE);
+    expect(replaceInTransaction).toHaveBeenCalledWith(
+      manager,
+      CHALLENGE,
+      AuthChallengePurpose.PASSWORD_RECOVERY,
     );
-    await expect(service.requestRecovery('ada@example.test')).rejects.toThrow(
-      'Challenge encryption unavailable',
-    );
-    expect(transaction).not.toHaveBeenCalled();
-  });
-
-  it('does not reissue on an active resend cooldown', async () => {
-    manager.query.mockResolvedValueOnce([{ issued_at: new Date() }]);
-    await service.resend('ada@example.test');
-    expect(queueInTransaction).not.toHaveBeenCalled();
   });
 
   it('does not disclose unknown accounts during recovery requests', async () => {
@@ -373,7 +400,7 @@ describe('SecureAuthChallengeFlowsService', () => {
       );
       manager.findOne.mockResolvedValueOnce(account);
       await expect(service.requestRecovery('ada@example.test')).rejects.toThrow(
-        'worker is not healthy',
+        'temporarily unavailable',
       );
       expect(manager.findOne).not.toHaveBeenCalled();
       expect(transaction).not.toHaveBeenCalled();
@@ -385,42 +412,8 @@ describe('SecureAuthChallengeFlowsService', () => {
     assertLiveFlowReady.mockRejectedValueOnce(new Error('worker unavailable'));
     manager.query.mockResolvedValueOnce([{ issued_at: new Date() }]);
     await expect(service.requestRecovery('ada@example.test')).rejects.toThrow(
-      'worker unavailable',
+      'temporarily unavailable',
     );
     expect(manager.query).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    ['resend', AccountStatus.PENDING_VERIFICATION, false, true],
-    ['resend', AccountStatus.ACTIVE, true, false],
-    ['resend', AccountStatus.SUSPENDED, true, false],
-    ['recovery', AccountStatus.ACTIVE, true, true],
-    ['recovery', AccountStatus.PENDING_VERIFICATION, false, false],
-    ['recovery', AccountStatus.SUSPENDED, true, false],
-    ['recovery', AccountStatus.DEACTIVATED, true, false],
-  ])(
-    'treats a healthy worker consistently on %s for %s accounts',
-    async (endpoint, status, verified, shouldQueue) => {
-      manager.findOne.mockResolvedValueOnce({
-        ...user,
-        account_status: status,
-        email_verified_at: verified ? new Date() : null,
-      });
-      const response =
-        endpoint === 'resend'
-          ? await service.resend('ada@example.test')
-          : await service.requestRecovery('ada@example.test');
-      expect(response.message).toContain('queued');
-      expect(assertLiveFlowReady).toHaveBeenCalledTimes(1);
-      expect(queueInTransaction).toHaveBeenCalledTimes(shouldQueue ? 1 : 0);
-    },
-    10000,
-  );
-
-  it('never queues a healthy account inside the 60-second cooldown', async () => {
-    manager.query.mockResolvedValueOnce([{ issued_at: new Date() }]);
-    await service.resend('ada@example.test');
-    expect(assertLiveFlowReady).toHaveBeenCalledTimes(1);
-    expect(queueInTransaction).not.toHaveBeenCalled();
   });
 });
