@@ -144,6 +144,31 @@ GITHUB_REPOSITORY=example/repository \
 PR_NUMBER=1 \
 bash "${REPO_ROOT}/scripts/openapi/enforce-breaking-approval.sh" >/dev/null
 
+cat >"${TEMP_DIR}/token-blind-current-approval.json" <<'JSON'
+{
+  "commits": [{"oid": "current-head"}],
+  "reviews": [{
+    "author": {"login": "reviewer"},
+    "authorAssociation": "NONE",
+    "submittedAt": "2026-10-24T10:00:00Z",
+    "state": "APPROVED",
+    "commit": {"oid": "current-head"}
+  }]
+}
+JSON
+
+PATH="${TEMP_DIR}:${PATH}" \
+MOCK_REVIEW_DATA="${TEMP_DIR}/token-blind-current-approval.json" \
+BREAKING_CHANGES=true \
+APPROVAL_LABEL_PRESENT=true \
+EVENT_REVIEW_AUTHOR_ASSOCIATION=MEMBER \
+EVENT_REVIEW_COMMIT_OID=current-head \
+EVENT_REVIEW_STATE=approved \
+GH_TOKEN=test-token \
+GITHUB_REPOSITORY=example/repository \
+PR_NUMBER=1 \
+bash "${REPO_ROOT}/scripts/openapi/enforce-breaking-approval.sh" >/dev/null
+
 cat >"${TEMP_DIR}/reapproved-current-head.json" <<'JSON'
 {
   "commits": [{"oid": "current-head"}],
@@ -193,6 +218,9 @@ if PATH="${TEMP_DIR}:${PATH}" \
   MOCK_REVIEW_DATA="${TEMP_DIR}/stale-approval.json" \
   BREAKING_CHANGES=true \
   APPROVAL_LABEL_PRESENT=true \
+  EVENT_REVIEW_AUTHOR_ASSOCIATION=MEMBER \
+  EVENT_REVIEW_COMMIT_OID=previous-head \
+  EVENT_REVIEW_STATE=approved \
   GH_TOKEN=test-token \
   GITHUB_REPOSITORY=example/repository \
   PR_NUMBER=1 \
@@ -227,6 +255,9 @@ if PATH="${TEMP_DIR}:${PATH}" \
   MOCK_REVIEW_DATA="${TEMP_DIR}/invalidated-approval.json" \
   BREAKING_CHANGES=true \
   APPROVAL_LABEL_PRESENT=true \
+  EVENT_REVIEW_AUTHOR_ASSOCIATION=NONE \
+  EVENT_REVIEW_COMMIT_OID=current-head \
+  EVENT_REVIEW_STATE=approved \
   GH_TOKEN=test-token \
   GITHUB_REPOSITORY=example/repository \
   PR_NUMBER=1 \
@@ -252,6 +283,9 @@ if PATH="${TEMP_DIR}:${PATH}" \
   MOCK_REVIEW_DATA="${TEMP_DIR}/untrusted-approval.json" \
   BREAKING_CHANGES=true \
   APPROVAL_LABEL_PRESENT=true \
+  EVENT_REVIEW_AUTHOR_ASSOCIATION=NONE \
+  EVENT_REVIEW_COMMIT_OID=current-head \
+  EVENT_REVIEW_STATE=approved \
   GH_TOKEN=test-token \
   GITHUB_REPOSITORY=example/repository \
   PR_NUMBER=1 \
