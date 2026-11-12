@@ -2,7 +2,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { env } from 'node:process';
 
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
@@ -25,6 +25,7 @@ import { AuthController } from '../../modules/auth/auth.controller';
 import { AuthService } from '../../modules/auth/auth.service';
 import { AuthAbuseGuard } from '../../modules/auth/challenges/auth-abuse.guard';
 import { AuthChallengeDeliveryService } from '../../modules/auth/challenges/auth-challenge-delivery.service';
+import { AuthChallengeValidationPipe } from '../../modules/auth/challenges/auth-challenge-validation.pipe';
 import { AuthChallengePurpose } from '../../modules/auth/challenges/auth-challenge.entity';
 import { AuthChallengeService } from '../../modules/auth/challenges/auth-challenge.service';
 import { AuthRateLimitService } from '../../modules/auth/challenges/auth-rate-limit.service';
@@ -276,7 +277,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     const instance = module.createNestApplication();
     instance.setGlobalPrefix('api');
     instance.useGlobalPipes(
-      new ValidationPipe({
+      new AuthChallengeValidationPipe({
         whitelist: true,
         forbidNonWhitelisted: true,
         transform: true,

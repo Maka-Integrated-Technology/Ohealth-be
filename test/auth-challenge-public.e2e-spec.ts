@@ -1,4 +1,4 @@
-import { HttpStatus, INestApplication, ValidationPipe } from '@nestjs/common';
+import { HttpStatus, INestApplication } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import * as request from 'supertest';
@@ -13,6 +13,7 @@ import {
   AuthChallengeErrorCode,
   AuthChallengeException,
 } from '../src/modules/auth/challenges/auth-challenge.error';
+import { AuthChallengeValidationPipe } from '../src/modules/auth/challenges/auth-challenge-validation.pipe';
 import { SignupIntent } from '../src/modules/auth/enums/signup-intent.enum';
 import { JwtAuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
 
@@ -85,7 +86,7 @@ describe('Purpose-bound auth challenge HTTP contracts (isolated e2e)', () => {
       }),
     );
     app.useGlobalPipes(
-      new ValidationPipe({
+      new AuthChallengeValidationPipe({
         whitelist: true,
         forbidNonWhitelisted: true,
         transform: true,
@@ -148,7 +149,7 @@ describe('Purpose-bound auth challenge HTTP contracts (isolated e2e)', () => {
     { account_status: 'active' },
     { organization_type: 'hospital' },
   ])('rejects client-controlled registration state %#', async (hostile) => {
-    await request(app.getHttpServer())
+    const response = await request(app.getHttpServer())
       .post('/api/auth/signup')
       .send({
         first_name: 'Ada',
@@ -161,6 +162,7 @@ describe('Purpose-bound auth challenge HTTP contracts (isolated e2e)', () => {
         ...hostile,
       })
       .expect(400);
+    expect(response.body).not.toHaveProperty('error_code');
     expect(service.signup).not.toHaveBeenCalled();
   });
 
@@ -184,12 +186,67 @@ describe('Purpose-bound auth challenge HTTP contracts (isolated e2e)', () => {
   });
 
   it('rejects malformed challenge identity and code without reaching verification', async () => {
-    await request(app.getHttpServer())
+    const response = await request(app.getHttpServer())
       .post('/api/auth/verify')
       .send({ challenge_id: 'not-a-uuid', code: 'secret' })
       .expect(400);
+    expect(response.body.error_code).toBe('AUTH_CHALLENGE_INVALID');
     expect(service.verifySignup).not.toHaveBeenCalled();
   });
+
+  it.each([
+    {
+      route: '/api/auth/verify',
+      payload: { challenge_id: 'not-a-uuid', code: '123456' },
+      service: 'verifySignup',
+    },
+    {
+      route: '/api/auth/login/verify',
+      payload: { challenge_id: challengeId, code: '１２３４５６' },
+      service: 'verifyLogin',
+    },
+    {
+      route: '/api/auth/reset-password',
+      payload: {
+        challenge_id: challengeId,
+        code: '123456\u0000',
+        newPassword: 'a secure memorable replacement passphrase',
+      },
+      service: 'resetPassword',
+    },
+    {
+      route: '/api/auth/verify/resend',
+      payload: { challenge_id: 'not-a-uuid' },
+      service: 'resendVerification',
+    },
+    {
+      route: '/api/auth/login/resend',
+      payload: {},
+      service: 'resendLogin',
+    },
+    {
+      route: '/api/auth/forgot-password/resend',
+      payload: { challenge_id: null },
+      service: 'resendRecovery',
+    },
+  ])(
+    'returns the stable invalid-challenge contract for malformed $route input',
+    async ({ route, payload, service: serviceMethod }) => {
+      const response = await request(app.getHttpServer())
+        .post(route)
+        .send(payload)
+        .expect(400);
+
+      expect(response.body).toMatchObject({
+        status_code: 400,
+        error_code: 'AUTH_CHALLENGE_INVALID',
+        data: null,
+      });
+      expect(
+        service[serviceMethod as keyof typeof service],
+      ).not.toHaveBeenCalled();
+    },
+  );
 
   it('rejects old reset tokens without a purpose-bound challenge proof', async () => {
     await request(app.getHttpServer())
