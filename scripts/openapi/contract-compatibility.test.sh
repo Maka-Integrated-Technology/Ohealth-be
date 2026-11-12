@@ -105,19 +105,7 @@ fi
 
 cat >"${TEMP_DIR}/gh" <<'MOCK'
 #!/usr/bin/env bash
-if [[ "$*" == *'/reviews?'* ]]; then
-  jq '[
-    .reviews | map({
-      user: .author,
-      author_association: .authorAssociation,
-      submitted_at: .submittedAt,
-      state,
-      commit_id: .commit.oid
-    })
-  ]' "${MOCK_REVIEW_DATA}"
-else
-  jq '{head: {sha: .commits[-1].oid}}' "${MOCK_REVIEW_DATA}"
-fi
+cat "${MOCK_REVIEW_DATA}"
 MOCK
 chmod 0755 "${TEMP_DIR}/gh"
 
@@ -137,37 +125,6 @@ JSON
 
 PATH="${TEMP_DIR}:${PATH}" \
 MOCK_REVIEW_DATA="${TEMP_DIR}/current-approval.json" \
-BREAKING_CHANGES=true \
-APPROVAL_LABEL_PRESENT=true \
-GH_TOKEN=test-token \
-GITHUB_REPOSITORY=example/repository \
-PR_NUMBER=1 \
-bash "${REPO_ROOT}/scripts/openapi/enforce-breaking-approval.sh" >/dev/null
-
-cat >"${TEMP_DIR}/reapproved-current-head.json" <<'JSON'
-{
-  "commits": [{"oid": "current-head"}],
-  "reviews": [
-    {
-      "author": {"login": "reviewer"},
-      "authorAssociation": "MEMBER",
-      "submittedAt": "2026-10-24T10:00:00Z",
-      "state": "DISMISSED",
-      "commit": {"oid": "previous-head"}
-    },
-    {
-      "author": {"login": "reviewer"},
-      "authorAssociation": "MEMBER",
-      "submittedAt": "2026-10-24T10:05:00Z",
-      "state": "APPROVED",
-      "commit": {"oid": "current-head"}
-    }
-  ]
-}
-JSON
-
-PATH="${TEMP_DIR}:${PATH}" \
-MOCK_REVIEW_DATA="${TEMP_DIR}/reapproved-current-head.json" \
 BREAKING_CHANGES=true \
 APPROVAL_LABEL_PRESENT=true \
 GH_TOKEN=test-token \

@@ -33,14 +33,12 @@ done
   exit 2
 }
 
-pull_request_data="$(
-  gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}"
+review_data="$(
+  gh pr view "${PR_NUMBER}" \
+    --repo "${GITHUB_REPOSITORY}" \
+    --json commits,reviews
 )"
-review_pages="$(
-  gh api --paginate --slurp \
-    "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}/reviews?per_page=100"
-)"
-latest_commit_oid="$(jq -r '.head.sha // empty' <<<"${pull_request_data}")"
+latest_commit_oid="$(jq -r '.commits[-1].oid // empty' <<<"${review_data}")"
 
 [[ -n "${latest_commit_oid}" ]] || {
   printf '::error::Unable to determine the latest pull-request commit.\n' >&2
@@ -49,40 +47,21 @@ latest_commit_oid="$(jq -r '.head.sha // empty' <<<"${pull_request_data}")"
 
 if ! jq -e --arg latest_commit_oid "${latest_commit_oid}" '
   [
-    .[][]? |
-    (.author_association // "") as $association |
+    .reviews[]? |
+    (.authorAssociation // "") as $association |
     select(
-      (.user.login | type == "string" and length > 0) and
-      (.submitted_at | type == "string" and length > 0) and
+      (.author.login | type == "string" and length > 0) and
+      (.submittedAt | type == "string" and length > 0) and
       (["OWNER", "MEMBER", "COLLABORATOR"] | index($association)) != null
     )
   ] |
-  group_by(.user.login) |
-  map(max_by(.submitted_at)) |
+  group_by(.author.login) |
+  map(max_by(.submittedAt)) |
   any(
     .[];
-    .state == "APPROVED" and .commit_id == $latest_commit_oid
+    .state == "APPROVED" and .commit.oid == $latest_commit_oid
   )
-' <<<"${review_pages}" >/dev/null; then
-  jq -c --arg latest_commit_oid "${latest_commit_oid}" '
-    {
-      latest_commit_oid: $latest_commit_oid,
-      trusted_reviews: [
-        .[][]? |
-        (.author_association // "") as $association |
-        select(
-          (["OWNER", "MEMBER", "COLLABORATOR"] |
-            index($association)) != null
-        ) |
-        {
-          reviewer: .user.login,
-          state,
-          submitted_at,
-          commit_id
-        }
-      ]
-    }
-  ' <<<"${review_pages}" >&2
+' <<<"${review_data}" >/dev/null; then
   printf '%s\n' \
     '::error::Breaking API changes require a trusted reviewer approval on the latest commit.' \
     >&2
