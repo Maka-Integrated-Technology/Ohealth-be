@@ -199,6 +199,9 @@ jobs:
           APPROVAL_LABEL_PRESENT: ${{ contains(github.event.pull_request.labels.*.name, 'api-breaking-change-approved') }}
           BREAKING_CHANGES: ${{ steps.contract_compatibility.outputs.breaking_changes }}
           CONTRACT_REPORT: ${{ runner.temp }}/api-contract-report.md
+          EVENT_REVIEW_AUTHOR_ASSOCIATION: ${{ github.event.review.author_association || '' }}
+          EVENT_REVIEW_COMMIT_OID: ${{ github.event.review.commit_id || '' }}
+          EVENT_REVIEW_STATE: ${{ github.event.review.state || '' }}
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: bash scripts/openapi/enforce-breaking-approval.sh

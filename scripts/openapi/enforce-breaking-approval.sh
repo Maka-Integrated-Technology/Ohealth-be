@@ -47,7 +47,17 @@ latest_commit_oid="$(jq -r '.head.sha // empty' <<<"${pull_request_data}")"
   exit 2
 }
 
-if ! jq -e --arg latest_commit_oid "${latest_commit_oid}" '
+event_review_is_current=false
+if [[ "${EVENT_REVIEW_STATE:-}" == 'approved' &&
+  "${EVENT_REVIEW_COMMIT_OID:-}" == "${latest_commit_oid}" ]]; then
+  case "${EVENT_REVIEW_AUTHOR_ASSOCIATION:-}" in
+    OWNER | MEMBER | COLLABORATOR)
+      event_review_is_current=true
+      ;;
+  esac
+fi
+
+if [[ "${event_review_is_current}" != 'true' ]] && ! jq -e --arg latest_commit_oid "${latest_commit_oid}" '
   [
     .[][]? |
     (.author_association // "") as $association |
@@ -67,6 +77,11 @@ if ! jq -e --arg latest_commit_oid "${latest_commit_oid}" '
   jq -c --arg latest_commit_oid "${latest_commit_oid}" '
     {
       latest_commit_oid: $latest_commit_oid,
+      event_review: {
+        state: $ENV.EVENT_REVIEW_STATE,
+        author_association: $ENV.EVENT_REVIEW_AUTHOR_ASSOCIATION,
+        commit_id: $ENV.EVENT_REVIEW_COMMIT_OID
+      },
       trusted_reviews: [
         .[][]? |
         (.author_association // "") as $association |
