@@ -18,6 +18,7 @@ export const OAuthErrorCodes = {
   lastAuthenticator: 'OAUTH_LAST_AUTHENTICATOR',
   recentAuthRequired: 'OAUTH_RECENT_AUTH_REQUIRED',
   transactionRequired: 'OAUTH_TRANSACTION_REQUIRED',
+  disabled: 'OAUTH_DISABLED',
 } as const;
 
 export type OAuthErrorCode =
@@ -34,12 +35,14 @@ const STATUS = new Map<OAuthErrorCode, HttpStatus>([
   ['OAUTH_RECENT_AUTH_REQUIRED', HttpStatus.UNAUTHORIZED],
   ['OAUTH_TRANSACTION_REPLAYED', HttpStatus.CONFLICT],
   ['OAUTH_TRANSACTION_REQUIRED', HttpStatus.GONE],
+  ['OAUTH_DISABLED', HttpStatus.SERVICE_UNAVAILABLE],
 ]);
 
 export class OAuthErrorResponseDto extends ApiErrorResponseDto {
   @ApiProperty({
     enum: Object.values(OAuthErrorCodes),
     enumName: 'OAuthErrorCode',
+    example: 'OAUTH_TRANSACTION_INVALID',
   })
   declare error_code: OAuthErrorCode;
 }

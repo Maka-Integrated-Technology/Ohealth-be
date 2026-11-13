@@ -4,6 +4,7 @@ import * as request from 'supertest';
 
 import { IS_PUBLIC_KEY } from '../src/common/decorators/public.decorator';
 import { AuthAbuseGuard } from '../src/modules/auth/challenges/auth-abuse.guard';
+import { AuthRateLimitService } from '../src/modules/auth/challenges/auth-rate-limit.service';
 import { OAuthController } from '../src/modules/auth/oauth/oauth.controller';
 import { OAuthService } from '../src/modules/auth/oauth/oauth.service';
 
@@ -15,16 +16,25 @@ describe('Google OAuth HTTP contract', () => {
     complete: jest.fn(),
     unlink: jest.fn(),
   };
+  const hits = new Map<string, number>();
+  const rates = {
+    consume: jest.fn(async (scope: string, key: string, limit: number) => {
+      const bucket = `${scope}:${key}`;
+      const count = (hits.get(bucket) ?? 0) + 1;
+      hits.set(bucket, count);
+      return { allowed: count <= limit, hits: count, retryAfterSeconds: 30 };
+    }),
+  };
 
   beforeAll(async () => {
-    const builder = Test.createTestingModule({
+    const module = await Test.createTestingModule({
       controllers: [OAuthController],
-      providers: [{ provide: OAuthService, useValue: oauth }],
-    });
-    const module = await builder
-      .overrideGuard(AuthAbuseGuard)
-      .useValue({ canActivate: jest.fn().mockReturnValue(true) })
-      .compile();
+      providers: [
+        { provide: OAuthService, useValue: oauth },
+        { provide: AuthRateLimitService, useValue: rates },
+        AuthAbuseGuard,
+      ],
+    }).compile();
     app = module.createNestApplication();
     app.setGlobalPrefix('api');
     app.useGlobalPipes(
@@ -34,7 +44,42 @@ describe('Google OAuth HTTP contract', () => {
   });
 
   afterAll(async () => app?.close());
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    hits.clear();
+  });
+
+  it('uses the real abuse guard and rejects excess starts with 429', async () => {
+    oauth.start.mockResolvedValue({ transaction_id: 'started' });
+    const endpoint = '/api/auth/oauth/google/transactions';
+    const body = {
+      operation: 'signin',
+      consumer: 'web',
+      audience: 'web-client-id',
+    };
+    await request(app.getHttpServer()).post(endpoint).send(body).expect(201);
+    expect(oauth.start).toHaveBeenCalledTimes(1);
+    for (let count = 1; count < 12; count++) {
+      await request(app.getHttpServer()).post(endpoint).send(body).expect(201);
+    }
+    await request(app.getHttpServer()).post(endpoint).send(body).expect(429);
+    expect(oauth.start).toHaveBeenCalledTimes(12);
+  });
+
+  it('limits completion attempts for one transaction independently of the IP budget', async () => {
+    oauth.complete.mockResolvedValue({ access_token: 'access-token' });
+    const endpoint = '/api/auth/oauth/google/complete';
+    const body = {
+      transaction_id: '17d36477-ae70-4ac6-b557-d584bc840ad1',
+      transaction_token: 't'.repeat(43),
+      id_token: 'signed-google-token',
+    };
+    for (let count = 0; count < 5; count++) {
+      await request(app.getHttpServer()).post(endpoint).send(body).expect(200);
+    }
+    await request(app.getHttpServer()).post(endpoint).send(body).expect(429);
+    expect(oauth.complete).toHaveBeenCalledTimes(5);
+  });
 
   it('marks only start and completion as public', () => {
     expect(

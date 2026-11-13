@@ -7,6 +7,7 @@ import { LegalDocumentType } from '../../identity/enums/legal-document-type.enum
 import { UserPersonaType } from '../../identity/enums/user-persona-type.enum';
 import { PatientProfile } from '../../patient/entities/patient-profile.entity';
 import { User } from '../../user/entities/user.entity';
+import { UserAccountStatusHistory } from '../../user/entities/user-account-status-history.entity';
 import { AccountStatus } from '../../user/enums/account-status.enum';
 
 export interface IAccountProvisioningInput {
@@ -51,6 +52,15 @@ export class AccountProvisioningService {
         reset_token_expiry: null,
       }),
     );
+    await manager.insert(UserAccountStatusHistory, {
+      user_id: user.id,
+      previous_status: null,
+      new_status: input.accountStatus,
+      changed_by_user_id: null,
+      reason: input.passwordAuthenticationEnabled
+        ? 'password_registration'
+        : 'google_registration',
+    });
 
     if (input.personaType) {
       await manager.insert(UserPersona, {

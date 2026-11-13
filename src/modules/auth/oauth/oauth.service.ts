@@ -7,6 +7,8 @@ import { DataSource, EntityManager } from 'typeorm';
 import { UserPersonaType } from '../../identity/enums/user-persona-type.enum';
 import { User } from '../../user/entities/user.entity';
 import { AccountStatus } from '../../user/enums/account-status.enum';
+import { OutboxEvent } from '../../platform-events/entities/outbox-event.entity';
+import { AccountAccessPolicyService } from '../account-access-policy.service';
 import { AuthRoutingService } from '../auth-routing.service';
 import { AuthChallengeDeliveryService } from '../challenges/auth-challenge-delivery.service';
 import { AuthChallengePurpose } from '../challenges/auth-challenge.entity';
@@ -46,6 +48,7 @@ export class OAuthService {
     private readonly provisioning: AccountProvisioningService,
     private readonly delivery: AuthChallengeDeliveryService,
     private readonly audit: AuthSecurityAuditService,
+    private readonly accountPolicy: AccountAccessPolicyService,
   ) {}
 
   async start(dto: StartGoogleOAuthDto) {
@@ -89,10 +92,12 @@ export class OAuthService {
       consumer,
       audience,
       userId,
+      sessionId,
     });
   }
 
   async complete(dto: CompleteGoogleOAuthDto) {
+    this.transactions.assertReady();
     try {
       return await this.completeVerified(dto);
     } catch (error) {
@@ -152,10 +157,15 @@ export class OAuthService {
         );
         return this.signUp(manager, transaction, proof);
       }
-      if (!transaction.user_id) {
+      if (!transaction.user_id || !transaction.session_id) {
         throw new OAuthException('OAUTH_TRANSACTION_INVALID');
       }
-      return this.link(manager, transaction.user_id, proof);
+      return this.link(
+        manager,
+        transaction.user_id,
+        transaction.session_id,
+        proof,
+      );
     });
 
     const routed = result as typeof result & { user?: User };
@@ -170,22 +180,39 @@ export class OAuthService {
     sessionId: string,
   ): Promise<{ message: string }> {
     try {
-      await this.assertRecentSession(userId, sessionId);
       await this.dataSource.transaction(async (manager) => {
         const user = await manager.findOne(User, {
           where: { id: userId },
           lock: { mode: 'pessimistic_write' },
         });
         if (!user) throw new OAuthException('OAUTH_AUTHENTICATION_FAILED');
+        this.assertAccount(user);
+        await this.assertRecentSession(userId, sessionId, manager);
         const identities = await manager.find(ExternalIdentity, {
           where: { user_id: userId },
         });
+        if (
+          !identities.some(
+            (identity) => identity.provider === OAuthProvider.GOOGLE,
+          )
+        ) {
+          throw new OAuthException('OAUTH_IDENTITY_CONFLICT');
+        }
         if (!user.password_authentication_enabled && identities.length <= 1) {
           throw new OAuthException('OAUTH_LAST_AUTHENTICATOR');
         }
-        await manager.delete(ExternalIdentity, {
+        const deleted = await manager.delete(ExternalIdentity, {
           user_id: userId,
           provider: OAuthProvider.GOOGLE,
+        });
+        if (deleted.affected !== 1)
+          throw new OAuthException('OAUTH_IDENTITY_CONFLICT');
+        await this.sessions.revokeAllInTransaction(manager, userId);
+        await manager.insert(OutboxEvent, {
+          aggregate_type: 'user',
+          aggregate_id: userId,
+          event_type: 'oauth_google_unlinked',
+          payload: { user_id: userId },
         });
         await this.audit.recordInTransaction(manager, {
           event_type: AuthSecurityEventType.OAUTH_UNLINK,
@@ -235,6 +262,9 @@ export class OAuthService {
     });
     if (!user) throw new OAuthException('OAUTH_AUTHENTICATION_FAILED');
     const session = await this.sessions.issueInTransaction(manager, user.id);
+    await manager.update(ExternalIdentity, identity.id, {
+      last_authenticated_at: new Date(),
+    });
     await this.audit.recordInTransaction(manager, {
       event_type: AuthSecurityEventType.OAUTH_SIGN_IN,
       outcome: AuthSecurityEventOutcome.SUCCEEDED,
@@ -299,6 +329,7 @@ export class OAuthService {
       provider: OAuthProvider.GOOGLE,
       issuer: proof.issuer,
       subject: proof.subject,
+      last_authenticated_at: authoritative ? new Date() : null,
     });
     await this.audit.recordInTransaction(manager, {
       event_type: AuthSecurityEventType.OAUTH_SIGNUP,
@@ -331,6 +362,7 @@ export class OAuthService {
   private async link(
     manager: EntityManager,
     userId: string,
+    sessionId: string,
     proof: IVerifiedGoogleIdentity,
   ) {
     const user = await manager.findOne(User, {
@@ -338,6 +370,11 @@ export class OAuthService {
       lock: { mode: 'pessimistic_write' },
     });
     if (!user) throw new OAuthException('OAUTH_AUTHENTICATION_FAILED');
+    this.assertAccount(user);
+    await this.assertRecentSession(userId, sessionId, manager);
+    if (user.email.trim().toLowerCase() !== proof.email.trim().toLowerCase()) {
+      throw new OAuthException('OAUTH_ACCOUNT_LINK_REQUIRED');
+    }
     const subjectOwner = await manager.findOne(ExternalIdentity, {
       where: { issuer: proof.issuer, subject: proof.subject },
     });
@@ -366,20 +403,42 @@ export class OAuthService {
     return { message: 'Google identity linked.' };
   }
 
-  private async assertRecentSession(userId: string, sessionId: string) {
+  private async assertRecentSession(
+    userId: string,
+    sessionId: string,
+    manager?: EntityManager,
+  ) {
     const cutoff = new Date(Date.now() - RECENT_AUTH_MS);
-    const count = await this.dataSource.getRepository(AuthSession).count({
-      where: {
-        user_id: userId,
-        session_id: sessionId,
-        revoked_at: null,
-      },
-    });
-    const session = await this.dataSource.getRepository(AuthSession).findOne({
-      where: { user_id: userId, session_id: sessionId },
-    });
-    if (!count || !session || session.created_at < cutoff) {
+    const session = manager
+      ? await manager.findOne(AuthSession, {
+          where: { user_id: userId, session_id: sessionId },
+          lock: { mode: 'pessimistic_write' },
+        })
+      : await this.dataSource
+          .getRepository(AuthSession)
+          .findOne({ where: { user_id: userId, session_id: sessionId } });
+    if (
+      !session ||
+      session.revoked_at ||
+      session.expires_at <= new Date() ||
+      session.created_at < cutoff ||
+      session.credential_version !== 2
+    ) {
       throw new OAuthException('OAUTH_RECENT_AUTH_REQUIRED');
+    }
+    if (!manager) {
+      const user = await this.dataSource
+        .getRepository(User)
+        .findOne({ where: { id: userId } });
+      this.assertAccount(user);
+    }
+  }
+
+  private assertAccount(user: User | null): void {
+    try {
+      this.accountPolicy.assertCanAuthenticate(user);
+    } catch {
+      throw new OAuthException('OAUTH_AUTHENTICATION_FAILED');
     }
   }
 

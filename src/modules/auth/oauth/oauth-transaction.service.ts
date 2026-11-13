@@ -1,6 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
@@ -21,17 +21,38 @@ export interface IStartOAuthTransactionInput {
   acceptedTermsVersion?: string;
   acceptedPrivacyVersion?: string;
   userId?: string;
+  sessionId?: string;
 }
 
 @Injectable()
-export class OAuthTransactionService {
+export class OAuthTransactionService implements OnModuleInit {
   constructor(
     @InjectRepository(OAuthTransaction)
     private readonly repository: Repository<OAuthTransaction>,
     private readonly config: ConfigService,
   ) {}
 
+  onModuleInit(): void {
+    if (this.config.get<boolean>('oauth.google.enabled')) {
+      const audiences = ['webClientIds', 'mobileClientIds'].flatMap((key) =>
+        (this.config.get<string>(`oauth.google.${key}`) ?? '')
+          .split(',')
+          .map((value) => value.trim())
+          .filter(Boolean),
+      );
+      if (audiences.length === 0)
+        throw new Error('Enabled Google OAuth requires a client-ID allowlist.');
+    }
+  }
+
+  assertReady(): void {
+    if (this.config.get<boolean>('oauth.google.enabled') === false) {
+      throw new OAuthException('OAUTH_DISABLED');
+    }
+  }
+
   async start(input: IStartOAuthTransactionInput) {
+    this.assertReady();
     const audience = this.audienceFor(input.consumer, input.audience);
     const transactionToken = this.randomSecret();
     const nonce = this.randomSecret();
@@ -47,6 +68,7 @@ export class OAuthTransactionService {
         accepted_terms_version: input.acceptedTermsVersion ?? null,
         accepted_privacy_version: input.acceptedPrivacyVersion ?? null,
         user_id: input.userId ?? null,
+        session_id: input.sessionId ?? null,
         expires_at: new Date(Date.now() + TTL_SECONDS * 1000),
         consumed_at: null,
       }),

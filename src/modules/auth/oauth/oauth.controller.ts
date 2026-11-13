@@ -17,7 +17,9 @@ import {
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiServiceUnavailableResponse,
   ApiTags,
+  ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 
@@ -25,6 +27,7 @@ import { Public } from '../../../common/decorators/public.decorator';
 import { ApiMessageResponseDto } from '../../../common/dto/response.dto';
 import { IRequestWithUser } from '../../../common/types';
 import { AuthAbuseGuard } from '../challenges/auth-abuse.guard';
+import { AuthChallengeErrorResponseDto } from '../contracts/auth-contract-response.dto';
 import { LoginResponseDto } from '../dto/auth-response.dto';
 
 import {
@@ -54,6 +57,8 @@ export class OAuthController {
   @ApiCreatedResponse({ type: GoogleOAuthTransactionResponseDto })
   @ApiBadRequestResponse({ type: OAuthErrorResponseDto })
   @ApiConflictResponse({ type: OAuthErrorResponseDto })
+  @ApiTooManyRequestsResponse({ type: AuthChallengeErrorResponseDto })
+  @ApiServiceUnavailableResponse({ type: OAuthErrorResponseDto })
   start(@Body() dto: StartGoogleOAuthDto) {
     return this.oauth.start(dto);
   }
@@ -66,6 +71,7 @@ export class OAuthController {
   })
   @ApiCreatedResponse({ type: GoogleOAuthTransactionResponseDto })
   @ApiUnauthorizedResponse({ type: OAuthErrorResponseDto })
+  @ApiServiceUnavailableResponse({ type: OAuthErrorResponseDto })
   startLink(@Req() request: IRequestWithUser, @Body() dto: StartGoogleLinkDto) {
     return this.oauth.startLink(
       request.user.id,
@@ -85,6 +91,8 @@ export class OAuthController {
   @ApiBadRequestResponse({ type: OAuthErrorResponseDto })
   @ApiUnauthorizedResponse({ type: OAuthErrorResponseDto })
   @ApiConflictResponse({ type: OAuthErrorResponseDto })
+  @ApiTooManyRequestsResponse({ type: AuthChallengeErrorResponseDto })
+  @ApiServiceUnavailableResponse({ type: OAuthErrorResponseDto })
   async complete(
     @Body() dto: CompleteGoogleOAuthDto,
     @Res({ passthrough: true }) response: Response,

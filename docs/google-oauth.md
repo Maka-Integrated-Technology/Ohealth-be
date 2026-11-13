@@ -12,6 +12,9 @@ allowlists of Google OAuth client IDs. A client supplies the exact audience it
 will use when starting a transaction. The API rejects an audience outside the
 allowlist and binds the accepted value to the transaction. `GOOGLE_CLIENT_ID`
 is a temporary fallback for the web allowlist while clients migrate.
+Set `GOOGLE_OAUTH_ENABLED=true` when at least one client-ID allowlist is
+configured. Without client IDs OAuth is explicitly disabled and returns
+`OAUTH_DISABLED`; enabling it without an allowlist fails application startup.
 
 ID-token verification uses Google's public signing keys through
 `google-auth-library`. The backend does not require or accept a Google client
@@ -36,7 +39,14 @@ Linking starts at the authenticated
 `POST /api/auth/oauth/google/link/transactions` endpoint and requires a session
 created within the preceding ten minutes. Unlinking uses
 `DELETE /api/auth/oauth/google/link`, also requires recent authentication, and
-cannot remove the last usable authenticator.
+cannot remove the last usable authenticator. Completion rechecks the bound
+session, account state, and canonical email. Unlinking revokes all sessions in
+the identity transaction and writes a pointer-only security notification to
+the outbox. Run `npm run oauth-security-notifications:dispatch` regularly in
+development or `npm run oauth-security-notifications:dispatch:prod` in the
+deployed worker/container to
+send the notification to the verified canonical contact. Delivery is retried
+up to five times; a terminal failure remains in the outbox for operations.
 
 ## Signup and contact verification
 
@@ -49,8 +59,13 @@ continuation and no session.
 
 OAuth-only accounts have `password_authentication_enabled = false`. Password
 login checks this explicit state even if a generated placeholder hash exists.
-Existing accounts are migrated with password authentication enabled to avoid an
-unsafe inferred lockout.
+Existing accounts without a legacy Google ID retain password authentication.
+Google-linked accounts with a versioned OHealth password hash retain it too.
+Legacy Google-linked bcrypt hashes cannot distinguish a genuine password from
+the generated placeholder; these ambiguous accounts are conservatively marked
+password-disabled and may use verified password recovery to establish a new
+usable password. This prevents an unknowable placeholder from satisfying the
+last-authenticator rule.
 
 ## Privacy, retention, and auditing
 
@@ -63,4 +78,5 @@ cascades them. Security events record allowlisted signup, sign-in, link, unlink,
 conflict, and denial outcomes with internal UUIDs only.
 
 The legacy `POST /api/auth/google-login` endpoint is fail-closed and returns
-`OAUTH_TRANSACTION_REQUIRED`; it cannot create, sign in, or link an account.
+HTTP 410 with `OAUTH_TRANSACTION_REQUIRED`; it cannot create, sign in, or link
+an account.

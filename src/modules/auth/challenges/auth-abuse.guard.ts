@@ -20,7 +20,12 @@ interface IAuthAbuseRequest {
   path?: string;
   socket?: { remoteAddress?: string };
   headers?: Record<string, string | string[] | undefined>;
-  body?: { email?: unknown; challenge_id?: unknown; token?: unknown };
+  body?: {
+    email?: unknown;
+    challenge_id?: unknown;
+    token?: unknown;
+    transaction_id?: unknown;
+  };
 }
 
 const POLICY = new Map<string, { ip: number; subject: number }>([
@@ -33,6 +38,8 @@ const POLICY = new Map<string, { ip: number; subject: number }>([
   ['/auth/forgot-password', { ip: 8, subject: 4 }],
   ['/auth/forgot-password/resend', { ip: 8, subject: 4 }],
   ['/auth/reset-password', { ip: 8, subject: 5 }],
+  ['/auth/oauth/google/transactions', { ip: 12, subject: 6 }],
+  ['/auth/oauth/google/complete', { ip: 12, subject: 5 }],
 ]);
 
 /** Only trust forwarding addresses from explicitly allowlisted proxy hops. */
@@ -117,7 +124,11 @@ export class AuthAbuseGuard implements CanActivate {
       typeof request.body?.token === 'string'
         ? request.body.token.slice(0, 36)
         : '';
-    const subject = email || challenge || token;
+    const transaction =
+      typeof request.body?.transaction_id === 'string'
+        ? request.body.transaction_id.slice(0, 36)
+        : '';
+    const subject = email || challenge || token || transaction;
     if (subject) {
       await this.assertBudget(path, 'subject:' + subject, limits.subject);
     }

@@ -6,6 +6,7 @@ import { LaboratoryAdmin } from '../../laboratory/entities/laboratory-admin.enti
 import { LaboratoryStaff } from '../../laboratory/entities/laboratory-staff.entity';
 import { OrganizationAdmin } from '../../organization/entities/organization-admin.entity';
 import { PatientProfile } from '../../patient/entities/patient-profile.entity';
+import { PlatformEventsModule } from '../../platform-events/platform-events.module';
 import { Professional } from '../../professional/entities/professional.entity';
 import { User } from '../../user/entities/user.entity';
 import { UserModule } from '../../user/user.module';
@@ -34,6 +35,7 @@ import { OAuthService } from './oauth.service';
     AuthSecurityAuditModule,
     RefreshSessionModule,
     RegistrationModule,
+    PlatformEventsModule,
     TypeOrmModule.forFeature([
       OAuthTransaction,
       ExternalIdentity,

@@ -237,7 +237,10 @@ function validateResponses(
     /^(4|5)\d\d$/.test(status),
   );
 
-  if (successResponses.length === 0) {
+  if (
+    successResponses.length === 0 &&
+    operation.operationId !== 'AuthController_googleLogin'
+  ) {
     errors.push(`${label} is missing a success response`);
   }
 

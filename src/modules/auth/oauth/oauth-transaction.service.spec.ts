@@ -26,6 +26,11 @@ describe('OAuthTransactionService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    config.get.mockImplementation((key: string) =>
+      key === 'oauth.google.webClientIds'
+        ? 'web-client-id'
+        : 'mobile-client-id',
+    );
     service = new OAuthTransactionService(
       repository as never,
       config as unknown as ConfigService,
@@ -94,6 +99,27 @@ describe('OAuthTransactionService', () => {
         audience: 'attacker-client-id',
       }),
     ).rejects.toMatchObject({ errorCode: 'OAUTH_TRANSACTION_INVALID' });
+    expect(repository.save).not.toHaveBeenCalled();
+  });
+
+  it('fails startup when explicitly enabled without a client-ID allowlist', () => {
+    config.get.mockImplementation((key: string) =>
+      key === 'oauth.google.enabled' ? true : ' , ',
+    );
+    expect(() => service.onModuleInit()).toThrow('client-ID allowlist');
+  });
+
+  it('returns a stable disabled error when OAuth is explicitly off', async () => {
+    config.get.mockImplementation((key: string) =>
+      key === 'oauth.google.enabled' ? false : '',
+    );
+    await expect(
+      service.start({
+        operation: OAuthOperation.SIGNIN,
+        consumer: OAuthConsumer.WEB,
+        audience: 'web-client-id',
+      }),
+    ).rejects.toMatchObject({ errorCode: 'OAUTH_DISABLED' });
     expect(repository.save).not.toHaveBeenCalled();
   });
 

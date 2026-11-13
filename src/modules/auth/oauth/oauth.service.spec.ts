@@ -2,9 +2,11 @@ import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import { AccountStatus } from '../../user/enums/account-status.enum';
+import { User } from '../../user/entities/user.entity';
 import { SignupIntent } from '../enums/signup-intent.enum';
 
 import { ExternalIdentity } from './external-identity.entity';
+import { OutboxEvent } from '../../platform-events/entities/outbox-event.entity';
 import { OAuthConsumer, OAuthOperation } from './oauth.enums';
 import { OAuthException } from './oauth.error';
 import { OAuthService } from './oauth.service';
@@ -23,6 +25,7 @@ describe('OAuthService', () => {
     create: jest.fn((_entity, value) => value),
     insert: jest.fn(),
     delete: jest.fn(),
+    update: jest.fn(),
     createQueryBuilder: jest.fn(),
   };
   const dataSource = {
@@ -37,12 +40,16 @@ describe('OAuthService', () => {
     ),
   };
   const transactions = {
+    assertReady: jest.fn(),
     start: jest.fn(),
     load: jest.fn(),
     consumeInTransaction: jest.fn(),
   };
   const verifier = { verify: jest.fn() };
-  const sessions = { issueInTransaction: jest.fn() };
+  const sessions = {
+    issueInTransaction: jest.fn(),
+    revokeAllInTransaction: jest.fn(),
+  };
   const routing = { resolve: jest.fn() };
   const passwords = { hashGeneratedSecret: jest.fn() };
   const provisioning = { provisionPersonaAndLegalIdentity: jest.fn() };
@@ -51,10 +58,15 @@ describe('OAuthService', () => {
     recordInTransaction: jest.fn(),
     recordAttempt: jest.fn(),
   };
+  const accountPolicy = { assertCanAuthenticate: jest.fn() };
   let service: OAuthService;
 
   beforeEach(() => {
     jest.clearAllMocks();
+    dataSource.getRepository.mockReset();
+    manager.findOne.mockReset();
+    manager.find.mockReset();
+    accountPolicy.assertCanAuthenticate.mockReset();
     service = new OAuthService(
       dataSource as never,
       config as unknown as ConfigService,
@@ -66,6 +78,7 @@ describe('OAuthService', () => {
       provisioning as never,
       delivery as never,
       audit as never,
+      accountPolicy as never,
     );
     const preview = {
       operation: OAuthOperation.SIGNIN,
@@ -87,12 +100,48 @@ describe('OAuthService', () => {
       session_expires_at: new Date(),
     });
     routing.resolve.mockResolvedValue({ routing_target: 'patient_home' });
+    manager.delete.mockResolvedValue({ affected: 1 });
     provisioning.provisionPersonaAndLegalIdentity.mockImplementation(
       async (_manager: unknown, input: Record<string, unknown>) => ({
         id: 'new-user',
         ...input,
         first_name: input.firstName,
         last_name: input.lastName,
+      }),
+    );
+  });
+
+  it('binds a linking transaction to the current recent session', async () => {
+    const sessionId = 'b606d7d3-54de-4c10-9bb1-f734fa66a801';
+    dataSource.getRepository.mockImplementation((entity) => ({
+      findOne: jest.fn().mockResolvedValue(
+        entity === User
+          ? {
+              id: 'current-user',
+              account_status: AccountStatus.ACTIVE,
+              email_verified_at: new Date(),
+            }
+          : {
+              user_id: 'current-user',
+              session_id: sessionId,
+              created_at: new Date(),
+              expires_at: new Date(Date.now() + 60_000),
+              credential_version: 2,
+              revoked_at: null,
+            },
+      ),
+    }));
+    await service.startLink(
+      'current-user',
+      sessionId,
+      OAuthConsumer.WEB,
+      'web-client-id',
+    );
+    expect(transactions.start).toHaveBeenCalledWith(
+      expect.objectContaining({
+        operation: OAuthOperation.LINK,
+        userId: 'current-user',
+        sessionId,
       }),
     );
   });
@@ -315,7 +364,7 @@ describe('OAuthService', () => {
       last_name: 'User',
     };
     manager.findOne
-      .mockResolvedValueOnce({ user_id: user.id })
+      .mockResolvedValueOnce({ id: 'identity-id', user_id: user.id })
       .mockResolvedValueOnce(user);
     await expect(service.complete(transactionDto)).resolves.toMatchObject({
       access_token: 'access-token',
@@ -323,6 +372,11 @@ describe('OAuthService', () => {
       user: { id: 'linked-user' },
     });
     expect(sessions.issueInTransaction).toHaveBeenCalledWith(manager, user.id);
+    expect(manager.update).toHaveBeenCalledWith(
+      ExternalIdentity,
+      expect.anything(),
+      expect.objectContaining({ last_authenticated_at: expect.any(Date) }),
+    );
   });
 
   it('prevents a Google-only user from unlinking the final authenticator', async () => {
@@ -333,11 +387,19 @@ describe('OAuthService', () => {
       count: jest.fn().mockResolvedValue(1),
       findOne: jest.fn().mockResolvedValue(recentSession),
     });
-    manager.findOne.mockResolvedValueOnce({
-      id: 'google-only-user',
-      password_authentication_enabled: false,
-    });
-    manager.find.mockResolvedValueOnce([{ id: 'google-identity' }]);
+    manager.findOne
+      .mockResolvedValueOnce({
+        id: 'google-only-user',
+        password_authentication_enabled: false,
+      })
+      .mockResolvedValueOnce({
+        created_at: new Date(),
+        expires_at: new Date(Date.now() + 60_000),
+        credential_version: 2,
+      });
+    manager.find.mockResolvedValueOnce([
+      { id: 'google-identity', provider: 'google' },
+    ]);
 
     await expect(
       service.unlink(
@@ -353,11 +415,19 @@ describe('OAuthService', () => {
       count: jest.fn().mockResolvedValue(1),
       findOne: jest.fn().mockResolvedValue({ created_at: new Date() }),
     });
-    manager.findOne.mockResolvedValueOnce({
-      id: 'dual-auth-user',
-      password_authentication_enabled: true,
-    });
-    manager.find.mockResolvedValueOnce([{ id: 'google-identity' }]);
+    manager.findOne
+      .mockResolvedValueOnce({
+        id: 'dual-auth-user',
+        password_authentication_enabled: true,
+      })
+      .mockResolvedValueOnce({
+        created_at: new Date(),
+        expires_at: new Date(Date.now() + 60_000),
+        credential_version: 2,
+      });
+    manager.find.mockResolvedValueOnce([
+      { id: 'google-identity', provider: 'google' },
+    ]);
 
     await expect(
       service.unlink('dual-auth-user', 'b606d7d3-54de-4c10-9bb1-f734fa66a801'),
@@ -366,6 +436,20 @@ describe('OAuthService', () => {
       user_id: 'dual-auth-user',
       provider: 'google',
     });
+    expect(sessions.revokeAllInTransaction).toHaveBeenCalledWith(
+      manager,
+      'dual-auth-user',
+    );
+    expect(manager.insert).toHaveBeenCalledWith(
+      OutboxEvent,
+      expect.objectContaining({
+        event_type: 'oauth_google_unlinked',
+        payload: { user_id: 'dual-auth-user' },
+      }),
+    );
+    expect(JSON.stringify(manager.insert.mock.calls)).not.toContain(
+      'google-token',
+    );
   });
 
   it('rejects a provider subject conflict during explicit linking', async () => {
@@ -374,15 +458,122 @@ describe('OAuthService', () => {
       audience: 'web-client-id',
       nonce_hash: 'nonce-hash',
       user_id: 'current-user',
+      session_id: 'b606d7d3-54de-4c10-9bb1-f734fa66a801',
     };
     transactions.load.mockResolvedValue(transaction);
     transactions.consumeInTransaction.mockResolvedValue(transaction);
     manager.findOne
-      .mockResolvedValueOnce({ id: 'current-user' })
+      .mockResolvedValueOnce({ id: 'current-user', email: 'person@gmail.com' })
+      .mockResolvedValueOnce({
+        created_at: new Date(),
+        expires_at: new Date(Date.now() + 60_000),
+        credential_version: 2,
+      })
       .mockResolvedValueOnce({ user_id: 'different-user' });
     await expect(service.complete(transactionDto)).rejects.toMatchObject({
       errorCode: 'OAUTH_IDENTITY_CONFLICT',
     });
     expect(manager.insert).not.toHaveBeenCalled();
+  });
+
+  it('rejects a different Google email during explicit linking', async () => {
+    const transaction = {
+      operation: OAuthOperation.LINK,
+      audience: 'web-client-id',
+      nonce_hash: 'nonce-hash',
+      user_id: 'current-user',
+      session_id: 'b606d7d3-54de-4c10-9bb1-f734fa66a801',
+    };
+    transactions.load.mockResolvedValue(transaction);
+    transactions.consumeInTransaction.mockResolvedValue(transaction);
+    verifier.verify.mockResolvedValue({
+      issuer: 'https://accounts.google.com',
+      subject: 'subject',
+      email: 'other@gmail.com',
+      emailVerified: true,
+    });
+    manager.findOne
+      .mockResolvedValueOnce({
+        id: 'current-user',
+        email: 'person@gmail.com',
+        account_status: AccountStatus.ACTIVE,
+        email_verified_at: new Date(),
+      })
+      .mockResolvedValueOnce({
+        created_at: new Date(),
+        expires_at: new Date(Date.now() + 60_000),
+        credential_version: 2,
+      });
+    await expect(service.complete(transactionDto)).rejects.toMatchObject({
+      errorCode: 'OAUTH_ACCOUNT_LINK_REQUIRED',
+    });
+    expect(manager.insert).not.toHaveBeenCalledWith(
+      ExternalIdentity,
+      expect.anything(),
+    );
+  });
+
+  it.each(['suspended', 'revoked'] as const)(
+    'rejects link completion after %s intervenes',
+    async (cause) => {
+      const transaction = {
+        operation: OAuthOperation.LINK,
+        audience: 'web-client-id',
+        nonce_hash: 'nonce-hash',
+        user_id: 'current-user',
+        session_id: 'b606d7d3-54de-4c10-9bb1-f734fa66a801',
+      };
+      transactions.load.mockResolvedValue(transaction);
+      transactions.consumeInTransaction.mockResolvedValue(transaction);
+      manager.findOne
+        .mockResolvedValueOnce({
+          id: 'current-user',
+          email: 'person@gmail.com',
+          account_status:
+            cause === 'suspended'
+              ? AccountStatus.SUSPENDED
+              : AccountStatus.ACTIVE,
+          email_verified_at: new Date(),
+        })
+        .mockResolvedValueOnce({
+          created_at: new Date(),
+          expires_at: new Date(Date.now() + 60_000),
+          credential_version: 2,
+          revoked_at: cause === 'revoked' ? new Date() : null,
+        });
+      if (cause === 'suspended')
+        accountPolicy.assertCanAuthenticate.mockImplementationOnce(() => {
+          throw new UnauthorizedException();
+        });
+      await expect(service.complete(transactionDto)).rejects.toMatchObject({
+        errorCode:
+          cause === 'suspended'
+            ? 'OAUTH_AUTHENTICATION_FAILED'
+            : 'OAUTH_RECENT_AUTH_REQUIRED',
+      });
+      expect(manager.insert).not.toHaveBeenCalledWith(
+        ExternalIdentity,
+        expect.anything(),
+      );
+    },
+  );
+
+  it('does not audit a successful unlink for a missing Google identity', async () => {
+    manager.findOne
+      .mockResolvedValueOnce({
+        id: 'dual-auth-user',
+        password_authentication_enabled: true,
+      })
+      .mockResolvedValueOnce({
+        created_at: new Date(),
+        expires_at: new Date(Date.now() + 60_000),
+        credential_version: 2,
+      });
+    manager.find.mockResolvedValueOnce([]);
+    await expect(
+      service.unlink('dual-auth-user', 'b606d7d3-54de-4c10-9bb1-f734fa66a801'),
+    ).rejects.toMatchObject({ errorCode: 'OAUTH_IDENTITY_CONFLICT' });
+    expect(manager.delete).not.toHaveBeenCalled();
+    expect(sessions.revokeAllInTransaction).not.toHaveBeenCalled();
   });
 });

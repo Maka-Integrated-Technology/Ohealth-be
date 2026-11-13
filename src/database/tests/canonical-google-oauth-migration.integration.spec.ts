@@ -7,6 +7,7 @@ import { DataSource, QueryRunner } from 'typeorm';
 import { OAuthTransaction } from '../../modules/auth/oauth/oauth-transaction.entity';
 import { OAuthTransactionService } from '../../modules/auth/oauth/oauth-transaction.service';
 import { CanonicalGoogleOAuth1793800000000 } from '../migrations/1793800000000-CanonicalGoogleOAuth';
+import { HardenCanonicalGoogleOAuth1793801000000 } from '../migrations/1793801000000-HardenCanonicalGoogleOAuth';
 
 const integration = env.PG_INTEGRATION_URL ? describe : describe.skip;
 
@@ -34,8 +35,11 @@ integration('Canonical Google OAuth migration on PostgreSQL', () => {
     await runner.query(`SET search_path TO "${schemaName}", public`);
     await runner.startTransaction();
     await runner.query(
-      'CREATE TABLE users (id uuid PRIMARY KEY, google_id varchar)',
+      `CREATE TABLE users (id uuid PRIMARY KEY, google_id varchar,
+        password varchar NOT NULL DEFAULT 'legacy-password')`,
     );
+    await runner.query(`CREATE TABLE auth_sessions (
+      session_id varchar UNIQUE NOT NULL, user_id uuid NOT NULL REFERENCES users(id))`);
     await runner.query(
       `CREATE TABLE auth_security_events (
         id uuid PRIMARY KEY,
@@ -93,8 +97,53 @@ integration('Canonical Google OAuth migration on PostgreSQL', () => {
     ).rejects.toMatchObject({ code: '23505' });
   });
 
+  it('backfills legacy Google placeholders conservatively and enforces issuer and session bindings', async () => {
+    const googleOnly = randomUUID();
+    const provenPassword = randomUUID();
+    const passwordOnly = randomUUID();
+    await runner.query(
+      `INSERT INTO users (id, google_id, password) VALUES
+        ($1, 'google-placeholder', '$2b$10$legacyplaceholder'),
+        ($2, 'google-password', 'ohealth$bcrypt-sha256$v1$modern'),
+        ($3, NULL, '$2b$10$legacy-password')`,
+      [googleOnly, provenPassword, passwordOnly],
+    );
+    await new CanonicalGoogleOAuth1793800000000().up(runner);
+    await new HardenCanonicalGoogleOAuth1793801000000().up(runner);
+    const states: Array<{
+      id: string;
+      password_authentication_enabled: boolean;
+    }> = await runner.query(
+      `SELECT id, password_authentication_enabled FROM users ORDER BY id`,
+    );
+    const byId = new Map(
+      states.map((state) => [state.id, state.password_authentication_enabled]),
+    );
+    expect(byId.get(googleOnly)).toBe(false);
+    expect(byId.get(provenPassword)).toBe(true);
+    expect(byId.get(passwordOnly)).toBe(true);
+    await runner.query(
+      `UPDATE external_identities SET last_authenticated_at = now() WHERE user_id = $1`,
+      [googleOnly],
+    );
+    const authenticated: Array<{ last_authenticated_at: Date | null }> =
+      await runner.query(
+        `SELECT last_authenticated_at FROM external_identities WHERE user_id = $1`,
+        [googleOnly],
+      );
+    expect(authenticated[0].last_authenticated_at).toBeInstanceOf(Date);
+    await expect(
+      runner.query(
+        `INSERT INTO external_identities (user_id, provider, issuer, subject)
+       VALUES ($1, 'google', 'https://evil.example', 'other')`,
+        [passwordOnly],
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
+  });
+
   it('allows exactly one of two concurrent completions to consume a transaction', async () => {
     await new CanonicalGoogleOAuth1793800000000().up(runner);
+    await new HardenCanonicalGoogleOAuth1793801000000().up(runner);
     const service = new OAuthTransactionService(
       dataSource.getRepository(OAuthTransaction),
       { get: jest.fn() } as unknown as ConfigService,
@@ -168,6 +217,21 @@ integration('Canonical Google OAuth migration on PostgreSQL', () => {
           (id, provider, operation, consumer, audience, transaction_token_hash, nonce_hash, expires_at)
          VALUES ($1, 'google', 'signup', 'web', 'client', $2, $3, $4)`,
         common,
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
+  });
+
+  it('requires a canonical session binding for link transactions', async () => {
+    const userId = randomUUID();
+    await runner.query('INSERT INTO users (id) VALUES ($1)', [userId]);
+    await new CanonicalGoogleOAuth1793800000000().up(runner);
+    await new HardenCanonicalGoogleOAuth1793801000000().up(runner);
+    await expect(
+      runner.query(
+        `INSERT INTO oauth_transactions
+       (provider, operation, consumer, audience, transaction_token_hash, nonce_hash, user_id, expires_at)
+       VALUES ('google', 'link', 'web', 'client', $1, $2, $3, now() + interval '5 minutes')`,
+        ['a'.repeat(64), 'b'.repeat(64), userId],
       ),
     ).rejects.toMatchObject({ code: '23514' });
   });

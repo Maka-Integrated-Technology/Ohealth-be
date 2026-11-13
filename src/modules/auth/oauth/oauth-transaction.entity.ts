@@ -53,6 +53,9 @@ export class OAuthTransaction {
   @Column({ type: 'uuid', nullable: true })
   user_id: string | null;
 
+  @Column({ type: 'varchar', nullable: true })
+  session_id: string | null;
+
   @CreateDateColumn({ type: 'timestamp with time zone' })
   created_at: Date;
 
