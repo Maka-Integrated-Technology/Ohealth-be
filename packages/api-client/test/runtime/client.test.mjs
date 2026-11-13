@@ -50,7 +50,7 @@ test('exposes every canonical operationId exactly once', async () => {
     transport: async () => ({ status: 200, data: {} }),
   });
 
-  assert.equal(operationIds.length, 102);
+  assert.equal(operationIds.length, 104);
   assert.deepEqual(Object.keys(client).sort(), operationIds);
 });
 
@@ -137,10 +137,7 @@ test('keeps browser refresh distinct and credential-free in generated input', as
     headerParameters: { 'X-OHealth-Client': 'browser' },
   });
 
-  assert.equal(
-    capturedRequest.operationId,
-    'BrowserSessionController_refresh',
-  );
+  assert.equal(capturedRequest.operationId, 'BrowserSessionController_refresh');
   assert.deepEqual(capturedRequest.headers, {
     'X-OHealth-Client': 'browser',
   });

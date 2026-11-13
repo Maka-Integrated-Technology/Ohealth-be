@@ -53,6 +53,8 @@ const PUBLIC_OPERATION_IDS = new Set([
   'LaboratoryPostApprovalController_acceptStaffInvitation',
   'PharmacyController_register',
   'PublicDiscoveryController_getContract',
+  'PublicSpecialityController_findOne',
+  'PublicSpecialityController_list',
 ]);
 
 const PUBLIC_DISCOVERY_PATH_PREFIX = `/${OPENAPI_API_PREFIX}/${PUBLIC_DISCOVERY_ROUTE_NAMESPACE}/`;

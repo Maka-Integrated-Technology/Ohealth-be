@@ -4,9 +4,21 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 
 import * as sysMsg from '../../constants/system.messages';
+import { PublicSearchQueryDto } from '../public-discovery/dto/public-discovery-query.dto';
+import {
+  PublicSpecialityCatalogueDto,
+  PublicSpecialityDto,
+} from '../public-discovery/dto/public-discovery-response.dto';
+import { PublicDiscoveryVisibilityPolicy } from '../public-discovery/public-discovery-visibility.policy';
+import { PublicResourceNotFoundException } from '../public-discovery/public-discovery.errors';
+import {
+  toPublicPaginationMeta,
+  toPublicSpeciality,
+} from '../public-discovery/public-discovery.mapper';
+import { toPublicSearchPattern } from '../public-discovery/public-discovery.search';
 
 import { CreateSpecialityDto } from './dto/create-speciality.dto';
 import { SpecialityResponseDto } from './dto/speciality-response.dto';
@@ -18,7 +30,45 @@ export class SpecialityService {
   constructor(
     @InjectRepository(Speciality)
     private readonly specialityRepository: Repository<Speciality>,
+    private readonly publicVisibility: PublicDiscoveryVisibilityPolicy,
   ) {}
+
+  /**
+   * Public catalogue page: visible specialities only, ordered by name without
+   * regard to case and then by identifier so paging is deterministic.
+   */
+  async findPublicCatalogue(
+    query: PublicSearchQueryDto,
+  ): Promise<PublicSpecialityCatalogueDto> {
+    const catalogue = this.createPublicCatalogueQuery();
+
+    if (query.q) {
+      catalogue.andWhere("speciality.name ILIKE :publicSearch ESCAPE '\\'", {
+        publicSearch: toPublicSearchPattern(query.q),
+      });
+    }
+
+    const [specialities, total] = await catalogue
+      .orderBy('LOWER(speciality.name)', 'ASC')
+      .addOrderBy('speciality.id', 'ASC')
+      .skip((query.page - 1) * query.limit)
+      .take(query.limit)
+      .getManyAndCount();
+
+    return {
+      items: specialities.map(toPublicSpeciality),
+      meta: toPublicPaginationMeta(query.page, query.limit, total),
+    };
+  }
+
+  /** One visible speciality, or the single public not-found outcome. */
+  async findPublicById(id: string): Promise<PublicSpecialityDto> {
+    const speciality = await this.createPublicCatalogueQuery()
+      .andWhere('speciality.id = :id', { id })
+      .getOne();
+    if (!speciality) throw new PublicResourceNotFoundException();
+    return toPublicSpeciality(speciality);
+  }
 
   async findAll(): Promise<SpecialityResponseDto[]> {
     const specialities = await this.specialityRepository.find({
@@ -76,6 +126,20 @@ export class SpecialityService {
     });
     if (!speciality) throw new NotFoundException(sysMsg.SPECIALITY_NOT_FOUND);
     return speciality;
+  }
+
+  private createPublicCatalogueQuery(): SelectQueryBuilder<Speciality> {
+    return this.publicVisibility.applySpecialityVisibility(
+      this.specialityRepository
+        .createQueryBuilder('speciality')
+        .select([
+          'speciality.id',
+          'speciality.name',
+          'speciality.description',
+          'speciality.icon',
+        ]),
+      'speciality',
+    );
   }
 
   private toDto(speciality: Speciality): SpecialityResponseDto {

@@ -50,6 +50,7 @@ must follow.
 | Browser refresh-cookie transport   | Foundation  |
 | Encrypted MFA factors              | Target      |
 | Public discovery contract          | Foundation  |
+| Public speciality catalogue        | Implemented |
 | Existing role-array authentication | Legacy      |
 
 Update this table whenever an area moves between statuses.
