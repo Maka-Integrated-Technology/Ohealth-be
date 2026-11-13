@@ -1409,6 +1409,23 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly '/api/public/discovery/contract': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Get the query limits and allowlists for public discovery */
+    readonly get: operations['PublicDiscoveryController_getContract'];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly '/api/specialities': {
     readonly parameters: {
       readonly query?: never;
@@ -1684,6 +1701,8 @@ export interface components {
        */
       readonly updated_at: string;
     };
+    /** @enum {string} */
+    readonly ConsultationType: ConsultationType;
     readonly CreateBookingDto: {
       /** @example 2024-02-10 */
       readonly booking_date: string;
@@ -1734,7 +1753,7 @@ export interface components {
        * @default both
        * @enum {string}
        */
-      readonly consultation_type: CreateProfessionalDtoConsultation_type;
+      readonly consultation_type: ConsultationType;
       readonly image?: string;
       /** @example MDCN-123456 */
       readonly license_number?: string;
@@ -2393,7 +2412,7 @@ export interface components {
       readonly about?: string;
       readonly consultation_fee: number;
       /** @enum {string} */
-      readonly consultation_type: CreateProfessionalDtoConsultation_type;
+      readonly consultation_type: ConsultationType;
       /** Format: date-time */
       readonly created_at: string;
       readonly id: string;
@@ -2674,6 +2693,121 @@ export interface components {
        * @enum {string}
        */
       readonly verification_status: CreateProfessionalDtoVerification_status;
+    };
+    readonly PublicAvailabilityDayDto: {
+      /**
+       * Format: date
+       * @example 2026-01-15
+       */
+      readonly date: string;
+      readonly slots: readonly components['schemas']['PublicAvailabilitySlotDto'][];
+    };
+    readonly PublicAvailabilitySlotDto: {
+      /** @example 09:30:00 */
+      readonly end_time: string;
+      /** Format: uuid */
+      readonly id: string;
+      /** @example 09:00:00 */
+      readonly start_time: string;
+    };
+    readonly PublicDiscoveryContractDto: {
+      readonly consultation_types: readonly components['schemas']['ConsultationType'][];
+      readonly max_availability_range_days: number;
+      readonly pagination: components['schemas']['PublicDiscoveryPaginationContractDto'];
+      readonly professional_sort: components['schemas']['PublicDiscoveryProfessionalSortContractDto'];
+      readonly search: components['schemas']['PublicDiscoverySearchContractDto'];
+    };
+    readonly PublicDiscoveryPaginationContractDto: {
+      readonly default_limit: number;
+      readonly max_limit: number;
+      readonly max_page: number;
+    };
+    readonly PublicDiscoveryProfessionalSortContractDto: {
+      readonly default_field: components['schemas']['PublicProfessionalSortField'];
+      readonly default_order: components['schemas']['PublicSortOrder'];
+      readonly fields: readonly components['schemas']['PublicProfessionalSortField'][];
+      readonly orders: readonly components['schemas']['PublicSortOrder'][];
+    };
+    readonly PublicDiscoverySearchContractDto: {
+      readonly max_length: number;
+      readonly min_length: number;
+    };
+    readonly PublicPaginationMetaDto: {
+      readonly has_next: boolean;
+      readonly has_previous: boolean;
+      readonly limit: number;
+      readonly page: number;
+      readonly total: number;
+      readonly total_pages: number;
+    };
+    readonly PublicProfessionalDetailDto: {
+      readonly about: string | null;
+      /** @example 5000 */
+      readonly consultation_fee: number;
+      /** @enum {string} */
+      readonly consultation_type: ConsultationType;
+      /** Format: uuid */
+      readonly id: string;
+      /**
+       * Format: uri
+       * @description Absolute HTTPS image address, when one is published
+       */
+      readonly image: string | null;
+      readonly is_available: boolean;
+      /** @example Ada Obi */
+      readonly name: string;
+      /** @example 4.5 */
+      readonly rating: number;
+      readonly speciality: components['schemas']['PublicProfessionalSpecialityDto'];
+      /** @example 12 */
+      readonly total_reviews: number;
+      /** @example 8 */
+      readonly years_of_experience: number;
+    };
+    /** @enum {string} */
+    readonly PublicProfessionalSortField: PublicProfessionalSortField;
+    readonly PublicProfessionalSpecialityDto: {
+      /** Format: uuid */
+      readonly id: string;
+      /** @example Cardiology */
+      readonly name: string;
+    };
+    readonly PublicProfessionalSummaryDto: {
+      /** @example 5000 */
+      readonly consultation_fee: number;
+      /** @enum {string} */
+      readonly consultation_type: ConsultationType;
+      /** Format: uuid */
+      readonly id: string;
+      /**
+       * Format: uri
+       * @description Absolute HTTPS image address, when one is published
+       */
+      readonly image: string | null;
+      readonly is_available: boolean;
+      /** @example Ada Obi */
+      readonly name: string;
+      /** @example 4.5 */
+      readonly rating: number;
+      readonly speciality: components['schemas']['PublicProfessionalSpecialityDto'];
+      /** @example 12 */
+      readonly total_reviews: number;
+      /** @example 8 */
+      readonly years_of_experience: number;
+    };
+    /** @enum {string} */
+    readonly PublicSortOrder: PathsApiProfessionalsMePatientsGetParametersQuerySort_order;
+    readonly PublicSpecialityDto: {
+      readonly description: string | null;
+      /**
+       * @description Asset identifier the consumer maps to an icon it bundles. Never an address, file path, or storage key; a stored value outside this format is returned as null.
+       * @example general-doctor
+       */
+      readonly icon: string | null;
+      /** Format: uuid */
+      readonly id: string;
+      /** @example Cardiology */
+      readonly name: string;
     };
     readonly RefreshTokenDto: {
       /**
@@ -2967,7 +3101,7 @@ export interface components {
        * @default both
        * @enum {string}
        */
-      readonly consultation_type: CreateProfessionalDtoConsultation_type;
+      readonly consultation_type: ConsultationType;
       readonly image?: string;
       readonly is_active?: boolean;
       readonly is_available?: boolean;
@@ -3046,7 +3180,7 @@ export interface components {
        * @example video
        * @enum {string}
        */
-      readonly consultation_type: CreateProfessionalDtoConsultation_type;
+      readonly consultation_type: ConsultationType;
       /** @example https://cdn.example.com/me.jpg */
       readonly image?: string;
       /** @example MDCN-123456 */
@@ -7991,6 +8125,36 @@ export interface operations {
       };
     };
   };
+  readonly PublicDiscoveryController_getContract: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['PublicDiscoveryContractDto'];
+          };
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
   readonly SpecialityController_findAll: {
     readonly parameters: {
       readonly query?: never;
@@ -8259,14 +8423,14 @@ export enum ChatMessageResponseDtoSender {
   user = 'user',
   ai = 'ai',
 }
-export enum CreateBookingDtoConsultation_type {
-  chat = 'chat',
-  video = 'video',
-}
-export enum CreateProfessionalDtoConsultation_type {
+export enum ConsultationType {
   chat = 'chat',
   video = 'video',
   both = 'both',
+}
+export enum CreateBookingDtoConsultation_type {
+  chat = 'chat',
+  video = 'video',
 }
 export enum CreateProfessionalDtoVerification_status {
   pending = 'pending',
@@ -8352,6 +8516,12 @@ export enum ProfessionalAppointmentResponseDtoStatus {
   confirmed = 'confirmed',
   completed = 'completed',
   cancelled = 'cancelled',
+}
+export enum PublicProfessionalSortField {
+  rating = 'rating',
+  experience = 'experience',
+  consultation_fee = 'consultation_fee',
+  name = 'name',
 }
 export enum SignupIntent {
   patient = 'patient',

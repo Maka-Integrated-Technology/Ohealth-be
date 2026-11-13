@@ -23,6 +23,8 @@ must follow.
    — atomic personas, organizations, legal acceptance, retries, and rollout.
 9. [Authentication challenge continuation](./auth-challenge-continuation.md)
    — handle-bound resend, lineage, stable errors, and recovery links.
+10. [Public discovery contract](./public-discovery-contract.md) — public route
+    boundary, visibility policy, query conventions, and response allowlists.
 
 ## Documentation status labels
 
@@ -46,6 +48,7 @@ must follow.
 | BullMQ email worker                | Target      |
 | Rotating refresh-token families    | Implemented |
 | Encrypted MFA factors              | Target      |
+| Public discovery contract          | Foundation  |
 | Existing role-array authentication | Legacy      |
 
 Update this table whenever an area moves between statuses.

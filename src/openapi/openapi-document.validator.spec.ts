@@ -177,4 +177,64 @@ describe('assertOpenApiDocumentComplete', () => {
     };
     expect(() => assertOpenApiDocumentComplete(document)).not.toThrow();
   });
+
+  describe('public discovery boundary', () => {
+    function createPublicDocument(): OpenAPIObject {
+      const document = createCompleteDocument();
+      const operation = document.paths['/api/items/{id}'].get;
+      operation.operationId = 'PublicDiscoveryController_getContract';
+      operation.tags = ['Public Discovery'];
+      operation.security = undefined;
+      operation.parameters = [];
+      document.paths = { '/api/public/discovery/contract': { get: operation } };
+      return document;
+    }
+
+    it('accepts a read-only, credential-free public operation', () => {
+      expect(() =>
+        assertOpenApiDocumentComplete(createPublicDocument()),
+      ).not.toThrow();
+    });
+
+    it('rejects a security requirement inside the public namespace', () => {
+      const document = createPublicDocument();
+      document.paths['/api/public/discovery/contract'].get.security = [
+        { bearer: [] },
+      ];
+
+      expect(() => assertOpenApiDocumentComplete(document)).toThrow(
+        'public discovery operation must not declare a security requirement',
+      );
+    });
+
+    it('rejects a mutation inside the public namespace', () => {
+      const document = createPublicDocument();
+      const pathItem = document.paths['/api/public/discovery/contract'];
+      pathItem.post = pathItem.get;
+      pathItem.get = undefined;
+
+      expect(() => assertOpenApiDocumentComplete(document)).toThrow(
+        'public discovery operation must be read-only',
+      );
+    });
+
+    it('rejects a public operation outside the discovery tag', () => {
+      const document = createPublicDocument();
+      document.paths['/api/public/discovery/contract'].get.tags = ['Items'];
+
+      expect(() => assertOpenApiDocumentComplete(document)).toThrow(
+        'public discovery operation must use the Public Discovery tag',
+      );
+    });
+
+    it('rejects an unlisted operation that drops authentication', () => {
+      const document = createPublicDocument();
+      document.paths['/api/public/discovery/contract'].get.operationId =
+        'PublicDiscoveryController_unreviewed';
+
+      expect(() => assertOpenApiDocumentComplete(document)).toThrow(
+        'protected operation is missing bearer auth',
+      );
+    });
+  });
 });
