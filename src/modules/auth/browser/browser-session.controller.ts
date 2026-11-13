@@ -16,11 +16,13 @@ import { Public } from '../../../common/decorators/public.decorator';
 import { AuthAbuseGuard } from '../challenges/auth-abuse.guard';
 import { VerifyAuthChallengeDto } from '../contracts';
 import { VerifySignupDto } from '../dto/auth.dto';
+import { CompleteGoogleOAuthDto } from '../oauth/oauth.dto';
 
 import { BrowserSessionCookieService } from './browser-session-cookie.service';
 import { BrowserSessionTransportService } from './browser-session-transport.service';
 import {
   BrowserLogoutDocs,
+  BrowserOAuthCompletionDocs,
   BrowserRefreshDocs,
   BrowserSessionCompletionDocs,
 } from './browser-session.docs';
@@ -73,6 +75,30 @@ export class BrowserSessionController {
       result.refreshCredential,
       result.sessionExpiresAt,
     );
+    return result.response;
+  }
+
+  @Post('oauth/google/complete')
+  @Header('Cache-Control', 'no-store')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthAbuseGuard)
+  @BrowserOAuthCompletionDocs()
+  async completeGoogle(
+    @Body() payload: CompleteGoogleOAuthDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.transport.completeGoogle(payload);
+    if (result.issuedSession) {
+      this.cookies.write(
+        response,
+        result.refreshCredential,
+        result.sessionExpiresAt,
+      );
+    } else if (
+      result.response.error_code === 'OAUTH_CONTACT_VERIFICATION_REQUIRED'
+    ) {
+      response.status(HttpStatus.ACCEPTED);
+    }
     return result.response;
   }
 

@@ -1,16 +1,25 @@
 import { applyDecorators } from '@nestjs/common';
 import {
+  ApiAcceptedResponse,
   ApiBadRequestResponse,
+  ApiConflictResponse,
   ApiCookieAuth,
+  ApiExtraModels,
   ApiForbiddenResponse,
   ApiHeader,
   ApiOkResponse,
   ApiOperation,
+  ApiServiceUnavailableResponse,
+  ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
+  getSchemaPath,
 } from '@nestjs/swagger';
 
+import { ApiMessageResponseDto } from '../../../common/dto/response.dto';
 import { AuthChallengeErrorResponseDto } from '../contracts';
 import { LogoutResponseDto } from '../dto/auth-response.dto';
+import { OAuthContactVerificationResponseDto } from '../oauth/oauth.dto';
+import { OAuthErrorResponseDto } from '../oauth/oauth.error';
 
 import { BrowserSessionResponseDto } from './browser-session.dto';
 
@@ -44,6 +53,31 @@ export const BrowserRefreshDocs = () =>
     ApiUnauthorizedResponse({
       description: 'Refresh cookie is invalid, expired, replayed, or revoked',
     }),
+  );
+
+export const BrowserOAuthCompletionDocs = () =>
+  applyDecorators(
+    BrowserBoundaryDocs(),
+    ApiExtraModels(BrowserSessionResponseDto, ApiMessageResponseDto),
+    ApiOperation({
+      summary: 'Complete a web Google OAuth transaction',
+      description:
+        'Completes only transactions bound to the web consumer. Session credentials are written to the browser cookie and never returned in JSON.',
+    }),
+    ApiOkResponse({
+      schema: {
+        oneOf: [
+          { $ref: getSchemaPath(BrowserSessionResponseDto) },
+          { $ref: getSchemaPath(ApiMessageResponseDto) },
+        ],
+      },
+    }),
+    ApiAcceptedResponse({ type: OAuthContactVerificationResponseDto }),
+    ApiBadRequestResponse({ type: OAuthErrorResponseDto }),
+    ApiUnauthorizedResponse({ type: OAuthErrorResponseDto }),
+    ApiConflictResponse({ type: OAuthErrorResponseDto }),
+    ApiTooManyRequestsResponse({ type: AuthChallengeErrorResponseDto }),
+    ApiServiceUnavailableResponse({ type: OAuthErrorResponseDto }),
   );
 
 export const BrowserLogoutDocs = () =>

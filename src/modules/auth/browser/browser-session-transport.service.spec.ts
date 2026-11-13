@@ -1,5 +1,7 @@
 import { AuthService } from '../auth.service';
 import { AuthAccessLevel, AuthRoutingTarget } from '../enums/auth-routing.enum';
+import { OAuthConsumer } from '../oauth/oauth.enums';
+import { OAuthService } from '../oauth/oauth.service';
 
 import { BrowserSessionTransportService } from './browser-session-transport.service';
 
@@ -27,7 +29,8 @@ describe('BrowserSessionTransportService', () => {
     refreshToken: jest.fn(),
     logoutByRefreshCredential: jest.fn(),
   } as unknown as AuthService;
-  const service = new BrowserSessionTransportService(auth);
+  const oauth = { complete: jest.fn() } as unknown as OAuthService;
+  const service = new BrowserSessionTransportService(auth, oauth);
 
   beforeEach(() => jest.clearAllMocks());
 
@@ -67,5 +70,42 @@ describe('BrowserSessionTransportService', () => {
     expect(auth.logoutByRefreshCredential).toHaveBeenCalledWith(
       session.refresh_token,
     );
+  });
+
+  it('binds Google completion to web and strips a resulting session credential', async () => {
+    (oauth.complete as jest.Mock).mockResolvedValue({ ...session });
+    const payload = {
+      transaction_id: '17d36477-ae70-4ac6-b557-d584bc840ad1',
+      transaction_token: 't'.repeat(43),
+      id_token: 'google-id-token',
+    };
+
+    const result = await service.completeGoogle(payload);
+
+    expect(oauth.complete).toHaveBeenCalledWith(payload, OAuthConsumer.WEB);
+    expect(result).toMatchObject({
+      issuedSession: true,
+      refreshCredential: session.refresh_token,
+    });
+    expect(result.response).not.toHaveProperty('refresh_token');
+  });
+
+  it('passes through Google contact-verification continuation without a cookie credential', async () => {
+    const continuation = {
+      message: 'Contact verification required.',
+      error_code: 'OAUTH_CONTACT_VERIFICATION_REQUIRED',
+      challenge_id: '17d36477-ae70-4ac6-b557-d584bc840ad1',
+      resend_after_seconds: 60,
+      expires_in_seconds: 600,
+    };
+    (oauth.complete as jest.Mock).mockResolvedValue(continuation);
+
+    await expect(
+      service.completeGoogle({
+        transaction_id: '17d36477-ae70-4ac6-b557-d584bc840ad1',
+        transaction_token: 't'.repeat(43),
+        id_token: 'google-id-token',
+      }),
+    ).resolves.toEqual({ issuedSession: false, response: continuation });
   });
 });

@@ -47,10 +47,12 @@ must follow.
 | Distributed rate limiting          | Target      |
 | BullMQ email worker                | Target      |
 | Rotating refresh-token families    | Implemented |
-| Browser refresh-cookie transport   | Foundation  |
+| Browser refresh-cookie transport   | Implemented |
 | Encrypted MFA factors              | Target      |
 | Public discovery contract          | Foundation  |
 | Public speciality catalogue        | Implemented |
 | Existing role-array authentication | Legacy      |
 
 Update this table whenever an area moves between statuses.
+
+- `google-oauth.md` — canonical Google signup, sign-in, linking, credentials, and retention.

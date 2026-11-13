@@ -104,7 +104,9 @@ jobs:
       - name: Verify operator delivery command input and formatting
         run: |
           npx prettier --check scripts/maintenance/dispatch-auth-challenge-deliveries.ts
+          npx prettier --check scripts/maintenance/check-oauth-security-notification-runtime.cjs
           npx prettier --check scripts/maintenance/prune-registration-retries.ts
+          npx prettier --check src/workers/oauth-security-notifications.ts
           check_invalid_usage() {
             set +e
             result=$(npm run auth-challenge-delivery:dispatch -- "$@" 2>&1)
@@ -135,6 +137,21 @@ jobs:
           check_invalid_prune_usage --batch-size=NaN
           check_invalid_prune_usage --unknown
           check_invalid_prune_usage --batch-size=1 --batch-size=2
+          check_invalid_oauth_notification_usage() {
+            set +e
+            result=$(npm run oauth-security-notifications:dispatch -- "$@" 2>&1)
+            status=$?
+            set -e
+            if [ "$status" -eq 0 ] || ! printf '%s\n' "$result" | grep -qx 'Invalid OAuth security notification dispatch arguments.'; then
+              printf 'OAuth notification dispatch did not reject invalid arguments before database access.\n' >&2
+              exit 1
+            fi
+          }
+          check_invalid_oauth_notification_usage --batch-size=0
+          check_invalid_oauth_notification_usage --batch-size=101
+          check_invalid_oauth_notification_usage --interval-seconds=5
+          check_invalid_oauth_notification_usage --unknown
+          check_invalid_oauth_notification_usage --continuous --continuous
 
       - name: Verify formatting
         run: npm run format:check
@@ -160,6 +177,9 @@ jobs:
       - name: Verify purpose-bound public auth contracts (isolated HTTP e2e)
         run: npx jest --config ./test/jest-e2e.json --runInBand test/auth-challenge-public.e2e-spec.ts
 
+      - name: Verify public Google OAuth abuse and completion boundaries (isolated HTTP e2e)
+        run: npx jest --config ./test/jest-e2e.json --runInBand test/oauth-google-public.e2e-spec.ts
+
       - name: Verify public discovery boundary (isolated HTTP e2e)
         run: npx jest --config ./test/jest-e2e.json --runInBand test/public-discovery-boundary.e2e-spec.ts
 
@@ -170,9 +190,35 @@ jobs:
         run: npm run build
 
       - name: Verify deployed worker image and email rendering
+        env:
+          OAUTH_WORKER_DATABASE_URL: postgres://postgres:postgres@localhost:5432/ohealth_oauth_worker_ci
+          POSTGRES_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres
         run: |
+          node -e 'const {Client}=require("pg");(async()=>{const c=new Client({connectionString:process.env.POSTGRES_ADMIN_URL});await c.connect();await c.query("CREATE DATABASE ohealth_oauth_worker_ci");await c.end()})().catch(()=>process.exit(1))'
+          DATABASE_URL="${OAUTH_WORKER_DATABASE_URL}" npm run migration:run
           docker build -f deploy/auth-challenge-worker/Dockerfile -t ohealth-auth-worker:ci .
           docker run --rm --entrypoint node ohealth-auth-worker:ci scripts/maintenance/check-worker-templates.cjs
+          docker run --rm --network host \
+            -e DATABASE_URL="${OAUTH_WORKER_DATABASE_URL}" \
+            -e MAIL_MAILER=smtp \
+            -e MAIL_FROM_ADDRESS=worker@example.invalid \
+            --entrypoint node \
+            ohealth-auth-worker:ci \
+            scripts/maintenance/check-oauth-security-notification-runtime.cjs
+          docker run --detach --name ohealth-oauth-notification-worker-ci \
+            --network host \
+            -e DATABASE_URL="${OAUTH_WORKER_DATABASE_URL}" \
+            -e MAIL_MAILER=smtp \
+            -e MAIL_FROM_ADDRESS=worker@example.invalid \
+            ohealth-auth-worker:ci \
+            npm run oauth-security-notifications:dispatch:prod -- \
+              --continuous --batch-size=20 --interval-seconds=1
+          sleep 3
+          docker exec ohealth-oauth-notification-worker-ci node -e \
+            "const fs=require('node:fs');const p='/tmp/ohealth-oauth-notification-worker-heartbeat';process.exit(fs.existsSync(p)&&Date.now()-fs.statSync(p).mtimeMs<10000?0:1)"
+          docker stop ohealth-oauth-notification-worker-ci
+          docker rm ohealth-oauth-notification-worker-ci
+          node -e 'const {Client}=require("pg");(async()=>{const c=new Client({connectionString:process.env.POSTGRES_ADMIN_URL});await c.connect();await c.query("DROP DATABASE ohealth_oauth_worker_ci");await c.end()})().catch(()=>process.exit(1))'
 
       - name: Verify account lifecycle migration on real PostgreSQL
         env:
@@ -183,6 +229,11 @@ jobs:
         env:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
         run: npx jest --runInBand src/database/tests/auth-security-audit.integration.spec.ts
+
+      - name: Verify canonical Google OAuth migration on PostgreSQL
+        env:
+          PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
+        run: npx jest --runInBand src/database/tests/canonical-google-oauth-migration.integration.spec.ts
 
       - name: Verify auth challenge foundation on PostgreSQL
         env:

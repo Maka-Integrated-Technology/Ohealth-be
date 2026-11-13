@@ -24,6 +24,7 @@ import { SecureAuthChallengeFlowsService } from './challenges/secure-auth-challe
 import { User2fa } from './entities/user-2fa.entity';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { OAuthModule } from './oauth/oauth.module';
 import { PasswordCredentialsService } from './password-policy/password-credentials.service';
 import { RegistrationModule } from './registration/registration.module';
 import { AuthSecurityAuditModule } from './security-audit/auth-security-audit.module';
@@ -38,6 +39,7 @@ import { TwoFactorAuthService } from './two-factor-auth.service';
     AuthSecurityAuditModule,
     RefreshSessionModule,
     RegistrationModule,
+    OAuthModule,
     ConfigModule,
     EmailModule,
     UserModule,
@@ -74,6 +76,7 @@ import { TwoFactorAuthService } from './two-factor-auth.service';
     AuthChallengeModule,
     RefreshSessionModule,
     RegistrationModule,
+    OAuthModule,
     AuthService,
     PasswordCredentialsService,
     JwtAuthGuard,

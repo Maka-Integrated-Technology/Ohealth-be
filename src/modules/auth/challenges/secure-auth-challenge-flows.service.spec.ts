@@ -310,6 +310,7 @@ describe('SecureAuthChallengeFlowsService', () => {
       ID,
       expect.objectContaining({
         password: 'new-secret-hash',
+        password_authentication_enabled: true,
         reset_token: null,
       }),
     );

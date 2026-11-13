@@ -30,3 +30,14 @@ void client.BrowserSessionController_refresh({
       PathsApiAuthBrowserLoginVerifyPostParametersHeaderXOHealthClient.browser,
   },
 });
+void client.BrowserSessionController_completeGoogle({
+  headerParameters: {
+    'X-OHealth-Client':
+      PathsApiAuthBrowserLoginVerifyPostParametersHeaderXOHealthClient.browser,
+  },
+  body: {
+    transaction_id: '17d36477-ae70-4ac6-b557-d584bc840ad1',
+    transaction_token: 't'.repeat(43),
+    id_token: 'google-id-token',
+  },
+});

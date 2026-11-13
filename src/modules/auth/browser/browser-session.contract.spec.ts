@@ -6,7 +6,10 @@ interface IContractSchema {
 }
 
 interface IContract {
-  paths: Record<string, { post?: { operationId?: string } }>;
+  paths: Record<
+    string,
+    { post?: { operationId?: string; responses?: Record<string, unknown> } }
+  >;
   components: { schemas: Record<string, IContractSchema> };
 }
 
@@ -31,7 +34,7 @@ describe('browser session OpenAPI contract', () => {
     );
   });
 
-  it('publishes distinct browser operations without guessing OAuth', () => {
+  it('publishes distinct browser operations using the canonical OAuth completion contract', () => {
     expect(contract.paths['/api/auth/browser/verify'].post?.operationId).toBe(
       'BrowserSessionController_verifySignup',
     );
@@ -44,6 +47,17 @@ describe('browser session OpenAPI contract', () => {
     expect(contract.paths['/api/auth/browser/logout'].post?.operationId).toBe(
       'BrowserSessionController_logout',
     );
+    expect(
+      contract.paths['/api/auth/browser/oauth/google/complete'].post
+        ?.operationId,
+    ).toBe('BrowserSessionController_completeGoogle');
+    const browserGoogleSuccess = JSON.stringify(
+      contract.paths['/api/auth/browser/oauth/google/complete'].post
+        ?.responses?.['200'],
+    );
+    expect(browserGoogleSuccess).toContain('BrowserSessionResponseDto');
+    expect(browserGoogleSuccess).not.toContain('LoginResponseDto');
+    expect(browserGoogleSuccess).not.toContain('refresh_token');
     expect(contract.paths['/api/auth/browser/google-login']).toBeUndefined();
   });
 });

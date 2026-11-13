@@ -128,8 +128,20 @@ and `X-OHealth-Client: browser`; browser request bodies are JSON-only. Local
 development uses a separately named cookie and cannot weaken deployed policy.
 Mobile retains the JSON credential contract for operating-system secure
 storage. Both transports use the same rotation, replay-family revocation,
-account policy, and audit authority. Browser OAuth completion remains blocked
-until issue #79 supplies the final transport-neutral result.
+account policy, and audit authority. Google transactions bind their consumer:
+mobile completes through `/auth/oauth/google/complete` and retains the approved
+body credential, while web completes through
+`/auth/browser/oauth/google/complete` and receives refresh state only in the
+backend-managed cookie.
+
+## External identities and Google OAuth
+
+External providers are authenticators attached to the organization-neutral
+`User`. Provider identity is resolved by the immutable issuer and subject pair,
+never by email. Google signup, sign-in, and linking use short-lived one-time
+backend transactions that bind operation, consumer, audience, nonce, signup
+intent, and legal versions. See `google-oauth.md` for the executable contract,
+privacy rules, and rollout configuration.
 
 ## MFA
 

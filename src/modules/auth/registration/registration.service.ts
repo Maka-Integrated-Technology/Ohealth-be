@@ -11,17 +11,12 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { DataSource } from 'typeorm';
 
-import { LegalAcceptance } from '../../identity/entities/legal-acceptance.entity';
-import { UserPersona } from '../../identity/entities/user-persona.entity';
 import { LegalDocumentType } from '../../identity/enums/legal-document-type.enum';
-import { UserPersonaType } from '../../identity/enums/user-persona-type.enum';
 import { OrganizationMembership } from '../../organization/entities/organization-membership.entity';
 import { Organization } from '../../organization/entities/organization.entity';
 import { OrganizationMembershipRole } from '../../organization/enums/organization-membership-role.enum';
 import { OrganizationMembershipStatus } from '../../organization/enums/organization-membership-status.enum';
 import { OrganizationVerificationStatus } from '../../organization/enums/organization-verification-status.enum';
-import { PatientProfile } from '../../patient/entities/patient-profile.entity';
-import { User } from '../../user/entities/user.entity';
 import { AccountStatus } from '../../user/enums/account-status.enum';
 import { AuthChallengeDeliveryService } from '../challenges/auth-challenge-delivery.service';
 import { AuthChallengePurpose } from '../challenges/auth-challenge.entity';
@@ -41,6 +36,7 @@ import {
 } from '../security-audit/auth-security-event.enum';
 import { SIGNUP_INTENT_DEFINITIONS } from '../signup-intent.policy';
 
+import { AccountProvisioningService } from './account-provisioning.service';
 import {
   IRegistrationLegalVersions,
   INormalizedRegistration,
@@ -70,6 +66,7 @@ export class RegistrationService {
     private readonly passwords: PasswordCredentialsService,
     private readonly delivery: AuthChallengeDeliveryService,
     private readonly audit: AuthSecurityAuditService,
+    private readonly provisioning: AccountProvisioningService,
   ) {}
 
   assertConfigured(): void {
@@ -192,35 +189,27 @@ export class RegistrationService {
           throw new ConflictException('Account already exists.');
         }
 
-        const user = await manager.save(
-          User,
-          manager.create(User, {
+        const acceptedAt = new Date();
+        const user = await this.provisioning.provisionPersonaAndLegalIdentity(
+          manager,
+          {
             email: input.email,
             password: hashedPassword,
-            first_name: input.firstName,
-            last_name: input.lastName,
-            role: [],
-            account_status: AccountStatus.PENDING_VERIFICATION,
-            email_verified_at: null,
-            is_active: false,
-            is_verified: false,
-            verification_code: null,
-            verification_code_expires_at: null,
-            reset_token: null,
-            reset_token_expiry: null,
-          }),
+            passwordAuthenticationEnabled: true,
+            firstName: input.firstName,
+            lastName: input.lastName,
+            accountStatus: AccountStatus.PENDING_VERIFICATION,
+            emailVerifiedAt: null,
+            personaType: input.personaType,
+            acceptedTermsVersion: input.acceptedTermsVersion,
+            acceptedPrivacyVersion: input.acceptedPrivacyVersion,
+            acceptedAt,
+            ipAddress: this.safeIp(metadata.ipAddress),
+            userAgent: this.safeUserAgent(metadata.userAgent),
+          },
         );
 
-        if (input.personaType) {
-          await manager.insert(UserPersona, {
-            user_id: user.id,
-            persona_type: input.personaType,
-            is_active: true,
-          });
-          if (input.personaType === UserPersonaType.PATIENT) {
-            await manager.insert(PatientProfile, { user_id: user.id });
-          }
-        } else {
+        if (!input.personaType) {
           const details = input.organization;
           if (!details) {
             throw new Error('Organization registration mapping is missing.');
@@ -248,28 +237,6 @@ export class RegistrationService {
             joined_at: null,
           });
         }
-
-        const acceptedAt = new Date();
-        const ipAddress = this.safeIp(metadata.ipAddress);
-        const userAgent = this.safeUserAgent(metadata.userAgent);
-        await manager.insert(LegalAcceptance, [
-          {
-            user_id: user.id,
-            document_type: LegalDocumentType.TERMS_OF_SERVICE,
-            document_version: input.acceptedTermsVersion,
-            accepted_at: acceptedAt,
-            ip_address: ipAddress,
-            user_agent: userAgent,
-          },
-          {
-            user_id: user.id,
-            document_type: LegalDocumentType.PRIVACY_POLICY,
-            document_version: input.acceptedPrivacyVersion,
-            accepted_at: acceptedAt,
-            ip_address: ipAddress,
-            user_agent: userAgent,
-          },
-        ]);
 
         let challenge: {
           challengeId: string;

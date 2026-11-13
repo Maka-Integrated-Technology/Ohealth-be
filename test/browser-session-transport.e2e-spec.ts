@@ -8,11 +8,14 @@ import { Test } from '@nestjs/testing';
 import * as request from 'supertest';
 
 import { AuthAbuseGuard } from '../src/modules/auth/challenges/auth-abuse.guard';
+import { AuthRateLimitService } from '../src/modules/auth/challenges/auth-rate-limit.service';
 import { BrowserSessionConfig } from '../src/modules/auth/browser/browser-session.config';
 import { BrowserSessionController } from '../src/modules/auth/browser/browser-session.controller';
 import { BrowserSessionCookieService } from '../src/modules/auth/browser/browser-session-cookie.service';
 import { BrowserSessionGuard } from '../src/modules/auth/browser/browser-session.guard';
 import { BrowserSessionTransportService } from '../src/modules/auth/browser/browser-session-transport.service';
+import { OAuthConsumer } from '../src/modules/auth/oauth/oauth.enums';
+import { CompleteGoogleOAuthDto } from '../src/modules/auth/oauth/oauth.dto';
 
 describe('Browser session transport (e2e)', () => {
   let app: INestApplication;
@@ -41,6 +44,19 @@ describe('Browser session transport (e2e)', () => {
     verifyLogin: jest.fn(),
     refresh: jest.fn(),
     logout: jest.fn(),
+    completeGoogle: jest.fn(),
+  };
+  const oauth = { complete: jest.fn() };
+  const browserOAuthTransport = new BrowserSessionTransportService(
+    {} as never,
+    oauth as never,
+  );
+  const rates = {
+    consume: jest.fn().mockResolvedValue({
+      allowed: true,
+      hits: 1,
+      retryAfterSeconds: 0,
+    }),
   };
 
   beforeAll(async () => {
@@ -55,13 +71,12 @@ describe('Browser session transport (e2e)', () => {
         BrowserSessionConfig,
         BrowserSessionCookieService,
         BrowserSessionGuard,
+        AuthAbuseGuard,
         { provide: ConfigService, useValue: config },
+        { provide: AuthRateLimitService, useValue: rates },
         { provide: BrowserSessionTransportService, useValue: transport },
       ],
-    })
-      .overrideGuard(AuthAbuseGuard)
-      .useValue({ canActivate: () => true })
-      .compile();
+    }).compile();
     app = module.createNestApplication();
     app.enableCors({ origin: [origin], credentials: true });
     app.setGlobalPrefix('api');
@@ -93,6 +108,14 @@ describe('Browser session transport (e2e)', () => {
       sessionExpiresAt: expiresAt,
     });
     transport.logout.mockResolvedValue({ message: 'logout success' });
+    oauth.complete.mockResolvedValue({
+      ...response,
+      refresh_token: oldCredential,
+    });
+    transport.completeGoogle.mockImplementation(
+      (payload: CompleteGoogleOAuthDto) =>
+        browserOAuthTransport.completeGoogle(payload),
+    );
   });
 
   afterAll(async () => app?.close());
@@ -143,6 +166,64 @@ describe('Browser session transport (e2e)', () => {
     expect(result.headers['set-cookie']?.[0]).toContain(
       `__Host-ohealth_refresh=${oldCredential}`,
     );
+  });
+
+  it('completes web Google OAuth with cookie-only refresh custody', async () => {
+    const result = await browserPost('/api/auth/browser/oauth/google/complete')
+      .send({
+        transaction_id: '17d36477-ae70-4ac6-b557-d584bc840ad1',
+        transaction_token: 't'.repeat(43),
+        id_token: 'signed-google-token',
+      })
+      .expect(200);
+
+    expect(result.body).not.toHaveProperty('refresh_token');
+    expect(JSON.stringify(result.body)).not.toContain(oldCredential);
+    expect(result.headers['set-cookie']?.[0]).toContain(
+      `__Host-ohealth_refresh=${oldCredential}`,
+    );
+    expect(oauth.complete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        transaction_id: '17d36477-ae70-4ac6-b557-d584bc840ad1',
+      }),
+      OAuthConsumer.WEB,
+    );
+  });
+
+  it('returns Google contact verification without issuing a cookie', async () => {
+    oauth.complete.mockResolvedValueOnce({
+      message: 'Contact verification required.',
+      error_code: 'OAUTH_CONTACT_VERIFICATION_REQUIRED',
+      challenge_id: '17d36477-ae70-4ac6-b557-d584bc840ad1',
+      resend_after_seconds: 60,
+      expires_in_seconds: 600,
+    });
+    const result = await browserPost('/api/auth/browser/oauth/google/complete')
+      .send({
+        transaction_id: '17d36477-ae70-4ac6-b557-d584bc840ad1',
+        transaction_token: 't'.repeat(43),
+        id_token: 'signed-google-token',
+      })
+      .expect(202);
+
+    expect(result.headers['set-cookie']).toBeUndefined();
+    expect(result.body.error_code).toBe('OAUTH_CONTACT_VERIFICATION_REQUIRED');
+  });
+
+  it('passes through Google link completion without replacing the session cookie', async () => {
+    oauth.complete.mockResolvedValueOnce({
+      message: 'Google identity linked.',
+    });
+    const result = await browserPost('/api/auth/browser/oauth/google/complete')
+      .send({
+        transaction_id: '17d36477-ae70-4ac6-b557-d584bc840ad1',
+        transaction_token: 't'.repeat(43),
+        id_token: 'signed-google-token',
+      })
+      .expect(200);
+
+    expect(result.body).toEqual({ message: 'Google identity linked.' });
+    expect(result.headers['set-cookie']).toBeUndefined();
   });
 
   it('rotates only the approved browser cookie', async () => {

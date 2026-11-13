@@ -19,6 +19,7 @@ import { SignupIntent } from '../enums/signup-intent.enum';
 import { PasswordCredentialsService } from '../password-policy/password-credentials.service';
 import { AuthSecurityAuditService } from '../security-audit/auth-security-audit.service';
 
+import { AccountProvisioningService } from './account-provisioning.service';
 import { RegistrationService } from './registration.service';
 
 describe('RegistrationService', () => {
@@ -73,6 +74,7 @@ describe('RegistrationService', () => {
     passwords,
     delivery,
     audit,
+    new AccountProvisioningService(),
   );
 
   const base = (intent: SignupIntent): RegisterAccountDto => ({

@@ -293,6 +293,7 @@ export class SecureAuthChallengeFlowsService {
         this.policy.assertCanAuthenticate(user);
         await manager.update(User, user.id, {
           password: newPasswordHash,
+          password_authentication_enabled: true,
           reset_token: null,
           reset_token_expiry: null,
         });

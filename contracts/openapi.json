@@ -772,6 +772,28 @@
         ],
         "type": "object"
       },
+      "CompleteGoogleOAuthDto": {
+        "properties": {
+          "id_token": {
+            "description": "Google-signed OpenID Connect ID token",
+            "type": "string"
+          },
+          "transaction_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "transaction_token": {
+            "pattern": "^[A-Za-z0-9_-]{43}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "transaction_id",
+          "transaction_token",
+          "id_token"
+        ],
+        "type": "object"
+      },
       "ConsultationType": {
         "enum": [
           "chat",
@@ -1044,6 +1066,34 @@
         },
         "required": [
           "token"
+        ],
+        "type": "object"
+      },
+      "GoogleOAuthTransactionResponseDto": {
+        "properties": {
+          "audience": {
+            "type": "string"
+          },
+          "expires_in_seconds": {
+            "type": "number"
+          },
+          "nonce": {
+            "type": "string"
+          },
+          "transaction_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "transaction_token": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "transaction_id",
+          "transaction_token",
+          "nonce",
+          "audience",
+          "expires_in_seconds"
         ],
         "type": "object"
       },
@@ -2013,6 +2063,168 @@
         "required": [
           "status_code",
           "message"
+        ],
+        "type": "object"
+      },
+      "OAuthContactVerificationResponseDto": {
+        "properties": {
+          "challenge_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "error_code": {
+            "enum": [
+              "OAUTH_CONTACT_VERIFICATION_REQUIRED"
+            ],
+            "example": "OAUTH_CONTACT_VERIFICATION_REQUIRED",
+            "type": "string"
+          },
+          "expires_in_seconds": {
+            "example": 600,
+            "type": "number"
+          },
+          "message": {
+            "example": "Verification code queued",
+            "type": "string"
+          },
+          "resend_after_seconds": {
+            "example": 60,
+            "type": "number"
+          }
+        },
+        "required": [
+          "message",
+          "challenge_id",
+          "resend_after_seconds",
+          "expires_in_seconds",
+          "error_code"
+        ],
+        "type": "object"
+      },
+      "OAuthContactVerificationResponseDtoData": {
+        "properties": {
+          "challenge_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "error_code": {
+            "enum": [
+              "OAUTH_CONTACT_VERIFICATION_REQUIRED"
+            ],
+            "example": "OAUTH_CONTACT_VERIFICATION_REQUIRED",
+            "type": "string"
+          },
+          "expires_in_seconds": {
+            "example": 600,
+            "type": "number"
+          },
+          "resend_after_seconds": {
+            "example": 60,
+            "type": "number"
+          }
+        },
+        "required": [
+          "challenge_id",
+          "resend_after_seconds",
+          "expires_in_seconds",
+          "error_code"
+        ],
+        "type": "object"
+      },
+      "OAuthErrorCode": {
+        "description": "Stable machine-readable error code when defined",
+        "enum": [
+          "OAUTH_TRANSACTION_INVALID",
+          "OAUTH_TRANSACTION_EXPIRED",
+          "OAUTH_TRANSACTION_REPLAYED",
+          "OAUTH_TOKEN_INVALID",
+          "OAUTH_SIGNUP_REQUIRED",
+          "OAUTH_ACCOUNT_LINK_REQUIRED",
+          "OAUTH_IDENTITY_CONFLICT",
+          "OAUTH_INTENT_NOT_SUPPORTED",
+          "OAUTH_LEGAL_VERSION_STALE",
+          "OAUTH_CONTACT_VERIFICATION_REQUIRED",
+          "OAUTH_AUTHENTICATION_FAILED",
+          "OAUTH_LAST_AUTHENTICATOR",
+          "OAUTH_RECENT_AUTH_REQUIRED",
+          "OAUTH_TRANSACTION_REQUIRED",
+          "OAUTH_DISABLED"
+        ],
+        "type": "string"
+      },
+      "OAuthErrorResponseDto": {
+        "properties": {
+          "data": {
+            "example": null,
+            "nullable": true,
+            "type": "object"
+          },
+          "error": {
+            "example": "Bad Request",
+            "nullable": true,
+            "type": "string"
+          },
+          "error_code": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/OAuthErrorCode"
+              }
+            ],
+            "description": "Stable machine-readable error code when defined",
+            "example": "OAUTH_TRANSACTION_INVALID"
+          },
+          "message": {
+            "oneOf": [
+              {
+                "example": "Validation failed",
+                "type": "string"
+              },
+              {
+                "example": [
+                  "email must be an email"
+                ],
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              }
+            ]
+          },
+          "method": {
+            "example": "POST",
+            "type": "string"
+          },
+          "path": {
+            "example": "/api/auth/login",
+            "type": "string"
+          },
+          "retry_after_seconds": {
+            "description": "Bounded retry delay for retryable failures",
+            "example": 42,
+            "type": "integer"
+          },
+          "stack": {
+            "description": "Development environments only",
+            "type": "string"
+          },
+          "status_code": {
+            "example": 400,
+            "type": "integer"
+          },
+          "timestamp": {
+            "example": "2026-01-15T10:30:00.000Z",
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status_code",
+          "message",
+          "error",
+          "data",
+          "timestamp",
+          "path",
+          "method"
         ],
         "type": "object"
       },
@@ -4837,6 +5049,73 @@
         ],
         "type": "object"
       },
+      "StartGoogleLinkDto": {
+        "properties": {
+          "audience": {
+            "description": "Exact allowlisted Google OAuth client ID",
+            "type": "string"
+          },
+          "consumer": {
+            "enum": [
+              "web",
+              "mobile"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "consumer",
+          "audience"
+        ],
+        "type": "object"
+      },
+      "StartGoogleOAuthDto": {
+        "properties": {
+          "accepted_privacy_version": {
+            "maxLength": 50,
+            "type": "string"
+          },
+          "accepted_terms_version": {
+            "maxLength": 50,
+            "type": "string"
+          },
+          "audience": {
+            "description": "Exact Google OAuth client ID used by this client",
+            "type": "string"
+          },
+          "consumer": {
+            "enum": [
+              "web",
+              "mobile"
+            ],
+            "type": "string"
+          },
+          "intent": {
+            "enum": [
+              "patient",
+              "healthcare_professional",
+              "pharmacy",
+              "laboratory",
+              "hospital"
+            ],
+            "type": "string"
+          },
+          "operation": {
+            "enum": [
+              "signup",
+              "signin",
+              "link"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "operation",
+          "consumer",
+          "audience"
+        ],
+        "type": "object"
+      },
       "UpdateLaboratoryTestDto": {
         "properties": {
           "is_active": {
@@ -5529,6 +5808,168 @@
         ]
       }
     },
+    "/api/auth/browser/oauth/google/complete": {
+      "post": {
+        "description": "Completes only transactions bound to the web consumer. Session credentials are written to the browser cookie and never returned in JSON.",
+        "operationId": "BrowserSessionController_completeGoogle",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-OHealth-Client",
+            "required": true,
+            "schema": {
+              "enum": [
+                "browser"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteGoogleOAuthDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "oneOf": [
+                            {
+                              "$ref": "#/components/schemas/BrowserSessionResponseDto"
+                            },
+                            {
+                              "$ref": "#/components/schemas/ApiMessageResponseDto"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/OAuthContactVerificationResponseDtoData"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Origin or browser header rejected"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Complete a web Google OAuth transaction",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
     "/api/auth/browser/refresh": {
       "post": {
         "operationId": "BrowserSessionController_refresh",
@@ -5975,50 +6416,35 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/LoginResponseDtoData"
-                        }
-                      },
-                      "required": [
-                        "data"
-                      ],
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "login success"
-          },
           "400": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
                 }
               }
             },
-            "description": "validation error"
+            "description": ""
           },
           "401": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
                 }
               }
             },
-            "description": "invalid credentials"
+            "description": ""
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": "OAUTH_TRANSACTION_REQUIRED"
           },
           "500": {
             "content": {
@@ -6031,7 +6457,7 @@
             "description": "Internal server error"
           }
         },
-        "summary": "Login with Google",
+        "summary": "Retired Google login; use nonce-bound OAuth transactions",
         "tags": [
           "Authentication"
         ]
@@ -6510,6 +6936,400 @@
         "summary": "Update authenticated user profile",
         "tags": [
           "Authentication"
+        ]
+      }
+    },
+    "/api/auth/oauth/google/complete": {
+      "post": {
+        "operationId": "OAuthController_complete",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteGoogleOAuthDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/LoginResponseDtoData"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/OAuthContactVerificationResponseDtoData"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Consume a Google OAuth transaction exactly once",
+        "tags": [
+          "Authentication - Google OAuth"
+        ]
+      }
+    },
+    "/api/auth/oauth/google/link": {
+      "delete": {
+        "operationId": "OAuthController_unlink",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "example": null,
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Unlink Google after recent authentication",
+        "tags": [
+          "Authentication - Google OAuth"
+        ]
+      }
+    },
+    "/api/auth/oauth/google/link/transactions": {
+      "post": {
+        "operationId": "OAuthController_startLink",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartGoogleLinkDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/GoogleOAuthTransactionResponseDto"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Start a recent-auth-bound Google linking transaction",
+        "tags": [
+          "Authentication - Google OAuth"
+        ]
+      }
+    },
+    "/api/auth/oauth/google/transactions": {
+      "post": {
+        "operationId": "OAuthController_start",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartGoogleOAuthDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/GoogleOAuthTransactionResponseDto"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Start a nonce-bound Google signup or sign-in transaction",
+        "tags": [
+          "Authentication - Google OAuth"
         ]
       }
     },

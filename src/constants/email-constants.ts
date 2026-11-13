@@ -8,4 +8,5 @@ export enum EmailTemplateID {
   OTP = 'otp.njk',
   LOGIN_CODE = 'login-code.njk',
   LABORATORY_STAFF_INVITATION = 'laboratory-staff-invitation.njk',
+  SECURITY_AUTHENTICATOR_CHANGED = 'security-authenticator-changed.njk',
 }

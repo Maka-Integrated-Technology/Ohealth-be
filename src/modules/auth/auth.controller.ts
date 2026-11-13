@@ -122,7 +122,7 @@ export class AuthController {
 
   @Public()
   @Post('google-login')
-  @HttpCode(HttpStatus.OK)
+  @HttpCode(HttpStatus.GONE)
   @GoogleLoginDocs()
   googleLogin(@Body() googleLoginDto: GoogleLoginDto) {
     return this.authService.googleLogin(googleLoginDto.token);

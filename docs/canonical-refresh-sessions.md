@@ -28,9 +28,10 @@ never the refresh credential. Production and staging use a host-only
 lifetime. Local development uses the separately named `ohealth_refresh_dev`
 cookie; that fallback cannot be selected in staging or production.
 
-Browser verification, login verification, refresh, and logout remain thin
-presentation adapters over the same challenge and `RefreshSessionService`
-boundaries used by mobile. Refresh rotates the canonical credential. Logout
+Browser verification, login verification, Google OAuth completion, refresh, and
+logout remain thin presentation adapters over the same challenge and
+`RefreshSessionService` boundaries used by mobile. Refresh rotates the canonical
+credential. Logout
 revokes the server-side session before clearing the cookie. Invalid, expired,
 revoked, or replayed credentials return `401` and clear the cookie using the
 same custody attributes. The browser endpoints never accept the credential in
@@ -45,9 +46,13 @@ least one exact HTTPS `CORS_ORIGINS` entry. Browser applications and the API are
 assumed to remain under the approved same registrable HTTPS site; changing that
 topology requires a separate `SameSite` security review.
 
-Browser Google completion remains absent while issue #79 finalizes OAuth. After
-#79 merges, its transport-neutral session result must be connected to this
-cookie adapter without changing the mobile credential response.
+Google OAuth completion is transport-bound by the transaction's stored
+consumer. Mobile transactions complete through `/auth/oauth/google/complete`
+and preserve the opaque credential in JSON. Web transactions complete through
+`/auth/browser/oauth/google/complete`; a successful session writes the approved
+cookie and structurally removes `refresh_token` from JSON. A completion attempt
+through the wrong transport fails with `OAUTH_TRANSACTION_INVALID` before the
+transaction is consumed.
 
 Consumed credential history is retained through the session's absolute expiry
 so replay remains detectable. Expired version-2 sessions may be removed after
