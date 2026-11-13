@@ -191,13 +191,15 @@ jobs:
 
       - name: Verify deployed worker image and email rendering
         env:
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
+          OAUTH_WORKER_DATABASE_URL: postgres://postgres:postgres@localhost:5432/ohealth_oauth_worker_ci
+          POSTGRES_ADMIN_URL: postgres://postgres:postgres@localhost:5432/postgres
         run: |
-          npm run migration:run
+          node -e 'const {Client}=require("pg");(async()=>{const c=new Client({connectionString:process.env.POSTGRES_ADMIN_URL});await c.connect();await c.query("CREATE DATABASE ohealth_oauth_worker_ci");await c.end()})().catch(()=>process.exit(1))'
+          DATABASE_URL="${OAUTH_WORKER_DATABASE_URL}" npm run migration:run
           docker build -f deploy/auth-challenge-worker/Dockerfile -t ohealth-auth-worker:ci .
           docker run --rm --entrypoint node ohealth-auth-worker:ci scripts/maintenance/check-worker-templates.cjs
           docker run --rm --network host \
-            -e DATABASE_URL \
+            -e DATABASE_URL="${OAUTH_WORKER_DATABASE_URL}" \
             -e MAIL_MAILER=smtp \
             -e MAIL_FROM_ADDRESS=worker@example.invalid \
             --entrypoint node \
@@ -205,7 +207,7 @@ jobs:
             scripts/maintenance/check-oauth-security-notification-runtime.cjs
           docker run --detach --name ohealth-oauth-notification-worker-ci \
             --network host \
-            -e DATABASE_URL \
+            -e DATABASE_URL="${OAUTH_WORKER_DATABASE_URL}" \
             -e MAIL_MAILER=smtp \
             -e MAIL_FROM_ADDRESS=worker@example.invalid \
             ohealth-auth-worker:ci \
@@ -216,6 +218,7 @@ jobs:
             "const fs=require('node:fs');const p='/tmp/ohealth-oauth-notification-worker-heartbeat';process.exit(fs.existsSync(p)&&Date.now()-fs.statSync(p).mtimeMs<10000?0:1)"
           docker stop ohealth-oauth-notification-worker-ci
           docker rm ohealth-oauth-notification-worker-ci
+          node -e 'const {Client}=require("pg");(async()=>{const c=new Client({connectionString:process.env.POSTGRES_ADMIN_URL});await c.connect();await c.query("DROP DATABASE ohealth_oauth_worker_ci");await c.end()})().catch(()=>process.exit(1))'
 
       - name: Verify account lifecycle migration on real PostgreSQL
         env:
