@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 
 import { ConsultationType } from '../../professional/entities/professional.entity';
 import {
+  PUBLIC_DISCOVERY_ICON,
   PublicProfessionalSortField,
   PublicSortOrder,
 } from '../public-discovery.constants';
@@ -21,7 +22,15 @@ export class PublicSpecialityDto {
   @ApiProperty({ type: String, nullable: true })
   description: string | null;
 
-  @ApiProperty({ type: String, nullable: true })
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    maxLength: PUBLIC_DISCOVERY_ICON.maxLength,
+    pattern: PUBLIC_DISCOVERY_ICON.pattern,
+    example: 'general-doctor',
+    description:
+      'Asset identifier the consumer maps to an icon it bundles. Never an address, file path, or storage key; a stored value outside this format is returned as null.',
+  })
   icon: string | null;
 }
 

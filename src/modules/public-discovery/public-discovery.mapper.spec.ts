@@ -11,6 +11,7 @@ import { UserRole } from '../user/enums/user-role.enum';
 
 import {
   toPublicAvailabilityDays,
+  toPublicIconIdentifier,
   toPublicImageUrl,
   toPublicPaginationMeta,
   toPublicProfessionalDetail,
@@ -34,7 +35,7 @@ function createSpeciality(): Speciality {
     id: '11111111-1111-4111-8111-111111111111',
     name: 'Cardiology',
     description: 'Heart care',
-    icon: 'heart.png',
+    icon: 'general-doctor',
     is_active: true,
     created_at: new Date('2026-01-01T00:00:00.000Z'),
     updated_at: new Date('2026-01-02T00:00:00.000Z'),
@@ -90,7 +91,7 @@ describe('public discovery mapper', () => {
       id: '11111111-1111-4111-8111-111111111111',
       name: 'Cardiology',
       description: 'Heart care',
-      icon: 'heart.png',
+      icon: 'general-doctor',
     });
   });
 
@@ -103,6 +104,47 @@ describe('public discovery mapper', () => {
       description: null,
       icon: null,
     });
+  });
+
+  it.each([['nurse'], ['general-doctor'], ['icon-2'], ['a'.repeat(64)]])(
+    'publishes the icon asset identifier %p',
+    (value) => {
+      expect(toPublicIconIdentifier(value)).toBe(value);
+    },
+  );
+
+  it.each([
+    ['heart.png'],
+    ['specialities/11/icon.png'],
+    ['/uploads/icons/heart.png'],
+    ['../icons/heart'],
+    ['icons\\heart'],
+    ['https://cdn.example.com/heart.png'],
+    ['http://cdn.example.com/heart.png'],
+    ['s3://private-bucket/icons/heart.png'],
+    ['data:image/png;base64,AAAA'],
+    ['javascript:alert(1)'],
+    ['General-Doctor'],
+    ['general_doctor'],
+    ['general doctor'],
+    [' nurse'],
+    ['nurse\n'],
+    ['-nurse'],
+    ['nurse-'],
+    ['general--doctor'],
+    ['a'.repeat(65)],
+    [''],
+    [null],
+    [undefined],
+  ])('withholds the non-public icon value %p', (value) => {
+    expect(toPublicIconIdentifier(value)).toBeNull();
+  });
+
+  it('withholds a stored icon that is not an asset identifier', () => {
+    const speciality = createSpeciality();
+    speciality.icon = 'specialities/11/icon.png';
+
+    expect(toPublicSpeciality(speciality).icon).toBeNull();
   });
 
   it('publishes only the allowlisted professional summary fields', () => {

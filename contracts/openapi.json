@@ -3964,7 +3964,11 @@
             "type": "string"
           },
           "icon": {
+            "description": "Asset identifier the consumer maps to an icon it bundles. Never an address, file path, or storage key; a stored value outside this format is returned as null.",
+            "example": "general-doctor",
+            "maxLength": 64,
             "nullable": true,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
             "type": "string"
           },
           "id": {

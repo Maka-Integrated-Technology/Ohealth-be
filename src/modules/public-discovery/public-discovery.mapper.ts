@@ -10,6 +10,7 @@ import {
   PublicProfessionalSummaryDto,
   PublicSpecialityDto,
 } from './dto/public-discovery-response.dto';
+import { PUBLIC_DISCOVERY_ICON } from './public-discovery.constants';
 
 export type PublicSpecialitySource = Pick<
   Speciality,
@@ -54,6 +55,21 @@ export function toPublicImageUrl(
   }
 }
 
+const PUBLIC_ICON_IDENTIFIER = new RegExp(PUBLIC_DISCOVERY_ICON.pattern);
+
+/**
+ * Only a bounded lower-case asset identifier such as `general-doctor` is
+ * published. File names, paths, addresses, storage keys, and any other stored
+ * value are withheld rather than passed through.
+ */
+export function toPublicIconIdentifier(
+  value: string | null | undefined,
+): string | null {
+  if (typeof value !== 'string') return null;
+  if (value.length > PUBLIC_DISCOVERY_ICON.maxLength) return null;
+  return PUBLIC_ICON_IDENTIFIER.test(value) ? value : null;
+}
+
 function toPublicDisplayName(
   user: Pick<User, 'first_name' | 'last_name'>,
 ): string {
@@ -70,7 +86,7 @@ export function toPublicSpeciality(
     id: speciality.id,
     name: speciality.name,
     description: speciality.description ?? null,
-    icon: speciality.icon ?? null,
+    icon: toPublicIconIdentifier(speciality.icon),
   };
 }
 

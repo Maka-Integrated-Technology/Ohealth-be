@@ -2799,6 +2799,10 @@ export interface components {
     readonly PublicSortOrder: PathsApiProfessionalsMePatientsGetParametersQuerySort_order;
     readonly PublicSpecialityDto: {
       readonly description: string | null;
+      /**
+       * @description Asset identifier the consumer maps to an icon it bundles. Never an address, file path, or storage key; a stored value outside this format is returned as null.
+       * @example general-doctor
+       */
       readonly icon: string | null;
       /** Format: uuid */
       readonly id: string;

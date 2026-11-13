@@ -18,6 +18,15 @@ export const PUBLIC_DISCOVERY_SEARCH = {
   maxLength: 100,
 } as const;
 
+/**
+ * A speciality icon is published as an asset identifier that consumers map to
+ * an icon they bundle themselves. It is never an address or a storage key.
+ */
+export const PUBLIC_DISCOVERY_ICON = {
+  maxLength: 64,
+  pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+} as const;
+
 /** Inclusive number of calendar days one availability query may cover. */
 export const PUBLIC_DISCOVERY_MAX_DATE_RANGE_DAYS = 31;
 
