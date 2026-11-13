@@ -800,7 +800,13 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         'JOIN users u ON u.id = h.user_id WHERE u.email = $1',
       [email],
     );
-    expect(history).toEqual([{ reason: 'verified_contact_challenge' }]);
+    expect(history).toHaveLength(2);
+    expect(history).toEqual(
+      expect.arrayContaining([
+        { reason: 'password_registration' },
+        { reason: 'verified_contact_challenge' },
+      ]),
+    );
   }, 20_000);
 
   it.each(['healthcare_professional', 'pharmacy', 'laboratory', 'hospital'])(
