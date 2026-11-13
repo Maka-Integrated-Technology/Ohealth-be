@@ -123,6 +123,14 @@ export class PublicPaginationMetaDto {
   has_previous: boolean;
 }
 
+export class PublicSpecialityCatalogueDto {
+  @ApiProperty({ type: [PublicSpecialityDto] })
+  items: PublicSpecialityDto[];
+
+  @ApiProperty({ type: PublicPaginationMetaDto })
+  meta: PublicPaginationMetaDto;
+}
+
 export class PublicDiscoveryPaginationContractDto {
   @ApiProperty({ type: 'integer' })
   default_limit: number;
