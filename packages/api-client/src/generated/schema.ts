@@ -81,7 +81,7 @@ export interface paths {
     };
     readonly get?: never;
     readonly put?: never;
-    /** Login with Google */
+    /** Retired Google login; use nonce-bound OAuth transactions */
     readonly post: operations['AuthController_googleLogin'];
     readonly delete?: never;
     readonly options?: never;
@@ -2357,7 +2357,7 @@ export interface components {
       readonly error: string | null;
       /**
        * @description Stable machine-readable error code when defined
-       * @example AUTH_CHALLENGE_COOLDOWN
+       * @example OAUTH_TRANSACTION_INVALID
        */
       readonly error_code?: components['schemas']['OAuthErrorCode'];
       readonly message: string | readonly string[];
@@ -3737,33 +3737,29 @@ export interface operations {
       };
     };
     readonly responses: {
-      /** @description login success */
-      readonly 200: {
-        headers: {
-          readonly [name: string]: unknown;
-        };
-        content: {
-          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
-            readonly data: components['schemas']['LoginResponseDtoData'];
-          };
-        };
-      };
-      /** @description validation error */
       readonly 400: {
         headers: {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
         };
       };
-      /** @description invalid credentials */
       readonly 401: {
         headers: {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
+        };
+      };
+      /** @description OAUTH_TRANSACTION_REQUIRED */
+      readonly 410: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
         };
       };
       /** @description Internal server error */
@@ -4154,6 +4150,14 @@ export interface operations {
           readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
         };
       };
+      readonly 429: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
       /** @description Internal server error */
       readonly 500: {
         headers: {
@@ -4161,6 +4165,14 @@ export interface operations {
         };
         content: {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 503: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
         };
       };
     };
@@ -4261,6 +4273,14 @@ export interface operations {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
         };
       };
+      readonly 503: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
+        };
+      };
     };
   };
   readonly OAuthController_start: {
@@ -4302,6 +4322,14 @@ export interface operations {
           readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
         };
       };
+      readonly 429: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
       /** @description Internal server error */
       readonly 500: {
         headers: {
@@ -4309,6 +4337,14 @@ export interface operations {
         };
         content: {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 503: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
         };
       };
     };
@@ -9024,6 +9060,7 @@ export enum OAuthErrorCode {
   OAUTH_LAST_AUTHENTICATOR = 'OAUTH_LAST_AUTHENTICATOR',
   OAUTH_RECENT_AUTH_REQUIRED = 'OAUTH_RECENT_AUTH_REQUIRED',
   OAUTH_TRANSACTION_REQUIRED = 'OAUTH_TRANSACTION_REQUIRED',
+  OAUTH_DISABLED = 'OAUTH_DISABLED',
 }
 export enum OrganizationDocumentChecklistDtoMissing_document_types {
   operating_license = 'operating_license',

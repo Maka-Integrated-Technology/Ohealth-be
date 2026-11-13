@@ -57,11 +57,11 @@ export type AuthController_googleLoginRequest = Readonly<{
   >['content']['application/json'];
   readonly headers?: ApiHeaders;
 }>;
-export type AuthController_googleLoginResponse =
-  operations['AuthController_googleLogin']['responses'][200]['content']['application/json'];
+export type AuthController_googleLoginResponse = never;
 export type AuthController_googleLoginError =
   | operations['AuthController_googleLogin']['responses'][400]['content']['application/json']
   | operations['AuthController_googleLogin']['responses'][401]['content']['application/json']
+  | operations['AuthController_googleLogin']['responses'][410]['content']['application/json']
   | operations['AuthController_googleLogin']['responses'][500]['content']['application/json'];
 
 export type AuthController_listSessionsRequest = Readonly<{
@@ -634,7 +634,9 @@ export type OAuthController_completeError =
   | operations['OAuthController_complete']['responses'][400]['content']['application/json']
   | operations['OAuthController_complete']['responses'][401]['content']['application/json']
   | operations['OAuthController_complete']['responses'][409]['content']['application/json']
-  | operations['OAuthController_complete']['responses'][500]['content']['application/json'];
+  | operations['OAuthController_complete']['responses'][429]['content']['application/json']
+  | operations['OAuthController_complete']['responses'][500]['content']['application/json']
+  | operations['OAuthController_complete']['responses'][503]['content']['application/json'];
 
 export type OAuthController_startRequest = Readonly<{
   readonly body: NonNullable<
@@ -647,7 +649,9 @@ export type OAuthController_startResponse =
 export type OAuthController_startError =
   | operations['OAuthController_start']['responses'][400]['content']['application/json']
   | operations['OAuthController_start']['responses'][409]['content']['application/json']
-  | operations['OAuthController_start']['responses'][500]['content']['application/json'];
+  | operations['OAuthController_start']['responses'][429]['content']['application/json']
+  | operations['OAuthController_start']['responses'][500]['content']['application/json']
+  | operations['OAuthController_start']['responses'][503]['content']['application/json'];
 
 export type OAuthController_startLinkRequest = Readonly<{
   readonly body: NonNullable<
@@ -660,7 +664,8 @@ export type OAuthController_startLinkResponse =
 export type OAuthController_startLinkError =
   | operations['OAuthController_startLink']['responses'][400]['content']['application/json']
   | operations['OAuthController_startLink']['responses'][401]['content']['application/json']
-  | operations['OAuthController_startLink']['responses'][500]['content']['application/json'];
+  | operations['OAuthController_startLink']['responses'][500]['content']['application/json']
+  | operations['OAuthController_startLink']['responses'][503]['content']['application/json'];
 
 export type OAuthController_unlinkRequest = Readonly<{
   readonly headers?: ApiHeaders;
