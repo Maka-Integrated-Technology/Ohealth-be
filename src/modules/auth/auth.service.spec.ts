@@ -106,6 +106,7 @@ describe('AuthService', () => {
     issue: jest.fn(),
     rotate: jest.fn(),
     revoke: jest.fn(),
+    revokeByCredential: jest.fn(),
     revokeAll: jest.fn(),
     replacePassword: jest.fn(),
     list: jest.fn(),
@@ -619,6 +620,16 @@ describe('AuthService', () => {
   });
 
   describe('logout', () => {
+    it('revokes a browser session by its canonical refresh credential', async () => {
+      const result = await service.logoutByRefreshCredential('r'.repeat(43));
+
+      expect(mockSessions.revokeByCredential).toHaveBeenCalledWith(
+        'r'.repeat(43),
+      );
+      expect(result).toEqual({ message: sysMsg.LOGOUT_SUCCESS });
+      expect(mockLogger.info).toHaveBeenCalledWith(sysMsg.LOGOUT_SUCCESS);
+    });
+
     it('should revoke active session and return success message', async () => {
       mockSessionRepository.findOne.mockResolvedValue({
         id: 'session-db-id',

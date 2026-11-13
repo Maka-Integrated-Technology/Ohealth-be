@@ -138,6 +138,41 @@ integration('Canonical refresh sessions on real PostgreSQL', () => {
     expect(session.revoked_at).toBeInstanceOf(Date);
   });
 
+  it('revokes the canonical session by browser refresh credential', async () => {
+    const user = await createUser();
+    const issued = await service.issue(user.id, user.password);
+
+    await service.revokeByCredential(issued.refresh_token);
+
+    await expect(
+      service.validate(user.id, issued.session_id),
+    ).rejects.toThrow();
+    await expect(service.rotate(issued.refresh_token)).rejects.toThrow();
+    const audit = await dataSource.query(
+      'SELECT event_type, outcome FROM auth_security_events ' +
+        'WHERE session_id = $1 ORDER BY occurred_at DESC LIMIT 1',
+      [issued.session_id],
+    );
+    expect(audit).toEqual([{ event_type: 'logout', outcome: 'succeeded' }]);
+  });
+
+  it('treats a consumed browser logout credential as replay', async () => {
+    const user = await createUser();
+    const issued = await service.issue(user.id, user.password);
+    const rotated = await service.rotate(issued.refresh_token);
+
+    await expect(
+      service.revokeByCredential(issued.refresh_token),
+    ).rejects.toThrow();
+    await expect(service.rotate(rotated.refresh_token)).rejects.toThrow();
+    const audit = await dataSource.query(
+      'SELECT event_type, outcome FROM auth_security_events ' +
+        'WHERE session_id = $1 ORDER BY occurred_at DESC LIMIT 1',
+      [issued.session_id],
+    );
+    expect(audit).toEqual([{ event_type: 'session_reuse', outcome: 'denied' }]);
+  });
+
   it('prevents cross-user revocation and validates current account/session state', async () => {
     const owner = await createUser();
     const stranger = await createUser();

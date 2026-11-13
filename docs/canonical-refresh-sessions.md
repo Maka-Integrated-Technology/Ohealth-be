@@ -17,9 +17,37 @@ does not reactivate those sessions.
 
 The API exposes only the session ID and creation, last-use and expiry timestamps.
 It does not claim device identity until the service has a trustworthy device
-registration source. Browser clients must not place refresh credentials in
-local storage. A browser rollout requires a secure HTTP-only cookie or BFF and
-explicit CSRF protection; mobile clients use operating-system secure storage.
+registration source. Mobile clients receive the opaque refresh credential in
+the existing JSON response and keep it in operating-system secure storage.
+
+Browser clients use the backend-managed cookie adapter under `/auth/browser`.
+JavaScript receives the short-lived access token and safe session context, but
+never the refresh credential. Production and staging use a host-only
+`__Host-ohealth_refresh` cookie with `Secure`, `HttpOnly`, `SameSite=Strict`,
+`Path=/`, no `Domain`, and `Max-Age` bounded by the remaining absolute session
+lifetime. Local development uses the separately named `ohealth_refresh_dev`
+cookie; that fallback cannot be selected in staging or production.
+
+Browser verification, login verification, refresh, and logout remain thin
+presentation adapters over the same challenge and `RefreshSessionService`
+boundaries used by mobile. Refresh rotates the canonical credential. Logout
+revokes the server-side session before clearing the cookie. Invalid, expired,
+revoked, or replayed credentials return `401` and clear the cookie using the
+same custody attributes. The browser endpoints never accept the credential in
+JSON, query parameters, an authorization header, or an alternate cookie; mobile
+refresh never reads the browser cookie.
+
+Cookie-authenticated requests require an exact configured `Origin` and
+`X-OHealth-Client: browser`. Request bodies, when present, must be JSON. Missing,
+`null`, wildcard, reflected, regex-wide, and unapproved origins fail closed.
+When browser sessions are enabled, staging and production startup require at
+least one exact HTTPS `CORS_ORIGINS` entry. Browser applications and the API are
+assumed to remain under the approved same registrable HTTPS site; changing that
+topology requires a separate `SameSite` security review.
+
+Browser Google completion remains absent while issue #79 finalizes OAuth. After
+#79 merges, its transport-neutral session result must be connected to this
+cookie adapter without changing the mobile credential response.
 
 Consumed credential history is retained through the session's absolute expiry
 so replay remains detectable. Expired version-2 sessions may be removed after

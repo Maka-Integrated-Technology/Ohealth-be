@@ -21,6 +21,74 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly '/api/auth/browser/login/verify': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Verify a login code and issue a browser session */
+    readonly post: operations['BrowserSessionController_verifyLogin'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly '/api/auth/browser/logout': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Revoke and clear the browser session */
+    readonly post: operations['BrowserSessionController_logout'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly '/api/auth/browser/refresh': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Rotate the browser refresh cookie */
+    readonly post: operations['BrowserSessionController_refresh'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly '/api/auth/browser/verify': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Verify contact ownership and issue a browser session */
+    readonly post: operations['BrowserSessionController_verifySignup'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly '/api/auth/change-password': {
     readonly parameters: {
       readonly query?: never;
@@ -1645,6 +1713,52 @@ export interface components {
       readonly speciality_name: string;
       readonly status: string;
     };
+    readonly BrowserSessionResponseDto: {
+      /** @enum {string} */
+      readonly access_level: BrowserSessionResponseDtoAccess_level;
+      /** @description Short-lived access JWT for in-memory use only */
+      readonly access_token: string;
+      /** @example Login success */
+      readonly message: string;
+      /** @enum {string} */
+      readonly routing_target: BrowserSessionResponseDtoRouting_target;
+      /** Format: date-time */
+      readonly session_expires_at: string;
+      /** Format: uuid */
+      readonly session_id: string;
+      readonly user: components['schemas']['BrowserSessionUserDto'];
+      readonly verification_status: string | null;
+    };
+    readonly BrowserSessionResponseDtoData: {
+      /** @enum {string} */
+      readonly access_level: BrowserSessionResponseDtoAccess_level;
+      /** @description Short-lived access JWT for in-memory use only */
+      readonly access_token: string;
+      /** @enum {string} */
+      readonly routing_target: BrowserSessionResponseDtoRouting_target;
+      /** Format: date-time */
+      readonly session_expires_at: string;
+      /** Format: uuid */
+      readonly session_id: string;
+      readonly user: components['schemas']['BrowserSessionUserDto'];
+      readonly verification_status: string | null;
+    };
+    readonly BrowserSessionUserDto: {
+      /** @example john.doe@example.com */
+      readonly email: string;
+      /** @example John */
+      readonly first_name: string;
+      /** Format: uuid */
+      readonly id: string;
+      /** @example Doe */
+      readonly last_name: string;
+      /**
+       * @example [
+       *       "PATIENT"
+       *     ]
+       */
+      readonly role: readonly string[];
+    };
     readonly BulkCreateAvailabilityDto: {
       readonly slots: readonly components['schemas']['AvailabilitySlotDto'][];
     };
@@ -2115,7 +2229,7 @@ export interface components {
        * @example full
        * @enum {string}
        */
-      readonly access_level: LoginResponseDtoAccess_level;
+      readonly access_level: BrowserSessionResponseDtoAccess_level;
       /**
        * @description JWT access token with 15 minutes expiration
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -2132,7 +2246,7 @@ export interface components {
        * @example patient_home
        * @enum {string}
        */
-      readonly routing_target: LoginResponseDtoRouting_target;
+      readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /**
        * Format: date-time
        * @example 2024-01-15T10:30:00Z
@@ -2154,7 +2268,7 @@ export interface components {
        * @example full
        * @enum {string}
        */
-      readonly access_level: LoginResponseDtoAccess_level;
+      readonly access_level: BrowserSessionResponseDtoAccess_level;
       /**
        * @description JWT access token with 15 minutes expiration
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -2169,7 +2283,7 @@ export interface components {
        * @example patient_home
        * @enum {string}
        */
-      readonly routing_target: LoginResponseDtoRouting_target;
+      readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /**
        * Format: date-time
        * @example 2024-01-15T10:30:00Z
@@ -2821,7 +2935,7 @@ export interface components {
        * @example full
        * @enum {string}
        */
-      readonly access_level: LoginResponseDtoAccess_level;
+      readonly access_level: BrowserSessionResponseDtoAccess_level;
       /**
        * @description JWT access token with 15 minutes expiration
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -2838,7 +2952,7 @@ export interface components {
        * @example patient_home
        * @enum {string}
        */
-      readonly routing_target: LoginResponseDtoRouting_target;
+      readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /**
        * Format: date-time
        * @example 2024-01-15T10:30:00Z
@@ -2860,7 +2974,7 @@ export interface components {
        * @example full
        * @enum {string}
        */
-      readonly access_level: LoginResponseDtoAccess_level;
+      readonly access_level: BrowserSessionResponseDtoAccess_level;
       /**
        * @description JWT access token with 15 minutes expiration
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -2875,7 +2989,7 @@ export interface components {
        * @example patient_home
        * @enum {string}
        */
-      readonly routing_target: LoginResponseDtoRouting_target;
+      readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /**
        * Format: date-time
        * @example 2024-01-15T10:30:00Z
@@ -3229,7 +3343,7 @@ export interface components {
        * @example full
        * @enum {string}
        */
-      readonly access_level: LoginResponseDtoAccess_level;
+      readonly access_level: BrowserSessionResponseDtoAccess_level;
       /**
        * @description JWT access token with 15 minutes expiration
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -3246,7 +3360,7 @@ export interface components {
        * @example patient_home
        * @enum {string}
        */
-      readonly routing_target: LoginResponseDtoRouting_target;
+      readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /**
        * Format: date-time
        * @example 2024-01-15T10:30:00Z
@@ -3268,7 +3382,7 @@ export interface components {
        * @example full
        * @enum {string}
        */
-      readonly access_level: LoginResponseDtoAccess_level;
+      readonly access_level: BrowserSessionResponseDtoAccess_level;
       /**
        * @description JWT access token with 15 minutes expiration
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -3283,7 +3397,7 @@ export interface components {
        * @example patient_home
        * @enum {string}
        */
-      readonly routing_target: LoginResponseDtoRouting_target;
+      readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /**
        * Format: date-time
        * @example 2024-01-15T10:30:00Z
@@ -3329,6 +3443,216 @@ export interface operations {
       };
       /** @description A valid access token is required */
       readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly BrowserSessionController_verifyLogin: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginVerifyPostParametersHeaderXOHealthClient;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly 'application/json': components['schemas']['VerifyAuthChallengeDto'];
+      };
+    };
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['BrowserSessionResponseDtoData'];
+          };
+        };
+      };
+      /** @description Challenge or request is invalid */
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
+      /** @description Origin or browser header rejected */
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly BrowserSessionController_logout: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginVerifyPostParametersHeaderXOHealthClient;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      /** @description Browser session revoked */
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            /** @example null */
+            readonly data: unknown;
+          };
+        };
+      };
+      /** @description Refresh cookie is invalid */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Origin or browser header rejected */
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly BrowserSessionController_refresh: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginVerifyPostParametersHeaderXOHealthClient;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['BrowserSessionResponseDtoData'];
+          };
+        };
+      };
+      /** @description Refresh cookie is invalid, expired, replayed, or revoked */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Origin or browser header rejected */
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly BrowserSessionController_verifySignup: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginVerifyPostParametersHeaderXOHealthClient;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly 'application/json': components['schemas']['VerifySignupDto'];
+      };
+    };
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['BrowserSessionResponseDtoData'];
+          };
+        };
+      };
+      /** @description Challenge or request is invalid */
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
+      /** @description Origin or browser header rejected */
+      readonly 403: {
         headers: {
           readonly [name: string]: unknown;
         };
@@ -8371,6 +8695,9 @@ export interface operations {
     };
   };
 }
+export enum PathsApiAuthBrowserLoginVerifyPostParametersHeaderXOHealthClient {
+  browser = 'browser',
+}
 export enum PathsApiLaboratoriesLaboratoryIdVerificationDocumentsDocumentTypeDownloadGetParametersPathDocumentType {
   laboratory_license = 'laboratory_license',
   accreditation_certificate = 'accreditation_certificate',
@@ -8418,6 +8745,25 @@ export enum AuthChallengeErrorResponseDtoError_code {
 export enum BookingResponseDtoPayment_status {
   paid = 'paid',
   unpaid = 'unpaid',
+}
+export enum BrowserSessionResponseDtoAccess_level {
+  full = 'full',
+  limited = 'limited',
+}
+export enum BrowserSessionResponseDtoRouting_target {
+  email_verification = 'email_verification',
+  admin_dashboard = 'admin_dashboard',
+  patient_home = 'patient_home',
+  professional_verification = 'professional_verification',
+  professional_dashboard = 'professional_dashboard',
+  hospital_verification = 'hospital_verification',
+  hospital_dashboard = 'hospital_dashboard',
+  laboratory_verification = 'laboratory_verification',
+  laboratory_dashboard = 'laboratory_dashboard',
+  pharmacy_verification = 'pharmacy_verification',
+  pharmacy_dashboard = 'pharmacy_dashboard',
+  account_setup = 'account_setup',
+  account_restricted = 'account_restricted',
 }
 export enum ChatMessageResponseDtoSender {
   user = 'user',
@@ -8479,25 +8825,6 @@ export enum LaboratoryStaffResponseDtoStatus {
 export enum LegalDocumentType {
   terms_of_service = 'terms_of_service',
   privacy_policy = 'privacy_policy',
-}
-export enum LoginResponseDtoAccess_level {
-  full = 'full',
-  limited = 'limited',
-}
-export enum LoginResponseDtoRouting_target {
-  email_verification = 'email_verification',
-  admin_dashboard = 'admin_dashboard',
-  patient_home = 'patient_home',
-  professional_verification = 'professional_verification',
-  professional_dashboard = 'professional_dashboard',
-  hospital_verification = 'hospital_verification',
-  hospital_dashboard = 'hospital_dashboard',
-  laboratory_verification = 'laboratory_verification',
-  laboratory_dashboard = 'laboratory_dashboard',
-  pharmacy_verification = 'pharmacy_verification',
-  pharmacy_dashboard = 'pharmacy_dashboard',
-  account_setup = 'account_setup',
-  account_restricted = 'account_restricted',
 }
 export enum OrganizationDocumentChecklistDtoMissing_document_types {
   operating_license = 'operating_license',

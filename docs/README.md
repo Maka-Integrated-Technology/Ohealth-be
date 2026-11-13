@@ -47,6 +47,7 @@ must follow.
 | Distributed rate limiting          | Target      |
 | BullMQ email worker                | Target      |
 | Rotating refresh-token families    | Implemented |
+| Browser refresh-cookie transport   | Foundation  |
 | Encrypted MFA factors              | Target      |
 | Public discovery contract          | Foundation  |
 | Existing role-array authentication | Legacy      |

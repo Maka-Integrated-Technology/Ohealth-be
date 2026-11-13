@@ -4,6 +4,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 import { AppModule } from './app.module';
 import { LoggingInterceptor } from './middleware/logging.interceptor';
+import { BrowserSessionConfig } from './modules/auth/browser/browser-session.config';
 import { AuthChallengeDeliveryService } from './modules/auth/challenges/auth-challenge-delivery.service';
 import { AuthChallengeValidationPipe } from './modules/auth/challenges/auth-challenge-validation.pipe';
 import { AuthChallengeService } from './modules/auth/challenges/auth-challenge.service';
@@ -32,9 +33,11 @@ async function bootstrap() {
   await app.get(AuthChallengeDeliveryService).assertLiveFlowReady();
   app.get(RegistrationService).assertConfigured();
 
+  const browserSessions = app.get(BrowserSessionConfig);
+  browserSessions.assertStartupConfigured();
   const corsOrigins = configService.get<string[]>('cors.origins', []);
   app.enableCors({
-    origin: corsOrigins.length > 0 ? corsOrigins : true,
+    origin: corsOrigins.length > 0 ? corsOrigins : false,
     credentials: true,
   });
 

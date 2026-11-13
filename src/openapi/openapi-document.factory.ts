@@ -44,6 +44,16 @@ export function createOpenApiDocument(app: INestApplication): OpenAPIObject {
       description:
         'Enter JWT token obtained from the login endpoint. Format: Bearer <token>',
     })
+    .addCookieAuth(
+      '__Host-ohealth_refresh',
+      {
+        type: 'apiKey',
+        in: 'cookie',
+        description:
+          'Backend-managed browser refresh cookie. Local development uses a separate cookie name.',
+      },
+      'browserRefresh',
+    )
     .build();
 
   const document = SwaggerModule.createDocument(app, configuration, {

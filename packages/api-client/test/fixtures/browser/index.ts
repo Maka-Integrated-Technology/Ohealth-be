@@ -1,5 +1,6 @@
 import {
   createApiClient,
+  PathsApiAuthBrowserLoginVerifyPostParametersHeaderXOHealthClient,
   type ApiTransport,
   type ApiTransportRequest,
 } from '@ohealth/api-client';
@@ -23,3 +24,9 @@ const client = createApiClient({
 });
 
 void client.AuthController_getProfile();
+void client.BrowserSessionController_refresh({
+  headerParameters: {
+    'X-OHealth-Client':
+      PathsApiAuthBrowserLoginVerifyPostParametersHeaderXOHealthClient.browser,
+  },
+});
