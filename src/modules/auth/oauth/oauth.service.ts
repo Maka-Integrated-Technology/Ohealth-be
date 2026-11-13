@@ -5,9 +5,9 @@ import { ConfigService } from '@nestjs/config';
 import { DataSource, EntityManager } from 'typeorm';
 
 import { UserPersonaType } from '../../identity/enums/user-persona-type.enum';
+import { OutboxEvent } from '../../platform-events/entities/outbox-event.entity';
 import { User } from '../../user/entities/user.entity';
 import { AccountStatus } from '../../user/enums/account-status.enum';
-import { OutboxEvent } from '../../platform-events/entities/outbox-event.entity';
 import { AccountAccessPolicyService } from '../account-access-policy.service';
 import { AuthRoutingService } from '../auth-routing.service';
 import { AuthChallengeDeliveryService } from '../challenges/auth-challenge-delivery.service';

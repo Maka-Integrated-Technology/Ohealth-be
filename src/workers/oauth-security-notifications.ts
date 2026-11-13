@@ -2,8 +2,8 @@ import { ConfigService } from '@nestjs/config';
 
 import config from '../config/config';
 import { initializeDataSource } from '../database/data-source';
-import { EmailService } from '../modules/email/email.service';
 import { OAuthSecurityNotificationService } from '../modules/auth/oauth/oauth-security-notification.service';
+import { EmailService } from '../modules/email/email.service';
 
 async function main(): Promise<void> {
   const dataSource = await initializeDataSource();

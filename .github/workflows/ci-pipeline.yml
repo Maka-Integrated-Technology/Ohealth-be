@@ -160,6 +160,9 @@ jobs:
       - name: Verify purpose-bound public auth contracts (isolated HTTP e2e)
         run: npx jest --config ./test/jest-e2e.json --runInBand test/auth-challenge-public.e2e-spec.ts
 
+      - name: Verify public Google OAuth abuse and completion boundaries (isolated HTTP e2e)
+        run: npx jest --config ./test/jest-e2e.json --runInBand test/oauth-google-public.e2e-spec.ts
+
       - name: Verify public discovery boundary (isolated HTTP e2e)
         run: npx jest --config ./test/jest-e2e.json --runInBand test/public-discovery-boundary.e2e-spec.ts
 
@@ -183,6 +186,11 @@ jobs:
         env:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
         run: npx jest --runInBand src/database/tests/auth-security-audit.integration.spec.ts
+
+      - name: Verify canonical Google OAuth migration on PostgreSQL
+        env:
+          PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
+        run: npx jest --runInBand src/database/tests/canonical-google-oauth-migration.integration.spec.ts
 
       - name: Verify auth challenge foundation on PostgreSQL
         env:

@@ -1,12 +1,12 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
-import { AccountStatus } from '../../user/enums/account-status.enum';
+import { OutboxEvent } from '../../platform-events/entities/outbox-event.entity';
 import { User } from '../../user/entities/user.entity';
+import { AccountStatus } from '../../user/enums/account-status.enum';
 import { SignupIntent } from '../enums/signup-intent.enum';
 
 import { ExternalIdentity } from './external-identity.entity';
-import { OutboxEvent } from '../../platform-events/entities/outbox-event.entity';
 import { OAuthConsumer, OAuthOperation } from './oauth.enums';
 import { OAuthException } from './oauth.error';
 import { OAuthService } from './oauth.service';

@@ -6,8 +6,8 @@ import { UserPersona } from '../../identity/entities/user-persona.entity';
 import { LegalDocumentType } from '../../identity/enums/legal-document-type.enum';
 import { UserPersonaType } from '../../identity/enums/user-persona-type.enum';
 import { PatientProfile } from '../../patient/entities/patient-profile.entity';
-import { User } from '../../user/entities/user.entity';
 import { UserAccountStatusHistory } from '../../user/entities/user-account-status-history.entity';
+import { User } from '../../user/entities/user.entity';
 import { AccountStatus } from '../../user/enums/account-status.enum';
 
 export interface IAccountProvisioningInput {
