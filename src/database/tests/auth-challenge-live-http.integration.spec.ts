@@ -33,6 +33,7 @@ import { SecureAuthChallengeFlowsService } from '../../modules/auth/challenges/s
 import { AuthSession } from '../../modules/auth/entities/auth.entity';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { PasswordCredentialsService } from '../../modules/auth/password-policy/password-credentials.service';
+import { AccountProvisioningService } from '../../modules/auth/registration/account-provisioning.service';
 import { RegistrationService } from '../../modules/auth/registration/registration.service';
 import { AuthSecurityAuditService } from '../../modules/auth/security-audit/auth-security-audit.service';
 import { RefreshSessionService } from '../../modules/auth/sessions/refresh-session.service';
@@ -93,6 +94,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       'CREATE TABLE users (' +
         'id uuid PRIMARY KEY DEFAULT uuid_generate_v4(), ' +
         'email varchar NOT NULL UNIQUE, password varchar NOT NULL, ' +
+        'password_authentication_enabled boolean NOT NULL DEFAULT true, ' +
         'first_name varchar NOT NULL, last_name varchar NOT NULL, ' +
         'middle_name varchar, gender varchar, dob date, phone varchar, ' +
         "country varchar, image varchar, role varchar NOT NULL DEFAULT 'PATIENT', " +
@@ -229,6 +231,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         AuthSecurityAuditService,
         RefreshSessionService,
         PasswordCredentialsService,
+        AccountProvisioningService,
         RegistrationService,
         { provide: DataSource, useValue: source },
         { provide: ConfigService, useValue: config },
