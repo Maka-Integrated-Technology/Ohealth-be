@@ -1226,6 +1226,30 @@ export type PublicDiscoveryController_getContractResponse =
 export type PublicDiscoveryController_getContractError =
   operations['PublicDiscoveryController_getContract']['responses'][500]['content']['application/json'];
 
+export type PublicSpecialityController_findOneRequest = Readonly<{
+  readonly path: NonNullable<
+    operations['PublicSpecialityController_findOne']['parameters']['path']
+  >;
+  readonly headers?: ApiHeaders;
+}>;
+export type PublicSpecialityController_findOneResponse =
+  operations['PublicSpecialityController_findOne']['responses'][200]['content']['application/json'];
+export type PublicSpecialityController_findOneError =
+  | operations['PublicSpecialityController_findOne']['responses'][404]['content']['application/json']
+  | operations['PublicSpecialityController_findOne']['responses'][500]['content']['application/json'];
+
+export type PublicSpecialityController_listRequest = Readonly<{
+  readonly query?: NonNullable<
+    operations['PublicSpecialityController_list']['parameters']['query']
+  >;
+  readonly headers?: ApiHeaders;
+}>;
+export type PublicSpecialityController_listResponse =
+  operations['PublicSpecialityController_list']['responses'][200]['content']['application/json'];
+export type PublicSpecialityController_listError =
+  | operations['PublicSpecialityController_list']['responses'][400]['content']['application/json']
+  | operations['PublicSpecialityController_list']['responses'][500]['content']['application/json'];
+
 export type SpecialityController_createRequest = Readonly<{
   readonly body: NonNullable<
     operations['SpecialityController_create']['requestBody']
@@ -1568,6 +1592,12 @@ export interface ApiClient {
   readonly PublicDiscoveryController_getContract: (
     request?: PublicDiscoveryController_getContractRequest,
   ) => Promise<PublicDiscoveryController_getContractResponse>;
+  readonly PublicSpecialityController_findOne: (
+    request: PublicSpecialityController_findOneRequest,
+  ) => Promise<PublicSpecialityController_findOneResponse>;
+  readonly PublicSpecialityController_list: (
+    request?: PublicSpecialityController_listRequest,
+  ) => Promise<PublicSpecialityController_listResponse>;
   readonly SpecialityController_create: (
     request: SpecialityController_createRequest,
   ) => Promise<SpecialityController_createResponse>;
@@ -2758,6 +2788,30 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
           operationId: 'PublicDiscoveryController_getContract',
           method: 'GET',
           path: '/api/public/discovery/contract',
+        },
+        request,
+      ),
+    PublicSpecialityController_findOne: (request) =>
+      core.request<
+        PublicSpecialityController_findOneResponse,
+        PublicSpecialityController_findOneError
+      >(
+        {
+          operationId: 'PublicSpecialityController_findOne',
+          method: 'GET',
+          path: '/api/public/specialities/{id}',
+        },
+        request,
+      ),
+    PublicSpecialityController_list: (request = {}) =>
+      core.request<
+        PublicSpecialityController_listResponse,
+        PublicSpecialityController_listError
+      >(
+        {
+          operationId: 'PublicSpecialityController_list',
+          method: 'GET',
+          path: '/api/public/specialities',
         },
         request,
       ),

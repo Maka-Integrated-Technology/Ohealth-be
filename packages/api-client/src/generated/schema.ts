@@ -1426,6 +1426,43 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly '/api/public/specialities': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * List active specialities
+     * @description Ordered by name without regard to case, then by identifier. The optional search term matches any part of the name, ignoring case.
+     */
+    readonly get: operations['PublicSpecialityController_list'];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly '/api/public/specialities/{id}': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Get one active speciality */
+    readonly get: operations['PublicSpecialityController_findOne'];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly '/api/specialities': {
     readonly parameters: {
       readonly query?: never;
@@ -2797,6 +2834,10 @@ export interface components {
     };
     /** @enum {string} */
     readonly PublicSortOrder: PathsApiProfessionalsMePatientsGetParametersQuerySort_order;
+    readonly PublicSpecialityCatalogueDto: {
+      readonly items: readonly components['schemas']['PublicSpecialityDto'][];
+      readonly meta: components['schemas']['PublicPaginationMetaDto'];
+    };
     readonly PublicSpecialityDto: {
       readonly description: string | null;
       /**
@@ -8142,6 +8183,92 @@ export interface operations {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
             readonly data: components['schemas']['PublicDiscoveryContractDto'];
           };
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly PublicSpecialityController_list: {
+    readonly parameters: {
+      readonly query?: {
+        readonly limit?: number;
+        readonly page?: number;
+        /** @description Case-insensitive search term. Surrounding and repeated whitespace is ignored. */
+        readonly q?: string;
+      };
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['PublicSpecialityCatalogueDto'];
+          };
+        };
+      };
+      /** @description A query parameter failed validation */
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly PublicSpecialityController_findOne: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path: {
+        /** @description Canonical speciality identifier */
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['PublicSpecialityDto'];
+          };
+        };
+      };
+      /** @description Resource not found. Returned identically for missing, malformed, and non-public resources. */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
         };
       };
       /** @description Internal server error */
