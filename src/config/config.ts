@@ -47,6 +47,14 @@ export default () => ({
     clientId: process.env.GOOGLE_CLIENT_ID,
   },
 
+  oauth: {
+    google: {
+      webClientIds:
+        process.env.GOOGLE_WEB_CLIENT_IDS || process.env.GOOGLE_CLIENT_ID,
+      mobileClientIds: process.env.GOOGLE_MOBILE_CLIENT_IDS,
+    },
+  },
+
   frontend: {
     url: process.env.FRONTEND_URL,
   },

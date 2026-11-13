@@ -51,6 +51,8 @@ const PUBLIC_OPERATION_IDS = new Set([
   'PublicDiscoveryController_getContract',
   'PublicSpecialityController_findOne',
   'PublicSpecialityController_list',
+  'OAuthController_start',
+  'OAuthController_complete',
 ]);
 
 const PUBLIC_DISCOVERY_PATH_PREFIX = `/${OPENAPI_API_PREFIX}/${PUBLIC_DISCOVERY_ROUTE_NAMESPACE}/`;

@@ -1,5 +1,3 @@
-import * as crypto from 'crypto';
-
 import {
   BadRequestException,
   Inject,
@@ -7,7 +5,6 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OAuth2Client } from 'google-auth-library';
 import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import { EntityManager } from 'typeorm';
 import { Logger } from 'winston';
@@ -18,7 +15,6 @@ import * as sysMsg from '../../constants/system.messages';
 import { EmailService } from '../email/email.service';
 import { User } from '../user/entities/user.entity';
 import { AccountStatus } from '../user/enums/account-status.enum';
-import { UserRole } from '../user/enums/user-role.enum';
 import { UserService } from '../user/user.service';
 
 import { AccountAccessPolicyService } from './account-access-policy.service';
@@ -42,6 +38,7 @@ import {
   VerifySignupDto,
 } from './dto/auth.dto';
 import { LoginDto } from './dto/login.dto';
+import { OAuthException } from './oauth/oauth.error';
 import { PasswordCredentialsService } from './password-policy/password-credentials.service';
 import { isLoginPasswordWithinLimit } from './password-policy/password-policy';
 import { RegistrationService } from './registration/registration.service';
@@ -100,7 +97,11 @@ export class AuthService {
       loginPayload.password,
       user?.password ?? null,
     );
-    if (!user || !isPasswordValid) {
+    if (
+      !user ||
+      !isPasswordValid ||
+      user.password_authentication_enabled === false
+    ) {
       await this.challengeFlows.rejectLoginAttempt();
       throw new UnauthorizedException(sysMsg.INVALID_CREDENTIALS);
     }
@@ -359,199 +360,9 @@ export class AuthService {
     return { message: sysMsg.LOGOUT_SUCCESS };
   }
 
-  async googleLogin(token: string) {
-    const googleClientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
-    if (!googleClientId) {
-      throw new UnauthorizedException(sysMsg.INVALID_GOOGLE_TOKEN);
-    }
-
-    let payload: {
-      email?: string;
-      email_verified?: boolean;
-      sub?: string;
-      given_name?: string;
-      family_name?: string;
-      name?: string;
-      picture?: string;
-    } | null;
-    try {
-      const client = new OAuth2Client(googleClientId);
-      const ticket = await client.verifyIdToken({
-        idToken: token,
-        audience: googleClientId,
-      });
-      payload = ticket.getPayload();
-    } catch {
-      throw new UnauthorizedException(sysMsg.INVALID_GOOGLE_TOKEN);
-    }
-
-    if (!payload?.email || !payload.sub || !payload.email_verified) {
-      throw new UnauthorizedException(sysMsg.INVALID_GOOGLE_TOKEN);
-    }
-
-    const email = payload.email.toLowerCase();
-    const derivedName = this.deriveNameFromGoogle(payload);
-    let user = await this.userService.findByEmail(email);
-    let isNewUser = false;
-
-    if (!user) {
-      const generatedPassword = crypto.randomBytes(24).toString('hex');
-      const hashedPassword =
-        await this.passwordCredentials.hashGeneratedSecret(generatedPassword);
-
-      isNewUser = true;
-      user = await this.userService.create({
-        email,
-        password: hashedPassword,
-        first_name: derivedName.firstName,
-        last_name: derivedName.lastName,
-        middle_name: null,
-        gender: null,
-        dob: null,
-        phone: null,
-        role: [UserRole.PATIENT],
-        is_active: true,
-        is_verified: true,
-        account_status: AccountStatus.ACTIVE,
-        email_verified_at: new Date(),
-        google_id: payload.sub,
-      });
-    } else {
-      this.accountAccessPolicy.assertCanAuthenticate(user);
-      if (user.google_id && user.google_id !== payload.sub) {
-        throw new UnauthorizedException(sysMsg.INVALID_GOOGLE_TOKEN);
-      }
-      user = await this.userService.linkGoogleIdentity(
-        user.id,
-        payload.sub,
-        derivedName,
-      );
-    }
-
-    const [session, routing] = await Promise.all([
-      this.sessions.issue(user.id, user.password),
-      this.authRoutingService.resolve(user),
-    ]);
-
-    if (isNewUser) {
-      void this.sendWelcomeEmail(user);
-    }
-
-    return {
-      message: sysMsg.LOGIN_SUCCESS,
-      user: {
-        ...this.toUserResponse(user),
-        picture: payload.picture,
-      },
-      ...routing,
-      ...session,
-    };
-  }
-
-  private deriveNameFromGoogle(payload: {
-    given_name?: string;
-    family_name?: string;
-    name?: string;
-    email?: string;
-  }): { firstName: string; lastName: string } {
-    const given = this.cleanName(payload.given_name);
-    const family = this.cleanName(payload.family_name);
-    const fromEmail = this.splitEmailLocalPart(payload.email);
-    const emailFirst = fromEmail?.firstName;
-    const emailLast = fromEmail?.lastName;
-
-    if (given || family) {
-      return {
-        firstName:
-          given ||
-          this.firstFromFullName(payload.name) ||
-          emailFirst ||
-          'OHealth',
-        lastName:
-          family || this.lastFromFullName(payload.name) || emailLast || 'User',
-      };
-    }
-
-    const fullName = this.splitFullName(payload.name);
-    if (fullName) {
-      return fullName;
-    }
-
-    if (fromEmail) {
-      return fromEmail;
-    }
-
-    return { firstName: 'OHealth', lastName: 'User' };
-  }
-
-  private cleanName(value?: string): string | undefined {
-    const trimmed = value?.trim();
-    return trimmed ? trimmed : undefined;
-  }
-
-  private splitFullName(
-    fullName?: string,
-  ): { firstName: string; lastName: string } | null {
-    const trimmed = fullName?.trim();
-    if (!trimmed) {
-      return null;
-    }
-    const parts = trimmed.split(/\s+/).filter(Boolean);
-    if (!parts.length) {
-      return null;
-    }
-    if (parts.length === 1) {
-      return { firstName: parts[0], lastName: 'User' };
-    }
-    return {
-      firstName: parts[0],
-      lastName: parts.slice(1).join(' '),
-    };
-  }
-
-  private firstFromFullName(fullName?: string): string | null {
-    return this.splitFullName(fullName)?.firstName ?? null;
-  }
-
-  private lastFromFullName(fullName?: string): string | null {
-    return this.splitFullName(fullName)?.lastName ?? null;
-  }
-
-  private splitEmailLocalPart(
-    email?: string,
-  ): { firstName: string; lastName: string } | null {
-    if (!email) {
-      return null;
-    }
-    const localPart = email.split('@')[0]?.replace(/\+.*$/, '');
-    if (!localPart) {
-      return null;
-    }
-    const parts = localPart
-      .split(/[._-]+/)
-      .map((part) => part.trim())
-      .filter(Boolean);
-    if (!parts.length) {
-      return null;
-    }
-    const firstName = this.titleCase(parts[0]);
-    const lastName =
-      parts.length > 1 ? this.titleCase(parts.slice(1).join(' ')) : 'User';
-    return { firstName, lastName };
-  }
-
-  private titleCase(value: string): string {
-    if (!value) {
-      return value;
-    }
-    return value
-      .toLowerCase()
-      .split(' ')
-      .map((word) => {
-        const [first, ...rest] = word.split('');
-        return first ? `${first.toUpperCase()}${rest.join('')}` : word;
-      })
-      .join(' ');
+  googleLogin(token: string): never {
+    void token;
+    throw new OAuthException('OAUTH_TRANSACTION_REQUIRED');
   }
 
   private async sendWelcomeEmail(user: User) {

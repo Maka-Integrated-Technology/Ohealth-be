@@ -122,6 +122,15 @@ jobs, or analytics.
 Browser refresh tokens use secure, HTTP-only cookies with an explicit CSRF
 control. Mobile refresh tokens use operating-system secure storage.
 
+## External identities and Google OAuth
+
+External providers are authenticators attached to the organization-neutral
+`User`. Provider identity is resolved by the immutable issuer and subject pair,
+never by email. Google signup, sign-in, and linking use short-lived one-time
+backend transactions that bind operation, consumer, audience, nonce, signup
+intent, and legal versions. See `google-oauth.md` for the executable contract,
+privacy rules, and rollout configuration.
+
 ## MFA
 
 - TOTP factors are confirmed before activation.

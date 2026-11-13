@@ -42,7 +42,8 @@
     "password-blocklist:generate": "node scripts/security/update-password-blocklist.mjs --write",
     "password-blocklist:check": "node scripts/security/update-password-blocklist.mjs --check",
     "auth-challenge-delivery:dispatch": "ts-node -r tsconfig-paths/register scripts/maintenance/dispatch-auth-challenge-deliveries.ts",
-    "registration-retries:prune": "ts-node -r tsconfig-paths/register scripts/maintenance/prune-registration-retries.ts"
+    "registration-retries:prune": "ts-node -r tsconfig-paths/register scripts/maintenance/prune-registration-retries.ts",
+    "oauth-transactions:prune": "ts-node -r tsconfig-paths/register scripts/maintenance/prune-oauth-transactions.ts"
   },
   "lint-staged": {
     "src/**/*.ts": [
