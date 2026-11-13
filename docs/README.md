@@ -49,6 +49,7 @@ must follow.
 | Rotating refresh-token families    | Implemented |
 | Encrypted MFA factors              | Target      |
 | Public discovery contract          | Foundation  |
+| Public speciality catalogue        | Implemented |
 | Existing role-array authentication | Legacy      |
 
 Update this table whenever an area moves between statuses.

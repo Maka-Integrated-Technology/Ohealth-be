@@ -8,14 +8,18 @@ details (#144), and availability (#145); those issues add endpoints, not new
 rules.
 
 Status: **Foundation**. The boundary, policy, query conventions, and response
-models are implemented and tested. The only live route is the contract
-endpoint below.
+models are implemented and tested. The live routes are the contract endpoint
+and the speciality catalogue (#142) described below.
 
 ## Boundary
 
 - Module: `src/modules/public-discovery`.
-- Route namespace: `/api/public/...`. Planned resources are
-  `/api/public/specialities` and `/api/public/professionals`.
+- Route namespace: `/api/public/...`. `/api/public/specialities` is live;
+  `/api/public/professionals` is planned.
+- A public controller lives in the module that owns its data and reads through
+  that module's service, for example `PublicSpecialityController` in
+  `src/modules/speciality`. The owning module imports `PublicDiscoveryModule`
+  for the policy, pipe, DTOs, and mappers.
 - A controller joins the boundary with `@PublicDiscoveryRoutes('<resource>')`,
   which sets the namespace, marks the routes public, and applies the
   `Public Discovery` OpenAPI tag.
@@ -155,19 +159,54 @@ is withheld only from public responses.
 without embedded credentials. Storage keys, relative paths, and other schemes
 are returned as `null`.
 
+## Speciality catalogue (Issue #142)
+
+`PublicSpecialityController` serves the catalogue from the existing
+`specialities` table through `SpecialityService`. No table, entity, or column
+was added, and `SpecialityController` keeps its guards and behaviour.
+
+| Operation                          | Query                | Response                                          |
+| ---------------------------------- | -------------------- | ------------------------------------------------- |
+| `GET /api/public/specialities`     | `page`, `limit`, `q` | `{ items: PublicSpecialityDto[], meta }`          |
+| `GET /api/public/specialities/:id` | —                    | `PublicSpecialityDto`, or the non-enumerating 404 |
+
+- Only visible (active) specialities are returned. An inactive speciality is
+  absent from the list, from search results, and from the total, and its
+  identifier answers with the same 404 as a missing or malformed one.
+- Order is `LOWER(name)` ascending, then `id` ascending. The identifier makes
+  the order total, so pages never repeat or skip a row.
+- `q` matches any part of the name without regard to case. `%`, `_`, and `\`
+  in a term are matched literally; a term cannot act as a pattern.
+- `specialities.name` is unique by exact value, so names that differ only by
+  case are distinct stored rows and are listed as distinct entries. The
+  catalogue does not merge, rename, or re-case them.
+- A page beyond the last one returns `items: []` with the real `total`.
+- Each request runs one page query and one count query, selecting only `id`,
+  `name`, `description`, and `icon`. No related rows are loaded.
+- Unknown query parameters, including `sort` and `is_active`, are rejected
+  with a 400.
+
+The `id` returned here is the canonical `speciality_id` filter for the
+professional directory (#143).
+
 ## Deferred to later issues
 
 - Rate controls and indexes for the public surface are delivered and verified
-  in #146. Until then the namespace exposes only the static contract endpoint.
+  in #146. Until then the public catalogue relies on its bounded page size and
+  two-query cost.
 - Compatibility aliases are not provided; no existing consumer depends on a
   public discovery route.
 
 ## Verification
 
 ```bash
-npx jest src/modules/public-discovery src/openapi
-npx jest --config ./test/jest-e2e.json --runInBand test/public-discovery-boundary.e2e-spec.ts
+npx jest src/modules/public-discovery src/modules/speciality src/openapi
+npx jest --config ./test/jest-e2e.json --runInBand \
+  test/public-discovery-boundary.e2e-spec.ts \
+  test/public-speciality-catalogue.e2e-spec.ts
 PG_INTEGRATION_URL=postgres://postgres:postgres@localhost:5432/ohealth_ci \
-  npx jest --runInBand src/database/tests/public-discovery-visibility.integration.spec.ts
+  npx jest --runInBand \
+  src/database/tests/public-discovery-visibility.integration.spec.ts \
+  src/database/tests/public-speciality-catalogue.integration.spec.ts
 npm run contract:check && npm run api-client:test
 ```
