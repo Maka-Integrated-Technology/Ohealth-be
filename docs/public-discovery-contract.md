@@ -143,6 +143,14 @@ documents or reasons, verification status, account status, roles or personas,
 organization membership, user identifier, patient data, booking identities,
 audit data, storage keys, and row timestamps.
 
+`icon` is an asset identifier that consumers map to an icon they bundle. It is
+published only when the stored value is at most 64 characters of lower-case
+letters and digits in hyphen-separated groups, such as `general-doctor`. File
+names, paths, addresses, storage keys, and every other stored value are
+returned as `null`. The protected speciality write contract is unchanged, so a
+value stored outside this format stays visible to authenticated consumers and
+is withheld only from public responses.
+
 `image` is published only when the stored value is an absolute HTTPS address
 without embedded credentials. Storage keys, relative paths, and other schemes
 are returned as `null`.
