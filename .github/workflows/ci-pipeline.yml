@@ -163,6 +163,9 @@ jobs:
       - name: Verify public discovery boundary (isolated HTTP e2e)
         run: npx jest --config ./test/jest-e2e.json --runInBand test/public-discovery-boundary.e2e-spec.ts
 
+      - name: Verify public speciality catalogue (isolated HTTP e2e)
+        run: npx jest --config ./test/jest-e2e.json --runInBand test/public-speciality-catalogue.e2e-spec.ts
+
       - name: Run Build
         run: npm run build
 
@@ -200,6 +203,11 @@ jobs:
         env:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
         run: npx jest --runInBand src/database/tests/public-discovery-visibility.integration.spec.ts
+
+      - name: Verify public speciality catalogue on real PostgreSQL
+        env:
+          PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
+        run: npx jest --runInBand src/database/tests/public-speciality-catalogue.integration.spec.ts
 
       - name: Enforce breaking-change approval
         if: github.event_name == 'pull_request' || github.event_name == 'pull_request_review'
