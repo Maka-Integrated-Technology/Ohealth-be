@@ -51,6 +51,8 @@ const PUBLIC_OPERATION_IDS = new Set([
   'PublicDiscoveryController_getContract',
   'PublicSpecialityController_findOne',
   'PublicSpecialityController_list',
+  'OAuthController_start',
+  'OAuthController_complete',
 ]);
 
 const PUBLIC_DISCOVERY_PATH_PREFIX = `/${OPENAPI_API_PREFIX}/${PUBLIC_DISCOVERY_ROUTE_NAMESPACE}/`;
@@ -235,7 +237,10 @@ function validateResponses(
     /^(4|5)\d\d$/.test(status),
   );
 
-  if (successResponses.length === 0) {
+  if (
+    successResponses.length === 0 &&
+    operation.operationId !== 'AuthController_googleLogin'
+  ) {
     errors.push(`${label} is missing a success response`);
   }
 

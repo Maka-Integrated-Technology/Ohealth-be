@@ -57,11 +57,11 @@ export type AuthController_googleLoginRequest = Readonly<{
   >['content']['application/json'];
   readonly headers?: ApiHeaders;
 }>;
-export type AuthController_googleLoginResponse =
-  operations['AuthController_googleLogin']['responses'][200]['content']['application/json'];
+export type AuthController_googleLoginResponse = never;
 export type AuthController_googleLoginError =
   | operations['AuthController_googleLogin']['responses'][400]['content']['application/json']
   | operations['AuthController_googleLogin']['responses'][401]['content']['application/json']
+  | operations['AuthController_googleLogin']['responses'][410]['content']['application/json']
   | operations['AuthController_googleLogin']['responses'][500]['content']['application/json'];
 
 export type AuthController_listSessionsRequest = Readonly<{
@@ -620,6 +620,62 @@ export type LaboratoryVerificationStatusController_submitMyVerificationError =
   | operations['LaboratoryVerificationStatusController_submitMyVerification']['responses'][401]['content']['application/json']
   | operations['LaboratoryVerificationStatusController_submitMyVerification']['responses'][404]['content']['application/json']
   | operations['LaboratoryVerificationStatusController_submitMyVerification']['responses'][500]['content']['application/json'];
+
+export type OAuthController_completeRequest = Readonly<{
+  readonly body: NonNullable<
+    operations['OAuthController_complete']['requestBody']
+  >['content']['application/json'];
+  readonly headers?: ApiHeaders;
+}>;
+export type OAuthController_completeResponse =
+  | operations['OAuthController_complete']['responses'][200]['content']['application/json']
+  | operations['OAuthController_complete']['responses'][202]['content']['application/json'];
+export type OAuthController_completeError =
+  | operations['OAuthController_complete']['responses'][400]['content']['application/json']
+  | operations['OAuthController_complete']['responses'][401]['content']['application/json']
+  | operations['OAuthController_complete']['responses'][409]['content']['application/json']
+  | operations['OAuthController_complete']['responses'][429]['content']['application/json']
+  | operations['OAuthController_complete']['responses'][500]['content']['application/json']
+  | operations['OAuthController_complete']['responses'][503]['content']['application/json'];
+
+export type OAuthController_startRequest = Readonly<{
+  readonly body: NonNullable<
+    operations['OAuthController_start']['requestBody']
+  >['content']['application/json'];
+  readonly headers?: ApiHeaders;
+}>;
+export type OAuthController_startResponse =
+  operations['OAuthController_start']['responses'][201]['content']['application/json'];
+export type OAuthController_startError =
+  | operations['OAuthController_start']['responses'][400]['content']['application/json']
+  | operations['OAuthController_start']['responses'][409]['content']['application/json']
+  | operations['OAuthController_start']['responses'][429]['content']['application/json']
+  | operations['OAuthController_start']['responses'][500]['content']['application/json']
+  | operations['OAuthController_start']['responses'][503]['content']['application/json'];
+
+export type OAuthController_startLinkRequest = Readonly<{
+  readonly body: NonNullable<
+    operations['OAuthController_startLink']['requestBody']
+  >['content']['application/json'];
+  readonly headers?: ApiHeaders;
+}>;
+export type OAuthController_startLinkResponse =
+  operations['OAuthController_startLink']['responses'][201]['content']['application/json'];
+export type OAuthController_startLinkError =
+  | operations['OAuthController_startLink']['responses'][400]['content']['application/json']
+  | operations['OAuthController_startLink']['responses'][401]['content']['application/json']
+  | operations['OAuthController_startLink']['responses'][500]['content']['application/json']
+  | operations['OAuthController_startLink']['responses'][503]['content']['application/json'];
+
+export type OAuthController_unlinkRequest = Readonly<{
+  readonly headers?: ApiHeaders;
+}>;
+export type OAuthController_unlinkResponse =
+  operations['OAuthController_unlink']['responses'][200]['content']['application/json'];
+export type OAuthController_unlinkError =
+  | operations['OAuthController_unlink']['responses'][401]['content']['application/json']
+  | operations['OAuthController_unlink']['responses'][409]['content']['application/json']
+  | operations['OAuthController_unlink']['responses'][500]['content']['application/json'];
 
 export type OrganizationController_approveRequest = Readonly<{
   readonly path: NonNullable<
@@ -1454,6 +1510,18 @@ export interface ApiClient {
   readonly LaboratoryVerificationStatusController_submitMyVerification: (
     request?: LaboratoryVerificationStatusController_submitMyVerificationRequest,
   ) => Promise<LaboratoryVerificationStatusController_submitMyVerificationResponse>;
+  readonly OAuthController_complete: (
+    request: OAuthController_completeRequest,
+  ) => Promise<OAuthController_completeResponse>;
+  readonly OAuthController_start: (
+    request: OAuthController_startRequest,
+  ) => Promise<OAuthController_startResponse>;
+  readonly OAuthController_startLink: (
+    request: OAuthController_startLinkRequest,
+  ) => Promise<OAuthController_startLinkResponse>;
+  readonly OAuthController_unlink: (
+    request?: OAuthController_unlinkRequest,
+  ) => Promise<OAuthController_unlinkResponse>;
   readonly OrganizationController_approve: (
     request: OrganizationController_approveRequest,
   ) => Promise<OrganizationController_approveResponse>;
@@ -2210,6 +2278,51 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
             'LaboratoryVerificationStatusController_submitMyVerification',
           method: 'POST',
           path: '/api/laboratories/me/verification-status/submit',
+        },
+        request,
+      ),
+    OAuthController_complete: (request) =>
+      core.request<
+        OAuthController_completeResponse,
+        OAuthController_completeError
+      >(
+        {
+          operationId: 'OAuthController_complete',
+          method: 'POST',
+          path: '/api/auth/oauth/google/complete',
+          requestMediaType: 'application/json',
+        },
+        request,
+      ),
+    OAuthController_start: (request) =>
+      core.request<OAuthController_startResponse, OAuthController_startError>(
+        {
+          operationId: 'OAuthController_start',
+          method: 'POST',
+          path: '/api/auth/oauth/google/transactions',
+          requestMediaType: 'application/json',
+        },
+        request,
+      ),
+    OAuthController_startLink: (request) =>
+      core.request<
+        OAuthController_startLinkResponse,
+        OAuthController_startLinkError
+      >(
+        {
+          operationId: 'OAuthController_startLink',
+          method: 'POST',
+          path: '/api/auth/oauth/google/link/transactions',
+          requestMediaType: 'application/json',
+        },
+        request,
+      ),
+    OAuthController_unlink: (request = {}) =>
+      core.request<OAuthController_unlinkResponse, OAuthController_unlinkError>(
+        {
+          operationId: 'OAuthController_unlink',
+          method: 'DELETE',
+          path: '/api/auth/oauth/google/link',
         },
         request,
       ),

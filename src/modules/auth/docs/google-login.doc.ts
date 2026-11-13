@@ -1,25 +1,26 @@
 import { applyDecorators } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
-  ApiOkResponse,
+  ApiGoneResponse,
   ApiOperation,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 
-import * as sysMsg from '../../../constants/system.messages';
-import { LoginResponseDto } from '../dto/auth-response.dto';
+import { OAuthErrorResponseDto } from '../oauth/oauth.error';
 
 export const GoogleLoginDocs = () =>
   applyDecorators(
-    ApiOperation({ summary: 'Login with Google' }),
-    ApiOkResponse({
-      description: sysMsg.LOGIN_SUCCESS,
-      type: LoginResponseDto,
+    ApiOperation({
+      summary: 'Retired Google login; use nonce-bound OAuth transactions',
+    }),
+    ApiGoneResponse({
+      type: OAuthErrorResponseDto,
+      description: 'OAUTH_TRANSACTION_REQUIRED',
     }),
     ApiUnauthorizedResponse({
-      description: sysMsg.INVALID_CREDENTIALS,
+      type: OAuthErrorResponseDto,
     }),
     ApiBadRequestResponse({
-      description: sysMsg.VALIDATION_ERROR,
+      type: OAuthErrorResponseDto,
     }),
   );

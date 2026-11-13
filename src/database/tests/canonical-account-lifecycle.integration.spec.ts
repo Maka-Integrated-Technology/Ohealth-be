@@ -41,6 +41,7 @@ integration('Canonical account lifecycle on real PostgreSQL', () => {
         id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
         email varchar NOT NULL DEFAULT (uuid_generate_v4()::text || '@example.test'),
         password varchar NOT NULL DEFAULT 'password-hash',
+        password_authentication_enabled boolean NOT NULL DEFAULT true,
         first_name varchar NOT NULL DEFAULT 'Test',
         last_name varchar NOT NULL DEFAULT 'User',
         middle_name varchar,

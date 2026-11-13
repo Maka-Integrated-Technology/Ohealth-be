@@ -13,6 +13,13 @@ to the PostgreSQL challenge-delivery worker. Issue #75 remains open for the
 required staging deployment, client compatibility, and representative load and
 timing evidence before production acceptance.
 
+The canonical Google OAuth implementation also has a dedicated PostgreSQL
+outbox consumer for `oauth_google_unlinked` security notifications. It runs as
+a separate continuous, health-checked process in the worker Compose stack,
+retries delivery with bounded backoff, and records terminal failure in the
+outbox. This is an interim PostgreSQL worker; it does not mean the BullMQ target
+described below is implemented.
+
 ## Redis responsibilities
 
 Use separate logical clients and preferably separate production instances:
@@ -52,6 +59,11 @@ authentication email, the queue job should carry a message or challenge
 reference, not the raw code. If delivery temporarily requires recoverable secret
 material, store it encrypted in a purpose-built short-lived store and delete it
 after dispatch.
+
+The Google-unlink event carries only the internal user identifier. Its worker
+resolves the verified canonical contact at dispatch time and never persists the
+provider token, nonce, or address in the event payload. Aggregate queue depth
+and oldest-event age are the worker's operational signals.
 
 ## Initial queues
 

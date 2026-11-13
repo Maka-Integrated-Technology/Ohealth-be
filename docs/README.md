@@ -53,3 +53,5 @@ must follow.
 | Existing role-array authentication | Legacy      |
 
 Update this table whenever an area moves between statuses.
+
+- `google-oauth.md` — canonical Google signup, sign-in, linking, credentials, and retention.

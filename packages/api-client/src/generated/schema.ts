@@ -81,7 +81,7 @@ export interface paths {
     };
     readonly get?: never;
     readonly put?: never;
-    /** Login with Google */
+    /** Retired Google login; use nonce-bound OAuth transactions */
     readonly post: operations['AuthController_googleLogin'];
     readonly delete?: never;
     readonly options?: never;
@@ -173,6 +173,74 @@ export interface paths {
     readonly head?: never;
     /** Update authenticated user profile */
     readonly patch: operations['AuthController_updateProfile'];
+    readonly trace?: never;
+  };
+  readonly '/api/auth/oauth/google/complete': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Consume a Google OAuth transaction exactly once */
+    readonly post: operations['OAuthController_complete'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly '/api/auth/oauth/google/link': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    readonly post?: never;
+    /** Unlink Google after recent authentication */
+    readonly delete: operations['OAuthController_unlink'];
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly '/api/auth/oauth/google/link/transactions': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Start a recent-auth-bound Google linking transaction */
+    readonly post: operations['OAuthController_startLink'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly '/api/auth/oauth/google/transactions': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Start a nonce-bound Google signup or sign-in transaction */
+    readonly post: operations['OAuthController_start'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
     readonly trace?: never;
   };
   readonly '/api/auth/refresh': {
@@ -1738,6 +1806,13 @@ export interface components {
        */
       readonly updated_at: string;
     };
+    readonly CompleteGoogleOAuthDto: {
+      /** @description Google-signed OpenID Connect ID token */
+      readonly id_token: string;
+      /** Format: uuid */
+      readonly transaction_id: string;
+      readonly transaction_token: string;
+    };
     /** @enum {string} */
     readonly ConsultationType: ConsultationType;
     readonly CreateBookingDto: {
@@ -1855,6 +1930,14 @@ export interface components {
        * @example eyJhbGciOiJSUzI1NiIsImtpZCI6IjFj... (Google ID Token)
        */
       readonly token: string;
+    };
+    readonly GoogleOAuthTransactionResponseDto: {
+      readonly audience: string;
+      readonly expires_in_seconds: number;
+      readonly nonce: string;
+      /** Format: uuid */
+      readonly transaction_id: string;
+      readonly transaction_token: string;
     };
     readonly GroupedAvailabilityDto: {
       readonly date: string;
@@ -2233,6 +2316,69 @@ export interface components {
       readonly message: string | null;
       /** @example 200 */
       readonly status_code: number | null;
+    };
+    readonly OAuthContactVerificationResponseDto: {
+      /** Format: uuid */
+      readonly challenge_id: string;
+      /**
+       * @example OAUTH_CONTACT_VERIFICATION_REQUIRED
+       * @enum {string}
+       */
+      readonly error_code: OAuthContactVerificationResponseDtoError_code;
+      /** @example 600 */
+      readonly expires_in_seconds: number;
+      /** @example Verification code queued */
+      readonly message: string;
+      /** @example 60 */
+      readonly resend_after_seconds: number;
+    };
+    readonly OAuthContactVerificationResponseDtoData: {
+      /** Format: uuid */
+      readonly challenge_id: string;
+      /**
+       * @example OAUTH_CONTACT_VERIFICATION_REQUIRED
+       * @enum {string}
+       */
+      readonly error_code: OAuthContactVerificationResponseDtoError_code;
+      /** @example 600 */
+      readonly expires_in_seconds: number;
+      /** @example 60 */
+      readonly resend_after_seconds: number;
+    };
+    /**
+     * @description Stable machine-readable error code when defined
+     * @enum {string}
+     */
+    readonly OAuthErrorCode: OAuthErrorCode;
+    readonly OAuthErrorResponseDto: {
+      /** @example null */
+      readonly data: Record<string, never> | null;
+      /** @example Bad Request */
+      readonly error: string | null;
+      /**
+       * @description Stable machine-readable error code when defined
+       * @example OAUTH_TRANSACTION_INVALID
+       */
+      readonly error_code?: components['schemas']['OAuthErrorCode'];
+      readonly message: string | readonly string[];
+      /** @example POST */
+      readonly method: string;
+      /** @example /api/auth/login */
+      readonly path: string;
+      /**
+       * @description Bounded retry delay for retryable failures
+       * @example 42
+       */
+      readonly retry_after_seconds?: number;
+      /** @description Development environments only */
+      readonly stack?: string;
+      /** @example 400 */
+      readonly status_code: number;
+      /**
+       * Format: date-time
+       * @example 2026-01-15T10:30:00.000Z
+       */
+      readonly timestamp: string;
     };
     readonly OrganizationAdministratorDto: {
       /** @example tunde@organization.example */
@@ -3120,6 +3266,24 @@ export interface components {
       /** Format: date-time */
       readonly updated_at: string;
     };
+    readonly StartGoogleLinkDto: {
+      /** @description Exact allowlisted Google OAuth client ID */
+      readonly audience: string;
+      /** @enum {string} */
+      readonly consumer: StartGoogleLinkDtoConsumer;
+    };
+    readonly StartGoogleOAuthDto: {
+      readonly accepted_privacy_version?: string;
+      readonly accepted_terms_version?: string;
+      /** @description Exact Google OAuth client ID used by this client */
+      readonly audience: string;
+      /** @enum {string} */
+      readonly consumer: StartGoogleLinkDtoConsumer;
+      /** @enum {string} */
+      readonly intent?: SignupIntent;
+      /** @enum {string} */
+      readonly operation: StartGoogleOAuthDtoOperation;
+    };
     readonly UpdateLaboratoryTestDto: {
       /** @example true */
       readonly is_active?: boolean;
@@ -3573,33 +3737,29 @@ export interface operations {
       };
     };
     readonly responses: {
-      /** @description login success */
-      readonly 200: {
-        headers: {
-          readonly [name: string]: unknown;
-        };
-        content: {
-          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
-            readonly data: components['schemas']['LoginResponseDtoData'];
-          };
-        };
-      };
-      /** @description validation error */
       readonly 400: {
         headers: {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
         };
       };
-      /** @description invalid credentials */
       readonly 401: {
         headers: {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
+        };
+      };
+      /** @description OAUTH_TRANSACTION_REQUIRED */
+      readonly 410: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
         };
       };
       /** @description Internal server error */
@@ -3929,6 +4089,262 @@ export interface operations {
         };
         content: {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly OAuthController_complete: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly 'application/json': components['schemas']['CompleteGoogleOAuthDto'];
+      };
+    };
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['LoginResponseDtoData'];
+          };
+        };
+      };
+      readonly 202: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['OAuthContactVerificationResponseDtoData'];
+          };
+        };
+      };
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
+        };
+      };
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
+        };
+      };
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
+        };
+      };
+      readonly 429: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 503: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly OAuthController_unlink: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            /** @example null */
+            readonly data: unknown;
+          };
+        };
+      };
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
+        };
+      };
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly OAuthController_startLink: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly 'application/json': components['schemas']['StartGoogleLinkDto'];
+      };
+    };
+    readonly responses: {
+      readonly 201: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['GoogleOAuthTransactionResponseDto'];
+          };
+        };
+      };
+      /** @description Request validation failed */
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 503: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly OAuthController_start: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly 'application/json': components['schemas']['StartGoogleOAuthDto'];
+      };
+    };
+    readonly responses: {
+      readonly 201: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['GoogleOAuthTransactionResponseDto'];
+          };
+        };
+      };
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
+        };
+      };
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
+        };
+      };
+      readonly 429: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 503: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
         };
       };
     };
@@ -8626,6 +9042,26 @@ export enum LoginResponseDtoRouting_target {
   account_setup = 'account_setup',
   account_restricted = 'account_restricted',
 }
+export enum OAuthContactVerificationResponseDtoError_code {
+  OAUTH_CONTACT_VERIFICATION_REQUIRED = 'OAUTH_CONTACT_VERIFICATION_REQUIRED',
+}
+export enum OAuthErrorCode {
+  OAUTH_TRANSACTION_INVALID = 'OAUTH_TRANSACTION_INVALID',
+  OAUTH_TRANSACTION_EXPIRED = 'OAUTH_TRANSACTION_EXPIRED',
+  OAUTH_TRANSACTION_REPLAYED = 'OAUTH_TRANSACTION_REPLAYED',
+  OAUTH_TOKEN_INVALID = 'OAUTH_TOKEN_INVALID',
+  OAUTH_SIGNUP_REQUIRED = 'OAUTH_SIGNUP_REQUIRED',
+  OAUTH_ACCOUNT_LINK_REQUIRED = 'OAUTH_ACCOUNT_LINK_REQUIRED',
+  OAUTH_IDENTITY_CONFLICT = 'OAUTH_IDENTITY_CONFLICT',
+  OAUTH_INTENT_NOT_SUPPORTED = 'OAUTH_INTENT_NOT_SUPPORTED',
+  OAUTH_LEGAL_VERSION_STALE = 'OAUTH_LEGAL_VERSION_STALE',
+  OAUTH_CONTACT_VERIFICATION_REQUIRED = 'OAUTH_CONTACT_VERIFICATION_REQUIRED',
+  OAUTH_AUTHENTICATION_FAILED = 'OAUTH_AUTHENTICATION_FAILED',
+  OAUTH_LAST_AUTHENTICATOR = 'OAUTH_LAST_AUTHENTICATOR',
+  OAUTH_RECENT_AUTH_REQUIRED = 'OAUTH_RECENT_AUTH_REQUIRED',
+  OAUTH_TRANSACTION_REQUIRED = 'OAUTH_TRANSACTION_REQUIRED',
+  OAUTH_DISABLED = 'OAUTH_DISABLED',
+}
 export enum OrganizationDocumentChecklistDtoMissing_document_types {
   operating_license = 'operating_license',
   business_registration = 'business_registration',
@@ -8656,6 +9092,15 @@ export enum SignupIntent {
   pharmacy = 'pharmacy',
   laboratory = 'laboratory',
   hospital = 'hospital',
+}
+export enum StartGoogleLinkDtoConsumer {
+  web = 'web',
+  mobile = 'mobile',
+}
+export enum StartGoogleOAuthDtoOperation {
+  signup = 'signup',
+  signin = 'signin',
+  link = 'link',
 }
 export enum UpdateProfileDtoGender {
   Male = 'Male',

@@ -245,7 +245,7 @@ const collectOperations = (contract) => {
       const errorStatuses = statuses.filter(
         (status) => !successStatuses.includes(status),
       );
-      if (successStatuses.length === 0) {
+      if (successStatuses.length === 0 && operationId !== 'AuthController_googleLogin') {
         fail(`${operationId} does not define a successful response`);
       }
 
@@ -254,12 +254,9 @@ const collectOperations = (contract) => {
         method: method.toUpperCase(),
         path,
         request: requestShape(contract, pathItem, operation, operationId),
-        responseType: responseType(
-          contract,
-          operation,
-          operationId,
-          successStatuses,
-        ),
+        responseType: successStatuses.length
+          ? responseType(contract, operation, operationId, successStatuses)
+          : 'never',
         errorType: responseType(
           contract,
           operation,

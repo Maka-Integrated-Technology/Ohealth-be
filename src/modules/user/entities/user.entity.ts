@@ -69,6 +69,9 @@ export class User extends BaseEntity {
   @Column({ type: 'timestamp with time zone', nullable: true })
   verification_code_expires_at?: Date | null;
 
+  @Column({ default: true })
+  password_authentication_enabled: boolean;
+
   @Column({ nullable: true })
   google_id?: string | null;
 

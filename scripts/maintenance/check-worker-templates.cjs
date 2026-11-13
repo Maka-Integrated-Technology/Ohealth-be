@@ -42,6 +42,16 @@ async function main() {
     assert.match(rendered, /<html/);
     assert.doesNotMatch(rendered, /\{\{|\{%/);
   }
+  rendered = undefined;
+  await service.sendMail({
+    from: { email: 'sender@example.invalid' },
+    to: [{ email: 'recipient@example.invalid' }],
+    subject: 'Security notification smoke test',
+    templateNameID: EmailTemplateID.SECURITY_AUTHENTICATOR_CHANGED,
+    templateData: {},
+  });
+  assert.match(rendered, /Google sign-in method was removed/);
+  assert.doesNotMatch(rendered, /token|nonce|\{\{|\{%/i);
   process.stdout.write(
     'Worker verification, recovery and login templates rendered successfully.\n',
   );
