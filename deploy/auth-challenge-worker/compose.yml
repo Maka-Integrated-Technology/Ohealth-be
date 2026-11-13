@@ -30,3 +30,38 @@ services:
       timeout: 5s
       retries: 2
       start_period: 45s
+
+  oauth-security-notification-worker:
+    build:
+      context: ../..
+      dockerfile: deploy/auth-challenge-worker/Dockerfile
+    restart: unless-stopped
+    command:
+      - npm
+      - run
+      - oauth-security-notifications:dispatch:prod
+      - --
+      - --continuous
+      - --batch-size=20
+      - --interval-seconds=5
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: ${DATABASE_URL:?provide_database_url}
+      MAIL_MAILER: ${MAIL_MAILER:?smtp_or_resend}
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM_ADDRESS: ${MAIL_FROM_ADDRESS:?mail_from_required}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-OHealth}
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "const fs=require('node:fs');const p='/tmp/ohealth-oauth-notification-worker-heartbeat';process.exit(fs.existsSync(p)&&Date.now()-fs.statSync(p).mtimeMs<30000?0:1)"
+      interval: 15s
+      timeout: 5s
+      retries: 2
+      start_period: 45s

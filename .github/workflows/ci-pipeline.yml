@@ -104,7 +104,9 @@ jobs:
       - name: Verify operator delivery command input and formatting
         run: |
           npx prettier --check scripts/maintenance/dispatch-auth-challenge-deliveries.ts
+          npx prettier --check scripts/maintenance/check-oauth-security-notification-runtime.cjs
           npx prettier --check scripts/maintenance/prune-registration-retries.ts
+          npx prettier --check src/workers/oauth-security-notifications.ts
           check_invalid_usage() {
             set +e
             result=$(npm run auth-challenge-delivery:dispatch -- "$@" 2>&1)
@@ -135,6 +137,21 @@ jobs:
           check_invalid_prune_usage --batch-size=NaN
           check_invalid_prune_usage --unknown
           check_invalid_prune_usage --batch-size=1 --batch-size=2
+          check_invalid_oauth_notification_usage() {
+            set +e
+            result=$(npm run oauth-security-notifications:dispatch -- "$@" 2>&1)
+            status=$?
+            set -e
+            if [ "$status" -eq 0 ] || ! printf '%s\n' "$result" | grep -qx 'Invalid OAuth security notification dispatch arguments.'; then
+              printf 'OAuth notification dispatch did not reject invalid arguments before database access.\n' >&2
+              exit 1
+            fi
+          }
+          check_invalid_oauth_notification_usage --batch-size=0
+          check_invalid_oauth_notification_usage --batch-size=101
+          check_invalid_oauth_notification_usage --interval-seconds=5
+          check_invalid_oauth_notification_usage --unknown
+          check_invalid_oauth_notification_usage --continuous --continuous
 
       - name: Verify formatting
         run: npm run format:check
@@ -173,9 +190,32 @@ jobs:
         run: npm run build
 
       - name: Verify deployed worker image and email rendering
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
         run: |
+          npm run migration:run
           docker build -f deploy/auth-challenge-worker/Dockerfile -t ohealth-auth-worker:ci .
           docker run --rm --entrypoint node ohealth-auth-worker:ci scripts/maintenance/check-worker-templates.cjs
+          docker run --rm --network host \
+            -e DATABASE_URL \
+            -e MAIL_MAILER=smtp \
+            -e MAIL_FROM_ADDRESS=worker@example.invalid \
+            --entrypoint node \
+            ohealth-auth-worker:ci \
+            scripts/maintenance/check-oauth-security-notification-runtime.cjs
+          docker run --detach --name ohealth-oauth-notification-worker-ci \
+            --network host \
+            -e DATABASE_URL \
+            -e MAIL_MAILER=smtp \
+            -e MAIL_FROM_ADDRESS=worker@example.invalid \
+            ohealth-auth-worker:ci \
+            npm run oauth-security-notifications:dispatch:prod -- \
+              --continuous --batch-size=20 --interval-seconds=1
+          sleep 3
+          docker exec ohealth-oauth-notification-worker-ci node -e \
+            "const fs=require('node:fs');const p='/tmp/ohealth-oauth-notification-worker-heartbeat';process.exit(fs.existsSync(p)&&Date.now()-fs.statSync(p).mtimeMs<10000?0:1)"
+          docker stop ohealth-oauth-notification-worker-ci
+          docker rm ohealth-oauth-notification-worker-ci
 
       - name: Verify account lifecycle migration on real PostgreSQL
         env:

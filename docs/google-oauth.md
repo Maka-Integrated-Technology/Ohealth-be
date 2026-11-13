@@ -42,11 +42,13 @@ created within the preceding ten minutes. Unlinking uses
 cannot remove the last usable authenticator. Completion rechecks the bound
 session, account state, and canonical email. Unlinking revokes all sessions in
 the identity transaction and writes a pointer-only security notification to
-the outbox. Run `npm run oauth-security-notifications:dispatch` regularly in
-development or `npm run oauth-security-notifications:dispatch:prod` in the
-deployed worker/container to
-send the notification to the verified canonical contact. Delivery is retried
-up to five times; a terminal failure remains in the outbox for operations.
+the outbox. The deployed worker Compose stack runs
+`oauth-security-notifications:dispatch:prod -- --continuous` as a separate,
+health-checked process. Delivery is retried up to five times; a terminal failure
+remains in the outbox for operations. The worker logs aggregate pending and
+oldest-event metrics and reports unhealthy when the oldest pending event reaches
+two minutes. A one-shot local dispatch remains available through
+`npm run oauth-security-notifications:dispatch`.
 
 ## Signup and contact verification
 
