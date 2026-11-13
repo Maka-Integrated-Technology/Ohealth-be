@@ -1989,7 +1989,8 @@
           "OAUTH_AUTHENTICATION_FAILED",
           "OAUTH_LAST_AUTHENTICATOR",
           "OAUTH_RECENT_AUTH_REQUIRED",
-          "OAUTH_TRANSACTION_REQUIRED"
+          "OAUTH_TRANSACTION_REQUIRED",
+          "OAUTH_DISABLED"
         ],
         "type": "string"
       },
@@ -2012,7 +2013,7 @@
               }
             ],
             "description": "Stable machine-readable error code when defined",
-            "example": "AUTH_CHALLENGE_COOLDOWN"
+            "example": "OAUTH_TRANSACTION_INVALID"
           },
           "message": {
             "oneOf": [
@@ -5742,50 +5743,35 @@
           "required": true
         },
         "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/LoginResponseDtoData"
-                        }
-                      },
-                      "required": [
-                        "data"
-                      ],
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": "login success"
-          },
           "400": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
                 }
               }
             },
-            "description": "validation error"
+            "description": ""
           },
           "401": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
                 }
               }
             },
-            "description": "invalid credentials"
+            "description": ""
+          },
+          "410": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": "OAUTH_TRANSACTION_REQUIRED"
           },
           "500": {
             "content": {
@@ -5798,7 +5784,7 @@
             "description": "Internal server error"
           }
         },
-        "summary": "Login with Google",
+        "summary": "Retired Google login; use nonce-bound OAuth transactions",
         "tags": [
           "Authentication"
         ]
@@ -6375,6 +6361,16 @@
             },
             "description": ""
           },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
           "500": {
             "content": {
               "application/json": {
@@ -6384,6 +6380,16 @@
               }
             },
             "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
           }
         },
         "summary": "Consume a Google OAuth transaction exactly once",
@@ -6534,6 +6540,16 @@
               }
             },
             "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
           }
         },
         "security": [
@@ -6607,6 +6623,16 @@
             },
             "description": ""
           },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
           "500": {
             "content": {
               "application/json": {
@@ -6616,6 +6642,16 @@
               }
             },
             "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
           }
         },
         "summary": "Start a nonce-bound Google signup or sign-in transaction",
