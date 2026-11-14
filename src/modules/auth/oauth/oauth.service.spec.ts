@@ -82,6 +82,7 @@ describe('OAuthService', () => {
     );
     const preview = {
       operation: OAuthOperation.SIGNIN,
+      consumer: OAuthConsumer.WEB,
       audience: 'web-client-id',
       nonce_hash: 'nonce-hash',
     };
@@ -200,6 +201,7 @@ describe('OAuthService', () => {
   it('creates canonical patient, legal and identity records for authoritative signup', async () => {
     const signup = {
       operation: OAuthOperation.SIGNUP,
+      consumer: OAuthConsumer.WEB,
       audience: 'web-client-id',
       nonce_hash: 'nonce-hash',
       intent: SignupIntent.PATIENT,
@@ -223,7 +225,9 @@ describe('OAuthService', () => {
     });
     passwords.hashGeneratedSecret.mockResolvedValue('generated-secret-hash');
 
-    await expect(service.complete(transactionDto)).resolves.toMatchObject({
+    await expect(
+      service.complete(transactionDto, OAuthConsumer.WEB),
+    ).resolves.toMatchObject({
       access_token: 'access-token',
       user: { id: 'new-user', email: 'new.patient@gmail.com' },
     });
@@ -249,6 +253,7 @@ describe('OAuthService', () => {
   it('continues non-authoritative signup to contact verification without a session', async () => {
     const signup = {
       operation: OAuthOperation.SIGNUP,
+      consumer: OAuthConsumer.WEB,
       audience: 'web-client-id',
       nonce_hash: 'nonce-hash',
       intent: SignupIntent.HEALTHCARE_PROFESSIONAL,
@@ -277,7 +282,9 @@ describe('OAuthService', () => {
       expiresInSeconds: 600,
     });
 
-    await expect(service.complete(transactionDto)).resolves.toMatchObject({
+    await expect(
+      service.complete(transactionDto, OAuthConsumer.WEB),
+    ).resolves.toMatchObject({
       error_code: 'OAUTH_CONTACT_VERIFICATION_REQUIRED',
       challenge_id: '17d36477-ae70-4ac6-b557-d584bc840ad1',
     });
@@ -296,11 +303,21 @@ describe('OAuthService', () => {
     verifier.verify.mockRejectedValueOnce(
       new OAuthException('OAUTH_TOKEN_INVALID'),
     );
-    await expect(service.complete(transactionDto)).rejects.toMatchObject({
+    await expect(
+      service.complete(transactionDto, OAuthConsumer.WEB),
+    ).rejects.toMatchObject({
       errorCode: 'OAUTH_TOKEN_INVALID',
     });
     expect(transactions.consumeInTransaction).toHaveBeenCalledTimes(1);
     expect(audit.recordAttempt).toHaveBeenCalled();
+  });
+
+  it('rejects completion through a transport that does not match the bound consumer', async () => {
+    await expect(
+      service.complete(transactionDto, OAuthConsumer.MOBILE),
+    ).rejects.toMatchObject({ errorCode: 'OAUTH_TRANSACTION_INVALID' });
+    expect(transactions.consumeInTransaction).not.toHaveBeenCalled();
+    expect(verifier.verify).not.toHaveBeenCalled();
   });
 
   it('never links an unknown subject by email during sign-in', async () => {
@@ -309,7 +326,9 @@ describe('OAuthService', () => {
       where: jest.fn().mockReturnThis(),
       getOne: jest.fn().mockResolvedValue({ id: 'email-owner' }),
     });
-    await expect(service.complete(transactionDto)).rejects.toMatchObject({
+    await expect(
+      service.complete(transactionDto, OAuthConsumer.WEB),
+    ).rejects.toMatchObject({
       errorCode: 'OAUTH_ACCOUNT_LINK_REQUIRED',
     });
     expect(manager.insert).not.toHaveBeenCalledWith(
@@ -325,7 +344,9 @@ describe('OAuthService', () => {
       where: jest.fn().mockReturnThis(),
       getOne: jest.fn().mockResolvedValue(null),
     });
-    await expect(service.complete(transactionDto)).rejects.toMatchObject({
+    await expect(
+      service.complete(transactionDto, OAuthConsumer.WEB),
+    ).rejects.toMatchObject({
       errorCode: 'OAUTH_SIGNUP_REQUIRED',
     });
   });
@@ -346,7 +367,9 @@ describe('OAuthService', () => {
       new UnauthorizedException('blocked'),
     );
 
-    await expect(service.complete(transactionDto)).rejects.toMatchObject({
+    await expect(
+      service.complete(transactionDto, OAuthConsumer.WEB),
+    ).rejects.toMatchObject({
       errorCode: 'OAUTH_AUTHENTICATION_FAILED',
     });
     expect(audit.recordAttempt).toHaveBeenCalledWith(
@@ -366,7 +389,9 @@ describe('OAuthService', () => {
     manager.findOne
       .mockResolvedValueOnce({ id: 'identity-id', user_id: user.id })
       .mockResolvedValueOnce(user);
-    await expect(service.complete(transactionDto)).resolves.toMatchObject({
+    await expect(
+      service.complete(transactionDto, OAuthConsumer.WEB),
+    ).resolves.toMatchObject({
       access_token: 'access-token',
       routing_target: 'patient_home',
       user: { id: 'linked-user' },
@@ -455,6 +480,7 @@ describe('OAuthService', () => {
   it('rejects a provider subject conflict during explicit linking', async () => {
     const transaction = {
       operation: OAuthOperation.LINK,
+      consumer: OAuthConsumer.WEB,
       audience: 'web-client-id',
       nonce_hash: 'nonce-hash',
       user_id: 'current-user',
@@ -470,7 +496,9 @@ describe('OAuthService', () => {
         credential_version: 2,
       })
       .mockResolvedValueOnce({ user_id: 'different-user' });
-    await expect(service.complete(transactionDto)).rejects.toMatchObject({
+    await expect(
+      service.complete(transactionDto, OAuthConsumer.WEB),
+    ).rejects.toMatchObject({
       errorCode: 'OAUTH_IDENTITY_CONFLICT',
     });
     expect(manager.insert).not.toHaveBeenCalled();
@@ -479,6 +507,7 @@ describe('OAuthService', () => {
   it('rejects a different Google email during explicit linking', async () => {
     const transaction = {
       operation: OAuthOperation.LINK,
+      consumer: OAuthConsumer.WEB,
       audience: 'web-client-id',
       nonce_hash: 'nonce-hash',
       user_id: 'current-user',
@@ -504,7 +533,9 @@ describe('OAuthService', () => {
         expires_at: new Date(Date.now() + 60_000),
         credential_version: 2,
       });
-    await expect(service.complete(transactionDto)).rejects.toMatchObject({
+    await expect(
+      service.complete(transactionDto, OAuthConsumer.WEB),
+    ).rejects.toMatchObject({
       errorCode: 'OAUTH_ACCOUNT_LINK_REQUIRED',
     });
     expect(manager.insert).not.toHaveBeenCalledWith(
@@ -518,6 +549,7 @@ describe('OAuthService', () => {
     async (cause) => {
       const transaction = {
         operation: OAuthOperation.LINK,
+        consumer: OAuthConsumer.WEB,
         audience: 'web-client-id',
         nonce_hash: 'nonce-hash',
         user_id: 'current-user',
@@ -545,7 +577,9 @@ describe('OAuthService', () => {
         accountPolicy.assertCanAuthenticate.mockImplementationOnce(() => {
           throw new UnauthorizedException();
         });
-      await expect(service.complete(transactionDto)).rejects.toMatchObject({
+      await expect(
+        service.complete(transactionDto, OAuthConsumer.WEB),
+      ).rejects.toMatchObject({
         errorCode:
           cause === 'suspended'
             ? 'OAUTH_AUTHENTICATION_FAILED'

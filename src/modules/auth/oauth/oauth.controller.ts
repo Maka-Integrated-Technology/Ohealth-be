@@ -37,6 +37,7 @@ import {
   StartGoogleLinkDto,
   StartGoogleOAuthDto,
 } from './oauth.dto';
+import { OAuthConsumer } from './oauth.enums';
 import { OAuthErrorResponseDto } from './oauth.error';
 import { OAuthService } from './oauth.service';
 
@@ -97,7 +98,7 @@ export class OAuthController {
     @Body() dto: CompleteGoogleOAuthDto,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const result = await this.oauth.complete(dto);
+    const result = await this.oauth.complete(dto, OAuthConsumer.MOBILE);
     if ('error_code' in result) {
       response.status(HttpStatus.ACCEPTED);
     }

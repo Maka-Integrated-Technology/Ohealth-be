@@ -351,6 +351,12 @@ export class AuthService {
     };
   }
 
+  async logoutByRefreshCredential(refreshCredential: string) {
+    await this.sessions.revokeByCredential(refreshCredential);
+    this.logger.info(sysMsg.LOGOUT_SUCCESS);
+    return { message: sysMsg.LOGOUT_SUCCESS };
+  }
+
   listSessions(userId: string) {
     return this.sessions.list(userId);
   }

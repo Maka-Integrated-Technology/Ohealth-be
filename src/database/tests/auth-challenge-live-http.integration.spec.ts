@@ -23,6 +23,11 @@ import { AccountAccessPolicyService } from '../../modules/auth/account-access-po
 import { AuthRoutingService } from '../../modules/auth/auth-routing.service';
 import { AuthController } from '../../modules/auth/auth.controller';
 import { AuthService } from '../../modules/auth/auth.service';
+import { BrowserSessionCookieService } from '../../modules/auth/browser/browser-session-cookie.service';
+import { BrowserSessionTransportService } from '../../modules/auth/browser/browser-session-transport.service';
+import { BrowserSessionConfig } from '../../modules/auth/browser/browser-session.config';
+import { BrowserSessionController } from '../../modules/auth/browser/browser-session.controller';
+import { BrowserSessionGuard } from '../../modules/auth/browser/browser-session.guard';
 import { AuthAbuseGuard } from '../../modules/auth/challenges/auth-abuse.guard';
 import { AuthChallengeDeliveryService } from '../../modules/auth/challenges/auth-challenge-delivery.service';
 import { AuthChallengeValidationPipe } from '../../modules/auth/challenges/auth-challenge-validation.pipe';
@@ -32,6 +37,7 @@ import { AuthRateLimitService } from '../../modules/auth/challenges/auth-rate-li
 import { SecureAuthChallengeFlowsService } from '../../modules/auth/challenges/secure-auth-challenge-flows.service';
 import { AuthSession } from '../../modules/auth/entities/auth.entity';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
+import { OAuthService } from '../../modules/auth/oauth/oauth.service';
 import { PasswordCredentialsService } from '../../modules/auth/password-policy/password-credentials.service';
 import { AccountProvisioningService } from '../../modules/auth/registration/account-provisioning.service';
 import { RegistrationService } from '../../modules/auth/registration/registration.service';
@@ -184,7 +190,10 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       await runner.release();
     }
     await healthyWorker();
-    const values = new Map<string, string>([
+    const values = new Map<string, unknown>([
+      ['NODE_ENV', 'production'],
+      ['AUTH_BROWSER_SESSION_ENABLED', 'true'],
+      ['cors.origins', ['https://app.ohealth.example']],
       ['AUTH_CHALLENGE_PEPPER', pepper],
       ['AUTH_CHALLENGE_DELIVERY_KEY', encryptionKey],
       ['AUTH_CHALLENGE_FLOWS_ENABLED', 'true'],
@@ -218,9 +227,13 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
   async function createApp(source: DataSource): Promise<INestApplication> {
     const module = await Test.createTestingModule({
       imports: [PassportModule.register({ defaultStrategy: 'jwt' })],
-      controllers: [AuthController],
+      controllers: [AuthController, BrowserSessionController],
       providers: [
         AuthService,
+        BrowserSessionConfig,
+        BrowserSessionCookieService,
+        BrowserSessionGuard,
+        BrowserSessionTransportService,
         UserService,
         AccountAccessPolicyService,
         AuthAbuseGuard,
@@ -233,6 +246,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         PasswordCredentialsService,
         AccountProvisioningService,
         RegistrationService,
+        { provide: OAuthService, useValue: { complete: jest.fn() } },
         { provide: DataSource, useValue: source },
         { provide: ConfigService, useValue: config },
         {
@@ -278,6 +292,10 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     }).compile();
 
     const instance = module.createNestApplication();
+    instance.enableCors({
+      origin: ['https://app.ohealth.example'],
+      credentials: true,
+    });
     instance.setGlobalPrefix('api');
     instance.useGlobalPipes(
       new AuthChallengeValidationPipe({
@@ -601,6 +619,85 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       .post('/api/auth/refresh')
       .send({ refresh_token: rotated.body.data.refresh_token })
       .expect(401);
+  });
+
+  it('uses browser cookies over the canonical PostgreSQL session authority', async () => {
+    const user = await createUser('browser-session-http', 'active');
+    const sessions = app.get(RefreshSessionService);
+    const issued = await sessions.issue(user.id);
+    const browserHeaders = {
+      Origin: 'https://app.ohealth.example',
+      ['X-OHealth-Client']: 'browser',
+    };
+
+    const refreshed = await request(app.getHttpServer())
+      .post('/api/auth/browser/refresh')
+      .set(browserHeaders)
+      .set('Cookie', `__Host-ohealth_refresh=${issued.refresh_token}`)
+      .expect(200);
+    expect(refreshed.body.data).toMatchObject({
+      access_token: expect.any(String),
+      session_id: issued.session_id,
+    });
+    expect(refreshed.body.data).not.toHaveProperty('refresh_token');
+    const rotatedCookie = refreshed.headers['set-cookie']?.[0];
+    expect(rotatedCookie).toContain('__Host-ohealth_refresh=');
+    expect(rotatedCookie).toContain('HttpOnly');
+    expect(rotatedCookie).toContain('Secure');
+    expect(rotatedCookie).toContain('SameSite=Strict');
+
+    const replay = await request(secondApp.getHttpServer())
+      .post('/api/auth/browser/refresh')
+      .set(browserHeaders)
+      .set('Cookie', `__Host-ohealth_refresh=${issued.refresh_token}`)
+      .expect(401);
+    expect(replay.headers['set-cookie']?.[0]).toContain(
+      '__Host-ohealth_refresh=;',
+    );
+    const replayedSession = await database
+      .getRepository(AuthSession)
+      .findOneByOrFail({ session_id: issued.session_id });
+    expect(replayedSession.revoked_at).toBeInstanceOf(Date);
+
+    const logoutSession = await sessions.issue(user.id);
+    const logout = await request(app.getHttpServer())
+      .post('/api/auth/browser/logout')
+      .set(browserHeaders)
+      .set('Cookie', `__Host-ohealth_refresh=${logoutSession.refresh_token}`)
+      .expect(200);
+    expect(logout.headers['set-cookie']?.[0]).toContain(
+      '__Host-ohealth_refresh=;',
+    );
+    const loggedOut = await database
+      .getRepository(AuthSession)
+      .findOneByOrFail({ session_id: logoutSession.session_id });
+    expect(loggedOut.revoked_at).toBeInstanceOf(Date);
+
+    const mobileSession = await sessions.issue(user.id);
+    const mobileRefresh = await request(app.getHttpServer())
+      .post('/api/auth/refresh')
+      .set('Cookie', `__Host-ohealth_refresh=${'x'.repeat(43)}`)
+      .send({ refresh_token: mobileSession.refresh_token })
+      .expect(200);
+    expect(mobileRefresh.body.data.refresh_token).toMatch(
+      /^[A-Za-z0-9_-]{43}$/,
+    );
+
+    const events: Array<{ event_type: string; session_id: string }> =
+      await database.query(
+        'SELECT event_type, session_id FROM auth_security_events ' +
+          'WHERE session_id = ANY($1::uuid[])',
+        [[issued.session_id, logoutSession.session_id]],
+      );
+    expect(events).toEqual(
+      expect.arrayContaining([
+        {
+          event_type: 'session_reuse',
+          session_id: issued.session_id,
+        },
+        { event_type: 'logout', session_id: logoutSession.session_id },
+      ]),
+    );
   });
 
   it('revokes canonical access and refresh credentials after recovery races rotation', async () => {

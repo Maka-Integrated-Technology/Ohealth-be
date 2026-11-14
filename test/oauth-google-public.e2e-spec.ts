@@ -6,6 +6,7 @@ import { IS_PUBLIC_KEY } from '../src/common/decorators/public.decorator';
 import { AuthAbuseGuard } from '../src/modules/auth/challenges/auth-abuse.guard';
 import { AuthRateLimitService } from '../src/modules/auth/challenges/auth-rate-limit.service';
 import { OAuthController } from '../src/modules/auth/oauth/oauth.controller';
+import { OAuthConsumer } from '../src/modules/auth/oauth/oauth.enums';
 import { OAuthService } from '../src/modules/auth/oauth/oauth.service';
 
 describe('Google OAuth HTTP contract', () => {
@@ -184,5 +185,11 @@ describe('Google OAuth HTTP contract', () => {
       })
       .expect(200);
     expect(oauth.complete).toHaveBeenCalledTimes(1);
+    expect(oauth.complete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        transaction_id: '17d36477-ae70-4ac6-b557-d584bc840ad1',
+      }),
+      OAuthConsumer.MOBILE,
+    );
   });
 });

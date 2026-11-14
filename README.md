@@ -223,21 +223,23 @@ npm run start:prod
 
 ## 📝 Environment Variables
 
-| Variable                 | Description                                           | Default                        |
-| ------------------------ | ----------------------------------------------------- | ------------------------------ |
-| `NODE_ENV`               | Environment mode                                      | `development`                  |
-| `PORT`                   | Server port                                           | `3000`                         |
-| `DB_HOST`                | Database host                                         | `localhost`                    |
-| `DB_PORT`                | Database port                                         | `5432`                         |
-| `DB_NAME`                | Database name                                         | `ohealth_app_db`               |
-| `DB_USER`                | Database user                                         | `postgres`                     |
-| `DB_PASS`                | Database password                                     | -                              |
-| `JWT_SECRET`             | Required access-token signing secret (32+ characters) | -                              |
-| `TOKEN_ACCESS_DURATION`  | Required access-token expiry, maximum 15 minutes      | -                              |
-| `TOKEN_REFRESH_DURATION` | Required absolute session expiry, maximum 30 days     | -                              |
-| `OPENROUTER_API_KEY`     | OpenRouter API key for AI chat                        | -                              |
-| `OPENROUTER_BASE_URL`    | OpenRouter API base URL                               | `https://openrouter.ai/api/v1` |
-| `OPENROUTER_MODEL`       | OpenRouter model name                                 | `gpt-4-turbo`                  |
+| Variable                       | Description                                                                                    | Default                        |
+| ------------------------------ | ---------------------------------------------------------------------------------------------- | ------------------------------ |
+| `NODE_ENV`                     | Environment mode                                                                               | `development`                  |
+| `PORT`                         | Server port                                                                                    | `3000`                         |
+| `DB_HOST`                      | Database host                                                                                  | `localhost`                    |
+| `DB_PORT`                      | Database port                                                                                  | `5432`                         |
+| `DB_NAME`                      | Database name                                                                                  | `ohealth_app_db`               |
+| `DB_USER`                      | Database user                                                                                  | `postgres`                     |
+| `DB_PASS`                      | Database password                                                                              | -                              |
+| `JWT_SECRET`                   | Required access-token signing secret (32+ characters)                                          | -                              |
+| `TOKEN_ACCESS_DURATION`        | Required access-token expiry, maximum 15 minutes                                               | -                              |
+| `TOKEN_REFRESH_DURATION`       | Required absolute session expiry, maximum 30 days                                              | -                              |
+| `CORS_ORIGINS`                 | Exact comma-separated browser origins                                                          | -                              |
+| `AUTH_BROWSER_SESSION_ENABLED` | Enable secure browser refresh-cookie routes; deployed environments require exact HTTPS origins | `false`                        |
+| `OPENROUTER_API_KEY`           | OpenRouter API key for AI chat                                                                 | -                              |
+| `OPENROUTER_BASE_URL`          | OpenRouter API base URL                                                                        | `https://openrouter.ai/api/v1` |
+| `OPENROUTER_MODEL`             | OpenRouter model name                                                                          | `gpt-4-turbo`                  |
 
 ## 🤝 Contributing
 

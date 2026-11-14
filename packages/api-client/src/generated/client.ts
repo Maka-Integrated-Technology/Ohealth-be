@@ -290,6 +290,85 @@ export type BookingController_findOneError =
   | operations['BookingController_findOne']['responses'][401]['content']['application/json']
   | operations['BookingController_findOne']['responses'][500]['content']['application/json'];
 
+export type BrowserSessionController_completeGoogleRequest = Readonly<{
+  readonly headerParameters: NonNullable<
+    operations['BrowserSessionController_completeGoogle']['parameters']['header']
+  >;
+  readonly body: NonNullable<
+    operations['BrowserSessionController_completeGoogle']['requestBody']
+  >['content']['application/json'];
+  readonly headers?: ApiHeaders;
+}>;
+export type BrowserSessionController_completeGoogleResponse =
+  | operations['BrowserSessionController_completeGoogle']['responses'][200]['content']['application/json']
+  | operations['BrowserSessionController_completeGoogle']['responses'][202]['content']['application/json'];
+export type BrowserSessionController_completeGoogleError =
+  | operations['BrowserSessionController_completeGoogle']['responses'][400]['content']['application/json']
+  | operations['BrowserSessionController_completeGoogle']['responses'][401]['content']['application/json']
+  | operations['BrowserSessionController_completeGoogle']['responses'][403]['content']['application/json']
+  | operations['BrowserSessionController_completeGoogle']['responses'][409]['content']['application/json']
+  | operations['BrowserSessionController_completeGoogle']['responses'][429]['content']['application/json']
+  | operations['BrowserSessionController_completeGoogle']['responses'][500]['content']['application/json']
+  | operations['BrowserSessionController_completeGoogle']['responses'][503]['content']['application/json'];
+
+export type BrowserSessionController_logoutRequest = Readonly<{
+  readonly headerParameters: NonNullable<
+    operations['BrowserSessionController_logout']['parameters']['header']
+  >;
+  readonly headers?: ApiHeaders;
+}>;
+export type BrowserSessionController_logoutResponse =
+  operations['BrowserSessionController_logout']['responses'][200]['content']['application/json'];
+export type BrowserSessionController_logoutError =
+  | operations['BrowserSessionController_logout']['responses'][401]['content']['application/json']
+  | operations['BrowserSessionController_logout']['responses'][403]['content']['application/json']
+  | operations['BrowserSessionController_logout']['responses'][500]['content']['application/json'];
+
+export type BrowserSessionController_refreshRequest = Readonly<{
+  readonly headerParameters: NonNullable<
+    operations['BrowserSessionController_refresh']['parameters']['header']
+  >;
+  readonly headers?: ApiHeaders;
+}>;
+export type BrowserSessionController_refreshResponse =
+  operations['BrowserSessionController_refresh']['responses'][200]['content']['application/json'];
+export type BrowserSessionController_refreshError =
+  | operations['BrowserSessionController_refresh']['responses'][401]['content']['application/json']
+  | operations['BrowserSessionController_refresh']['responses'][403]['content']['application/json']
+  | operations['BrowserSessionController_refresh']['responses'][500]['content']['application/json'];
+
+export type BrowserSessionController_verifyLoginRequest = Readonly<{
+  readonly headerParameters: NonNullable<
+    operations['BrowserSessionController_verifyLogin']['parameters']['header']
+  >;
+  readonly body: NonNullable<
+    operations['BrowserSessionController_verifyLogin']['requestBody']
+  >['content']['application/json'];
+  readonly headers?: ApiHeaders;
+}>;
+export type BrowserSessionController_verifyLoginResponse =
+  operations['BrowserSessionController_verifyLogin']['responses'][200]['content']['application/json'];
+export type BrowserSessionController_verifyLoginError =
+  | operations['BrowserSessionController_verifyLogin']['responses'][400]['content']['application/json']
+  | operations['BrowserSessionController_verifyLogin']['responses'][403]['content']['application/json']
+  | operations['BrowserSessionController_verifyLogin']['responses'][500]['content']['application/json'];
+
+export type BrowserSessionController_verifySignupRequest = Readonly<{
+  readonly headerParameters: NonNullable<
+    operations['BrowserSessionController_verifySignup']['parameters']['header']
+  >;
+  readonly body: NonNullable<
+    operations['BrowserSessionController_verifySignup']['requestBody']
+  >['content']['application/json'];
+  readonly headers?: ApiHeaders;
+}>;
+export type BrowserSessionController_verifySignupResponse =
+  operations['BrowserSessionController_verifySignup']['responses'][200]['content']['application/json'];
+export type BrowserSessionController_verifySignupError =
+  | operations['BrowserSessionController_verifySignup']['responses'][400]['content']['application/json']
+  | operations['BrowserSessionController_verifySignup']['responses'][403]['content']['application/json']
+  | operations['BrowserSessionController_verifySignup']['responses'][500]['content']['application/json'];
+
 export type ChatController_getHistoryRequest = Readonly<{
   readonly headers?: ApiHeaders;
 }>;
@@ -1438,6 +1517,21 @@ export interface ApiClient {
   readonly BookingController_findOne: (
     request: BookingController_findOneRequest,
   ) => Promise<BookingController_findOneResponse>;
+  readonly BrowserSessionController_completeGoogle: (
+    request: BrowserSessionController_completeGoogleRequest,
+  ) => Promise<BrowserSessionController_completeGoogleResponse>;
+  readonly BrowserSessionController_logout: (
+    request: BrowserSessionController_logoutRequest,
+  ) => Promise<BrowserSessionController_logoutResponse>;
+  readonly BrowserSessionController_refresh: (
+    request: BrowserSessionController_refreshRequest,
+  ) => Promise<BrowserSessionController_refreshResponse>;
+  readonly BrowserSessionController_verifyLogin: (
+    request: BrowserSessionController_verifyLoginRequest,
+  ) => Promise<BrowserSessionController_verifyLoginResponse>;
+  readonly BrowserSessionController_verifySignup: (
+    request: BrowserSessionController_verifySignupRequest,
+  ) => Promise<BrowserSessionController_verifySignupResponse>;
   readonly ChatController_getHistory: (
     request?: ChatController_getHistoryRequest,
   ) => Promise<ChatController_getHistoryResponse>;
@@ -1967,6 +2061,69 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
           operationId: 'BookingController_findOne',
           method: 'GET',
           path: '/api/bookings/{id}',
+        },
+        request,
+      ),
+    BrowserSessionController_completeGoogle: (request) =>
+      core.request<
+        BrowserSessionController_completeGoogleResponse,
+        BrowserSessionController_completeGoogleError
+      >(
+        {
+          operationId: 'BrowserSessionController_completeGoogle',
+          method: 'POST',
+          path: '/api/auth/browser/oauth/google/complete',
+          requestMediaType: 'application/json',
+        },
+        request,
+      ),
+    BrowserSessionController_logout: (request) =>
+      core.request<
+        BrowserSessionController_logoutResponse,
+        BrowserSessionController_logoutError
+      >(
+        {
+          operationId: 'BrowserSessionController_logout',
+          method: 'POST',
+          path: '/api/auth/browser/logout',
+        },
+        request,
+      ),
+    BrowserSessionController_refresh: (request) =>
+      core.request<
+        BrowserSessionController_refreshResponse,
+        BrowserSessionController_refreshError
+      >(
+        {
+          operationId: 'BrowserSessionController_refresh',
+          method: 'POST',
+          path: '/api/auth/browser/refresh',
+        },
+        request,
+      ),
+    BrowserSessionController_verifyLogin: (request) =>
+      core.request<
+        BrowserSessionController_verifyLoginResponse,
+        BrowserSessionController_verifyLoginError
+      >(
+        {
+          operationId: 'BrowserSessionController_verifyLogin',
+          method: 'POST',
+          path: '/api/auth/browser/login/verify',
+          requestMediaType: 'application/json',
+        },
+        request,
+      ),
+    BrowserSessionController_verifySignup: (request) =>
+      core.request<
+        BrowserSessionController_verifySignupResponse,
+        BrowserSessionController_verifySignupError
+      >(
+        {
+          operationId: 'BrowserSessionController_verifySignup',
+          method: 'POST',
+          path: '/api/auth/browser/verify',
+          requestMediaType: 'application/json',
         },
         request,
       ),

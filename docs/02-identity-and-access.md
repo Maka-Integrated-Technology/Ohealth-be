@@ -119,8 +119,20 @@ jobs, or analytics.
 - MFA or privilege changes require step-up authentication and may revoke other
   sessions.
 
-Browser refresh tokens use secure, HTTP-only cookies with an explicit CSRF
-control. Mobile refresh tokens use operating-system secure storage.
+Browser refresh credentials use the backend-managed `/auth/browser` adapter and
+never enter browser-readable response JSON or storage. Production and staging
+use a host-only `__Host-ohealth_refresh` cookie with `Secure`, `HttpOnly`,
+`SameSite=Strict`, `Path=/`, no `Domain`, and lifetime bounded by the canonical
+session expiry. Browser refresh and logout require an exact allowlisted Origin
+and `X-OHealth-Client: browser`; browser request bodies are JSON-only. Local
+development uses a separately named cookie and cannot weaken deployed policy.
+Mobile retains the JSON credential contract for operating-system secure
+storage. Both transports use the same rotation, replay-family revocation,
+account policy, and audit authority. Google transactions bind their consumer:
+mobile completes through `/auth/oauth/google/complete` and retains the approved
+body credential, while web completes through
+`/auth/browser/oauth/google/complete` and receives refresh state only in the
+backend-managed cookie.
 
 ## External identities and Google OAuth
 

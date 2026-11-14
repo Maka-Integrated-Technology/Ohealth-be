@@ -28,12 +28,20 @@ it does not exchange authorization codes.
    professional intent and the current legal versions.
 2. Use the returned nonce in the Google request. The transaction token and nonce
    are returned once; PostgreSQL stores only SHA-256 hashes.
-3. Complete `POST /api/auth/oauth/google/complete` with the transaction handle,
-   transaction token, and Google ID token.
+3. Complete with the transaction handle, transaction token, and Google ID
+   token. Mobile uses `POST /api/auth/oauth/google/complete`; web uses
+   `POST /api/auth/browser/oauth/google/complete` with the exact allowlisted
+   Origin and `X-OHealth-Client: browser`.
 4. The backend verifies signature, issuer, audience, authorized party, expiry,
    issued-at (through the official library), nonce, subject, and verified email.
 5. Completion locks and consumes the transaction. Replay and concurrent
    completion fail closed.
+
+The stored consumer is authoritative. A mobile transaction cannot complete
+through the browser endpoint and a web transaction cannot complete through the
+mobile endpoint. Mobile retains the opaque refresh credential in its response
+for operating-system secure storage. Browser completion writes it only to the
+host-only secure refresh cookie and never returns it in JSON.
 
 Linking starts at the authenticated
 `POST /api/auth/oauth/google/link/transactions` endpoint and requires a session

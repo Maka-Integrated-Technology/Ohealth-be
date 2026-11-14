@@ -492,6 +492,164 @@
         ],
         "type": "object"
       },
+      "BrowserSessionResponseDto": {
+        "properties": {
+          "access_level": {
+            "enum": [
+              "full",
+              "limited"
+            ],
+            "type": "string"
+          },
+          "access_token": {
+            "description": "Short-lived access JWT for in-memory use only",
+            "type": "string"
+          },
+          "message": {
+            "example": "Login success",
+            "type": "string"
+          },
+          "routing_target": {
+            "enum": [
+              "email_verification",
+              "admin_dashboard",
+              "patient_home",
+              "professional_verification",
+              "professional_dashboard",
+              "hospital_verification",
+              "hospital_dashboard",
+              "laboratory_verification",
+              "laboratory_dashboard",
+              "pharmacy_verification",
+              "pharmacy_dashboard",
+              "account_setup",
+              "account_restricted"
+            ],
+            "type": "string"
+          },
+          "session_expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "session_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/BrowserSessionUserDto"
+          },
+          "verification_status": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "access_token",
+          "session_id",
+          "session_expires_at",
+          "user",
+          "routing_target",
+          "access_level",
+          "verification_status"
+        ],
+        "type": "object"
+      },
+      "BrowserSessionResponseDtoData": {
+        "properties": {
+          "access_level": {
+            "enum": [
+              "full",
+              "limited"
+            ],
+            "type": "string"
+          },
+          "access_token": {
+            "description": "Short-lived access JWT for in-memory use only",
+            "type": "string"
+          },
+          "routing_target": {
+            "enum": [
+              "email_verification",
+              "admin_dashboard",
+              "patient_home",
+              "professional_verification",
+              "professional_dashboard",
+              "hospital_verification",
+              "hospital_dashboard",
+              "laboratory_verification",
+              "laboratory_dashboard",
+              "pharmacy_verification",
+              "pharmacy_dashboard",
+              "account_setup",
+              "account_restricted"
+            ],
+            "type": "string"
+          },
+          "session_expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "session_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/BrowserSessionUserDto"
+          },
+          "verification_status": {
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token",
+          "session_id",
+          "session_expires_at",
+          "user",
+          "routing_target",
+          "access_level",
+          "verification_status"
+        ],
+        "type": "object"
+      },
+      "BrowserSessionUserDto": {
+        "properties": {
+          "email": {
+            "example": "john.doe@example.com",
+            "type": "string"
+          },
+          "first_name": {
+            "example": "John",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "last_name": {
+            "example": "Doe",
+            "type": "string"
+          },
+          "role": {
+            "example": [
+              "PATIENT"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "first_name",
+          "last_name",
+          "role"
+        ],
+        "type": "object"
+      },
       "BulkCreateAvailabilityDto": {
         "properties": {
           "slots": {
@@ -5397,6 +5555,12 @@
         "description": "Enter JWT token obtained from the login endpoint. Format: Bearer <token>",
         "scheme": "bearer",
         "type": "http"
+      },
+      "browserRefresh": {
+        "description": "Backend-managed browser refresh cookie. Local development uses a separate cookie name.",
+        "in": "cookie",
+        "name": "__Host-ohealth_refresh",
+        "type": "apiKey"
       }
     }
   },
@@ -5467,6 +5631,515 @@
         "summary": "Enable two-factor authentication for the current user",
         "tags": [
           "2FA"
+        ]
+      }
+    },
+    "/api/auth/browser/login/verify": {
+      "post": {
+        "operationId": "BrowserSessionController_verifyLogin",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-OHealth-Client",
+            "required": true,
+            "schema": {
+              "enum": [
+                "browser"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyAuthChallengeDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/BrowserSessionResponseDtoData"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                }
+              }
+            },
+            "description": "Challenge or request is invalid"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Origin or browser header rejected"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Verify a login code and issue a browser session",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/browser/logout": {
+      "post": {
+        "operationId": "BrowserSessionController_logout",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-OHealth-Client",
+            "required": true,
+            "schema": {
+              "enum": [
+                "browser"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "example": null,
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Browser session revoked"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Refresh cookie is invalid"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Origin or browser header rejected"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "browserRefresh": []
+          }
+        ],
+        "summary": "Revoke and clear the browser session",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/browser/oauth/google/complete": {
+      "post": {
+        "description": "Completes only transactions bound to the web consumer. Session credentials are written to the browser cookie and never returned in JSON.",
+        "operationId": "BrowserSessionController_completeGoogle",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-OHealth-Client",
+            "required": true,
+            "schema": {
+              "enum": [
+                "browser"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompleteGoogleOAuthDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "oneOf": [
+                            {
+                              "$ref": "#/components/schemas/BrowserSessionResponseDto"
+                            },
+                            {
+                              "$ref": "#/components/schemas/ApiMessageResponseDto"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/OAuthContactVerificationResponseDtoData"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Origin or browser header rejected"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "summary": "Complete a web Google OAuth transaction",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/browser/refresh": {
+      "post": {
+        "operationId": "BrowserSessionController_refresh",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-OHealth-Client",
+            "required": true,
+            "schema": {
+              "enum": [
+                "browser"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/BrowserSessionResponseDtoData"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Refresh cookie is invalid, expired, replayed, or revoked"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Origin or browser header rejected"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "browserRefresh": []
+          }
+        ],
+        "summary": "Rotate the browser refresh cookie",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/browser/verify": {
+      "post": {
+        "operationId": "BrowserSessionController_verifySignup",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-OHealth-Client",
+            "required": true,
+            "schema": {
+              "enum": [
+                "browser"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifySignupDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/BrowserSessionResponseDtoData"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                }
+              }
+            },
+            "description": "Challenge or request is invalid"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Origin or browser header rejected"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Verify contact ownership and issue a browser session",
+        "tags": [
+          "Authentication"
         ]
       }
     },

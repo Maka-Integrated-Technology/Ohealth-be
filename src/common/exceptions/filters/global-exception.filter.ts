@@ -11,6 +11,7 @@ import { Request, Response } from 'express';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 
 import config from '../../../config/config';
+import { safeRequestPath } from '../../utils/request-path';
 import { BaseException } from '../base-exception';
 
 interface IHttpExceptionResponse {
@@ -68,6 +69,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<IRequestWithUser>();
+    const requestPath = safeRequestPath(request);
 
     let status: number;
     let message: string | string[];
@@ -102,7 +104,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
       // Log BaseException with additional context
       if (exception instanceof BaseException) {
-        const logMessage = `${exception.name || 'BaseException'}: ${Array.isArray(message) ? message.join(', ') : message} - Status: ${status} - Path: ${request.method} ${request.url} - UserId: ${request.user?.id || 'anonymous'}`;
+        const logMessage = `${exception.name || 'BaseException'}: ${Array.isArray(message) ? message.join(', ') : message} - Status: ${status} - Path: ${request.method} ${requestPath} - UserId: ${request.user?.id || 'anonymous'}`;
         const logLevel = status >= 500 ? 'error' : 'warn';
         if (logLevel === 'error') {
           this.logger.error(logMessage, stack, GlobalExceptionFilter.name);
@@ -111,7 +113,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         }
       } else {
         // Log other HttpExceptions
-        const logMessage = `${exception.name || 'HttpException'}: ${Array.isArray(message) ? message.join(', ') : message} - Status: ${status} - Path: ${request.method} ${request.url}`;
+        const logMessage = `${exception.name || 'HttpException'}: ${Array.isArray(message) ? message.join(', ') : message} - Status: ${status} - Path: ${request.method} ${requestPath}`;
         const logLevel = status >= 500 ? 'error' : 'warn';
         if (logLevel === 'error') {
           this.logger.error(logMessage, stack, GlobalExceptionFilter.name);
@@ -134,7 +136,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       error = validationError.response?.error || 'Validation Error';
 
       this.logger.warn(
-        `Validation Error: ${Array.isArray(message) ? message.join(', ') : message} - Path: ${request.method} ${request.url}`,
+        `Validation Error: ${Array.isArray(message) ? message.join(', ') : message} - Path: ${request.method} ${requestPath}`,
         GlobalExceptionFilter.name,
       );
     }
@@ -151,7 +153,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       stack = dbError.stack;
 
       this.logger.error(
-        `Database Error: ${dbError.message || 'Unknown database error'} - Code: ${error} - Path: ${request.method} ${request.url}`,
+        `Database Error: ${dbError.message || 'Unknown database error'} - Code: ${error} - Path: ${request.method} ${requestPath}`,
         stack,
         GlobalExceptionFilter.name,
       );
@@ -169,7 +171,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
 
       // Log full error details
       this.logger.error(
-        `Unhandled Exception: ${errorMessage} - Path: ${request.method} ${request.url} - UserId: ${request.user?.id || 'anonymous'}`,
+        `Unhandled Exception: ${errorMessage} - Path: ${request.method} ${requestPath} - UserId: ${request.user?.id || 'anonymous'}`,
         errorStack,
         GlobalExceptionFilter.name,
       );
@@ -186,7 +188,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       error: error,
       data: null,
       timestamp: new Date().toISOString(),
-      path: request.url,
+      path: requestPath,
       method: request.method,
     };
 

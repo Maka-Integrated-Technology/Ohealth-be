@@ -276,6 +276,58 @@ export class RefreshSessionService {
     });
   }
 
+  async revokeByCredential(refreshToken: string): Promise<void> {
+    if (!OPAQUE_REFRESH.test(refreshToken)) {
+      throw new UnauthorizedException(sysMsg.TOKEN_INVALID);
+    }
+    const tokenHash = this.hash(refreshToken);
+    const revoked = await this.dataSource.transaction(async (manager) => {
+      const credential = await manager.findOne(RefreshCredential, {
+        where: { token_hash: tokenHash },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!credential) return false;
+      const session = await manager.findOne(AuthSession, {
+        where: { session_id: credential.session_id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (
+        !session ||
+        session.credential_version !== 2 ||
+        session.revoked_at ||
+        session.expires_at <= new Date()
+      ) {
+        return false;
+      }
+      if (
+        credential.consumed_at ||
+        !this.sameSecret(tokenHash, session.refresh_token_hash)
+      ) {
+        session.revoked_at = new Date();
+        await manager.save(session);
+        await this.audit.recordInTransaction(manager, {
+          event_type: AuthSecurityEventType.SESSION_REUSE,
+          outcome: AuthSecurityEventOutcome.DENIED,
+          actor_user_id: session.user_id,
+          subject_user_id: session.user_id,
+          session_id: session.session_id,
+        });
+        return false;
+      }
+      session.revoked_at = new Date();
+      await manager.save(session);
+      await this.audit.recordInTransaction(manager, {
+        event_type: AuthSecurityEventType.LOGOUT,
+        outcome: AuthSecurityEventOutcome.SUCCEEDED,
+        actor_user_id: session.user_id,
+        subject_user_id: session.user_id,
+        session_id: session.session_id,
+      });
+      return true;
+    });
+    if (!revoked) throw new UnauthorizedException(sysMsg.TOKEN_INVALID);
+  }
+
   async revokeAll(userId: string): Promise<void> {
     await this.dataSource.transaction((manager) =>
       this.revokeAllInTransaction(manager, userId),

@@ -58,5 +58,6 @@ import { OAuthService } from './oauth.service';
     AuthRoutingService,
     AuthAbuseGuard,
   ],
+  exports: [OAuthService],
 })
 export class OAuthModule {}

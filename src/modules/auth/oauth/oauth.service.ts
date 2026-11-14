@@ -96,10 +96,10 @@ export class OAuthService {
     });
   }
 
-  async complete(dto: CompleteGoogleOAuthDto) {
+  async complete(dto: CompleteGoogleOAuthDto, expectedConsumer: OAuthConsumer) {
     this.transactions.assertReady();
     try {
-      return await this.completeVerified(dto);
+      return await this.completeVerified(dto, expectedConsumer);
     } catch (error) {
       const safeError =
         error instanceof OAuthException
@@ -119,11 +119,17 @@ export class OAuthService {
     }
   }
 
-  private async completeVerified(dto: CompleteGoogleOAuthDto) {
+  private async completeVerified(
+    dto: CompleteGoogleOAuthDto,
+    expectedConsumer: OAuthConsumer,
+  ) {
     const preview = await this.transactions.load(
       dto.transaction_id,
       dto.transaction_token,
     );
+    if (preview.consumer !== expectedConsumer) {
+      throw new OAuthException('OAUTH_TRANSACTION_INVALID');
+    }
     // Claim first so every completion attempt, including an invalid provider
     // proof, burns the one-time transaction and cannot be brute-forced.
     const transaction = await this.dataSource.transaction((manager) =>
@@ -135,7 +141,8 @@ export class OAuthService {
     );
     if (
       transaction.audience !== preview.audience ||
-      transaction.nonce_hash !== preview.nonce_hash
+      transaction.nonce_hash !== preview.nonce_hash ||
+      transaction.consumer !== expectedConsumer
     ) {
       throw new OAuthException('OAUTH_TRANSACTION_INVALID');
     }
@@ -474,6 +481,7 @@ export class OAuthService {
       email: user.email,
       first_name: user.first_name,
       last_name: user.last_name,
+      role: user.role,
     };
   }
 }

@@ -50,7 +50,7 @@ test('exposes every canonical operationId exactly once', async () => {
     transport: async () => ({ status: 200, data: {} }),
   });
 
-  assert.equal(operationIds.length, 104);
+  assert.equal(operationIds.length, 109);
   assert.deepEqual(Object.keys(client).sort(), operationIds);
 });
 
@@ -121,6 +121,28 @@ test('passes request bodies and media type metadata to the transport', async () 
     email: 'person@example.com',
     password: 'SecurePassword123!',
   });
+});
+
+test('keeps browser refresh distinct and credential-free in generated input', async () => {
+  let capturedRequest;
+  const client = createApiClient({
+    baseUrl: 'https://api.ohealth.example',
+    transport: async (request) => {
+      capturedRequest = request;
+      return { status: 200, data: { access_token: 'token' } };
+    },
+  });
+
+  await client.BrowserSessionController_refresh({
+    headerParameters: { 'X-OHealth-Client': 'browser' },
+  });
+
+  assert.equal(capturedRequest.operationId, 'BrowserSessionController_refresh');
+  assert.deepEqual(capturedRequest.headers, {
+    'X-OHealth-Client': 'browser',
+  });
+  assert.equal(capturedRequest.body, undefined);
+  assert.equal(capturedRequest.cookies, undefined);
 });
 
 test('preserves the backend error response envelope', async () => {

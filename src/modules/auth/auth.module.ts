@@ -13,6 +13,11 @@ import { UserModule } from '../user/user.module';
 import { AuthRoutingService } from './auth-routing.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { BrowserSessionCookieService } from './browser/browser-session-cookie.service';
+import { BrowserSessionTransportService } from './browser/browser-session-transport.service';
+import { BrowserSessionConfig } from './browser/browser-session.config';
+import { BrowserSessionController } from './browser/browser-session.controller';
+import { BrowserSessionGuard } from './browser/browser-session.guard';
 import { AuthAbuseGuard } from './challenges/auth-abuse.guard';
 import { AuthChallengeModule } from './challenges/auth-challenge.module';
 import { SecureAuthChallengeFlowsService } from './challenges/secure-auth-challenge-flows.service';
@@ -47,9 +52,17 @@ import { TwoFactorAuthService } from './two-factor-auth.service';
       LaboratoryStaff,
     ]),
   ],
-  controllers: [AuthController, TwoFactorAuthController],
+  controllers: [
+    AuthController,
+    BrowserSessionController,
+    TwoFactorAuthController,
+  ],
   providers: [
     AuthService,
+    BrowserSessionConfig,
+    BrowserSessionCookieService,
+    BrowserSessionGuard,
+    BrowserSessionTransportService,
     SecureAuthChallengeFlowsService,
     AuthRoutingService,
     AuthAbuseGuard,

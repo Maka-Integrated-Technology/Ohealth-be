@@ -32,14 +32,17 @@ const POLICY = new Map<string, { ip: number; subject: number }>([
   ['/auth/signup', { ip: 8, subject: 4 }],
   ['/auth/login', { ip: 20, subject: 8 }],
   ['/auth/login/verify', { ip: 20, subject: 8 }],
+  ['/auth/browser/login/verify', { ip: 20, subject: 8 }],
   ['/auth/login/resend', { ip: 8, subject: 4 }],
   ['/auth/verify', { ip: 20, subject: 8 }],
+  ['/auth/browser/verify', { ip: 20, subject: 8 }],
   ['/auth/verify/resend', { ip: 8, subject: 4 }],
   ['/auth/forgot-password', { ip: 8, subject: 4 }],
   ['/auth/forgot-password/resend', { ip: 8, subject: 4 }],
   ['/auth/reset-password', { ip: 8, subject: 5 }],
   ['/auth/oauth/google/transactions', { ip: 12, subject: 6 }],
   ['/auth/oauth/google/complete', { ip: 12, subject: 5 }],
+  ['/auth/browser/oauth/google/complete', { ip: 12, subject: 5 }],
 ]);
 
 /** Only trust forwarding addresses from explicitly allowlisted proxy hops. */

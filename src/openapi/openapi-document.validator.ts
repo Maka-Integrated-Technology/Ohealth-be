@@ -34,6 +34,11 @@ const HTTP_METHODS = [
 ] as const;
 
 const PUBLIC_OPERATION_IDS = new Set([
+  'BrowserSessionController_logout',
+  'BrowserSessionController_completeGoogle',
+  'BrowserSessionController_refresh',
+  'BrowserSessionController_verifyLogin',
+  'BrowserSessionController_verifySignup',
   'AuthController_forgotPassword',
   'AuthController_googleLogin',
   'AuthController_login',
@@ -58,6 +63,8 @@ const PUBLIC_OPERATION_IDS = new Set([
 const PUBLIC_DISCOVERY_PATH_PREFIX = `/${OPENAPI_API_PREFIX}/${PUBLIC_DISCOVERY_ROUTE_NAMESPACE}/`;
 
 const AUTH_CHALLENGE_ERROR_RESPONSES = new Map<string, readonly string[]>([
+  ['BrowserSessionController_verifyLogin', ['400']],
+  ['BrowserSessionController_verifySignup', ['400']],
   ['AuthController_forgotPassword', ['429', '503']],
   ['AuthController_login', ['429', '503']],
   ['AuthController_resendLogin', ['400', '429', '503']],
