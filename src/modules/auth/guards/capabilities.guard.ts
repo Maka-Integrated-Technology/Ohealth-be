@@ -1,6 +1,7 @@
 import {
   CanActivate,
   ExecutionContext,
+  ForbiddenException,
   Injectable,
   Optional,
   UnauthorizedException,
@@ -34,10 +35,21 @@ export class CapabilitiesGuard implements CanActivate {
     if (!this.contexts) {
       throw new UnauthorizedException('authorization context is unavailable');
     }
+    const requiresOrganization = required.some((capability) =>
+      capability.startsWith('organization.'),
+    );
+    const organizationHeader = request.headers['x-organization-id'];
+    const activeOrganizationId = Array.isArray(organizationHeader)
+      ? organizationHeader[0]
+      : organizationHeader;
+    if (requiresOrganization && !activeOrganizationId) {
+      throw new ForbiddenException('active organization is required');
+    }
     const accountContext = await this.contexts.assertCapabilities(
       user.id,
       user.sessionId,
       required,
+      activeOrganizationId,
     );
     (request as IRequestWithUser & { authContext?: unknown }).authContext =
       accountContext;

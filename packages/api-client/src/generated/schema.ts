@@ -1717,6 +1717,29 @@ export interface components {
       /** @example 200 */
       readonly status_code: number;
     };
+    readonly AuthAccountProfileResponseDto: {
+      readonly country: string | null;
+      readonly dob: string | null;
+      readonly gender: string | null;
+      readonly image: string | null;
+      readonly middle_name: string | null;
+      readonly phone: string | null;
+      /** Format: date-time */
+      readonly updated_at: string;
+    };
+    readonly AuthAccountResponseDto: {
+      /** Format: date-time */
+      readonly created_at: string;
+      readonly email: string;
+      readonly email_verified: boolean;
+      readonly first_name: string;
+      /** Format: uuid */
+      readonly id: string;
+      readonly last_name: string;
+      readonly profile: components['schemas']['AuthAccountProfileResponseDto'];
+      /** @enum {string} */
+      readonly status: AuthAccountResponseDtoStatus;
+    };
     readonly AuthChallengeContinuationDto: {
       /** Format: uuid */
       readonly challenge_id: string;
@@ -1767,12 +1790,86 @@ export interface components {
       readonly timestamp: string;
     };
     readonly AuthContextResponseDto: {
-      readonly account: Record<string, never>;
+      readonly account: components['schemas']['AuthAccountResponseDto'];
+      /** Format: uuid */
+      readonly active_organization_id: string | null;
       readonly capabilities: readonly string[];
-      readonly memberships: readonly Record<string, never>[];
-      readonly personas: readonly Record<string, never>[];
-      readonly professional: Record<string, never> | null;
-      readonly session: Record<string, never>;
+      readonly memberships: readonly components['schemas']['AuthMembershipResponseDto'][];
+      readonly personas: readonly components['schemas']['AuthPersonaResponseDto'][];
+      readonly professional:
+        components['schemas']['AuthProfessionalResponseDto'] | null;
+      readonly session: components['schemas']['AuthSessionContextResponseDto'];
+    };
+    readonly AuthMembershipResponseDto: {
+      /** Format: uuid */
+      readonly organization_id: string;
+      readonly organization_is_active: boolean;
+      readonly organization_name: string;
+      /** @enum {string} */
+      readonly organization_type: PathsApiOrganizationsOnboardingReviewApplicationsGetParametersQueryOrganization_type;
+      /** @enum {string} */
+      readonly organization_verification_status: PathsApiOrganizationsOnboardingReviewApplicationsGetParametersQueryVerification_status;
+      readonly permission_overrides: readonly string[];
+      /** @enum {string} */
+      readonly role: AuthMembershipResponseDtoRole;
+      /** @enum {string} */
+      readonly status: AuthMembershipResponseDtoStatus;
+    };
+    readonly AuthMeResponseDto: {
+      readonly account_context: components['schemas']['AuthContextResponseDto'];
+      /** @deprecated */
+      readonly country: string | null;
+      /**
+       * Format: date-time
+       * @deprecated
+       */
+      readonly created_at: string;
+      /** @deprecated */
+      readonly dob: string | null;
+      /** @deprecated */
+      readonly email: string;
+      /** @deprecated */
+      readonly first_name: string;
+      /** @deprecated */
+      readonly gender: string | null;
+      /** @deprecated */
+      readonly id: string;
+      /** @deprecated */
+      readonly image: string | null;
+      /** @deprecated */
+      readonly is_active: boolean;
+      /** @deprecated */
+      readonly last_name: string;
+      /** @deprecated */
+      readonly middle_name: string | null;
+      /** @deprecated */
+      readonly phone: string | null;
+      /** @deprecated */
+      readonly role: readonly string[];
+      /**
+       * Format: date-time
+       * @deprecated
+       */
+      readonly updated_at: string;
+    };
+    readonly AuthPersonaResponseDto: {
+      readonly is_active: boolean;
+      /** @enum {string} */
+      readonly type: AuthPersonaResponseDtoType;
+    };
+    readonly AuthProfessionalResponseDto: {
+      readonly is_active: boolean;
+      readonly profile_setup_completed: boolean;
+      /** @enum {string} */
+      readonly verification_status: AuthProfessionalResponseDtoVerification_status;
+    };
+    readonly AuthSessionContextResponseDto: {
+      /** Format: date-time */
+      readonly expires_at: string;
+      /** Format: uuid */
+      readonly id: string;
+      /** Format: date-time */
+      readonly last_used_at: string | null;
     };
     readonly AvailabilitySlotDto: {
       /** @example 2026-07-15 */
@@ -1809,26 +1906,52 @@ export interface components {
       readonly status: string;
     };
     readonly BrowserSessionResponseDto: {
+      /**
+       * @deprecated
+       * @enum {string}
+       */
+      readonly access_level: BrowserSessionResponseDtoAccess_level;
       /** @description Short-lived access JWT for in-memory use only */
       readonly access_token: string;
-      /** @description Server-resolved canonical account context */
-      readonly account_context: Record<string, never>;
+      readonly account_context: components['schemas']['AuthContextResponseDto'];
       /** @example Login success */
       readonly message: string;
+      /**
+       * @deprecated
+       * @enum {string}
+       */
+      readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /** Format: date-time */
       readonly session_expires_at: string;
       /** Format: uuid */
       readonly session_id: string;
+      /** @deprecated */
+      readonly user: Record<string, never>;
+      /** @deprecated */
+      readonly verification_status: string | null;
     };
     readonly BrowserSessionResponseDtoData: {
+      /**
+       * @deprecated
+       * @enum {string}
+       */
+      readonly access_level: BrowserSessionResponseDtoAccess_level;
       /** @description Short-lived access JWT for in-memory use only */
       readonly access_token: string;
-      /** @description Server-resolved canonical account context */
-      readonly account_context: Record<string, never>;
+      readonly account_context: components['schemas']['AuthContextResponseDto'];
+      /**
+       * @deprecated
+       * @enum {string}
+       */
+      readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /** Format: date-time */
       readonly session_expires_at: string;
       /** Format: uuid */
       readonly session_id: string;
+      /** @deprecated */
+      readonly user: Record<string, never>;
+      /** @deprecated */
+      readonly verification_status: string | null;
     };
     readonly BulkCreateAvailabilityDto: {
       readonly slots: readonly components['schemas']['AvailabilitySlotDto'][];
@@ -1957,7 +2080,7 @@ export interface components {
        * @default pending
        * @enum {string}
        */
-      readonly verification_status: CreateProfessionalDtoVerification_status;
+      readonly verification_status: AuthProfessionalResponseDtoVerification_status;
       /** @example 8 */
       readonly years_of_experience?: number;
     };
@@ -1967,10 +2090,10 @@ export interface components {
     };
     readonly CreateReviewDto: {
       /**
-       * @description Booking ID this review is tied to. Prevents duplicate reviews.
+       * @description Completed booking that proves the patient-professional care relationship.
        * @example 123e4567-e89b-12d3-a456-426614174000
        */
-      readonly booking_id?: string;
+      readonly booking_id: string;
       /** @example Very helpful and professional. */
       readonly comment?: string;
       /** @example 5 */
@@ -2065,7 +2188,7 @@ export interface components {
        * @example owner
        * @enum {string}
        */
-      readonly membership_role: LaboratoryAdministratorSetupResponseDtoMembership_role;
+      readonly membership_role: AuthMembershipResponseDtoRole;
       /** @example +2348098765432 */
       readonly phone: string;
       /** @example 550e8400-e29b-41d4-a716-446655440002 */
@@ -2311,12 +2434,17 @@ export interface components {
     };
     readonly LoginResponseDto: {
       /**
+       * @deprecated
+       * @enum {string}
+       */
+      readonly access_level: BrowserSessionResponseDtoAccess_level;
+      /**
        * @description JWT access token with 15 minutes expiration
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
        */
       readonly access_token: string;
       /** @description Server-resolved account, persona, membership, verification, and capability context */
-      readonly account_context: Record<string, never>;
+      readonly account_context: components['schemas']['AuthContextResponseDto'];
       /** @example Login success */
       readonly message: string | null;
       /**
@@ -2324,6 +2452,11 @@ export interface components {
        * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
        */
       readonly refresh_token: string;
+      /**
+       * @deprecated
+       * @enum {string}
+       */
+      readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /**
        * Format: date-time
        * @example 2024-01-15T10:30:00Z
@@ -2333,20 +2466,34 @@ export interface components {
       readonly session_id: string | null;
       /** @example 200 */
       readonly status_code: number | null;
+      /** @deprecated */
+      readonly user: Record<string, never>;
+      /** @deprecated */
+      readonly verification_status: string | null;
     };
     readonly LoginResponseDtoData: {
+      /**
+       * @deprecated
+       * @enum {string}
+       */
+      readonly access_level: BrowserSessionResponseDtoAccess_level;
       /**
        * @description JWT access token with 15 minutes expiration
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
        */
       readonly access_token: string;
       /** @description Server-resolved account, persona, membership, verification, and capability context */
-      readonly account_context: Record<string, never>;
+      readonly account_context: components['schemas']['AuthContextResponseDto'];
       /**
        * @description Opaque, rotating refresh credential
        * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
        */
       readonly refresh_token: string;
+      /**
+       * @deprecated
+       * @enum {string}
+       */
+      readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /**
        * Format: date-time
        * @example 2024-01-15T10:30:00Z
@@ -2354,6 +2501,10 @@ export interface components {
       readonly session_expires_at: string | null;
       /** @example 550e8400-e29b-41d4-a716-446655440000 */
       readonly session_id: string | null;
+      /** @deprecated */
+      readonly user: Record<string, never>;
+      /** @deprecated */
+      readonly verification_status: string | null;
     };
     readonly LogoutDto: {
       /**
@@ -2446,7 +2597,7 @@ export interface components {
       readonly full_name: string;
       readonly id: string;
       /** @enum {string} */
-      readonly membership_role: LaboratoryAdministratorSetupResponseDtoMembership_role;
+      readonly membership_role: AuthMembershipResponseDtoRole;
       readonly phone: string;
       readonly user_id: string;
     };
@@ -2661,7 +2812,7 @@ export interface components {
       readonly updated_at: string;
       readonly user_id: string;
       /** @enum {string} */
-      readonly verification_status: CreateProfessionalDtoVerification_status;
+      readonly verification_status: AuthProfessionalResponseDtoVerification_status;
       readonly years_of_experience: number;
     };
     readonly ProfessionalMeResponseDto: {
@@ -2908,12 +3059,12 @@ export interface components {
        * @example verified
        * @enum {string}
        */
-      readonly new_status: CreateProfessionalDtoVerification_status;
+      readonly new_status: AuthProfessionalResponseDtoVerification_status;
       /**
        * @example pending
        * @enum {string|null}
        */
-      readonly previous_status: CreateProfessionalDtoVerification_status;
+      readonly previous_status: AuthProfessionalResponseDtoVerification_status;
       /** @example null */
       readonly reason: string | null;
     };
@@ -2926,7 +3077,7 @@ export interface components {
        * @example pending
        * @enum {string}
        */
-      readonly verification_status: CreateProfessionalDtoVerification_status;
+      readonly verification_status: AuthProfessionalResponseDtoVerification_status;
     };
     readonly PublicAvailabilityDayDto: {
       /**
@@ -3056,12 +3207,17 @@ export interface components {
     };
     readonly RefreshTokenResponseDto: {
       /**
+       * @deprecated
+       * @enum {string}
+       */
+      readonly access_level: BrowserSessionResponseDtoAccess_level;
+      /**
        * @description JWT access token with 15 minutes expiration
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
        */
       readonly access_token: string;
       /** @description Server-resolved account, persona, membership, verification, and capability context */
-      readonly account_context: Record<string, never>;
+      readonly account_context: components['schemas']['AuthContextResponseDto'];
       /** @example Token refresh successful */
       readonly message: string | null;
       /**
@@ -3069,6 +3225,11 @@ export interface components {
        * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
        */
       readonly refresh_token: string;
+      /**
+       * @deprecated
+       * @enum {string}
+       */
+      readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /**
        * Format: date-time
        * @example 2024-01-15T10:30:00Z
@@ -3078,20 +3239,34 @@ export interface components {
       readonly session_id: string;
       /** @example 200 */
       readonly status_code: number | null;
+      /** @deprecated */
+      readonly user: Record<string, never>;
+      /** @deprecated */
+      readonly verification_status: string | null;
     };
     readonly RefreshTokenResponseDtoData: {
+      /**
+       * @deprecated
+       * @enum {string}
+       */
+      readonly access_level: BrowserSessionResponseDtoAccess_level;
       /**
        * @description JWT access token with 15 minutes expiration
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
        */
       readonly access_token: string;
       /** @description Server-resolved account, persona, membership, verification, and capability context */
-      readonly account_context: Record<string, never>;
+      readonly account_context: components['schemas']['AuthContextResponseDto'];
       /**
        * @description Opaque, rotating refresh credential
        * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
        */
       readonly refresh_token: string;
+      /**
+       * @deprecated
+       * @enum {string}
+       */
+      readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /**
        * Format: date-time
        * @example 2024-01-15T10:30:00Z
@@ -3099,6 +3274,10 @@ export interface components {
       readonly session_expires_at: string;
       /** @example 550e8400-e29b-41d4-a716-446655440000 */
       readonly session_id: string;
+      /** @deprecated */
+      readonly user: Record<string, never>;
+      /** @deprecated */
+      readonly verification_status: string | null;
     };
     readonly RegisterAccountDto: {
       /** @example 2026-08-01 */
@@ -3339,7 +3518,7 @@ export interface components {
        * @default pending
        * @enum {string}
        */
-      readonly verification_status: CreateProfessionalDtoVerification_status;
+      readonly verification_status: AuthProfessionalResponseDtoVerification_status;
       /** @example 8 */
       readonly years_of_experience?: number;
     };
@@ -3438,12 +3617,17 @@ export interface components {
     };
     readonly VerifySignupResponseDto: {
       /**
+       * @deprecated
+       * @enum {string}
+       */
+      readonly access_level: BrowserSessionResponseDtoAccess_level;
+      /**
        * @description JWT access token with 15 minutes expiration
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
        */
       readonly access_token: string;
       /** @description Server-resolved account, persona, membership, verification, and capability context */
-      readonly account_context: Record<string, never>;
+      readonly account_context: components['schemas']['AuthContextResponseDto'];
       /** @example account verified */
       readonly message: string | null;
       /**
@@ -3451,6 +3635,11 @@ export interface components {
        * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
        */
       readonly refresh_token: string;
+      /**
+       * @deprecated
+       * @enum {string}
+       */
+      readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /**
        * Format: date-time
        * @example 2024-01-15T10:30:00Z
@@ -3460,20 +3649,34 @@ export interface components {
       readonly session_id: string | null;
       /** @example 200 */
       readonly status_code: number | null;
+      /** @deprecated */
+      readonly user: Record<string, never>;
+      /** @deprecated */
+      readonly verification_status: string | null;
     };
     readonly VerifySignupResponseDtoData: {
+      /**
+       * @deprecated
+       * @enum {string}
+       */
+      readonly access_level: BrowserSessionResponseDtoAccess_level;
       /**
        * @description JWT access token with 15 minutes expiration
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
        */
       readonly access_token: string;
       /** @description Server-resolved account, persona, membership, verification, and capability context */
-      readonly account_context: Record<string, never>;
+      readonly account_context: components['schemas']['AuthContextResponseDto'];
       /**
        * @description Opaque, rotating refresh credential
        * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
        */
       readonly refresh_token: string;
+      /**
+       * @deprecated
+       * @enum {string}
+       */
+      readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /**
        * Format: date-time
        * @example 2024-01-15T10:30:00Z
@@ -3481,6 +3684,10 @@ export interface components {
       readonly session_expires_at: string | null;
       /** @example 550e8400-e29b-41d4-a716-446655440000 */
       readonly session_id: string | null;
+      /** @deprecated */
+      readonly user: Record<string, never>;
+      /** @deprecated */
+      readonly verification_status: string | null;
     };
   };
   responses: never;
@@ -4302,7 +4509,7 @@ export interface operations {
         };
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
-            readonly data: components['schemas']['AuthContextResponseDto'];
+            readonly data: components['schemas']['AuthMeResponseDto'];
           };
         };
       };
@@ -4346,7 +4553,7 @@ export interface operations {
         };
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
-            readonly data: components['schemas']['AuthContextResponseDto'];
+            readonly data: components['schemas']['AuthMeResponseDto'];
           };
         };
       };
@@ -5343,7 +5550,10 @@ export interface operations {
   readonly LaboratoryVerificationDocumentsController_listLaboratoryDocuments: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header?: {
+        /** @description Required on laboratory self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path: {
         /** @description Laboratory UUID */
         readonly laboratoryId: string;
@@ -5386,7 +5596,10 @@ export interface operations {
   readonly LaboratoryVerificationDocumentsController_downloadLaboratoryDocument: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header?: {
+        /** @description Required on laboratory self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path: {
         readonly documentType: PathsApiLaboratoriesLaboratoryIdVerificationDocumentsDocumentTypeDownloadGetParametersPathDocumentType;
         /** @description Laboratory UUID */
@@ -5439,7 +5652,10 @@ export interface operations {
   readonly LaboratoryVerificationStatusController_getLaboratoryStatus: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header?: {
+        /** @description Required on laboratory self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path: {
         readonly laboratoryId: string;
       };
@@ -5489,7 +5705,10 @@ export interface operations {
   readonly LaboratoryVerificationStatusController_approve: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header?: {
+        /** @description Required on laboratory self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path: {
         readonly laboratoryId: string;
       };
@@ -5557,7 +5776,10 @@ export interface operations {
   readonly LaboratoryVerificationStatusController_listHistory: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header?: {
+        /** @description Required on laboratory self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path: {
         readonly laboratoryId: string;
       };
@@ -5607,7 +5829,10 @@ export interface operations {
   readonly LaboratoryVerificationStatusController_reject: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header?: {
+        /** @description Required on laboratory self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path: {
         readonly laboratoryId: string;
       };
@@ -5679,7 +5904,10 @@ export interface operations {
   readonly LaboratoryVerificationStatusController_markUnderReview: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header?: {
+        /** @description Required on laboratory self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path: {
         readonly laboratoryId: string;
       };
@@ -5818,7 +6046,11 @@ export interface operations {
   readonly LaboratoryVerificationDocumentsController_listMyDocuments: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+        /** @description Required on laboratory self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -5858,7 +6090,11 @@ export interface operations {
   readonly LaboratoryVerificationDocumentsController_uploadMyDocument: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+        /** @description Required on laboratory self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path: {
         readonly documentType: PathsApiLaboratoriesLaboratoryIdVerificationDocumentsDocumentTypeDownloadGetParametersPathDocumentType;
       };
@@ -5936,7 +6172,11 @@ export interface operations {
   readonly LaboratoryVerificationDocumentsController_deleteMyDocument: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+        /** @description Required on laboratory self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path: {
         readonly documentType: PathsApiLaboratoriesLaboratoryIdVerificationDocumentsDocumentTypeDownloadGetParametersPathDocumentType;
       };
@@ -5988,7 +6228,11 @@ export interface operations {
   readonly LaboratoryVerificationDocumentsController_downloadMyDocument: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+        /** @description Required on laboratory self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path: {
         readonly documentType: PathsApiLaboratoriesLaboratoryIdVerificationDocumentsDocumentTypeDownloadGetParametersPathDocumentType;
       };
@@ -6039,7 +6283,11 @@ export interface operations {
   readonly LaboratoryVerificationStatusController_getMyStatus: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+        /** @description Required on laboratory self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -6087,7 +6335,11 @@ export interface operations {
   readonly LaboratoryVerificationStatusController_submitMyVerification: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+        /** @description Required on laboratory self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -6144,7 +6396,9 @@ export interface operations {
   readonly LaboratoryPostApprovalController_listOperatingHours: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -6192,7 +6446,9 @@ export interface operations {
   readonly LaboratoryPostApprovalController_setOperatingHours: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -6253,7 +6509,9 @@ export interface operations {
   readonly LaboratoryPostApprovalController_listStaff: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -6301,7 +6559,9 @@ export interface operations {
   readonly LaboratoryPostApprovalController_inviteStaff: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -6423,7 +6683,9 @@ export interface operations {
   readonly LaboratoryPostApprovalController_listTests: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -6471,7 +6733,9 @@ export interface operations {
   readonly LaboratoryPostApprovalController_createTest: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -6541,7 +6805,9 @@ export interface operations {
   readonly LaboratoryPostApprovalController_updateTest: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path: {
         readonly testId: string;
       };
@@ -6622,7 +6888,10 @@ export interface operations {
   readonly OrganizationController_listForReview: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header?: {
+        /** @description Required on organization-scoped self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path: {
         readonly organizationId: string;
       };
@@ -6672,7 +6941,10 @@ export interface operations {
   readonly OrganizationController_downloadForReview: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header?: {
+        /** @description Required on organization-scoped self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path: {
         readonly documentType: string;
         readonly organizationId: string;
@@ -6723,7 +6995,10 @@ export interface operations {
   readonly OrganizationController_getStatus: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header?: {
+        /** @description Required on organization-scoped self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path: {
         readonly organizationId: string;
       };
@@ -6764,7 +7039,10 @@ export interface operations {
   readonly OrganizationController_approve: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header?: {
+        /** @description Required on organization-scoped self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path: {
         readonly organizationId: string;
       };
@@ -6814,7 +7092,10 @@ export interface operations {
   readonly OrganizationController_listHistory: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header?: {
+        /** @description Required on organization-scoped self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path: {
         readonly organizationId: string;
       };
@@ -6855,7 +7136,10 @@ export interface operations {
   readonly OrganizationController_reject: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header?: {
+        /** @description Required on organization-scoped self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path: {
         readonly organizationId: string;
       };
@@ -6909,7 +7193,10 @@ export interface operations {
   readonly OrganizationController_markUnderReview: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header?: {
+        /** @description Required on organization-scoped self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path: {
         readonly organizationId: string;
       };
@@ -6959,7 +7246,10 @@ export interface operations {
   readonly OrganizationController_setup: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header?: {
+        /** @description Required on organization-scoped self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -7020,7 +7310,11 @@ export interface operations {
   readonly OrganizationController_listMine: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+        /** @description Required on organization-scoped self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -7068,7 +7362,11 @@ export interface operations {
   readonly OrganizationController_uploadMine: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+        /** @description Required on organization-scoped self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path: {
         readonly documentType: string;
       };
@@ -7137,7 +7435,11 @@ export interface operations {
   readonly OrganizationController_deleteMine: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+        /** @description Required on organization-scoped self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path: {
         readonly documentType: string;
       };
@@ -7189,7 +7491,11 @@ export interface operations {
   readonly OrganizationController_downloadMine: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+        /** @description Required on organization-scoped self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path: {
         readonly documentType: string;
       };
@@ -7239,7 +7545,11 @@ export interface operations {
   readonly OrganizationController_getMyStatus: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+        /** @description Required on organization-scoped self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -7278,7 +7588,11 @@ export interface operations {
   readonly OrganizationController_submitMine: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+        /** @description Required on organization-scoped self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -7331,7 +7645,10 @@ export interface operations {
         readonly page?: number;
         readonly verification_status?: PathsApiOrganizationsOnboardingReviewApplicationsGetParametersQueryVerification_status;
       };
-      readonly header?: never;
+      readonly header?: {
+        /** @description Required on organization-scoped self-service routes */
+        readonly 'X-Organization-Id'?: string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -9235,6 +9552,12 @@ export enum PathsApiProfessionalsMePatientsGetParametersQuerySort_order {
   asc = 'asc',
   desc = 'desc',
 }
+export enum AuthAccountResponseDtoStatus {
+  pending_verification = 'pending_verification',
+  active = 'active',
+  suspended = 'suspended',
+  deactivated = 'deactivated',
+}
 export enum AuthChallengeErrorResponseDtoError_code {
   AUTH_CHALLENGE_INVALID = 'AUTH_CHALLENGE_INVALID',
   AUTH_CHALLENGE_CODE_INVALID = 'AUTH_CHALLENGE_CODE_INVALID',
@@ -9247,9 +9570,48 @@ export enum AuthChallengeErrorResponseDtoError_code {
   AUTH_SERVICE_TEMPORARILY_UNAVAILABLE = 'AUTH_SERVICE_TEMPORARILY_UNAVAILABLE',
   AUTH_RATE_LIMITED = 'AUTH_RATE_LIMITED',
 }
+export enum AuthMembershipResponseDtoRole {
+  owner = 'owner',
+  admin = 'admin',
+  member = 'member',
+}
+export enum AuthMembershipResponseDtoStatus {
+  invited = 'invited',
+  active = 'active',
+  suspended = 'suspended',
+  removed = 'removed',
+}
+export enum AuthPersonaResponseDtoType {
+  patient = 'patient',
+  healthcare_professional = 'healthcare_professional',
+}
+export enum AuthProfessionalResponseDtoVerification_status {
+  pending = 'pending',
+  verified = 'verified',
+  rejected = 'rejected',
+}
 export enum BookingResponseDtoPayment_status {
   paid = 'paid',
   unpaid = 'unpaid',
+}
+export enum BrowserSessionResponseDtoAccess_level {
+  full = 'full',
+  limited = 'limited',
+}
+export enum BrowserSessionResponseDtoRouting_target {
+  email_verification = 'email_verification',
+  admin_dashboard = 'admin_dashboard',
+  patient_home = 'patient_home',
+  professional_verification = 'professional_verification',
+  professional_dashboard = 'professional_dashboard',
+  hospital_verification = 'hospital_verification',
+  hospital_dashboard = 'hospital_dashboard',
+  laboratory_verification = 'laboratory_verification',
+  laboratory_dashboard = 'laboratory_dashboard',
+  pharmacy_verification = 'pharmacy_verification',
+  pharmacy_dashboard = 'pharmacy_dashboard',
+  account_setup = 'account_setup',
+  account_restricted = 'account_restricted',
 }
 export enum ChatMessageResponseDtoSender {
   user = 'user',
@@ -9264,22 +9626,12 @@ export enum CreateBookingDtoConsultation_type {
   chat = 'chat',
   video = 'video',
 }
-export enum CreateProfessionalDtoVerification_status {
-  pending = 'pending',
-  verified = 'verified',
-  rejected = 'rejected',
-}
 export enum InviteLaboratoryStaffDtoRole {
   manager = 'manager',
   scientist = 'scientist',
   technician = 'technician',
   phlebotomist = 'phlebotomist',
   receptionist = 'receptionist',
-}
-export enum LaboratoryAdministratorSetupResponseDtoMembership_role {
-  owner = 'owner',
-  admin = 'admin',
-  member = 'member',
 }
 export enum LaboratoryOperatingHourResponseDtoDay_of_week {
   monday = 'monday',

@@ -45,6 +45,7 @@ export class AuthContextService {
   async resolve(
     userId: string,
     sessionId: string,
+    activeOrganizationId?: string,
   ): Promise<IAuthAccountContext> {
     const [
       user,
@@ -83,6 +84,14 @@ export class AuthContextService {
         membership.status === OrganizationMembershipStatus.ACTIVE &&
         membership.organization,
     );
+    const activeMembership = activeOrganizationId
+      ? activeMemberships.find(
+          (membership) => membership.organization_id === activeOrganizationId,
+        )
+      : undefined;
+    if (activeOrganizationId && !activeMembership) {
+      throw new ForbiddenException('active organization membership not found');
+    }
     const capabilities = new Set<string>([
       AuthCapability.ACCOUNT_CONTEXT_READ,
       AuthCapability.ACCOUNT_PROFILE_READ,
@@ -123,9 +132,9 @@ export class AuthContextService {
       }
     }
 
-    for (const membership of activeMemberships) {
+    if (activeMembership?.organization.is_active) {
+      const membership = activeMembership;
       const organization = membership.organization;
-      if (!organization.is_active) continue;
       capabilities.add(AuthCapability.ORGANIZATION_MEMBER);
       if (
         membership.role === OrganizationMembershipRole.OWNER ||
@@ -140,9 +149,13 @@ export class AuthContextService {
       ) {
         capabilities.add(AuthCapability.ORGANIZATION_OPERATIONAL);
       }
+      for (const capability of membership.permission_overrides ?? []) {
+        capabilities.add(capability);
+      }
     }
 
     return {
+      active_organization_id: activeMembership?.organization_id ?? null,
       account: {
         id: user.id,
         email: user.email,
@@ -196,8 +209,9 @@ export class AuthContextService {
     userId: string,
     sessionId: string,
     required: readonly string[],
+    activeOrganizationId?: string,
   ): Promise<IAuthAccountContext> {
-    const context = await this.resolve(userId, sessionId);
+    const context = await this.resolve(userId, sessionId, activeOrganizationId);
     if (
       !required.every((capability) => context.capabilities.includes(capability))
     ) {

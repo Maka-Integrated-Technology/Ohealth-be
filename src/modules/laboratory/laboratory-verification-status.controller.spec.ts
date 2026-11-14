@@ -88,17 +88,23 @@ describe('LaboratoryVerificationStatusController', () => {
   it('should delegate current lab status lookup to service with current user id', async () => {
     service.getMyStatus.mockResolvedValue({} as never);
 
-    await controller.getMyStatus(currentUser);
+    await controller.getMyStatus(currentUser, 'laboratory-id');
 
-    expect(service.getMyStatus).toHaveBeenCalledWith('user-id');
+    expect(service.getMyStatus).toHaveBeenCalledWith(
+      'user-id',
+      'laboratory-id',
+    );
   });
 
   it('should delegate submit to service with current user id', async () => {
     service.submitMyVerification.mockResolvedValue({} as never);
 
-    await controller.submitMyVerification(currentUser);
+    await controller.submitMyVerification(currentUser, 'laboratory-id');
 
-    expect(service.submitMyVerification).toHaveBeenCalledWith('user-id');
+    expect(service.submitMyVerification).toHaveBeenCalledWith(
+      'user-id',
+      'laboratory-id',
+    );
   });
 
   it('should delegate admin review actions with laboratory and actor ids', async () => {

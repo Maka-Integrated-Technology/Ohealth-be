@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -9,7 +10,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
 
 import { AuthCapability } from '../auth/context/auth-capability';
 import { RequireCapabilities } from '../auth/decorators/capabilities.decorator';
@@ -40,6 +41,11 @@ interface ICurrentUser {
 
 @ApiTags('Laboratory Verification Status')
 @ApiBearerAuth()
+@ApiHeader({
+  name: 'X-Organization-Id',
+  required: false,
+  description: 'Required on laboratory self-service routes',
+})
 @UseGuards(JwtAuthGuard, CapabilitiesGuard)
 @Controller('laboratories')
 export class LaboratoryVerificationStatusController {
@@ -52,8 +58,9 @@ export class LaboratoryVerificationStatusController {
   @GetMyLaboratoryVerificationStatusDocs()
   getMyStatus(
     @CurrentUser() user: ICurrentUser,
+    @Headers('x-organization-id') laboratoryId: string,
   ): Promise<LaboratoryVerificationStatusResponseDto> {
-    return this.verificationStatusService.getMyStatus(user.id);
+    return this.verificationStatusService.getMyStatus(user.id, laboratoryId);
   }
 
   @Post('me/verification-status/submit')
@@ -62,8 +69,12 @@ export class LaboratoryVerificationStatusController {
   @SubmitMyLaboratoryVerificationDocs()
   submitMyVerification(
     @CurrentUser() user: ICurrentUser,
+    @Headers('x-organization-id') laboratoryId: string,
   ): Promise<LaboratoryVerificationStatusResponseDto> {
-    return this.verificationStatusService.submitMyVerification(user.id);
+    return this.verificationStatusService.submitMyVerification(
+      user.id,
+      laboratoryId,
+    );
   }
 
   @Get(':laboratoryId/verification-status')

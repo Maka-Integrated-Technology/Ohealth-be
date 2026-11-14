@@ -3,6 +3,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 
+import { Organization } from '../organization/entities/organization.entity';
+
 import { LaboratoryAdmin } from './entities/laboratory-admin.entity';
 import { LaboratoryVerificationDocument } from './entities/laboratory-verification-document.entity';
 import { LaboratoryVerificationStatusHistory } from './entities/laboratory-verification-status-history.entity';
@@ -36,6 +38,10 @@ describe('LaboratoryVerificationStatusService', () => {
     ),
     save: jest.fn(),
     find: jest.fn(),
+  };
+  const mockOrganizationRepository = {
+    findOne: jest.fn(),
+    save: jest.fn(),
   };
 
   const mockVerificationDocumentsService = {
@@ -75,6 +81,10 @@ describe('LaboratoryVerificationStatusService', () => {
           useValue: mockHistoryRepository,
         },
         {
+          provide: getRepositoryToken(Organization),
+          useValue: mockOrganizationRepository,
+        },
+        {
           provide: LaboratoryVerificationDocumentsService,
           useValue: mockVerificationDocumentsService,
         },
@@ -107,6 +117,14 @@ describe('LaboratoryVerificationStatusService', () => {
     mockLaboratoryRepository.save.mockImplementation(
       async (laboratory: Laboratory) => laboratory,
     );
+    mockOrganizationRepository.findOne.mockResolvedValue({
+      id: 'laboratory-id',
+      verification_status: 'pending',
+      rejection_reason: null,
+    });
+    mockOrganizationRepository.save.mockImplementation(
+      async (organization: Organization) => organization,
+    );
     mockHistoryRepository.save.mockImplementation(
       async (history: Partial<LaboratoryVerificationStatusHistory>) => ({
         id: 'history-id',
@@ -121,10 +139,13 @@ describe('LaboratoryVerificationStatusService', () => {
       laboratory: pendingLaboratory,
     });
 
-    const result = await service.getMyStatus('admin-user-id');
+    const result = await service.getMyStatus('admin-user-id', 'laboratory-id');
 
     expect(mockLaboratoryAdminRepository.findOne).toHaveBeenCalledWith({
-      where: { user_id: 'admin-user-id' },
+      where: {
+        user_id: 'admin-user-id',
+        laboratory_id: 'laboratory-id',
+      },
       relations: ['laboratory'],
     });
     expect(result).toEqual({
@@ -148,7 +169,10 @@ describe('LaboratoryVerificationStatusService', () => {
       ...pendingLaboratory,
     });
 
-    const result = await service.submitMyVerification('admin-user-id');
+    const result = await service.submitMyVerification(
+      'admin-user-id',
+      'laboratory-id',
+    );
 
     expect(mockDocumentRepository.find).toHaveBeenCalledWith({
       where: { laboratory_id: 'laboratory-id' },
@@ -190,9 +214,9 @@ describe('LaboratoryVerificationStatusService', () => {
       },
     );
 
-    await expect(service.submitMyVerification('admin-user-id')).rejects.toThrow(
-      BadRequestException,
-    );
+    await expect(
+      service.submitMyVerification('admin-user-id', 'laboratory-id'),
+    ).rejects.toThrow(BadRequestException);
 
     expect(mockLaboratoryRepository.save).not.toHaveBeenCalled();
     expect(mockHistoryRepository.save).not.toHaveBeenCalled();

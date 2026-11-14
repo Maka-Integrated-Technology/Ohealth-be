@@ -15,6 +15,7 @@ import { AuthContextService } from '../context/auth-context.service';
 import { AuthSession } from '../entities/auth.entity';
 import { SignupIntent } from '../enums/signup-intent.enum';
 import { PasswordCredentialsService } from '../password-policy/password-credentials.service';
+import { presentLegacyAuthResponse } from '../presentation/legacy-auth-response.presenter';
 import { AccountProvisioningService } from '../registration/account-provisioning.service';
 import { AuthSecurityAuditService } from '../security-audit/auth-security-audit.service';
 import {
@@ -183,12 +184,14 @@ export class OAuthService {
           user?: unknown;
         };
         delete response.user;
+        const accountContext = await this.authContext.resolve(
+          routed.user.id,
+          sessionId,
+        );
         return {
           ...response,
-          account_context: await this.authContext.resolve(
-            routed.user.id,
-            sessionId,
-          ),
+          account_context: accountContext,
+          ...presentLegacyAuthResponse(accountContext),
         };
       }
     }

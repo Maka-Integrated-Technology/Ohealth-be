@@ -735,25 +735,23 @@ export class ProfessionalService {
     if (!professional)
       throw new NotFoundException(sysMsg.PROFESSIONAL_NOT_FOUND);
 
-    // If booking_id supplied: validate ownership and professional match
-    if (dto.booking_id) {
-      const booking = await this.bookingRepository.findOne({
-        where: { id: dto.booking_id },
-      });
-      if (
-        !booking ||
-        booking.patient_id !== reviewerId ||
-        booking.professional_id !== professionalId
-      ) {
-        throw new BadRequestException(sysMsg.REVIEW_INVALID_BOOKING);
-      }
-
-      // One review per booking
-      const dupReview = await this.reviewRepository.findOne({
-        where: { booking_id: dto.booking_id },
-      });
-      if (dupReview) throw new ConflictException(sysMsg.REVIEW_ALREADY_EXISTS);
+    const booking = await this.bookingRepository.findOne({
+      where: { id: dto.booking_id },
+    });
+    if (
+      !booking ||
+      booking.patient_id !== reviewerId ||
+      booking.professional_id !== professionalId ||
+      booking.status !== BookingStatus.COMPLETED
+    ) {
+      throw new BadRequestException(sysMsg.REVIEW_INVALID_BOOKING);
     }
+
+    const duplicateReview = await this.reviewRepository.findOne({
+      where: { booking_id: dto.booking_id },
+    });
+    if (duplicateReview)
+      throw new ConflictException(sysMsg.REVIEW_ALREADY_EXISTS);
 
     return this.dataSource.transaction(async (manager) => {
       const review = manager.create(ProfessionalReview, {

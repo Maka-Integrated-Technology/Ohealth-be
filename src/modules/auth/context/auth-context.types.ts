@@ -7,6 +7,7 @@ import { ProfessionalVerificationStatus } from '../../professional/entities/prof
 import { AccountStatus } from '../../user/enums/account-status.enum';
 
 export interface IAuthAccountContext {
+  active_organization_id: string | null;
   account: {
     id: string;
     email: string;

@@ -1,5 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+import { UserRole } from '../../user/enums/user-role.enum';
+import { AuthContextResponseDto } from '../dto/auth-response.dto';
+import { AuthAccessLevel, AuthRoutingTarget } from '../enums/auth-routing.enum';
+
 export class BrowserSessionResponseDto {
   @ApiProperty({ example: 'Login success' })
   message: string;
@@ -13,9 +17,24 @@ export class BrowserSessionResponseDto {
   @ApiProperty({ format: 'date-time' })
   session_expires_at: Date;
 
-  @ApiProperty({
-    type: Object,
-    description: 'Server-resolved canonical account context',
-  })
-  account_context: Record<string, unknown>;
+  @ApiProperty({ type: AuthContextResponseDto })
+  account_context: AuthContextResponseDto;
+
+  @ApiProperty({ deprecated: true })
+  user: {
+    id: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+    role: UserRole[];
+  };
+
+  @ApiProperty({ enum: AuthRoutingTarget, deprecated: true })
+  routing_target: AuthRoutingTarget;
+
+  @ApiProperty({ enum: AuthAccessLevel, deprecated: true })
+  access_level: AuthAccessLevel;
+
+  @ApiProperty({ nullable: true, deprecated: true })
+  verification_status: string | null;
 }

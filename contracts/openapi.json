@@ -159,6 +159,95 @@
         ],
         "type": "object"
       },
+      "AuthAccountProfileResponseDto": {
+        "properties": {
+          "country": {
+            "nullable": true,
+            "type": "string"
+          },
+          "dob": {
+            "nullable": true,
+            "type": "string"
+          },
+          "gender": {
+            "nullable": true,
+            "type": "string"
+          },
+          "image": {
+            "nullable": true,
+            "type": "string"
+          },
+          "middle_name": {
+            "nullable": true,
+            "type": "string"
+          },
+          "phone": {
+            "nullable": true,
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "middle_name",
+          "gender",
+          "dob",
+          "phone",
+          "country",
+          "image",
+          "updated_at"
+        ],
+        "type": "object"
+      },
+      "AuthAccountResponseDto": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "email_verified": {
+            "type": "boolean"
+          },
+          "first_name": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "last_name": {
+            "type": "string"
+          },
+          "profile": {
+            "$ref": "#/components/schemas/AuthAccountProfileResponseDto"
+          },
+          "status": {
+            "enum": [
+              "pending_verification",
+              "active",
+              "suspended",
+              "deactivated"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "first_name",
+          "last_name",
+          "status",
+          "email_verified",
+          "created_at",
+          "profile"
+        ],
+        "type": "object"
+      },
       "AuthChallengeContinuationDto": {
         "properties": {
           "challenge_id": {
@@ -297,7 +386,12 @@
       "AuthContextResponseDto": {
         "properties": {
           "account": {
-            "type": "object"
+            "$ref": "#/components/schemas/AuthAccountResponseDto"
+          },
+          "active_organization_id": {
+            "format": "uuid",
+            "nullable": true,
+            "type": "string"
           },
           "capabilities": {
             "items": {
@@ -307,31 +401,261 @@
           },
           "memberships": {
             "items": {
-              "type": "object"
+              "$ref": "#/components/schemas/AuthMembershipResponseDto"
             },
             "type": "array"
           },
           "personas": {
             "items": {
-              "type": "object"
+              "$ref": "#/components/schemas/AuthPersonaResponseDto"
             },
             "type": "array"
           },
           "professional": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuthProfessionalResponseDto"
+              }
+            ],
             "nullable": true,
             "type": "object"
           },
           "session": {
-            "type": "object"
+            "$ref": "#/components/schemas/AuthSessionContextResponseDto"
           }
         },
         "required": [
+          "active_organization_id",
           "account",
           "personas",
           "professional",
           "memberships",
           "capabilities",
           "session"
+        ],
+        "type": "object"
+      },
+      "AuthMeResponseDto": {
+        "properties": {
+          "account_context": {
+            "$ref": "#/components/schemas/AuthContextResponseDto"
+          },
+          "country": {
+            "deprecated": true,
+            "nullable": true,
+            "type": "string"
+          },
+          "created_at": {
+            "deprecated": true,
+            "format": "date-time",
+            "type": "string"
+          },
+          "dob": {
+            "deprecated": true,
+            "nullable": true,
+            "type": "string"
+          },
+          "email": {
+            "deprecated": true,
+            "type": "string"
+          },
+          "first_name": {
+            "deprecated": true,
+            "type": "string"
+          },
+          "gender": {
+            "deprecated": true,
+            "nullable": true,
+            "type": "string"
+          },
+          "id": {
+            "deprecated": true,
+            "type": "string"
+          },
+          "image": {
+            "deprecated": true,
+            "nullable": true,
+            "type": "string"
+          },
+          "is_active": {
+            "deprecated": true,
+            "type": "boolean"
+          },
+          "last_name": {
+            "deprecated": true,
+            "type": "string"
+          },
+          "middle_name": {
+            "deprecated": true,
+            "nullable": true,
+            "type": "string"
+          },
+          "phone": {
+            "deprecated": true,
+            "nullable": true,
+            "type": "string"
+          },
+          "role": {
+            "deprecated": true,
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "updated_at": {
+            "deprecated": true,
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "first_name",
+          "last_name",
+          "role",
+          "middle_name",
+          "gender",
+          "dob",
+          "phone",
+          "country",
+          "image",
+          "is_active",
+          "created_at",
+          "updated_at",
+          "account_context"
+        ],
+        "type": "object"
+      },
+      "AuthMembershipResponseDto": {
+        "properties": {
+          "organization_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "organization_is_active": {
+            "type": "boolean"
+          },
+          "organization_name": {
+            "type": "string"
+          },
+          "organization_type": {
+            "enum": [
+              "hospital",
+              "laboratory",
+              "pharmacy"
+            ],
+            "type": "string"
+          },
+          "organization_verification_status": {
+            "enum": [
+              "pending",
+              "submitted",
+              "under_review",
+              "approved",
+              "rejected"
+            ],
+            "type": "string"
+          },
+          "permission_overrides": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "role": {
+            "enum": [
+              "owner",
+              "admin",
+              "member"
+            ],
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "invited",
+              "active",
+              "suspended",
+              "removed"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "organization_id",
+          "organization_type",
+          "organization_name",
+          "organization_verification_status",
+          "organization_is_active",
+          "role",
+          "status",
+          "permission_overrides"
+        ],
+        "type": "object"
+      },
+      "AuthPersonaResponseDto": {
+        "properties": {
+          "is_active": {
+            "type": "boolean"
+          },
+          "type": {
+            "enum": [
+              "patient",
+              "healthcare_professional"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "is_active"
+        ],
+        "type": "object"
+      },
+      "AuthProfessionalResponseDto": {
+        "properties": {
+          "is_active": {
+            "type": "boolean"
+          },
+          "profile_setup_completed": {
+            "type": "boolean"
+          },
+          "verification_status": {
+            "enum": [
+              "pending",
+              "verified",
+              "rejected"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "verification_status",
+          "profile_setup_completed",
+          "is_active"
+        ],
+        "type": "object"
+      },
+      "AuthSessionContextResponseDto": {
+        "properties": {
+          "expires_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "last_used_at": {
+            "format": "date-time",
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "expires_at",
+          "last_used_at"
         ],
         "type": "object"
       },
@@ -456,16 +780,42 @@
       },
       "BrowserSessionResponseDto": {
         "properties": {
+          "access_level": {
+            "deprecated": true,
+            "enum": [
+              "full",
+              "limited"
+            ],
+            "type": "string"
+          },
           "access_token": {
             "description": "Short-lived access JWT for in-memory use only",
             "type": "string"
           },
           "account_context": {
-            "description": "Server-resolved canonical account context",
-            "type": "object"
+            "$ref": "#/components/schemas/AuthContextResponseDto"
           },
           "message": {
             "example": "Login success",
+            "type": "string"
+          },
+          "routing_target": {
+            "deprecated": true,
+            "enum": [
+              "email_verification",
+              "admin_dashboard",
+              "patient_home",
+              "professional_verification",
+              "professional_dashboard",
+              "hospital_verification",
+              "hospital_dashboard",
+              "laboratory_verification",
+              "laboratory_dashboard",
+              "pharmacy_verification",
+              "pharmacy_dashboard",
+              "account_setup",
+              "account_restricted"
+            ],
             "type": "string"
           },
           "session_expires_at": {
@@ -474,6 +824,15 @@
           },
           "session_id": {
             "format": "uuid",
+            "type": "string"
+          },
+          "user": {
+            "deprecated": true,
+            "type": "object"
+          },
+          "verification_status": {
+            "deprecated": true,
+            "nullable": true,
             "type": "string"
           }
         },
@@ -482,19 +841,49 @@
           "access_token",
           "session_id",
           "session_expires_at",
-          "account_context"
+          "account_context",
+          "user",
+          "routing_target",
+          "access_level",
+          "verification_status"
         ],
         "type": "object"
       },
       "BrowserSessionResponseDtoData": {
         "properties": {
+          "access_level": {
+            "deprecated": true,
+            "enum": [
+              "full",
+              "limited"
+            ],
+            "type": "string"
+          },
           "access_token": {
             "description": "Short-lived access JWT for in-memory use only",
             "type": "string"
           },
           "account_context": {
-            "description": "Server-resolved canonical account context",
-            "type": "object"
+            "$ref": "#/components/schemas/AuthContextResponseDto"
+          },
+          "routing_target": {
+            "deprecated": true,
+            "enum": [
+              "email_verification",
+              "admin_dashboard",
+              "patient_home",
+              "professional_verification",
+              "professional_dashboard",
+              "hospital_verification",
+              "hospital_dashboard",
+              "laboratory_verification",
+              "laboratory_dashboard",
+              "pharmacy_verification",
+              "pharmacy_dashboard",
+              "account_setup",
+              "account_restricted"
+            ],
+            "type": "string"
           },
           "session_expires_at": {
             "format": "date-time",
@@ -503,13 +892,26 @@
           "session_id": {
             "format": "uuid",
             "type": "string"
+          },
+          "user": {
+            "deprecated": true,
+            "type": "object"
+          },
+          "verification_status": {
+            "deprecated": true,
+            "nullable": true,
+            "type": "string"
           }
         },
         "required": [
           "access_token",
           "session_id",
           "session_expires_at",
-          "account_context"
+          "account_context",
+          "user",
+          "routing_target",
+          "access_level",
+          "verification_status"
         ],
         "type": "object"
       },
@@ -838,7 +1240,7 @@
       "CreateReviewDto": {
         "properties": {
           "booking_id": {
-            "description": "Booking ID this review is tied to. Prevents duplicate reviews.",
+            "description": "Completed booking that proves the patient-professional care relationship.",
             "example": "123e4567-e89b-12d3-a456-426614174000",
             "type": "string"
           },
@@ -854,7 +1256,8 @@
           }
         },
         "required": [
-          "rating"
+          "rating",
+          "booking_id"
         ],
         "type": "object"
       },
@@ -1731,14 +2134,26 @@
       },
       "LoginResponseDto": {
         "properties": {
+          "access_level": {
+            "deprecated": true,
+            "enum": [
+              "full",
+              "limited"
+            ],
+            "type": "string"
+          },
           "access_token": {
             "description": "JWT access token with 15 minutes expiration",
             "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
             "type": "string"
           },
           "account_context": {
-            "description": "Server-resolved account, persona, membership, verification, and capability context",
-            "type": "object"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuthContextResponseDto"
+              }
+            ],
+            "description": "Server-resolved account, persona, membership, verification, and capability context"
           },
           "message": {
             "example": "Login success",
@@ -1748,6 +2163,25 @@
           "refresh_token": {
             "description": "Opaque, rotating refresh credential",
             "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
+            "type": "string"
+          },
+          "routing_target": {
+            "deprecated": true,
+            "enum": [
+              "email_verification",
+              "admin_dashboard",
+              "patient_home",
+              "professional_verification",
+              "professional_dashboard",
+              "hospital_verification",
+              "hospital_dashboard",
+              "laboratory_verification",
+              "laboratory_dashboard",
+              "pharmacy_verification",
+              "pharmacy_dashboard",
+              "account_setup",
+              "account_restricted"
+            ],
             "type": "string"
           },
           "session_expires_at": {
@@ -1765,12 +2199,25 @@
             "example": 200,
             "nullable": true,
             "type": "number"
+          },
+          "user": {
+            "deprecated": true,
+            "type": "object"
+          },
+          "verification_status": {
+            "deprecated": true,
+            "nullable": true,
+            "type": "string"
           }
         },
         "required": [
           "access_token",
           "refresh_token",
           "account_context",
+          "user",
+          "routing_target",
+          "access_level",
+          "verification_status",
           "status_code",
           "message",
           "session_id",
@@ -1780,18 +2227,49 @@
       },
       "LoginResponseDtoData": {
         "properties": {
+          "access_level": {
+            "deprecated": true,
+            "enum": [
+              "full",
+              "limited"
+            ],
+            "type": "string"
+          },
           "access_token": {
             "description": "JWT access token with 15 minutes expiration",
             "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
             "type": "string"
           },
           "account_context": {
-            "description": "Server-resolved account, persona, membership, verification, and capability context",
-            "type": "object"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuthContextResponseDto"
+              }
+            ],
+            "description": "Server-resolved account, persona, membership, verification, and capability context"
           },
           "refresh_token": {
             "description": "Opaque, rotating refresh credential",
             "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
+            "type": "string"
+          },
+          "routing_target": {
+            "deprecated": true,
+            "enum": [
+              "email_verification",
+              "admin_dashboard",
+              "patient_home",
+              "professional_verification",
+              "professional_dashboard",
+              "hospital_verification",
+              "hospital_dashboard",
+              "laboratory_verification",
+              "laboratory_dashboard",
+              "pharmacy_verification",
+              "pharmacy_dashboard",
+              "account_setup",
+              "account_restricted"
+            ],
             "type": "string"
           },
           "session_expires_at": {
@@ -1804,12 +2282,25 @@
             "example": "550e8400-e29b-41d4-a716-446655440000",
             "nullable": true,
             "type": "string"
+          },
+          "user": {
+            "deprecated": true,
+            "type": "object"
+          },
+          "verification_status": {
+            "deprecated": true,
+            "nullable": true,
+            "type": "string"
           }
         },
         "required": [
           "access_token",
           "refresh_token",
           "account_context",
+          "user",
+          "routing_target",
+          "access_level",
+          "verification_status",
           "session_id",
           "session_expires_at"
         ],
@@ -4156,14 +4647,26 @@
       },
       "RefreshTokenResponseDto": {
         "properties": {
+          "access_level": {
+            "deprecated": true,
+            "enum": [
+              "full",
+              "limited"
+            ],
+            "type": "string"
+          },
           "access_token": {
             "description": "JWT access token with 15 minutes expiration",
             "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
             "type": "string"
           },
           "account_context": {
-            "description": "Server-resolved account, persona, membership, verification, and capability context",
-            "type": "object"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuthContextResponseDto"
+              }
+            ],
+            "description": "Server-resolved account, persona, membership, verification, and capability context"
           },
           "message": {
             "example": "Token refresh successful",
@@ -4173,6 +4676,25 @@
           "refresh_token": {
             "description": "Opaque, rotating refresh credential",
             "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
+            "type": "string"
+          },
+          "routing_target": {
+            "deprecated": true,
+            "enum": [
+              "email_verification",
+              "admin_dashboard",
+              "patient_home",
+              "professional_verification",
+              "professional_dashboard",
+              "hospital_verification",
+              "hospital_dashboard",
+              "laboratory_verification",
+              "laboratory_dashboard",
+              "pharmacy_verification",
+              "pharmacy_dashboard",
+              "account_setup",
+              "account_restricted"
+            ],
             "type": "string"
           },
           "session_expires_at": {
@@ -4188,12 +4710,25 @@
             "example": 200,
             "nullable": true,
             "type": "number"
+          },
+          "user": {
+            "deprecated": true,
+            "type": "object"
+          },
+          "verification_status": {
+            "deprecated": true,
+            "nullable": true,
+            "type": "string"
           }
         },
         "required": [
           "access_token",
           "refresh_token",
           "account_context",
+          "user",
+          "routing_target",
+          "access_level",
+          "verification_status",
           "status_code",
           "message",
           "session_id",
@@ -4203,18 +4738,49 @@
       },
       "RefreshTokenResponseDtoData": {
         "properties": {
+          "access_level": {
+            "deprecated": true,
+            "enum": [
+              "full",
+              "limited"
+            ],
+            "type": "string"
+          },
           "access_token": {
             "description": "JWT access token with 15 minutes expiration",
             "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
             "type": "string"
           },
           "account_context": {
-            "description": "Server-resolved account, persona, membership, verification, and capability context",
-            "type": "object"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuthContextResponseDto"
+              }
+            ],
+            "description": "Server-resolved account, persona, membership, verification, and capability context"
           },
           "refresh_token": {
             "description": "Opaque, rotating refresh credential",
             "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
+            "type": "string"
+          },
+          "routing_target": {
+            "deprecated": true,
+            "enum": [
+              "email_verification",
+              "admin_dashboard",
+              "patient_home",
+              "professional_verification",
+              "professional_dashboard",
+              "hospital_verification",
+              "hospital_dashboard",
+              "laboratory_verification",
+              "laboratory_dashboard",
+              "pharmacy_verification",
+              "pharmacy_dashboard",
+              "account_setup",
+              "account_restricted"
+            ],
             "type": "string"
           },
           "session_expires_at": {
@@ -4225,12 +4791,25 @@
           "session_id": {
             "example": "550e8400-e29b-41d4-a716-446655440000",
             "type": "string"
+          },
+          "user": {
+            "deprecated": true,
+            "type": "object"
+          },
+          "verification_status": {
+            "deprecated": true,
+            "nullable": true,
+            "type": "string"
           }
         },
         "required": [
           "access_token",
           "refresh_token",
           "account_context",
+          "user",
+          "routing_target",
+          "access_level",
+          "verification_status",
           "session_id",
           "session_expires_at"
         ],
@@ -5051,14 +5630,26 @@
       },
       "VerifySignupResponseDto": {
         "properties": {
+          "access_level": {
+            "deprecated": true,
+            "enum": [
+              "full",
+              "limited"
+            ],
+            "type": "string"
+          },
           "access_token": {
             "description": "JWT access token with 15 minutes expiration",
             "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
             "type": "string"
           },
           "account_context": {
-            "description": "Server-resolved account, persona, membership, verification, and capability context",
-            "type": "object"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuthContextResponseDto"
+              }
+            ],
+            "description": "Server-resolved account, persona, membership, verification, and capability context"
           },
           "message": {
             "example": "account verified",
@@ -5068,6 +5659,25 @@
           "refresh_token": {
             "description": "Opaque, rotating refresh credential",
             "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
+            "type": "string"
+          },
+          "routing_target": {
+            "deprecated": true,
+            "enum": [
+              "email_verification",
+              "admin_dashboard",
+              "patient_home",
+              "professional_verification",
+              "professional_dashboard",
+              "hospital_verification",
+              "hospital_dashboard",
+              "laboratory_verification",
+              "laboratory_dashboard",
+              "pharmacy_verification",
+              "pharmacy_dashboard",
+              "account_setup",
+              "account_restricted"
+            ],
             "type": "string"
           },
           "session_expires_at": {
@@ -5085,12 +5695,25 @@
             "example": 200,
             "nullable": true,
             "type": "number"
+          },
+          "user": {
+            "deprecated": true,
+            "type": "object"
+          },
+          "verification_status": {
+            "deprecated": true,
+            "nullable": true,
+            "type": "string"
           }
         },
         "required": [
           "access_token",
           "refresh_token",
           "account_context",
+          "user",
+          "routing_target",
+          "access_level",
+          "verification_status",
           "status_code",
           "message",
           "session_id",
@@ -5100,18 +5723,49 @@
       },
       "VerifySignupResponseDtoData": {
         "properties": {
+          "access_level": {
+            "deprecated": true,
+            "enum": [
+              "full",
+              "limited"
+            ],
+            "type": "string"
+          },
           "access_token": {
             "description": "JWT access token with 15 minutes expiration",
             "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
             "type": "string"
           },
           "account_context": {
-            "description": "Server-resolved account, persona, membership, verification, and capability context",
-            "type": "object"
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AuthContextResponseDto"
+              }
+            ],
+            "description": "Server-resolved account, persona, membership, verification, and capability context"
           },
           "refresh_token": {
             "description": "Opaque, rotating refresh credential",
             "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
+            "type": "string"
+          },
+          "routing_target": {
+            "deprecated": true,
+            "enum": [
+              "email_verification",
+              "admin_dashboard",
+              "patient_home",
+              "professional_verification",
+              "professional_dashboard",
+              "hospital_verification",
+              "hospital_dashboard",
+              "laboratory_verification",
+              "laboratory_dashboard",
+              "pharmacy_verification",
+              "pharmacy_dashboard",
+              "account_setup",
+              "account_restricted"
+            ],
             "type": "string"
           },
           "session_expires_at": {
@@ -5124,12 +5778,25 @@
             "example": "550e8400-e29b-41d4-a716-446655440000",
             "nullable": true,
             "type": "string"
+          },
+          "user": {
+            "deprecated": true,
+            "type": "object"
+          },
+          "verification_status": {
+            "deprecated": true,
+            "nullable": true,
+            "type": "string"
           }
         },
         "required": [
           "access_token",
           "refresh_token",
           "account_context",
+          "user",
+          "routing_target",
+          "access_level",
+          "verification_status",
           "session_id",
           "session_expires_at"
         ],
@@ -6400,7 +7067,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/AuthContextResponseDto"
+                          "$ref": "#/components/schemas/AuthMeResponseDto"
                         }
                       },
                       "required": [
@@ -6470,7 +7137,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/AuthContextResponseDto"
+                          "$ref": "#/components/schemas/AuthMeResponseDto"
                         }
                       },
                       "required": [
@@ -8123,7 +8790,25 @@
     "/api/laboratories/me/verification-documents": {
       "get": {
         "operationId": "LaboratoryVerificationDocumentsController_listMyDocuments",
-        "parameters": [],
+        "parameters": [
+          {
+            "description": "Required on laboratory self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -8189,6 +8874,23 @@
       "delete": {
         "operationId": "LaboratoryVerificationDocumentsController_deleteMyDocument",
         "parameters": [
+          {
+            "description": "Required on laboratory self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "in": "path",
             "name": "documentType",
@@ -8278,6 +8980,23 @@
       "post": {
         "operationId": "LaboratoryVerificationDocumentsController_uploadMyDocument",
         "parameters": [
+          {
+            "description": "Required on laboratory self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "in": "path",
             "name": "documentType",
@@ -8410,6 +9129,23 @@
         "operationId": "LaboratoryVerificationDocumentsController_downloadMyDocument",
         "parameters": [
           {
+            "description": "Required on laboratory self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "in": "path",
             "name": "documentType",
             "required": true,
@@ -8498,7 +9234,25 @@
     "/api/laboratories/me/verification-status": {
       "get": {
         "operationId": "LaboratoryVerificationStatusController_getMyStatus",
-        "parameters": [],
+        "parameters": [
+          {
+            "description": "Required on laboratory self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -8570,7 +9324,25 @@
     "/api/laboratories/me/verification-status/submit": {
       "post": {
         "operationId": "LaboratoryVerificationStatusController_submitMyVerification",
-        "parameters": [],
+        "parameters": [
+          {
+            "description": "Required on laboratory self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -8652,7 +9424,16 @@
     "/api/laboratories/setup/operating-hours": {
       "get": {
         "operationId": "LaboratoryPostApprovalController_listOperatingHours",
-        "parameters": [],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -8725,7 +9506,16 @@
       },
       "put": {
         "operationId": "LaboratoryPostApprovalController_setOperatingHours",
-        "parameters": [],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -8820,7 +9610,16 @@
     "/api/laboratories/setup/staff": {
       "get": {
         "operationId": "LaboratoryPostApprovalController_listStaff",
-        "parameters": [],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -8895,7 +9694,16 @@
     "/api/laboratories/setup/staff/invitations": {
       "post": {
         "operationId": "LaboratoryPostApprovalController_inviteStaff",
-        "parameters": [],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -9074,7 +9882,16 @@
     "/api/laboratories/setup/tests": {
       "get": {
         "operationId": "LaboratoryPostApprovalController_listTests",
-        "parameters": [],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -9147,7 +9964,16 @@
       },
       "post": {
         "operationId": "LaboratoryPostApprovalController_createTest",
-        "parameters": [],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -9250,6 +10076,14 @@
       "patch": {
         "operationId": "LaboratoryPostApprovalController_updateTest",
         "parameters": [
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "in": "path",
             "name": "testId",
@@ -9372,6 +10206,15 @@
         "operationId": "LaboratoryVerificationDocumentsController_listLaboratoryDocuments",
         "parameters": [
           {
+            "description": "Required on laboratory self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "description": "Laboratory UUID",
             "in": "path",
             "name": "laboratoryId",
@@ -9446,6 +10289,15 @@
       "get": {
         "operationId": "LaboratoryVerificationDocumentsController_downloadLaboratoryDocument",
         "parameters": [
+          {
+            "description": "Required on laboratory self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "description": "Laboratory UUID",
             "in": "path",
@@ -9546,6 +10398,15 @@
         "operationId": "LaboratoryVerificationStatusController_getLaboratoryStatus",
         "parameters": [
           {
+            "description": "Required on laboratory self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "in": "path",
             "name": "laboratoryId",
             "required": true,
@@ -9626,6 +10487,15 @@
       "post": {
         "operationId": "LaboratoryVerificationStatusController_approve",
         "parameters": [
+          {
+            "description": "Required on laboratory self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "in": "path",
             "name": "laboratoryId",
@@ -9728,6 +10598,15 @@
         "operationId": "LaboratoryVerificationStatusController_listHistory",
         "parameters": [
           {
+            "description": "Required on laboratory self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "in": "path",
             "name": "laboratoryId",
             "required": true,
@@ -9811,6 +10690,15 @@
       "post": {
         "operationId": "LaboratoryVerificationStatusController_reject",
         "parameters": [
+          {
+            "description": "Required on laboratory self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "in": "path",
             "name": "laboratoryId",
@@ -9923,6 +10811,15 @@
         "operationId": "LaboratoryVerificationStatusController_markUnderReview",
         "parameters": [
           {
+            "description": "Required on laboratory self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "in": "path",
             "name": "laboratoryId",
             "required": true,
@@ -10022,7 +10919,17 @@
     "/api/organizations/onboarding/admin-setup": {
       "post": {
         "operationId": "OrganizationController_setup",
-        "parameters": [],
+        "parameters": [
+          {
+            "description": "Required on organization-scoped self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -10114,7 +11021,25 @@
     "/api/organizations/onboarding/me/documents": {
       "get": {
         "operationId": "OrganizationController_listMine",
-        "parameters": [],
+        "parameters": [
+          {
+            "description": "Required on organization-scoped self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -10187,6 +11112,23 @@
       "delete": {
         "operationId": "OrganizationController_deleteMine",
         "parameters": [
+          {
+            "description": "Required on organization-scoped self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "in": "path",
             "name": "documentType",
@@ -10267,6 +11209,23 @@
       "post": {
         "operationId": "OrganizationController_uploadMine",
         "parameters": [
+          {
+            "description": "Required on organization-scoped self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "in": "path",
             "name": "documentType",
@@ -10380,6 +11339,23 @@
         "operationId": "OrganizationController_downloadMine",
         "parameters": [
           {
+            "description": "Required on organization-scoped self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "in": "path",
             "name": "documentType",
             "required": true,
@@ -10459,7 +11435,25 @@
     "/api/organizations/onboarding/me/status": {
       "get": {
         "operationId": "OrganizationController_getMyStatus",
-        "parameters": [],
+        "parameters": [
+          {
+            "description": "Required on organization-scoped self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -10521,7 +11515,25 @@
     "/api/organizations/onboarding/me/submit": {
       "post": {
         "operationId": "OrganizationController_submitMine",
-        "parameters": [],
+        "parameters": [
+          {
+            "description": "Required on organization-scoped self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-organization-id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "content": {
@@ -10594,6 +11606,15 @@
       "get": {
         "operationId": "OrganizationController_listApplications",
         "parameters": [
+          {
+            "description": "Required on organization-scoped self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "in": "query",
             "name": "organization_type",
@@ -10707,6 +11728,15 @@
         "operationId": "OrganizationController_listForReview",
         "parameters": [
           {
+            "description": "Required on organization-scoped self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "in": "path",
             "name": "organizationId",
             "required": true,
@@ -10787,6 +11817,15 @@
       "get": {
         "operationId": "OrganizationController_downloadForReview",
         "parameters": [
+          {
+            "description": "Required on organization-scoped self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "in": "path",
             "name": "organizationId",
@@ -10877,6 +11916,15 @@
         "operationId": "OrganizationController_getStatus",
         "parameters": [
           {
+            "description": "Required on organization-scoped self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "in": "path",
             "name": "organizationId",
             "required": true,
@@ -10947,6 +11995,15 @@
       "post": {
         "operationId": "OrganizationController_approve",
         "parameters": [
+          {
+            "description": "Required on organization-scoped self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "in": "path",
             "name": "organizationId",
@@ -11029,6 +12086,15 @@
         "operationId": "OrganizationController_listHistory",
         "parameters": [
           {
+            "description": "Required on organization-scoped self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "in": "path",
             "name": "organizationId",
             "required": true,
@@ -11102,6 +12168,15 @@
       "post": {
         "operationId": "OrganizationController_reject",
         "parameters": [
+          {
+            "description": "Required on organization-scoped self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "in": "path",
             "name": "organizationId",
@@ -11193,6 +12268,15 @@
       "post": {
         "operationId": "OrganizationController_markUnderReview",
         "parameters": [
+          {
+            "description": "Required on organization-scoped self-service routes",
+            "in": "header",
+            "name": "X-Organization-Id",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "in": "path",
             "name": "organizationId",

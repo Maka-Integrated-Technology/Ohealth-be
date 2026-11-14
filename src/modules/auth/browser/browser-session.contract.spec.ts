@@ -34,6 +34,29 @@ describe('browser session OpenAPI contract', () => {
     );
   });
 
+  it.each([
+    'BrowserSessionResponseDtoData',
+    'LoginResponseDtoData',
+    'RefreshTokenResponseDtoData',
+    'VerifySignupResponseDtoData',
+  ])('publishes typed canonical account context in %s', (schemaName) => {
+    expect(
+      JSON.stringify(
+        contract.components.schemas[schemaName].properties?.account_context,
+      ),
+    ).toContain('#/components/schemas/AuthContextResponseDto');
+  });
+
+  it('publishes concrete nested canonical context schemas', () => {
+    const context = JSON.stringify(
+      contract.components.schemas.AuthContextResponseDto,
+    );
+    expect(context).toContain('AuthAccountResponseDto');
+    expect(context).toContain('AuthMembershipResponseDto');
+    expect(context).toContain('AuthSessionContextResponseDto');
+    expect(context).not.toContain('additionalProperties');
+  });
+
   it('publishes distinct browser operations using the canonical OAuth completion contract', () => {
     expect(contract.paths['/api/auth/browser/verify'].post?.operationId).toBe(
       'BrowserSessionController_verifySignup',

@@ -40,9 +40,7 @@ export class PlatformPrivileges1793900000000 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE "platform_privileges" DROP CONSTRAINT "FK_platform_privileges_user_id"`,
     );
-    await queryRunner.query(
-      `DROP INDEX "public"."IDX_platform_privileges_user_id"`,
-    );
+    await queryRunner.query(`DROP INDEX "IDX_platform_privileges_user_id"`);
     await queryRunner.query(`DROP TABLE "platform_privileges"`);
   }
 }

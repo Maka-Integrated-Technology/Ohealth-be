@@ -211,12 +211,13 @@ describe('LaboratoryVerificationDocumentsService', () => {
   it('should upload and tag a laboratory verification document', async () => {
     const result = await service.uploadMyDocument(
       'user-id',
+      'laboratory-id',
       LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
       uploadFile,
     );
 
     expect(mockLaboratoryAdminRepository.findOne).toHaveBeenCalledWith({
-      where: { user_id: 'user-id' },
+      where: { user_id: 'user-id', laboratory_id: 'laboratory-id' },
       relations: ['laboratory'],
     });
     expect(mockStorageService.uploadPrivateObject).toHaveBeenCalledWith(
@@ -268,6 +269,7 @@ describe('LaboratoryVerificationDocumentsService', () => {
     await expect(
       service.uploadMyDocument(
         'user-id',
+        'laboratory-id',
         LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
         uploadFile,
       ),
@@ -301,6 +303,7 @@ describe('LaboratoryVerificationDocumentsService', () => {
     await expect(
       service.uploadMyDocument(
         'user-id',
+        'laboratory-id',
         LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
         uploadFile,
       ),
@@ -317,6 +320,7 @@ describe('LaboratoryVerificationDocumentsService', () => {
     await expect(
       service.uploadMyDocument(
         'user-id',
+        'laboratory-id',
         LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
         {
           ...uploadFile,
@@ -328,6 +332,7 @@ describe('LaboratoryVerificationDocumentsService', () => {
     await expect(
       service.uploadMyDocument(
         'user-id',
+        'laboratory-id',
         LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
         {
           ...uploadFile,
@@ -383,6 +388,7 @@ describe('LaboratoryVerificationDocumentsService', () => {
 
     const result = await service.createMyDocumentDownloadUrl(
       'user-id',
+      'laboratory-id',
       LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
     );
 
@@ -406,6 +412,7 @@ describe('LaboratoryVerificationDocumentsService', () => {
 
     const result = await service.deleteMyDocument(
       'user-id',
+      'laboratory-id',
       LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
     );
 
@@ -434,6 +441,7 @@ describe('LaboratoryVerificationDocumentsService', () => {
     await expect(
       service.deleteMyDocument(
         'user-id',
+        'laboratory-id',
         LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
       ),
     ).resolves.toEqual({
@@ -453,6 +461,7 @@ describe('LaboratoryVerificationDocumentsService', () => {
     await expect(
       service.uploadMyDocument(
         'user-id',
+        'laboratory-id',
         LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
         uploadFile,
       ),
@@ -469,6 +478,7 @@ describe('LaboratoryVerificationDocumentsService', () => {
     await expect(
       service.uploadMyDocument(
         'user-id',
+        'laboratory-id',
         LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
         uploadFile,
       ),
@@ -488,6 +498,7 @@ describe('LaboratoryVerificationDocumentsService', () => {
     await expect(
       service.deleteMyDocument(
         'user-id',
+        'laboratory-id',
         LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
       ),
     ).rejects.toThrow(ForbiddenException);
@@ -506,6 +517,7 @@ describe('LaboratoryVerificationDocumentsService', () => {
       await expect(
         service.deleteMyDocument(
           'user-id',
+          'laboratory-id',
           LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
         ),
       ).rejects.toThrow(ForbiddenException);

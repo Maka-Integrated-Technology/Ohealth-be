@@ -158,10 +158,12 @@ privacy rules, and rollout configuration.
 
 ## Organization authorization
 
-The active organization is session context, not user identity. Changing it
-requires an active membership. Every request then resolves the membership and
-permissions for `(userId, organizationId)` and fails closed when membership is
-missing, suspended, or removed.
+The active organization is session or explicit request context, not user
+identity. Clients select it with `X-Organization-Id` on organization-scoped
+routes. Every request resolves the exact active membership and permissions for
+`(userId, organizationId)` and fails closed when the selector is missing or the
+membership is missing, suspended, or removed. A capability obtained from one
+membership can never authorize a resource belonging to another organization.
 
 Cache keys always include both identifiers. Membership and permission changes
 invalidate their cache entries immediately.
@@ -177,15 +179,15 @@ client-writable authorization state.
 
 The initial capability boundary is:
 
-| Subject and state | Allowed capabilities | Denied capabilities |
-| --- | --- | --- |
-| Active patient persona | patient bookings and professional reviews | professional care, organization administration, platform review |
-| Active healthcare-professional persona, pending/rejected verification | profile onboarding and verification documents/status | dashboard, availability operations, booking operations, patient records/notes |
-| Active approved healthcare professional | professional onboarding, verification, dashboard, availability, booking operations, patient-care resources | unrelated organization administration and platform review |
-| Active organization owner/admin, organization pending | organization onboarding, documents, status and submission | approved operational resources |
-| Active organization owner/admin, organization approved | organization onboarding and approved operational resources | resources in other organizations |
-| Active organization member | capabilities granted by the active membership and explicit overrides | owner/admin and unrelated organization resources |
-| Platform administrator | explicitly assigned platform review capabilities | organization resources without an independent membership |
+| Subject and state                                                     | Allowed capabilities                                                                                       | Denied capabilities                                                           |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| Active patient persona                                                | patient bookings and professional reviews                                                                  | professional care, organization administration, platform review               |
+| Active healthcare-professional persona, pending/rejected verification | profile onboarding and verification documents/status                                                       | dashboard, availability operations, booking operations, patient records/notes |
+| Active approved healthcare professional                               | professional onboarding, verification, dashboard, availability, booking operations, patient-care resources | unrelated organization administration and platform review                     |
+| Active organization owner/admin, organization pending                 | organization onboarding, documents, status and submission                                                  | approved operational resources                                                |
+| Active organization owner/admin, organization approved                | organization onboarding and approved operational resources                                                 | resources in other organizations                                              |
+| Active organization member                                            | capabilities granted by the active membership and explicit overrides                                       | owner/admin and unrelated organization resources                              |
+| Platform administrator                                                | explicitly assigned platform review capabilities                                                           | organization resources without an independent membership                      |
 
 Personas are not roles. Organization access is resolved from the membership for
 the requested organization, and platform privileges are stored separately from

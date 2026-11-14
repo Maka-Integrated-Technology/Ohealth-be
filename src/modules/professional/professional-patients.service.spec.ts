@@ -116,6 +116,7 @@ describe('ProfessionalService patient dashboard APIs', () => {
     };
     bookingRepository = {
       find: jest.fn(),
+      findOne: jest.fn(),
       createQueryBuilder: jest.fn(),
     };
     patientProfileRepository = {
@@ -220,6 +221,26 @@ describe('ProfessionalService patient dashboard APIs', () => {
       } as unknown as Logger,
     );
   });
+
+  it.each([
+    BookingStatus.PENDING,
+    BookingStatus.CONFIRMED,
+    BookingStatus.CANCELLED,
+  ])(
+    'rejects a review without a completed care relationship (%s)',
+    async (status) => {
+      bookingRepository.findOne!.mockResolvedValue(
+        booking({ id: 'booking-review', patient, status }),
+      );
+
+      await expect(
+        service.createReview(professional.id, patient.id, {
+          booking_id: 'booking-review',
+          rating: 5,
+        }),
+      ).rejects.toThrow(sysMsg.REVIEW_INVALID_BOOKING);
+    },
+  );
 
   it('lists unique patients with consultation counts and latest booking details', async () => {
     const bookings = [

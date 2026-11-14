@@ -6,7 +6,13 @@ import { Logger } from 'winston';
 
 import * as sysMsg from '../../constants/system.messages';
 import { AuthService } from '../auth/auth.service';
+import { OrganizationAdmin } from '../organization/entities/organization-admin.entity';
+import { OrganizationMembership } from '../organization/entities/organization-membership.entity';
+import { Organization } from '../organization/entities/organization.entity';
 import { OrganizationMembershipRole } from '../organization/enums/organization-membership-role.enum';
+import { OrganizationMembershipStatus } from '../organization/enums/organization-membership-status.enum';
+import { OrganizationType } from '../organization/enums/organization-type.enum';
+import { OrganizationVerificationStatus } from '../organization/enums/organization-verification-status.enum';
 import { User } from '../user/entities/user.entity';
 import { AccountStatus } from '../user/enums/account-status.enum';
 
@@ -33,6 +39,12 @@ export class LaboratoryAuthService {
     private readonly laboratoryAdminRepository: Repository<LaboratoryAdmin>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(Organization)
+    private readonly organizationRepository: Repository<Organization>,
+    @InjectRepository(OrganizationAdmin)
+    private readonly organizationAdminRepository: Repository<OrganizationAdmin>,
+    @InjectRepository(OrganizationMembership)
+    private readonly membershipRepository: Repository<OrganizationMembership>,
     private readonly dataSource: DataSource,
     private readonly authService: AuthService,
     @Inject(WINSTON_MODULE_PROVIDER) logger: Logger,
@@ -113,6 +125,15 @@ export class LaboratoryAuthService {
           this.laboratoryAdminRepository,
         );
         const userRepository = manager.withRepository(this.userRepository);
+        const organizationRepository = manager.withRepository(
+          this.organizationRepository,
+        );
+        const membershipRepository = manager.withRepository(
+          this.membershipRepository,
+        );
+        const organizationAdminRepository = manager.withRepository(
+          this.organizationAdminRepository,
+        );
 
         const existingUser = await userRepository.findOne({
           where: { email: administratorPayload.email },
@@ -164,6 +185,40 @@ export class LaboratoryAuthService {
             email_verified_at: null,
             verification_code: null,
             verification_code_expires_at: null,
+          }),
+        );
+
+        await organizationRepository.save(
+          organizationRepository.create({
+            id: laboratory.id,
+            organization_type: OrganizationType.LABORATORY,
+            name: laboratory.name,
+            registration_number: laboratory.registration_number,
+            location: laboratory.address,
+            contact_email: laboratory.contact_email,
+            contact_phone: laboratory.contact_phone,
+            verification_status: OrganizationVerificationStatus.PENDING,
+            rejection_reason: null,
+            is_active: laboratory.is_active,
+          }),
+        );
+        await membershipRepository.save(
+          membershipRepository.create({
+            organization_id: laboratory.id,
+            user_id: user.id,
+            role: OrganizationMembershipRole.OWNER,
+            status: OrganizationMembershipStatus.ACTIVE,
+            permission_overrides: [],
+            joined_at: new Date(),
+          }),
+        );
+        await organizationAdminRepository.save(
+          organizationAdminRepository.create({
+            organization_id: laboratory.id,
+            user_id: user.id,
+            full_name: administratorPayload.fullName,
+            phone: administratorPayload.phone,
+            is_primary: true,
           }),
         );
 

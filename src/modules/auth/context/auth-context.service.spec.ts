@@ -78,7 +78,7 @@ describe('AuthContextService', () => {
   });
 
   it('derives pending professional access without consulting legacy roles', async () => {
-    const context = await service.resolve('user-id', 'session-id');
+    const context = await service.resolve('user-id', 'session-id', 'org-id');
 
     expect(context.capabilities).toEqual(
       expect.arrayContaining([
@@ -107,6 +107,21 @@ describe('AuthContextService', () => {
         AuthCapability.PLATFORM_SPECIALITY_MANAGE,
       ]),
     );
+  });
+
+  it('does not grant organization capabilities without an explicit active organization', async () => {
+    const context = await service.resolve('user-id', 'session-id');
+
+    expect(context.active_organization_id).toBeNull();
+    expect(context.capabilities).not.toContain(
+      AuthCapability.ORGANIZATION_ONBOARDING,
+    );
+  });
+
+  it('fails closed when the selected organization is not an active membership', async () => {
+    await expect(
+      service.resolve('user-id', 'session-id', 'organization-b'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it('fails closed for a non-active account', async () => {

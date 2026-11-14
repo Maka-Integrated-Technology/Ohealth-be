@@ -484,13 +484,15 @@ describe('AuthService', () => {
       } as User);
 
       expect(mockSessions.issue).toHaveBeenCalledWith('user-id-1', undefined);
-      expect(result).toEqual({
-        account_context: expect.any(Object),
-        access_token: 'access-token',
-        refresh_token: 'refresh-token',
-        session_id: '550e8400-e29b-41d4-a716-446655440000',
-        session_expires_at: expiresAt,
-      });
+      expect(result).toEqual(
+        expect.objectContaining({
+          account_context: expect.any(Object),
+          access_token: 'access-token',
+          refresh_token: 'refresh-token',
+          session_id: '550e8400-e29b-41d4-a716-446655440000',
+          session_expires_at: expiresAt,
+        }),
+      );
     });
   });
 
@@ -629,7 +631,7 @@ describe('AuthService', () => {
 
       const result = await service.getProfile(req);
 
-      expect(result).toEqual(
+      expect(result.account_context).toEqual(
         await mockAuthContextService.resolve.mock.results[
           mockAuthContextService.resolve.mock.results.length - 1
         ].value,

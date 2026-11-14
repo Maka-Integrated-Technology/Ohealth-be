@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -14,7 +15,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
 
 import { IMulterFile } from '../../common/types';
 import {
@@ -69,6 +70,11 @@ const laboratoryVerificationDocumentUploadOptions = {
 
 @ApiTags('Laboratory Verification Documents')
 @ApiBearerAuth()
+@ApiHeader({
+  name: 'X-Organization-Id',
+  required: false,
+  description: 'Required on laboratory self-service routes',
+})
 @UseGuards(JwtAuthGuard, CapabilitiesGuard)
 @Controller('laboratories')
 export class LaboratoryVerificationDocumentsController {
@@ -85,6 +91,7 @@ export class LaboratoryVerificationDocumentsController {
   @UploadLaboratoryVerificationDocumentDocs()
   uploadMyDocument(
     @CurrentUser() user: ICurrentUser,
+    @Headers('x-organization-id') laboratoryId: string,
     @Param(
       'documentType',
       new ParseEnumPipe(LaboratoryVerificationDocumentType),
@@ -94,6 +101,7 @@ export class LaboratoryVerificationDocumentsController {
   ): Promise<LaboratoryVerificationDocumentResponseDto> {
     return this.verificationDocumentsService.uploadMyDocument(
       user.id,
+      laboratoryId,
       documentType,
       file,
     );
@@ -104,8 +112,12 @@ export class LaboratoryVerificationDocumentsController {
   @ListMyLaboratoryVerificationDocumentsDocs()
   listMyDocuments(
     @CurrentUser() user: ICurrentUser,
+    @Headers('x-organization-id') laboratoryId: string,
   ): Promise<LaboratoryVerificationDocumentsStatusDto> {
-    return this.verificationDocumentsService.listMyDocuments(user.id);
+    return this.verificationDocumentsService.listMyDocuments(
+      user.id,
+      laboratoryId,
+    );
   }
 
   @Get('me/verification-documents/:documentType/download')
@@ -113,6 +125,7 @@ export class LaboratoryVerificationDocumentsController {
   @DownloadMyLaboratoryVerificationDocumentDocs()
   downloadMyDocument(
     @CurrentUser() user: ICurrentUser,
+    @Headers('x-organization-id') laboratoryId: string,
     @Param(
       'documentType',
       new ParseEnumPipe(LaboratoryVerificationDocumentType),
@@ -121,6 +134,7 @@ export class LaboratoryVerificationDocumentsController {
   ): Promise<LaboratoryVerificationDocumentDownloadDto> {
     return this.verificationDocumentsService.createMyDocumentDownloadUrl(
       user.id,
+      laboratoryId,
       documentType,
     );
   }
@@ -130,6 +144,7 @@ export class LaboratoryVerificationDocumentsController {
   @DeleteMyLaboratoryVerificationDocumentDocs()
   deleteMyDocument(
     @CurrentUser() user: ICurrentUser,
+    @Headers('x-organization-id') laboratoryId: string,
     @Param(
       'documentType',
       new ParseEnumPipe(LaboratoryVerificationDocumentType),
@@ -138,6 +153,7 @@ export class LaboratoryVerificationDocumentsController {
   ): Promise<{ message: string }> {
     return this.verificationDocumentsService.deleteMyDocument(
       user.id,
+      laboratoryId,
       documentType,
     );
   }

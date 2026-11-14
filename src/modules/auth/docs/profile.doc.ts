@@ -7,7 +7,7 @@ import {
 } from '@nestjs/swagger';
 
 import * as sysMsg from '../../../constants/system.messages';
-import { AuthContextResponseDto } from '../dto/auth-response.dto';
+import { AuthMeResponseDto } from '../dto/auth-response.dto';
 
 export const GetProfileDocs = () =>
   applyDecorators(
@@ -17,7 +17,7 @@ export const GetProfileDocs = () =>
     }),
     ApiOkResponse({
       description: sysMsg.PROFILE_RETRIEVED,
-      type: AuthContextResponseDto,
+      type: AuthMeResponseDto,
     }),
     ApiUnauthorizedResponse({
       description: sysMsg.UNAUTHORIZED,

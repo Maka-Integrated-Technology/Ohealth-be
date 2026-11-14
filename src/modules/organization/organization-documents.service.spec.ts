@@ -91,6 +91,7 @@ describe('OrganizationDocumentsService', () => {
   it('uploads a private typed document and stores only its reference', async () => {
     const result = await service.uploadMine(
       'user-id',
+      'organization-id',
       OrganizationDocumentType.OPERATING_LICENSE,
       file,
     );
@@ -120,6 +121,7 @@ describe('OrganizationDocumentsService', () => {
     await expect(
       service.uploadMine(
         'user-id',
+        'organization-id',
         OrganizationDocumentType.OPERATING_LICENSE,
         file,
       ),
@@ -139,6 +141,7 @@ describe('OrganizationDocumentsService', () => {
 
     await service.uploadMine(
       'user-id',
+      'organization-id',
       OrganizationDocumentType.OPERATING_LICENSE,
       file,
     );
@@ -153,6 +156,7 @@ describe('OrganizationDocumentsService', () => {
     await expect(
       service.uploadMine(
         'user-id',
+        'organization-id',
         OrganizationDocumentType.ACCREDITATION_CERTIFICATE,
         file,
       ),
@@ -167,6 +171,7 @@ describe('OrganizationDocumentsService', () => {
     await expect(
       service.uploadMine(
         'user-id',
+        'organization-id',
         OrganizationDocumentType.OPERATING_LICENSE,
         file,
       ),
@@ -192,7 +197,7 @@ describe('OrganizationDocumentsService', () => {
       },
     ]);
 
-    const result = await service.listMine('user-id');
+    const result = await service.listMine('user-id', 'organization-id');
 
     expect(documents.find).toHaveBeenCalledWith({
       where: { organization_id: organization.id },
@@ -211,6 +216,7 @@ describe('OrganizationDocumentsService', () => {
 
     const result = await service.downloadMine(
       'user-id',
+      'organization-id',
       OrganizationDocumentType.OPERATING_LICENSE,
     );
 
@@ -236,6 +242,7 @@ describe('OrganizationDocumentsService', () => {
 
     await service.deleteMine(
       'user-id',
+      'organization-id',
       OrganizationDocumentType.OPERATING_LICENSE,
     );
 

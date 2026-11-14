@@ -41,6 +41,7 @@ import { LoginDto } from './dto/login.dto';
 import { OAuthException } from './oauth/oauth.error';
 import { PasswordCredentialsService } from './password-policy/password-credentials.service';
 import { isLoginPasswordWithinLimit } from './password-policy/password-policy';
+import { presentLegacyAuthResponse } from './presentation/legacy-auth-response.presenter';
 import { RegistrationService } from './registration/registration.service';
 import { RefreshSessionService } from './sessions/refresh-session.service';
 
@@ -121,6 +122,7 @@ export class AuthService {
     return {
       message: sysMsg.LOGIN_SUCCESS,
       account_context: accountContext,
+      ...presentLegacyAuthResponse(accountContext),
       ...session,
     };
   }
@@ -144,6 +146,7 @@ export class AuthService {
 
     return {
       account_context: accountContext,
+      ...presentLegacyAuthResponse(accountContext),
       ...session,
     };
   }
@@ -165,6 +168,7 @@ export class AuthService {
     return {
       message: sysMsg.TOKEN_REFRESH_SUCCESS,
       account_context: accountContext,
+      ...presentLegacyAuthResponse(accountContext),
       ...credentials,
     };
   }
@@ -200,6 +204,7 @@ export class AuthService {
     return {
       message: sysMsg.ACCOUNT_VERIFIED,
       account_context: accountContext,
+      ...presentLegacyAuthResponse(accountContext),
       ...session,
     };
   }
@@ -247,7 +252,27 @@ export class AuthService {
       throw new UnauthorizedException(sysMsg.USER_NOT_FOUND);
     }
 
-    return this.authContext.resolve(user.id, req.user.sessionId);
+    const accountContext = await this.authContext.resolve(
+      user.id,
+      req.user.sessionId,
+    );
+    return {
+      id: user.id,
+      email: user.email,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      role: user.role,
+      middle_name: user.middle_name,
+      gender: user.gender,
+      dob: user.dob,
+      phone: user.phone,
+      country: user.country,
+      image: user.image,
+      is_active: user.is_active,
+      created_at: user.created_at,
+      updated_at: user.updated_at,
+      account_context: accountContext,
+    };
   }
 
   async updateProfile(req: IRequestWithUser, dto: UpdateProfileDto) {

@@ -73,9 +73,12 @@ describe('LaboratoryVerificationDocumentsController', () => {
     };
     service.listMyDocuments.mockResolvedValue({ documents: [] });
 
-    await controller.listMyDocuments(user);
+    await controller.listMyDocuments(user, 'laboratory-id');
 
-    expect(service.listMyDocuments).toHaveBeenCalledWith(user.id);
+    expect(service.listMyDocuments).toHaveBeenCalledWith(
+      user.id,
+      'laboratory-id',
+    );
   });
 
   it('should pass the requested laboratory to platform administrator operations', async () => {

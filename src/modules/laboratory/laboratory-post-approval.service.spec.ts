@@ -13,11 +13,11 @@ import * as sysMsg from '../../constants/system.messages';
 import { PasswordCredentialsService } from '../auth/password-policy/password-credentials.service';
 import { EmailService } from '../email/email.service';
 import { OrganizationAdmin } from '../organization/entities/organization-admin.entity';
+import { OrganizationMembership } from '../organization/entities/organization-membership.entity';
 import { Organization } from '../organization/entities/organization.entity';
 import { OrganizationType } from '../organization/enums/organization-type.enum';
 import { OrganizationVerificationStatus } from '../organization/enums/organization-verification-status.enum';
 import { User } from '../user/entities/user.entity';
-import { UserRole } from '../user/enums/user-role.enum';
 
 import { LaboratoryOperatingHour } from './entities/laboratory-operating-hour.entity';
 import { LaboratoryStaff } from './entities/laboratory-staff.entity';
@@ -63,6 +63,10 @@ describe('LaboratoryPostApprovalService', () => {
     create: jest.fn((value) => value),
     save: jest.fn(),
   };
+  const memberships = {
+    create: jest.fn((value) => value),
+    save: jest.fn(),
+  };
   const dataSource = {
     transaction: jest.fn(async (callback) =>
       callback({ withRepository: (repository: unknown) => repository }),
@@ -100,6 +104,7 @@ describe('LaboratoryPostApprovalService', () => {
       operatingHours as unknown as Repository<LaboratoryOperatingHour>,
       laboratoryTests as unknown as Repository<LaboratoryTest>,
       laboratoryStaff as unknown as Repository<LaboratoryStaff>,
+      memberships as unknown as Repository<OrganizationMembership>,
       users as unknown as Repository<User>,
       dataSource as unknown as DataSource,
       config as unknown as ConfigService,
@@ -149,20 +154,24 @@ describe('LaboratoryPostApprovalService', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it('upserts and returns operating hours in weekday order', async () => {
-    const result = await service.setOperatingHours('admin-id', {
-      hours: [
-        {
-          day_of_week: DayOfWeek.FRIDAY,
-          is_closed: true,
-        },
-        {
-          day_of_week: DayOfWeek.MONDAY,
-          is_closed: false,
-          opens_at: '08:00',
-          closes_at: '18:00',
-        },
-      ],
-    });
+    const result = await service.setOperatingHours(
+      'admin-id',
+      'organization-id',
+      {
+        hours: [
+          {
+            day_of_week: DayOfWeek.FRIDAY,
+            is_closed: true,
+          },
+          {
+            day_of_week: DayOfWeek.MONDAY,
+            is_closed: false,
+            opens_at: '08:00',
+            closes_at: '18:00',
+          },
+        ],
+      },
+    );
 
     expect(operatingHours.save).toHaveBeenCalledWith([
       expect.objectContaining({
@@ -185,7 +194,7 @@ describe('LaboratoryPostApprovalService', () => {
 
   it('rejects duplicate or internally inconsistent operating hours', async () => {
     await expect(
-      service.setOperatingHours('admin-id', {
+      service.setOperatingHours('admin-id', 'organization-id', {
         hours: [
           { day_of_week: DayOfWeek.MONDAY, is_closed: true },
           { day_of_week: DayOfWeek.MONDAY, is_closed: true },
@@ -194,7 +203,7 @@ describe('LaboratoryPostApprovalService', () => {
     ).rejects.toThrow(sysMsg.LABORATORY_OPERATING_HOURS_DUPLICATE_DAY);
 
     await expect(
-      service.setOperatingHours('admin-id', {
+      service.setOperatingHours('admin-id', 'organization-id', {
         hours: [
           {
             day_of_week: DayOfWeek.TUESDAY,
@@ -216,13 +225,13 @@ describe('LaboratoryPostApprovalService', () => {
       },
     });
 
-    await expect(service.listTests('admin-id')).rejects.toBeInstanceOf(
-      ForbiddenException,
-    );
+    await expect(
+      service.listTests('admin-id', 'organization-id'),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it('normalizes and creates a test within the owning laboratory', async () => {
-    const result = await service.createTest('admin-id', {
+    const result = await service.createTest('admin-id', 'organization-id', {
       name: '  Full   Blood Count ',
       price: 15000,
       turnaround_time_minutes: 1440,
@@ -247,7 +256,7 @@ describe('LaboratoryPostApprovalService', () => {
     laboratoryTests.findOne.mockResolvedValue({ id: 'duplicate-id' });
 
     await expect(
-      service.createTest('admin-id', {
+      service.createTest('admin-id', 'organization-id', {
         name: 'FULL BLOOD COUNT',
         price: 12000,
         turnaround_time_minutes: 60,
@@ -258,7 +267,7 @@ describe('LaboratoryPostApprovalService', () => {
 
   it('rejects whitespace-only names at the service boundary', async () => {
     await expect(
-      service.createTest('admin-id', {
+      service.createTest('admin-id', 'organization-id', {
         name: '   ',
         price: 1000,
         turnaround_time_minutes: 60,
@@ -266,7 +275,7 @@ describe('LaboratoryPostApprovalService', () => {
     ).rejects.toThrow(sysMsg.LABORATORY_TEST_NAME_REQUIRED);
 
     await expect(
-      service.inviteStaff('admin-id', {
+      service.inviteStaff('admin-id', 'organization-id', {
         full_name: '   ',
         email: 'staff@lab.test',
         role: LaboratoryStaffRole.TECHNICIAN,
@@ -278,7 +287,9 @@ describe('LaboratoryPostApprovalService', () => {
     laboratoryTests.findOne.mockResolvedValue(null);
 
     await expect(
-      service.updateTest('admin-id', 'other-test-id', { price: 20000 }),
+      service.updateTest('admin-id', 'organization-id', 'other-test-id', {
+        price: 20000,
+      }),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(laboratoryTests.findOne).toHaveBeenCalledWith({
       where: {
@@ -289,7 +300,7 @@ describe('LaboratoryPostApprovalService', () => {
   });
 
   it('creates a hashed, expiring staff invitation and sends email', async () => {
-    const result = await service.inviteStaff('admin-id', {
+    const result = await service.inviteStaff('admin-id', 'organization-id', {
       full_name: '  Amara   Okafor ',
       email: 'AMARA@LAB.TEST',
       role: LaboratoryStaffRole.SCIENTIST,
@@ -320,7 +331,7 @@ describe('LaboratoryPostApprovalService', () => {
     users.findOne.mockResolvedValue({ id: 'existing-user-id' });
 
     await expect(
-      service.inviteStaff('admin-id', {
+      service.inviteStaff('admin-id', 'organization-id', {
         full_name: 'Existing User',
         email: 'existing@lab.test',
         role: LaboratoryStaffRole.TECHNICIAN,
@@ -333,7 +344,7 @@ describe('LaboratoryPostApprovalService', () => {
     email.sendMail.mockRejectedValueOnce(new Error('mail unavailable'));
 
     await expect(
-      service.inviteStaff('admin-id', {
+      service.inviteStaff('admin-id', 'organization-id', {
         full_name: 'Amara Okafor',
         email: 'amara@lab.test',
         role: LaboratoryStaffRole.SCIENTIST,
@@ -373,7 +384,7 @@ describe('LaboratoryPostApprovalService', () => {
         first_name: 'Amara',
         middle_name: 'Chidi',
         last_name: 'Okafor',
-        role: [UserRole.LAB_STAFF],
+        role: [],
         is_active: true,
         is_verified: true,
       }),

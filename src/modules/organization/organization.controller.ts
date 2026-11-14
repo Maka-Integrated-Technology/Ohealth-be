@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -15,7 +16,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
 
 import { IAuthUser, IMulterFile } from '../../common/types';
 import { AuthCapability } from '../auth/context/auth-capability';
@@ -49,6 +50,11 @@ import { OrganizationVerificationService } from './organization-verification.ser
 
 @ApiTags('Organization Onboarding')
 @ApiBearerAuth()
+@ApiHeader({
+  name: 'X-Organization-Id',
+  required: false,
+  description: 'Required on organization-scoped self-service routes',
+})
 @UseGuards(JwtAuthGuard, CapabilitiesGuard)
 @Controller('organizations/onboarding')
 export class OrganizationController {
@@ -74,18 +80,27 @@ export class OrganizationController {
   @UploadOrganizationDocumentDocs()
   uploadMine(
     @CurrentUser() user: IAuthUser,
+    @Headers('x-organization-id') organizationId: string,
     @Param('documentType', new ParseEnumPipe(OrganizationDocumentType))
     documentType: OrganizationDocumentType,
     @UploadedFile() file: IMulterFile,
   ) {
-    return this.documentsService.uploadMine(user.id, documentType, file);
+    return this.documentsService.uploadMine(
+      user.id,
+      organizationId,
+      documentType,
+      file,
+    );
   }
 
   @Get('me/documents')
   @RequireCapabilities(AuthCapability.ORGANIZATION_ONBOARDING)
   @ListOrganizationDocumentsDocs()
-  listMine(@CurrentUser() user: IAuthUser) {
-    return this.documentsService.listMine(user.id);
+  listMine(
+    @CurrentUser() user: IAuthUser,
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    return this.documentsService.listMine(user.id, organizationId);
   }
 
   @Get('me/documents/:documentType/download')
@@ -93,10 +108,15 @@ export class OrganizationController {
   @DownloadOrganizationDocumentDocs()
   downloadMine(
     @CurrentUser() user: IAuthUser,
+    @Headers('x-organization-id') organizationId: string,
     @Param('documentType', new ParseEnumPipe(OrganizationDocumentType))
     documentType: OrganizationDocumentType,
   ) {
-    return this.documentsService.downloadMine(user.id, documentType);
+    return this.documentsService.downloadMine(
+      user.id,
+      organizationId,
+      documentType,
+    );
   }
 
   @Delete('me/documents/:documentType')
@@ -104,25 +124,36 @@ export class OrganizationController {
   @DeleteOrganizationDocumentDocs()
   deleteMine(
     @CurrentUser() user: IAuthUser,
+    @Headers('x-organization-id') organizationId: string,
     @Param('documentType', new ParseEnumPipe(OrganizationDocumentType))
     documentType: OrganizationDocumentType,
   ) {
-    return this.documentsService.deleteMine(user.id, documentType);
+    return this.documentsService.deleteMine(
+      user.id,
+      organizationId,
+      documentType,
+    );
   }
 
   @Get('me/status')
   @RequireCapabilities(AuthCapability.ORGANIZATION_ONBOARDING)
   @GetOrganizationStatusDocs()
-  getMyStatus(@CurrentUser() user: IAuthUser) {
-    return this.verificationService.getMine(user.id);
+  getMyStatus(
+    @CurrentUser() user: IAuthUser,
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    return this.verificationService.getMine(user.id, organizationId);
   }
 
   @Post('me/submit')
   @RequireCapabilities(AuthCapability.ORGANIZATION_ONBOARDING)
   @HttpCode(HttpStatus.OK)
   @SubmitOrganizationDocs()
-  submitMine(@CurrentUser() user: IAuthUser) {
-    return this.verificationService.submitMine(user.id);
+  submitMine(
+    @CurrentUser() user: IAuthUser,
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    return this.verificationService.submitMine(user.id, organizationId);
   }
 
   @Get('review/applications')
