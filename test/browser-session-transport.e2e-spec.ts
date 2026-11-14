@@ -4,9 +4,12 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { APP_FILTER } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import * as request from 'supertest';
 
+import { GlobalExceptionFilter } from '../src/common/exceptions/filters/global-exception.filter';
 import { AuthAbuseGuard } from '../src/modules/auth/challenges/auth-abuse.guard';
 import { AuthRateLimitService } from '../src/modules/auth/challenges/auth-rate-limit.service';
 import { BrowserSessionConfig } from '../src/modules/auth/browser/browser-session.config';
@@ -58,6 +61,11 @@ describe('Browser session transport (e2e)', () => {
       retryAfterSeconds: 0,
     }),
   };
+  const logger = {
+    log: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+  };
 
   beforeAll(async () => {
     const config = new ConfigService({
@@ -75,6 +83,8 @@ describe('Browser session transport (e2e)', () => {
         { provide: ConfigService, useValue: config },
         { provide: AuthRateLimitService, useValue: rates },
         { provide: BrowserSessionTransportService, useValue: transport },
+        { provide: WINSTON_MODULE_NEST_PROVIDER, useValue: logger },
+        { provide: APP_FILTER, useClass: GlobalExceptionFilter },
       ],
     }).compile();
     app = module.createNestApplication();
@@ -313,6 +323,19 @@ describe('Browser session transport (e2e)', () => {
     );
     await call.expect(400);
     expect(transport.refresh).not.toHaveBeenCalled();
+  });
+
+  it('does not expose a rejected query credential through the production exception filter', async () => {
+    const credential = 'q'.repeat(43);
+    const result = await browserPost('/api/auth/browser/refresh')
+      .query({ refresh_token: credential })
+      .set('Cookie', `__Host-ohealth_refresh=${oldCredential}`)
+      .expect(400);
+
+    expect(result.body.path).toBe('/api/auth/browser/refresh');
+    expect(JSON.stringify(result.body)).not.toContain(credential);
+    expect(JSON.stringify(logger.warn.mock.calls)).not.toContain(credential);
+    expect(JSON.stringify(logger.error.mock.calls)).not.toContain(credential);
   });
 
   it('rejects non-JSON browser request bodies', async () => {

@@ -10,6 +10,8 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Observable, throwError } from 'rxjs';
 import { tap, catchError } from 'rxjs/operators';
 
+import { safeRequestPath } from '../common/utils/request-path';
+
 @Injectable()
 export class LoggingInterceptor implements NestInterceptor {
   // Inject Winston logger instead of using built-in Logger
@@ -19,11 +21,14 @@ export class LoggingInterceptor implements NestInterceptor {
   ) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const req = context
-      .switchToHttp()
-      .getRequest<{ method?: string; url?: string; body?: unknown }>();
+    const req = context.switchToHttp().getRequest<{
+      method?: string;
+      path?: string;
+      url?: string;
+      body?: unknown;
+    }>();
     const method = req?.method ?? 'UNKNOWN_METHOD';
-    const url = req?.url ?? 'UNKNOWN_URL';
+    const path = req ? safeRequestPath(req) : 'UNKNOWN_PATH';
     // const body = req?.body ?? {};
 
     // Record start time for calculating request duration
@@ -32,7 +37,7 @@ export class LoggingInterceptor implements NestInterceptor {
     // Log incoming request
     // Using 'http' level for HTTP request logs (you can also use 'log' or 'info')
     this.logger.log(
-      `→ Incoming Request: ${method} ${url}`,
+      `→ Incoming Request: ${method} ${path}`,
       LoggingInterceptor.name,
     );
 
@@ -54,7 +59,7 @@ export class LoggingInterceptor implements NestInterceptor {
         const statusCode = res?.statusCode ?? 'UNKNOWN';
 
         this.logger.log(
-          `← Response: ${method} ${url} - Status: ${statusCode} - Duration: ${duration}ms`,
+          `← Response: ${method} ${path} - Status: ${statusCode} - Duration: ${duration}ms`,
           LoggingInterceptor.name,
         );
       }),
@@ -71,7 +76,7 @@ export class LoggingInterceptor implements NestInterceptor {
         const errorStack = error instanceof Error ? error.stack : undefined;
 
         this.logger.error(
-          `✗ Error: ${method} ${url} - Status: ${res?.statusCode ?? 'UNKNOWN'} - Duration: ${duration}ms - Error: ${errorMessage}`,
+          `✗ Error: ${method} ${path} - Status: ${res?.statusCode ?? 'UNKNOWN'} - Duration: ${duration}ms - Error: ${errorMessage}`,
           errorStack,
           LoggingInterceptor.name,
         );

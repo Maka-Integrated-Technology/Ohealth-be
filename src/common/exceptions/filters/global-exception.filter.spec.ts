@@ -26,6 +26,7 @@ interface IMockResponse {
 
 interface IMockRequest {
   url: string;
+  path?: string;
   method: string;
   user?: {
     id: string;
@@ -496,6 +497,24 @@ describe('GlobalExceptionFilter', () => {
           path: '/api/users/123',
         }),
       );
+    });
+
+    it('excludes query values from the response path and logs', () => {
+      const credential = 'secret-refresh-credential';
+      mockRequest.url = `/api/auth/browser/refresh?refresh_token=${credential}`;
+      const exception = new BadRequestException('Query parameters rejected');
+
+      filter.catch(exception, mockArgumentsHost);
+
+      expect(mockResponse.json).toHaveBeenCalledWith(
+        expect.objectContaining({ path: '/api/auth/browser/refresh' }),
+      );
+      expect(JSON.stringify(mockResponse.json.mock.calls)).not.toContain(
+        credential,
+      );
+      expect(
+        JSON.stringify((mockLogger.warn as jest.Mock).mock.calls),
+      ).not.toContain(credential);
     });
 
     it('should include request method in response', () => {
