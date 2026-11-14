@@ -3,7 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { AccountAccessPolicyService } from '../../auth/account-access-policy.service';
-import { CanonicalAuthContextService } from '../../auth/context/canonical-auth-context.service';
+import { AuthCapability } from '../../auth/context/auth-capability';
+import { AuthContextService } from '../../auth/context/auth-context.service';
 import { UserPersona } from '../../identity/entities/user-persona.entity';
 import { UserPersonaType } from '../../identity/enums/user-persona-type.enum';
 import { User } from '../../user/entities/user.entity';
@@ -35,12 +36,18 @@ export class CanonicalPatientProfileService {
     private readonly users: Repository<User>,
     @InjectRepository(PatientProfile)
     private readonly patientProfiles: Repository<PatientProfile>,
-    private readonly context: CanonicalAuthContextService,
+    private readonly context: AuthContextService,
     private readonly policy: AccountAccessPolicyService,
   ) {}
 
-  async get(userId: string): Promise<IPatientPersonalProfile> {
-    await this.context.assertCanReadPatientProfile(userId);
+  async get(
+    userId: string,
+    sessionId: string,
+  ): Promise<IPatientPersonalProfile> {
+    await this.context.assertCapabilities(userId, sessionId, [
+      AuthCapability.ACCOUNT_PROFILE_READ,
+      AuthCapability.PERSONA_PATIENT,
+    ]);
     const user = await this.users.findOne({ where: { id: userId } });
     this.policy.assertCanAuthenticate(user);
     if (!user) {
@@ -54,10 +61,14 @@ export class CanonicalPatientProfileService {
 
   async update(
     userId: string,
+    sessionId: string,
     dto: UpdatePatientPersonalProfileDto,
   ): Promise<IPatientPersonalProfile> {
     const input = normalizePatientPersonalUpdate(dto);
-    await this.context.assertCanEditPatientProfile(userId);
+    await this.context.assertCapabilities(userId, sessionId, [
+      AuthCapability.ACCOUNT_PROFILE_UPDATE,
+      AuthCapability.PERSONA_PATIENT,
+    ]);
     return this.users.manager.transaction(async (manager) => {
       const user = await manager.findOne(User, {
         where: { id: userId },

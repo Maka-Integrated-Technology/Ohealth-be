@@ -10,6 +10,7 @@ import { Logger } from 'winston';
 import { IRequestWithUser } from '../../common/types';
 import * as sysMsg from '../../constants/system.messages';
 import { EmailService } from '../email/email.service';
+import { CanonicalPatientProfileService } from '../patient/personal-profile/canonical-patient-profile.service';
 import { User } from '../user/entities/user.entity';
 import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserRole } from '../user/enums/user-role.enum';
@@ -99,6 +100,7 @@ describe('AuthService', () => {
   };
   const mockChallengeDelivery = { queueInTransaction: jest.fn() };
   const mockRegistration = { register: jest.fn() };
+  const mockPatientProfiles = { update: jest.fn() };
   const mockSessions = {
     issue: jest.fn(),
     rotate: jest.fn(),
@@ -169,6 +171,10 @@ describe('AuthService', () => {
         {
           provide: RegistrationService,
           useValue: mockRegistration,
+        },
+        {
+          provide: CanonicalPatientProfileService,
+          useValue: mockPatientProfiles,
         },
         {
           provide: AuthContextService,
@@ -634,6 +640,39 @@ describe('AuthService', () => {
           mockAuthContextService.resolve.mock.results.length - 1
         ].value,
       );
+    });
+  });
+
+  describe('updateProfile', () => {
+    it('updates only the current session patient and returns refreshed canonical context', async () => {
+      const request = {
+        user: { id: 'user-id-1', sessionId: 'session-id-1' },
+      } as IRequestWithUser;
+      const update = { first_name: 'Amaka', address: 'New Street' };
+
+      await service.updateProfile(request, update);
+
+      expect(mockPatientProfiles.update).toHaveBeenCalledWith(
+        'user-id-1',
+        'session-id-1',
+        update,
+      );
+      expect(mockAuthContextService.resolve).toHaveBeenCalledWith(
+        'user-id-1',
+        'session-id-1',
+      );
+    });
+
+    it('rejects a request without canonical session identity', async () => {
+      await expect(
+        service.updateProfile(
+          { user: { id: 'user-id-1' } } as IRequestWithUser,
+          {
+            first_name: 'Amaka',
+          },
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockPatientProfiles.update).not.toHaveBeenCalled();
     });
   });
 

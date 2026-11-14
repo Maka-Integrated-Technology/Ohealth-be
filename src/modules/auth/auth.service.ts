@@ -13,6 +13,8 @@ import { IRequestWithUser } from '../../common/types';
 import { EmailTemplateID } from '../../constants/email-constants';
 import * as sysMsg from '../../constants/system.messages';
 import { EmailService } from '../email/email.service';
+import { CanonicalPatientProfileService } from '../patient/personal-profile/canonical-patient-profile.service';
+import { UpdatePatientPersonalProfileDto } from '../patient/personal-profile/patient-personal-profile.dto';
 import { User } from '../user/entities/user.entity';
 import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserService } from '../user/user.service';
@@ -34,7 +36,6 @@ import {
   LogoutDto,
   RefreshTokenDto,
   ResetPasswordDto,
-  UpdateProfileDto,
   VerifySignupDto,
 } from './dto/auth.dto';
 import { LoginDto } from './dto/login.dto';
@@ -59,6 +60,7 @@ export class AuthService {
     private readonly challengeDelivery: AuthChallengeDeliveryService,
     private readonly sessions: RefreshSessionService,
     private readonly registration: RegistrationService,
+    private readonly patientProfiles: CanonicalPatientProfileService,
     @Inject(WINSTON_MODULE_PROVIDER) logger: Logger,
   ) {
     this.logger = logger.child({ context: AuthService.name });
@@ -250,48 +252,18 @@ export class AuthService {
     return this.authContext.resolve(user.id, req.user.sessionId);
   }
 
-  async updateProfile(req: IRequestWithUser, dto: UpdateProfileDto) {
+  async updateProfile(
+    req: IRequestWithUser,
+    dto: UpdatePatientPersonalProfileDto,
+  ) {
     const userId = req.user?.id ?? req.user?.userId;
-    if (!userId) {
+    const sessionId = req.user?.sessionId;
+    if (!userId || !sessionId) {
       throw new UnauthorizedException(sysMsg.TOKEN_INVALID);
     }
-
-    const update: UpdateProfileDto = {};
-    if (dto.first_name !== undefined) {
-      update.first_name = dto.first_name.trim();
-    }
-    if (dto.last_name !== undefined) {
-      update.last_name = dto.last_name.trim();
-    }
-    if (dto.middle_name !== undefined) {
-      update.middle_name = dto.middle_name?.trim() || null;
-    }
-    if (dto.gender !== undefined) {
-      update.gender = dto.gender;
-    }
-    if (dto.dob !== undefined) {
-      update.dob = dto.dob;
-    }
-    if (dto.phone !== undefined) {
-      update.phone = dto.phone;
-    }
-    if (dto.country !== undefined) {
-      update.country = dto.country;
-    }
-    if (dto.image !== undefined) {
-      update.image = dto.image;
-    }
-
-    const saved = await this.userService.updateAuthenticatedProfile(
-      userId,
-      update,
-    );
-    this.logger.info(`Profile updated for user ${saved.id}`);
-
-    return this.getProfile({
-      ...req,
-      user: { ...req.user, id: saved.id },
-    } as IRequestWithUser);
+    await this.patientProfiles.update(userId, sessionId, dto);
+    this.logger.info(`Profile updated for user ${userId}`);
+    return this.authContext.resolve(userId, sessionId);
   }
 
   async changePassword(req: IRequestWithUser, dto: ChangePasswordDto) {

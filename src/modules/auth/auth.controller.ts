@@ -23,6 +23,7 @@ import { Request } from 'express';
 import { Public } from '../../common/decorators/public.decorator';
 import { IAuthUser, IRequestWithUser } from '../../common/types';
 import * as sysMsg from '../../constants/system.messages';
+import { UpdatePatientPersonalProfileDto } from '../patient/personal-profile/patient-personal-profile.dto';
 
 import { AuthService } from './auth.service';
 import { AuthAbuseGuard } from './challenges/auth-abuse.guard';
@@ -57,7 +58,6 @@ import {
   RefreshTokenDto,
   ResetPasswordDto,
   GoogleLoginDto,
-  UpdateProfileDto,
   VerifySignupDto,
 } from './dto/auth.dto';
 import { LoginDto } from './dto/login.dto';
@@ -205,7 +205,7 @@ export class AuthController {
   @Patch('me')
   async updateProfile(
     @Req() req: IRequestWithUser,
-    @Body() updateProfileDto: UpdateProfileDto,
+    @Body() updateProfileDto: UpdatePatientPersonalProfileDto,
   ) {
     return this.authService.updateProfile(req, updateProfileDto);
   }

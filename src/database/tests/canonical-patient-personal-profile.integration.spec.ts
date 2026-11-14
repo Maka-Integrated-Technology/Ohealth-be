@@ -5,7 +5,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { DataSource, EntityManager, QueryRunner, Repository } from 'typeorm';
 
 import { AccountAccessPolicyService } from '../../modules/auth/account-access-policy.service';
-import { CanonicalAuthContextService } from '../../modules/auth/context/canonical-auth-context.service';
+import { AuthContextService } from '../../modules/auth/context/auth-context.service';
 import { UserPersona } from '../../modules/identity/entities/user-persona.entity';
 import { PatientProfile } from '../../modules/patient/entities/patient-profile.entity';
 import { CanonicalPatientProfileService } from '../../modules/patient/personal-profile/canonical-patient-profile.service';
@@ -156,15 +156,11 @@ integration(
       // A future session adapter supplies this verified actor ID from #77.
       // This test explicitly does not simulate or create a login session.
       const context = {
-        assertCanReadPatientProfile: async (actorId: string) => {
+        assertCapabilities: async (actorId: string) => {
           if (actorId !== userId)
             throw new ForbiddenException('Not profile owner.');
         },
-        assertCanEditPatientProfile: async (actorId: string) => {
-          if (actorId !== userId)
-            throw new ForbiddenException('Not profile owner.');
-        },
-      } as unknown as CanonicalAuthContextService;
+      } as unknown as AuthContextService;
 
       service = new CanonicalPatientProfileService(
         userRepository,
@@ -184,7 +180,7 @@ integration(
     });
 
     it('updates ordinary fields while preserving medical records and contacts', async () => {
-      const updated = await service.update(userId, {
+      const updated = await service.update(userId, 'session-id', {
         first_name: 'Amaka',
         address: 'New Street',
       });
@@ -207,7 +203,7 @@ integration(
         medical_conditions: 'preserve-existing',
         email: 'ada@example.test',
       });
-      const read = await service.get(userId);
+      const read = await service.get(userId, 'session-id');
       expect(read).toMatchObject({
         first_name: 'Amaka',
         address: 'New Street',
@@ -218,7 +214,7 @@ integration(
 
     it('rolls back the name change if a later address write violates a constraint', async () => {
       await expect(
-        service.update(userId, {
+        service.update(userId, 'session-id', {
           first_name: 'Should not persist',
           address: 'reject',
         }),
@@ -244,7 +240,7 @@ integration(
         ),
       );
       await expect(
-        service.update(userId, { address: 'Not permitted' }),
+        service.update(userId, 'session-id', { address: 'Not permitted' }),
       ).rejects.toThrow();
       await inSchema((manager) =>
         manager.query(
@@ -256,7 +252,9 @@ integration(
         manager.update(UserPersona, { user_id: userId }, { is_active: false }),
       );
       await expect(
-        service.update(userId, { first_name: 'Not permitted' }),
+        service.update(userId, 'session-id', {
+          first_name: 'Not permitted',
+        }),
       ).rejects.toThrow(ForbiddenException);
       const [row] = await inSchema((manager) =>
         manager.query('SELECT first_name FROM users WHERE id = $1', [userId]),
@@ -266,10 +264,12 @@ integration(
 
     it('rejects another actor and protected fields before opening a write transaction', async () => {
       await expect(
-        service.update(randomUUID(), { first_name: 'Intruder' }),
+        service.update(randomUUID(), 'session-id', {
+          first_name: 'Intruder',
+        }),
       ).rejects.toThrow(ForbiddenException);
       await expect(
-        service.update(userId, {
+        service.update(userId, 'session-id', {
           email: 'attacker@example.test',
         } as never),
       ).rejects.toThrow();
@@ -285,11 +285,11 @@ integration(
     });
 
     it('supports repeated identical updates without disturbing saved records', async () => {
-      await service.update(userId, {
+      await service.update(userId, 'session-id', {
         first_name: 'Ada',
         address: 'Old Street',
       });
-      await service.update(userId, {
+      await service.update(userId, 'session-id', {
         first_name: 'Ada',
         address: 'Old Street',
       });

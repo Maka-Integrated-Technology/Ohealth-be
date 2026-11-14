@@ -10,9 +10,9 @@ export class PatientPersonalAddress1793200000000 implements MigrationInterface {
     );
   }
 
-  public async down(): Promise<void> {
-    throw new Error(
-      'Patient addresses must be explicitly migrated before dropping this field.',
+  public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(
+      'ALTER TABLE "patient_profiles" DROP COLUMN IF EXISTS "address"',
     );
   }
 }

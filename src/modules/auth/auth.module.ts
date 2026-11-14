@@ -10,6 +10,8 @@ import { LaboratoryStaff } from '../laboratory/entities/laboratory-staff.entity'
 import { OrganizationAdmin } from '../organization/entities/organization-admin.entity';
 import { OrganizationMembership } from '../organization/entities/organization-membership.entity';
 import { Organization } from '../organization/entities/organization.entity';
+import { PatientProfile } from '../patient/entities/patient-profile.entity';
+import { CanonicalPatientProfileService } from '../patient/personal-profile/canonical-patient-profile.service';
 import { Professional } from '../professional/entities/professional.entity';
 import { User } from '../user/entities/user.entity';
 import { UserModule } from '../user/user.module';
@@ -63,6 +65,7 @@ import { TwoFactorAuthService } from './two-factor-auth.service';
       OrganizationMembership,
       AuthSession,
       PlatformPrivilegeEntity,
+      PatientProfile,
     ]),
   ],
   controllers: [
@@ -72,6 +75,7 @@ import { TwoFactorAuthService } from './two-factor-auth.service';
   ],
   providers: [
     AuthService,
+    CanonicalPatientProfileService,
     BrowserSessionConfig,
     BrowserSessionCookieService,
     BrowserSessionGuard,

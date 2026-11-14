@@ -12,6 +12,7 @@ import { OrganizationMembership } from '../../organization/entities/organization
 import { OrganizationMembershipRole } from '../../organization/enums/organization-membership-role.enum';
 import { OrganizationMembershipStatus } from '../../organization/enums/organization-membership-status.enum';
 import { OrganizationVerificationStatus } from '../../organization/enums/organization-verification-status.enum';
+import { PatientProfile } from '../../patient/entities/patient-profile.entity';
 import {
   Professional,
   ProfessionalVerificationStatus,
@@ -34,6 +35,8 @@ export class AuthContextService {
     private readonly personas: Repository<UserPersona>,
     @InjectRepository(Professional)
     private readonly professionals: Repository<Professional>,
+    @InjectRepository(PatientProfile)
+    private readonly patientProfiles: Repository<PatientProfile>,
     @InjectRepository(OrganizationMembership)
     private readonly memberships: Repository<OrganizationMembership>,
     @InjectRepository(AuthSession)
@@ -50,6 +53,7 @@ export class AuthContextService {
       user,
       personas,
       professional,
+      patientProfile,
       memberships,
       session,
       platformPrivileges,
@@ -57,6 +61,7 @@ export class AuthContextService {
       this.users.findOne({ where: { id: userId } }),
       this.personas.find({ where: { user_id: userId, is_active: true } }),
       this.professionals.findOne({ where: { user_id: userId } }),
+      this.patientProfiles.findOne({ where: { user_id: userId } }),
       this.memberships.find({
         where: { user_id: userId },
         relations: { organization: true },
@@ -157,6 +162,7 @@ export class AuthContextService {
           dob: user.dob ?? null,
           phone: user.phone ?? null,
           country: user.country ?? null,
+          address: patientProfile?.address ?? null,
           image: user.image ?? null,
           updated_at: user.updated_at,
         },

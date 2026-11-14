@@ -21,6 +21,7 @@ export interface IAuthAccountContext {
       dob: string | null;
       phone: string | null;
       country: string | null;
+      address: string | null;
       image: string | null;
       updated_at: Date;
     };

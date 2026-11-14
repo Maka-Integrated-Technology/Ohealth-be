@@ -34,6 +34,11 @@ export function normalizePatientPersonalUpdate(
       'Protected profile fields cannot be changed here.',
     );
   }
+  if (Object.keys(fields).length === 0) {
+    throw new BadRequestException(
+      'At least one personal profile field is required.',
+    );
+  }
   const normalized: INormalizedPatientPersonalUpdate = {};
   for (const key of ['first_name', 'last_name'] as const) {
     const value = fields[key];

@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 import { AuthChallengeContinuationDto } from '../contracts/auth-contract-response.dto';
 
@@ -16,9 +16,70 @@ export class TokensDto {
   refresh_token: string;
 }
 
+export class AuthAccountProfileResponseDto {
+  @ApiPropertyOptional({ nullable: true, maxLength: 100 })
+  middle_name: string | null;
+
+  @ApiPropertyOptional({ nullable: true, enum: ['Male', 'Female', 'Other'] })
+  gender: string | null;
+
+  @ApiPropertyOptional({ nullable: true, format: 'date' })
+  dob: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Read-only contact data',
+  })
+  phone: string | null;
+
+  @ApiPropertyOptional({ nullable: true, maxLength: 100 })
+  country: string | null;
+
+  @ApiPropertyOptional({ nullable: true, maxLength: 500 })
+  address: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Read-only avatar URL managed by the photo workflow',
+  })
+  image: string | null;
+
+  @ApiProperty({ format: 'date-time' })
+  updated_at: Date;
+}
+
+export class AuthAccountResponseDto {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+
+  @ApiProperty({ format: 'email', readOnly: true })
+  email: string;
+
+  @ApiProperty({ maxLength: 100 })
+  first_name: string;
+
+  @ApiProperty({ maxLength: 100 })
+  last_name: string;
+
+  @ApiProperty({
+    enum: ['pending_verification', 'active', 'suspended', 'deactivated'],
+    readOnly: true,
+  })
+  status: string;
+
+  @ApiProperty({ readOnly: true })
+  email_verified: boolean;
+
+  @ApiProperty({ format: 'date-time', readOnly: true })
+  created_at: Date;
+
+  @ApiProperty({ type: AuthAccountProfileResponseDto })
+  profile: AuthAccountProfileResponseDto;
+}
+
 export class AuthContextResponseDto {
-  @ApiProperty({ type: Object })
-  account: Record<string, unknown>;
+  @ApiProperty({ type: AuthAccountResponseDto })
+  account: AuthAccountResponseDto;
 
   @ApiProperty({ type: [Object] })
   personas: Array<Record<string, unknown>>;

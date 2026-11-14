@@ -54,8 +54,10 @@ describe('patient personal-profile patch boundary', () => {
     ).toThrow(BadRequestException);
   });
 
-  it('supports idempotent empty updates and explicit removal of optional fields', () => {
-    expect(normalizePatientPersonalUpdate({})).toEqual({});
+  it('rejects empty updates and supports explicit removal of optional fields', () => {
+    expect(() => normalizePatientPersonalUpdate({})).toThrow(
+      BadRequestException,
+    );
     expect(
       normalizePatientPersonalUpdate({ address: null, dob: null }),
     ).toEqual({

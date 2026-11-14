@@ -12,7 +12,11 @@ import { AuthContextResponseDto } from '../dto/auth-response.dto';
 export const UpdateProfileDocs = () =>
   applyDecorators(
     ApiBearerAuth(),
-    ApiOperation({ summary: 'Update authenticated user profile' }),
+    ApiOperation({
+      summary: 'Update the authenticated patient personal profile',
+      description:
+        'Updates ordinary name, demographic, country, and address fields. Email, phone, password, avatar, medical data, roles, personas, and account state require separate workflows.',
+    }),
     ApiOkResponse({
       description: sysMsg.PROFILE_UPDATED,
       type: AuthContextResponseDto,

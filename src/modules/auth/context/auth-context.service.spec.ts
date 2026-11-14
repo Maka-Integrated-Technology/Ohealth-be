@@ -26,6 +26,7 @@ describe('AuthContextService', () => {
   const users = { findOne: jest.fn() };
   const personas = { find: jest.fn() };
   const professionals = { findOne: jest.fn() };
+  const patientProfiles = { findOne: jest.fn() };
   const memberships = { find: jest.fn() };
   const sessions = { findOne: jest.fn() };
   const platformPrivileges = { find: jest.fn() };
@@ -45,6 +46,7 @@ describe('AuthContextService', () => {
       profile_setup_completed: false,
       is_active: true,
     });
+    patientProfiles.findOne.mockResolvedValue({ address: '12 Example Road' });
     memberships.find.mockResolvedValue([
       {
         organization_id: 'org-id',
@@ -71,6 +73,7 @@ describe('AuthContextService', () => {
       users as never,
       personas as never,
       professionals as never,
+      patientProfiles as never,
       memberships as never,
       sessions as never,
       platformPrivileges as never,
@@ -91,6 +94,7 @@ describe('AuthContextService', () => {
       AuthCapability.PROFESSIONAL_OPERATIONAL,
     );
     expect(context.account.id).toBe('user-id');
+    expect(context.account.profile.address).toBe('12 Example Road');
     expect(context.memberships[0].organization_id).toBe('org-id');
   });
 

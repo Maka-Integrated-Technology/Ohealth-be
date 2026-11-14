@@ -2,7 +2,7 @@ import { ForbiddenException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 
 import { AccountAccessPolicyService } from '../../auth/account-access-policy.service';
-import { CanonicalAuthContextService } from '../../auth/context/canonical-auth-context.service';
+import { AuthContextService } from '../../auth/context/auth-context.service';
 import { User } from '../../user/entities/user.entity';
 import { AccountStatus } from '../../user/enums/account-status.enum';
 import { PatientProfile } from '../entities/patient-profile.entity';
@@ -27,8 +27,7 @@ describe('CanonicalPatientProfileService', () => {
   };
   const profileRepository = { findOne: jest.fn() };
   const canonical = {
-    assertCanReadPatientProfile: jest.fn(),
-    assertCanEditPatientProfile: jest.fn(),
+    assertCapabilities: jest.fn(),
   };
   const manager = {
     findOne: jest.fn(),
@@ -42,7 +41,7 @@ describe('CanonicalPatientProfileService', () => {
   const service = new CanonicalPatientProfileService(
     userRepository as unknown as Repository<User>,
     profileRepository as unknown as Repository<PatientProfile>,
-    canonical as unknown as CanonicalAuthContextService,
+    canonical as unknown as AuthContextService,
     new AccountAccessPolicyService(),
   );
 
@@ -53,8 +52,7 @@ describe('CanonicalPatientProfileService', () => {
       user_id: user.id,
       address: '12 Example Road',
     });
-    canonical.assertCanReadPatientProfile.mockResolvedValue(undefined);
-    canonical.assertCanEditPatientProfile.mockResolvedValue(undefined);
+    canonical.assertCapabilities.mockResolvedValue(undefined);
     (userRepository.manager.transaction as jest.Mock).mockImplementation(
       async (callback: (manager: unknown) => Promise<unknown>) =>
         callback(manager),
@@ -73,7 +71,7 @@ describe('CanonicalPatientProfileService', () => {
   });
 
   it('returns only canonical personal data for the authenticated owner', async () => {
-    const response = await service.get(user.id);
+    const response = await service.get(user.id, 'session-id');
     expect(userRepository.findOne).toHaveBeenCalledWith({
       where: { id: user.id },
     });
@@ -88,7 +86,7 @@ describe('CanonicalPatientProfileService', () => {
   });
 
   it('updates only permitted fields in one transaction', async () => {
-    const result = await service.update(user.id, {
+    const result = await service.update(user.id, 'session-id', {
       first_name: 'Amaka',
       address: 'New Street',
     });
@@ -105,7 +103,7 @@ describe('CanonicalPatientProfileService', () => {
   });
 
   it('does not write unchanged data', async () => {
-    await service.update(user.id, {
+    await service.update(user.id, 'session-id', {
       first_name: 'Ada',
       address: '12 Example Road',
     });
@@ -119,7 +117,7 @@ describe('CanonicalPatientProfileService', () => {
       return null;
     });
     await expect(
-      service.update(user.id, { first_name: 'Unauthorized' }),
+      service.update(user.id, 'session-id', { first_name: 'Unauthorized' }),
     ).rejects.toThrow(ForbiddenException);
     expect(manager.update).not.toHaveBeenCalled();
 
@@ -130,14 +128,16 @@ describe('CanonicalPatientProfileService', () => {
       return { user_id: user.id };
     });
     await expect(
-      service.update(user.id, { first_name: 'Unauthorized' }),
+      service.update(user.id, 'session-id', { first_name: 'Unauthorized' }),
     ).rejects.toThrow();
     expect(manager.update).not.toHaveBeenCalled();
   });
 
   it('does not allow security/contact mutation through this boundary', async () => {
     await expect(
-      service.update(user.id, { phone: '+234000000' } as never),
+      service.update(user.id, 'session-id', {
+        phone: '+234000000',
+      } as never),
     ).rejects.toThrow();
     expect(userRepository.manager.transaction).not.toHaveBeenCalled();
   });

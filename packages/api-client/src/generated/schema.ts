@@ -259,7 +259,10 @@ export interface paths {
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
-    /** Update authenticated user profile */
+    /**
+     * Update the authenticated patient personal profile
+     * @description Updates ordinary name, demographic, country, and address fields. Email, phone, password, avatar, medical data, roles, personas, and account state require separate workflows.
+     */
     readonly patch: operations['AuthController_updateProfile'];
     readonly trace?: never;
   };
@@ -1717,6 +1720,35 @@ export interface components {
       /** @example 200 */
       readonly status_code: number;
     };
+    readonly AuthAccountProfileResponseDto: {
+      readonly address?: string | null;
+      readonly country?: string | null;
+      /** Format: date */
+      readonly dob?: string | null;
+      /** @enum {string|null} */
+      readonly gender?: AuthAccountProfileResponseDtoGender;
+      /** @description Read-only avatar URL managed by the photo workflow */
+      readonly image?: string | null;
+      readonly middle_name?: string | null;
+      /** @description Read-only contact data */
+      readonly phone?: string | null;
+      /** Format: date-time */
+      readonly updated_at: string;
+    };
+    readonly AuthAccountResponseDto: {
+      /** Format: date-time */
+      readonly created_at: string;
+      /** Format: email */
+      readonly email: string;
+      readonly email_verified: boolean;
+      readonly first_name: string;
+      /** Format: uuid */
+      readonly id: string;
+      readonly last_name: string;
+      readonly profile: components['schemas']['AuthAccountProfileResponseDto'];
+      /** @enum {string} */
+      readonly status: AuthAccountResponseDtoStatus;
+    };
     readonly AuthChallengeContinuationDto: {
       /** Format: uuid */
       readonly challenge_id: string;
@@ -1767,7 +1799,7 @@ export interface components {
       readonly timestamp: string;
     };
     readonly AuthContextResponseDto: {
-      readonly account: Record<string, never>;
+      readonly account: components['schemas']['AuthAccountResponseDto'];
       readonly capabilities: readonly string[];
       readonly memberships: readonly Record<string, never>[];
       readonly personas: readonly Record<string, never>[];
@@ -3320,6 +3352,17 @@ export interface components {
        */
       readonly turnaround_time_minutes?: number;
     };
+    readonly UpdatePatientPersonalProfileDto: {
+      readonly address?: string | null;
+      readonly country?: string | null;
+      /** Format: date */
+      readonly dob?: string | null;
+      readonly first_name?: string;
+      /** @enum {string|null} */
+      readonly gender?: AuthAccountProfileResponseDtoGender;
+      readonly last_name?: string;
+      readonly middle_name?: string | null;
+    };
     readonly UpdateProfessionalDto: {
       /** @example Experienced general practitioner. */
       readonly about?: string;
@@ -3346,49 +3389,6 @@ export interface components {
     readonly UpdateProfessionalPatientNoteDto: {
       /** @example Patient reports recurring headaches in the evenings. Advised hydration and reduced screen time. */
       readonly content?: string;
-    };
-    readonly UpdateProfileDto: {
-      /**
-       * @description User country of residence
-       * @example Nigeria
-       */
-      readonly country?: string | null;
-      /**
-       * @description Date of birth in YYYY-MM-DD format
-       * @example 2000-01-15
-       */
-      readonly dob?: string | null;
-      /**
-       * @description User first name
-       * @example John
-       */
-      readonly first_name?: string;
-      /**
-       * @description User gender
-       * @example Male
-       * @enum {string|null}
-       */
-      readonly gender?: UpdateProfileDtoGender;
-      /**
-       * @description User avatar image URL
-       * @example https://res.cloudinary.com/ohealth/image/upload/v123/avatar.png
-       */
-      readonly image?: string | null;
-      /**
-       * @description User last name
-       * @example Doe
-       */
-      readonly last_name?: string;
-      /**
-       * @description User middle name
-       * @example Michael
-       */
-      readonly middle_name?: string | null;
-      /**
-       * @description User phone number
-       * @example +1234567890
-       */
-      readonly phone?: string | null;
     };
     readonly UpdateSpecialityDto: {
       /** @example General medical consultations */
@@ -4335,7 +4335,7 @@ export interface operations {
     };
     readonly requestBody: {
       readonly content: {
-        readonly 'application/json': components['schemas']['UpdateProfileDto'];
+        readonly 'application/json': components['schemas']['UpdatePatientPersonalProfileDto'];
       };
     };
     readonly responses: {
@@ -9235,6 +9235,17 @@ export enum PathsApiProfessionalsMePatientsGetParametersQuerySort_order {
   asc = 'asc',
   desc = 'desc',
 }
+export enum AuthAccountProfileResponseDtoGender {
+  Male = 'Male',
+  Female = 'Female',
+  Other = 'Other',
+}
+export enum AuthAccountResponseDtoStatus {
+  pending_verification = 'pending_verification',
+  active = 'active',
+  suspended = 'suspended',
+  deactivated = 'deactivated',
+}
 export enum AuthChallengeErrorResponseDtoError_code {
   AUTH_CHALLENGE_INVALID = 'AUTH_CHALLENGE_INVALID',
   AUTH_CHALLENGE_CODE_INVALID = 'AUTH_CHALLENGE_CODE_INVALID',
@@ -9364,9 +9375,4 @@ export enum StartGoogleOAuthDtoOperation {
   signup = 'signup',
   signin = 'signin',
   link = 'link',
-}
-export enum UpdateProfileDtoGender {
-  Male = 'Male',
-  Female = 'Female',
-  Other = 'Other',
 }

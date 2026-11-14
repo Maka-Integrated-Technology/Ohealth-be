@@ -52,6 +52,12 @@ Patient profile data is separate from identity. Clinical information is subject
 to stricter access, auditing, retention, and disclosure rules than basic account
 data.
 
+Ordinary person-wide names and demographics remain on `User`. A patient's
+residential or mailing address is owned by `PatientProfile`, but is exposed only
+through the authenticated personal-profile projection. It is personal data, not
+clinical data, and follows the account/profile retention and deletion lifecycle;
+it must not be copied into logs, analytics, cache, or queue payloads.
+
 A professional must not receive patient access solely because they hold a
 professional persona. Access must follow a booking, care relationship,
 organization assignment, consent, or another explicit server-side policy.
