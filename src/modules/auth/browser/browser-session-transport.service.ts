@@ -62,10 +62,7 @@ export class BrowserSessionTransportService {
       refresh_token: string;
       session_id: string;
       session_expires_at: Date;
-      user: unknown;
-      routing_target: unknown;
-      access_level: unknown;
-      verification_status: unknown;
+      account_context: unknown;
     },
   >(result: T): IBrowserPresentation<Omit<T, 'refresh_token'>> {
     const { refresh_token, ...response } = result;
@@ -82,10 +79,7 @@ export class BrowserSessionTransportService {
     refresh_token: string;
     session_id: string;
     session_expires_at: Date;
-    user: unknown;
-    routing_target: unknown;
-    access_level: unknown;
-    verification_status: unknown;
+    account_context: unknown;
   } {
     if (!value || typeof value !== 'object') return false;
     const candidate = value as Record<string, unknown>;

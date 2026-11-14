@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
 import * as sysMsg from '../../constants/system.messages';
-import { ROLES_KEY } from '../auth/decorators/roles.decorator';
-import { UserRole } from '../user/enums/user-role.enum';
+import { AuthCapability } from '../auth/context/auth-capability';
+import { AUTH_CAPABILITIES_KEY } from '../auth/decorators/capabilities.decorator';
 
 import { LaboratoryAdminSetupDto } from './dto/laboratory-admin-setup.dto';
 import { LaboratoryAuthController } from './laboratory-auth.controller';
@@ -55,9 +55,12 @@ describe('LaboratoryAuthController', () => {
   });
 
   it('should restrict administrator setup to platform admins', () => {
-    const roles = Reflect.getMetadata(ROLES_KEY, controller.setupAdministrator);
+    const roles = Reflect.getMetadata(
+      AUTH_CAPABILITIES_KEY,
+      controller.setupAdministrator,
+    );
 
-    expect(roles).toEqual([UserRole.ADMIN]);
+    expect(roles).toEqual([AuthCapability.PLATFORM_ORGANIZATION_REVIEW]);
   });
 
   it('should delegate administrator setup to the service', async () => {

@@ -6,7 +6,6 @@ import { Logger } from 'winston';
 import { AuthService } from '../auth/auth.service';
 import { User } from '../user/entities/user.entity';
 import { AccountStatus } from '../user/enums/account-status.enum';
-import { UserRole } from '../user/enums/user-role.enum';
 
 import { SetupOrganizationDto } from './dto/organization-setup.dto';
 import { OrganizationAdmin } from './entities/organization-admin.entity';
@@ -35,7 +34,10 @@ describe('OrganizationOnboardingService', () => {
   };
   const dataSource = {
     transaction: jest.fn(async (callback) =>
-      callback({ withRepository: (repository: unknown) => repository }),
+      callback({
+        withRepository: (repository: unknown) => repository,
+        insert: jest.fn(),
+      }),
     ),
   };
   const logger = {
@@ -91,49 +93,46 @@ describe('OrganizationOnboardingService', () => {
   afterEach(() => jest.restoreAllMocks());
 
   it.each([
-    [OrganizationType.HOSPITAL, UserRole.HOSPITAL_ADMIN],
-    [OrganizationType.LABORATORY, UserRole.LAB_ADMIN],
-    [OrganizationType.PHARMACY, UserRole.PHARMACY_ADMIN],
-  ])(
-    'atomically creates a %s organization administrator',
-    async (type, role) => {
-      const result = await service.setupAdministrator({
-        ...dto,
-        organization: { ...dto.organization, organization_type: type },
-      });
+    OrganizationType.HOSPITAL,
+    OrganizationType.LABORATORY,
+    OrganizationType.PHARMACY,
+  ])('atomically creates a %s organization administrator', async (type) => {
+    const result = await service.setupAdministrator({
+      ...dto,
+      organization: { ...dto.organization, organization_type: type },
+    });
 
-      expect(dataSource.transaction).toHaveBeenCalledTimes(1);
-      expect(users.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          email: 'admin@hospital.test',
-          password: 'hashed',
-          role: [role],
-          is_active: false,
-          is_verified: false,
-          account_status: AccountStatus.PENDING_VERIFICATION,
-          email_verified_at: null,
-          verification_code: null,
-          verification_code_expires_at: null,
-        }),
-      );
-      expect(administrators.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          organization_id: 'organization-id',
-          user_id: 'user-id',
-          full_name: 'Ada Obi',
-        }),
-      );
-      expect(result.organization.organization_type).toBe(type);
-      expect(result).not.toHaveProperty('access_token');
-      expect(authService.queueProvisionedVerification).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({
-          account_status: AccountStatus.PENDING_VERIFICATION,
-          email: 'admin@hospital.test',
-        }),
-      );
-    },
-  );
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(users.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: 'admin@hospital.test',
+        password: 'hashed',
+        role: [],
+        is_active: false,
+        is_verified: false,
+        account_status: AccountStatus.PENDING_VERIFICATION,
+        email_verified_at: null,
+        verification_code: null,
+        verification_code_expires_at: null,
+      }),
+    );
+    expect(administrators.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organization_id: 'organization-id',
+        user_id: 'user-id',
+        full_name: 'Ada Obi',
+      }),
+    );
+    expect(result.organization.organization_type).toBe(type);
+    expect(result).not.toHaveProperty('access_token');
+    expect(authService.queueProvisionedVerification).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        account_status: AccountStatus.PENDING_VERIFICATION,
+        email: 'admin@hospital.test',
+      }),
+    );
+  });
 
   it('rejects an administrator email already used by any account', async () => {
     users.findOne.mockResolvedValue({ id: 'existing-user' });

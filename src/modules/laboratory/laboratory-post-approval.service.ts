@@ -20,12 +20,14 @@ import * as sysMsg from '../../constants/system.messages';
 import { PasswordCredentialsService } from '../auth/password-policy/password-credentials.service';
 import { EmailService } from '../email/email.service';
 import { OrganizationAdmin } from '../organization/entities/organization-admin.entity';
+import { OrganizationMembership } from '../organization/entities/organization-membership.entity';
 import { Organization } from '../organization/entities/organization.entity';
+import { OrganizationMembershipRole } from '../organization/enums/organization-membership-role.enum';
+import { OrganizationMembershipStatus } from '../organization/enums/organization-membership-status.enum';
 import { OrganizationType } from '../organization/enums/organization-type.enum';
 import { OrganizationVerificationStatus } from '../organization/enums/organization-verification-status.enum';
 import { User } from '../user/entities/user.entity';
 import { AccountStatus } from '../user/enums/account-status.enum';
-import { UserRole } from '../user/enums/user-role.enum';
 
 import {
   AcceptLaboratoryStaffInvitationDto,
@@ -67,6 +69,8 @@ export class LaboratoryPostApprovalService {
     private readonly laboratoryTestRepository: Repository<LaboratoryTest>,
     @InjectRepository(LaboratoryStaff)
     private readonly laboratoryStaffRepository: Repository<LaboratoryStaff>,
+    @InjectRepository(OrganizationMembership)
+    private readonly membershipRepository: Repository<OrganizationMembership>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly dataSource: DataSource,
@@ -82,10 +86,13 @@ export class LaboratoryPostApprovalService {
 
   async setOperatingHours(
     userId: string,
+    organizationId: string,
     dto: SetLaboratoryOperatingHoursDto,
   ): Promise<LaboratoryOperatingHourResponseDto[]> {
-    const organization =
-      await this.findApprovedLaboratoryForAdministrator(userId);
+    const organization = await this.findApprovedLaboratoryForAdministrator(
+      userId,
+      organizationId,
+    );
     this.assertOperatingHours(dto.hours);
 
     const saved = await this.dataSource.transaction(async (manager) => {
@@ -129,9 +136,12 @@ export class LaboratoryPostApprovalService {
 
   async listOperatingHours(
     userId: string,
+    organizationId: string,
   ): Promise<LaboratoryOperatingHourResponseDto[]> {
-    const organization =
-      await this.findApprovedLaboratoryForAdministrator(userId);
+    const organization = await this.findApprovedLaboratoryForAdministrator(
+      userId,
+      organizationId,
+    );
     const hours = await this.operatingHourRepository.find({
       where: { organization_id: organization.id },
     });
@@ -142,10 +152,13 @@ export class LaboratoryPostApprovalService {
 
   async createTest(
     userId: string,
+    organizationId: string,
     dto: CreateLaboratoryTestDto,
   ): Promise<LaboratoryTestResponseDto> {
-    const organization =
-      await this.findApprovedLaboratoryForAdministrator(userId);
+    const organization = await this.findApprovedLaboratoryForAdministrator(
+      userId,
+      organizationId,
+    );
     const name = this.normalizeDisplayValue(dto.name);
     if (!name) {
       throw new BadRequestException(sysMsg.LABORATORY_TEST_NAME_REQUIRED);
@@ -179,9 +192,14 @@ export class LaboratoryPostApprovalService {
     }
   }
 
-  async listTests(userId: string): Promise<LaboratoryTestResponseDto[]> {
-    const organization =
-      await this.findApprovedLaboratoryForAdministrator(userId);
+  async listTests(
+    userId: string,
+    organizationId: string,
+  ): Promise<LaboratoryTestResponseDto[]> {
+    const organization = await this.findApprovedLaboratoryForAdministrator(
+      userId,
+      organizationId,
+    );
     const tests = await this.laboratoryTestRepository.find({
       where: { organization_id: organization.id },
       order: { name: 'ASC' },
@@ -191,6 +209,7 @@ export class LaboratoryPostApprovalService {
 
   async updateTest(
     userId: string,
+    organizationId: string,
     testId: string,
     dto: UpdateLaboratoryTestDto,
   ): Promise<LaboratoryTestResponseDto> {
@@ -203,8 +222,10 @@ export class LaboratoryPostApprovalService {
       throw new BadRequestException(sysMsg.LABORATORY_TEST_UPDATE_REQUIRED);
     }
 
-    const organization =
-      await this.findApprovedLaboratoryForAdministrator(userId);
+    const organization = await this.findApprovedLaboratoryForAdministrator(
+      userId,
+      organizationId,
+    );
     const test = await this.laboratoryTestRepository.findOne({
       where: { id: testId, organization_id: organization.id },
     });
@@ -247,10 +268,13 @@ export class LaboratoryPostApprovalService {
 
   async inviteStaff(
     userId: string,
+    organizationId: string,
     dto: InviteLaboratoryStaffDto,
   ): Promise<InviteLaboratoryStaffResponseDto> {
-    const organization =
-      await this.findApprovedLaboratoryForAdministrator(userId);
+    const organization = await this.findApprovedLaboratoryForAdministrator(
+      userId,
+      organizationId,
+    );
     const email = dto.email.trim().toLowerCase();
     const fullName = this.normalizeDisplayValue(dto.full_name);
     if (!fullName) {
@@ -305,9 +329,14 @@ export class LaboratoryPostApprovalService {
     };
   }
 
-  async listStaff(userId: string): Promise<LaboratoryStaffResponseDto[]> {
-    const organization =
-      await this.findApprovedLaboratoryForAdministrator(userId);
+  async listStaff(
+    userId: string,
+    organizationId: string,
+  ): Promise<LaboratoryStaffResponseDto[]> {
+    const organization = await this.findApprovedLaboratoryForAdministrator(
+      userId,
+      organizationId,
+    );
     const staff = await this.laboratoryStaffRepository.find({
       where: { organization_id: organization.id },
       order: { full_name: 'ASC' },
@@ -335,6 +364,7 @@ export class LaboratoryPostApprovalService {
         );
         const staff = manager.withRepository(this.laboratoryStaffRepository);
         const users = manager.withRepository(this.userRepository);
+        const memberships = manager.withRepository(this.membershipRepository);
         const invitation = await staff.findOne({
           where: { invitation_token_hash: tokenHash },
           lock: { mode: 'pessimistic_write' },
@@ -360,11 +390,23 @@ export class LaboratoryPostApprovalService {
             last_name: lastName,
             middle_name: middleName,
             phone: dto.phone?.trim() || null,
-            role: [UserRole.LAB_STAFF],
+            role: [],
             is_active: true,
             is_verified: true,
             account_status: AccountStatus.ACTIVE,
             email_verified_at: new Date(),
+          }),
+        );
+
+        await memberships.save(
+          memberships.create({
+            organization_id: invitation!.organization_id,
+            user_id: user.id,
+            role: OrganizationMembershipRole.MEMBER,
+            status: OrganizationMembershipStatus.ACTIVE,
+            permission_overrides: [],
+            invited_by_user_id: invitation!.invited_by_user_id,
+            joined_at: new Date(),
           }),
         );
 
@@ -390,9 +432,10 @@ export class LaboratoryPostApprovalService {
 
   private async findApprovedLaboratoryForAdministrator(
     userId: string,
+    organizationId: string,
   ): Promise<Organization> {
     const administrator = await this.administratorRepository.findOne({
-      where: { user_id: userId },
+      where: { user_id: userId, organization_id: organizationId },
       relations: { organization: true },
     });
     const organization = administrator?.organization;

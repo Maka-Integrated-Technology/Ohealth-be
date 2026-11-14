@@ -1,21 +1,20 @@
 import { HTTP_CODE_METADATA } from '@nestjs/common/constants';
 import { Reflector } from '@nestjs/core';
 
-import { ROLES_KEY } from '../auth/decorators/roles.decorator';
+import { AuthCapability } from '../auth/context/auth-capability';
+import { AUTH_CAPABILITIES_KEY } from '../auth/decorators/capabilities.decorator';
+import { CapabilitiesGuard } from '../auth/guards/capabilities.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { UserRole } from '../user/enums/user-role.enum';
 
-import { ORGANIZATION_ADMIN_ROLES } from './constants/organization-role.constant';
 import { OrganizationController } from './organization.controller';
 
 describe('OrganizationController', () => {
   const reflector = new Reflector();
 
-  it('protects every route with JWT and role enforcement', () => {
+  it('protects every route with JWT and capability enforcement', () => {
     expect(Reflect.getMetadata('__guards__', OrganizationController)).toEqual([
       JwtAuthGuard,
-      RolesGuard,
+      CapabilitiesGuard,
     ]);
   });
 
@@ -34,8 +33,11 @@ describe('OrganizationController', () => {
 
     methods.forEach((method) => {
       expect(
-        reflector.get(ROLES_KEY, OrganizationController.prototype[method]),
-      ).toEqual([UserRole.ADMIN]);
+        reflector.get(
+          AUTH_CAPABILITIES_KEY,
+          OrganizationController.prototype[method],
+        ),
+      ).toEqual([AuthCapability.PLATFORM_ORGANIZATION_REVIEW]);
     });
   });
 
@@ -51,8 +53,11 @@ describe('OrganizationController', () => {
 
     methods.forEach((method) => {
       expect(
-        reflector.get(ROLES_KEY, OrganizationController.prototype[method]),
-      ).toEqual(ORGANIZATION_ADMIN_ROLES);
+        reflector.get(
+          AUTH_CAPABILITIES_KEY,
+          OrganizationController.prototype[method],
+        ),
+      ).toEqual([AuthCapability.ORGANIZATION_ONBOARDING]);
     });
   });
 

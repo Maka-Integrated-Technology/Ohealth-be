@@ -7,12 +7,14 @@ import {
 } from '@nestjs/swagger';
 
 import * as sysMsg from '../../../constants/system.messages';
-import { AuthMeResponseDto } from '../dto/auth.dto';
+import { AuthMeResponseDto } from '../dto/auth-response.dto';
 
 export const GetProfileDocs = () =>
   applyDecorators(
     ApiBearerAuth(),
-    ApiOperation({ summary: 'Fetches authenticated user profile' }),
+    ApiOperation({
+      summary: 'Fetches the canonical authenticated account context',
+    }),
     ApiOkResponse({
       description: sysMsg.PROFILE_RETRIEVED,
       type: AuthMeResponseDto,

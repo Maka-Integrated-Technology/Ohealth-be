@@ -18,11 +18,11 @@ import {
 } from '@nestjs/swagger';
 
 import { IRequestWithUser } from '../../common/types';
+import { AuthCapability } from '../auth/context/auth-capability';
+import { RequireCapabilities } from '../auth/decorators/capabilities.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { CapabilitiesGuard } from '../auth/guards/capabilities.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { UserRole } from '../user/enums/user-role.enum';
 
 import {
   ProfessionalVerificationStatusHistoryResponseDto,
@@ -31,16 +31,9 @@ import {
 } from './dto/professional-verification-status-response.dto';
 import { ProfessionalVerificationStatusService } from './professional-verification-status.service';
 
-const PROFESSIONAL_ACCESS_ROLES = [
-  UserRole.DOCTOR,
-  UserRole.THERAPIST,
-  UserRole.COUNSELLOR,
-  UserRole.LAB_PROFESSIONAL,
-];
-
 @ApiTags('Professional Verification Status')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, CapabilitiesGuard)
 @Controller('professionals')
 export class ProfessionalVerificationStatusController {
   constructor(
@@ -48,7 +41,7 @@ export class ProfessionalVerificationStatusController {
   ) {}
 
   @Get('me/verification-status')
-  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @RequireCapabilities(AuthCapability.PROFESSIONAL_VERIFICATION)
   @ApiOperation({
     summary: 'Get the current professional’s verification status',
   })
@@ -60,7 +53,7 @@ export class ProfessionalVerificationStatusController {
   }
 
   @Post(':professionalId/verify')
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_PROFESSIONAL_REVIEW)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Approve a professional’s credentials (admin only)',
@@ -75,7 +68,7 @@ export class ProfessionalVerificationStatusController {
   }
 
   @Post(':professionalId/reject')
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_PROFESSIONAL_REVIEW)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Reject a professional’s credentials (admin only)' })
   @ApiParam({ name: 'professionalId', description: 'Professional UUID' })
@@ -93,7 +86,7 @@ export class ProfessionalVerificationStatusController {
   }
 
   @Get(':professionalId/verification-status/history')
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_PROFESSIONAL_REVIEW)
   @ApiOperation({ summary: 'List verification status history (admin only)' })
   @ApiParam({ name: 'professionalId', description: 'Professional UUID' })
   @ApiResponse({

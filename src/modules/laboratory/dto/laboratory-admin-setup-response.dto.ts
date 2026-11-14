@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-import { UserRole } from '../../user/enums/user-role.enum';
+import { OrganizationMembershipRole } from '../../organization/enums/organization-membership-role.enum';
 import { LaboratoryOnboardingStatus } from '../enums/laboratory-onboarding-status.enum';
 import { LaboratoryVerificationStatus } from '../enums/laboratory-verification-status.enum';
 
@@ -70,8 +70,11 @@ class LaboratoryAdministratorSetupResponseDto {
   @ApiProperty({ example: '+2348098765432' })
   phone: string;
 
-  @ApiProperty({ example: [UserRole.LAB_ADMIN], enum: UserRole, isArray: true })
-  role: UserRole[];
+  @ApiProperty({
+    example: OrganizationMembershipRole.OWNER,
+    enum: OrganizationMembershipRole,
+  })
+  membership_role: OrganizationMembershipRole;
 
   @ApiProperty({ example: true })
   is_primary: boolean;

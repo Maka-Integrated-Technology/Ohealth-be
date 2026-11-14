@@ -60,10 +60,14 @@ export class OrganizationDocumentsService {
 
   async uploadMine(
     userId: string,
+    organizationId: string,
     documentType: OrganizationDocumentType,
     file?: IMulterFile,
   ): Promise<OrganizationDocumentResponseDto> {
-    const organization = await this.findForAdministratorOrThrow(userId);
+    const organization = await this.findForAdministratorOrThrow(
+      userId,
+      organizationId,
+    );
     this.assertDocumentTypeAllowed(organization, documentType);
     this.assertDocumentsEditable(organization);
     const validated = this.fileValidator.validate(file);
@@ -111,8 +115,14 @@ export class OrganizationDocumentsService {
     return this.toDto(persisted.saved);
   }
 
-  async listMine(userId: string): Promise<OrganizationDocumentChecklistDto> {
-    const organization = await this.findForAdministratorOrThrow(userId);
+  async listMine(
+    userId: string,
+    organizationId: string,
+  ): Promise<OrganizationDocumentChecklistDto> {
+    const organization = await this.findForAdministratorOrThrow(
+      userId,
+      organizationId,
+    );
     return this.buildChecklist(
       organization,
       await this.findAll(organization.id),
@@ -131,9 +141,13 @@ export class OrganizationDocumentsService {
 
   async downloadMine(
     userId: string,
+    organizationId: string,
     documentType: OrganizationDocumentType,
   ): Promise<OrganizationDocumentDownloadDto> {
-    const organization = await this.findForAdministratorOrThrow(userId);
+    const organization = await this.findForAdministratorOrThrow(
+      userId,
+      organizationId,
+    );
     return this.createDownload(organization.id, documentType);
   }
 
@@ -147,9 +161,13 @@ export class OrganizationDocumentsService {
 
   async deleteMine(
     userId: string,
+    organizationId: string,
     documentType: OrganizationDocumentType,
   ): Promise<{ message: string }> {
-    const organization = await this.findForAdministratorOrThrow(userId);
+    const organization = await this.findForAdministratorOrThrow(
+      userId,
+      organizationId,
+    );
     this.assertDocumentTypeAllowed(organization, documentType);
 
     const removed = await this.dataSource.transaction(async (manager) => {
@@ -311,9 +329,10 @@ export class OrganizationDocumentsService {
 
   private async findForAdministratorOrThrow(
     userId: string,
+    organizationId: string,
   ): Promise<Organization> {
     const administrator = await this.administratorRepository.findOne({
-      where: { user_id: userId },
+      where: { user_id: userId, organization_id: organizationId },
       relations: { organization: true },
     });
     if (!administrator?.organization) {

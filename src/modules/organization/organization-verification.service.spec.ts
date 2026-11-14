@@ -57,7 +57,7 @@ describe('OrganizationVerificationService', () => {
   });
 
   it('submits only after rechecking all required documents', async () => {
-    await service.submitMine('user-id');
+    await service.submitMine('user-id', 'organization-id');
 
     expect(
       documentService.assertAllRequiredDocumentsPresent,
@@ -85,9 +85,9 @@ describe('OrganizationVerificationService', () => {
     organization.verification_status =
       OrganizationVerificationStatus.UNDER_REVIEW;
 
-    await expect(service.submitMine('user-id')).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
+    await expect(
+      service.submitMine('user-id', 'organization-id'),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('requires and audits a rejection reason', async () => {

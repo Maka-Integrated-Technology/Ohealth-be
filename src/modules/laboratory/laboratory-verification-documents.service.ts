@@ -62,10 +62,14 @@ export class LaboratoryVerificationDocumentsService {
 
   async uploadMyDocument(
     userId: string,
+    laboratoryId: string,
     documentType: LaboratoryVerificationDocumentType,
     file: IMulterFile,
   ): Promise<LaboratoryVerificationDocumentResponseDto> {
-    const laboratory = await this.findLaboratoryForAdminOrThrow(userId);
+    const laboratory = await this.findLaboratoryForAdminOrThrow(
+      userId,
+      laboratoryId,
+    );
     this.assertCanMutateDocuments(laboratory);
     this.assertValidDocumentType(documentType);
     const validatedFile = this.fileValidator.validate(file);
@@ -115,8 +119,12 @@ export class LaboratoryVerificationDocumentsService {
 
   async listMyDocuments(
     userId: string,
+    laboratoryId: string,
   ): Promise<LaboratoryVerificationDocumentsStatusDto> {
-    const laboratory = await this.findLaboratoryForAdminOrThrow(userId);
+    const laboratory = await this.findLaboratoryForAdminOrThrow(
+      userId,
+      laboratoryId,
+    );
 
     return this.listDocumentsForLaboratory(laboratory.id);
   }
@@ -141,9 +149,13 @@ export class LaboratoryVerificationDocumentsService {
 
   async createMyDocumentDownloadUrl(
     userId: string,
+    laboratoryId: string,
     documentType: LaboratoryVerificationDocumentType,
   ): Promise<LaboratoryVerificationDocumentDownloadDto> {
-    const laboratory = await this.findLaboratoryForAdminOrThrow(userId);
+    const laboratory = await this.findLaboratoryForAdminOrThrow(
+      userId,
+      laboratoryId,
+    );
     const document = await this.findDocumentOrThrow(
       laboratory.id,
       documentType,
@@ -164,9 +176,13 @@ export class LaboratoryVerificationDocumentsService {
 
   async deleteMyDocument(
     userId: string,
+    laboratoryId: string,
     documentType: LaboratoryVerificationDocumentType,
   ): Promise<{ message: string }> {
-    const laboratory = await this.findLaboratoryForAdminOrThrow(userId);
+    const laboratory = await this.findLaboratoryForAdminOrThrow(
+      userId,
+      laboratoryId,
+    );
     this.assertCanMutateDocuments(laboratory);
     const document = await this.dataSource.transaction(async (manager) => {
       const laboratoryRepository = manager.withRepository(
@@ -269,9 +285,10 @@ export class LaboratoryVerificationDocumentsService {
 
   private async findLaboratoryForAdminOrThrow(
     userId: string,
+    laboratoryId: string,
   ): Promise<Laboratory> {
     const administrator = await this.laboratoryAdminRepository.findOne({
-      where: { user_id: userId },
+      where: { user_id: userId, laboratory_id: laboratoryId },
       relations: ['laboratory'],
     });
 

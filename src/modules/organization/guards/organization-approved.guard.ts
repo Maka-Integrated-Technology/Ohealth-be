@@ -9,7 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { IRequestWithUser } from '../../../common/types';
-import { ORGANIZATION_ADMIN_ROLE } from '../constants/organization-role.constant';
+import { AuthContextService } from '../../auth/context/auth-context.service';
 import { OrganizationAdmin } from '../entities/organization-admin.entity';
 import { OrganizationVerificationStatus } from '../enums/organization-verification-status.enum';
 
@@ -18,6 +18,7 @@ export class OrganizationApprovedGuard implements CanActivate {
   constructor(
     @InjectRepository(OrganizationAdmin)
     private readonly administratorRepository: Repository<OrganizationAdmin>,
+    private readonly contexts: AuthContextService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -35,12 +36,16 @@ export class OrganizationApprovedGuard implements CanActivate {
       );
     }
 
-    const requiredRole =
-      ORGANIZATION_ADMIN_ROLE[administrator.organization.organization_type];
-    if (!request.user.roles?.includes(requiredRole)) {
-      throw new ForbiddenException(
-        'authenticated role does not match the organization type',
-      );
+    const accountContext = await this.contexts.resolve(
+      userId,
+      request.user.sessionId,
+    );
+    const membership = accountContext.memberships.find(
+      (candidate) =>
+        candidate.organization_id === administrator.organization.id,
+    );
+    if (!membership || !['owner', 'admin'].includes(membership.role)) {
+      throw new ForbiddenException('active organization membership required');
     }
     if (!administrator.organization.is_active) {
       throw new ForbiddenException('organization account is inactive');

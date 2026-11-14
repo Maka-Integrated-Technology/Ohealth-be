@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AuthModule } from '../auth/auth.module';
 import { EmailModule } from '../email/email.module';
 import { OrganizationAdmin } from '../organization/entities/organization-admin.entity';
+import { OrganizationMembership } from '../organization/entities/organization-membership.entity';
 import { Organization } from '../organization/entities/organization.entity';
 import { OrganizationModule } from '../organization/organization.module';
 import { StorageModule } from '../storage/storage.module';
@@ -45,6 +46,7 @@ import { LaboratoryVerificationStatusService } from './laboratory-verification-s
       LaboratoryVerificationStatusHistory,
       Organization,
       OrganizationAdmin,
+      OrganizationMembership,
       User,
     ]),
   ],

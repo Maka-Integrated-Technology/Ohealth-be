@@ -14,11 +14,13 @@ import { AuthService } from '../auth/auth.service';
 import { User } from '../user/entities/user.entity';
 import { AccountStatus } from '../user/enums/account-status.enum';
 
-import { ORGANIZATION_ADMIN_ROLE } from './constants/organization-role.constant';
 import { SetupOrganizationResponseDto } from './dto/organization-response.dto';
 import { SetupOrganizationDto } from './dto/organization-setup.dto';
 import { OrganizationAdmin } from './entities/organization-admin.entity';
+import { OrganizationMembership } from './entities/organization-membership.entity';
 import { Organization } from './entities/organization.entity';
+import { OrganizationMembershipRole } from './enums/organization-membership-role.enum';
+import { OrganizationMembershipStatus } from './enums/organization-membership-status.enum';
 import { OrganizationType } from './enums/organization-type.enum';
 import { OrganizationVerificationStatus } from './enums/organization-verification-status.enum';
 import {
@@ -91,7 +93,7 @@ export class OrganizationOnboardingService {
         full_name: result.administrator.full_name,
         email: result.user.email,
         phone: result.administrator.phone,
-        roles: result.user.role,
+        membership_role: OrganizationMembershipRole.OWNER,
       },
     };
   }
@@ -153,7 +155,7 @@ export class OrganizationOnboardingService {
             last_name: parsedName.lastName,
             middle_name: parsedName.middleName,
             phone: administratorPayload.phone,
-            role: [ORGANIZATION_ADMIN_ROLE[organization.organization_type]],
+            role: [],
             is_active: false,
             is_verified: false,
             account_status: AccountStatus.PENDING_VERIFICATION,
@@ -171,6 +173,14 @@ export class OrganizationOnboardingService {
             is_primary: true,
           }),
         );
+        await manager.insert(OrganizationMembership, {
+          organization_id: organization.id,
+          user_id: user.id,
+          role: OrganizationMembershipRole.OWNER,
+          status: OrganizationMembershipStatus.ACTIVE,
+          permission_overrides: [],
+          joined_at: null,
+        });
 
         await this.authService.queueProvisionedVerification(manager, user);
         return { organization, user, administrator };

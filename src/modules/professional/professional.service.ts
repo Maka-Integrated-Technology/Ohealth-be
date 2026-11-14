@@ -13,10 +13,11 @@ import { Logger } from 'winston';
 
 import * as sysMsg from '../../constants/system.messages';
 import { Booking, BookingStatus } from '../booking/entities/booking.entity';
+import { UserPersona } from '../identity/entities/user-persona.entity';
+import { UserPersonaType } from '../identity/enums/user-persona-type.enum';
 import { PatientProfile } from '../patient/entities/patient-profile.entity';
 import { SpecialityService } from '../speciality/speciality.service';
 import { User } from '../user/entities/user.entity';
-import { UserRole } from '../user/enums/user-role.enum';
 
 import { BulkCreateAvailabilityDto } from './dto/create-professional-availability.dto';
 import { CreateProfessionalDto } from './dto/create-professional.dto';
@@ -63,14 +64,6 @@ import {
   ProfessionalVerificationStatus,
 } from './entities/professional.entity';
 
-/** Non-patient, non-admin roles that may have a professional profile. */
-const PROFESSIONAL_ROLES: UserRole[] = [
-  UserRole.DOCTOR,
-  UserRole.THERAPIST,
-  UserRole.COUNSELLOR,
-  UserRole.LAB_PROFESSIONAL,
-];
-
 @Injectable()
 export class ProfessionalService {
   private readonly logger: Logger;
@@ -84,6 +77,8 @@ export class ProfessionalService {
     private readonly reviewRepository: Repository<ProfessionalReview>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(UserPersona)
+    private readonly personaRepository: Repository<UserPersona>,
     @InjectRepository(Booking)
     private readonly bookingRepository: Repository<Booking>,
     @InjectRepository(PatientProfile)
@@ -129,7 +124,7 @@ export class ProfessionalService {
     dto: UpsertProfessionalProfileDto,
   ): Promise<ProfessionalMeResponseDto> {
     const user = await this.findUserOrThrow(userId);
-    this.assertProfessionalUser(user);
+    await this.assertProfessionalUser(user);
 
     await this.specialityService.findOne(dto.speciality_id);
 
@@ -617,10 +612,14 @@ export class ProfessionalService {
     if (!user) throw new NotFoundException(sysMsg.USER_NOT_FOUND);
 
     // 2. User must hold a valid professional role
-    const hasProfessionalRole = (user.role ?? []).some((r) =>
-      PROFESSIONAL_ROLES.includes(r as UserRole),
-    );
-    if (!hasProfessionalRole) {
+    const persona = await this.personaRepository.findOne({
+      where: {
+        user_id: user.id,
+        persona_type: UserPersonaType.HEALTHCARE_PROFESSIONAL,
+        is_active: true,
+      },
+    });
+    if (!persona) {
       throw new BadRequestException(sysMsg.PROFESSIONAL_INVALID_ROLE);
     }
 
@@ -736,25 +735,23 @@ export class ProfessionalService {
     if (!professional)
       throw new NotFoundException(sysMsg.PROFESSIONAL_NOT_FOUND);
 
-    // If booking_id supplied: validate ownership and professional match
-    if (dto.booking_id) {
-      const booking = await this.bookingRepository.findOne({
-        where: { id: dto.booking_id },
-      });
-      if (
-        !booking ||
-        booking.patient_id !== reviewerId ||
-        booking.professional_id !== professionalId
-      ) {
-        throw new BadRequestException(sysMsg.REVIEW_INVALID_BOOKING);
-      }
-
-      // One review per booking
-      const dupReview = await this.reviewRepository.findOne({
-        where: { booking_id: dto.booking_id },
-      });
-      if (dupReview) throw new ConflictException(sysMsg.REVIEW_ALREADY_EXISTS);
+    const booking = await this.bookingRepository.findOne({
+      where: { id: dto.booking_id },
+    });
+    if (
+      !booking ||
+      booking.patient_id !== reviewerId ||
+      booking.professional_id !== professionalId ||
+      booking.status !== BookingStatus.COMPLETED
+    ) {
+      throw new BadRequestException(sysMsg.REVIEW_INVALID_BOOKING);
     }
+
+    const duplicateReview = await this.reviewRepository.findOne({
+      where: { booking_id: dto.booking_id },
+    });
+    if (duplicateReview)
+      throw new ConflictException(sysMsg.REVIEW_ALREADY_EXISTS);
 
     return this.dataSource.transaction(async (manager) => {
       const review = manager.create(ProfessionalReview, {
@@ -808,12 +805,15 @@ export class ProfessionalService {
     return user;
   }
 
-  private assertProfessionalUser(user: User): void {
-    const hasProfessionalRole = (user.role ?? []).some((role) =>
-      PROFESSIONAL_ROLES.includes(role as UserRole),
-    );
-
-    if (!hasProfessionalRole) {
+  private async assertProfessionalUser(user: User): Promise<void> {
+    const persona = await this.personaRepository.findOne({
+      where: {
+        user_id: user.id,
+        persona_type: UserPersonaType.HEALTHCARE_PROFESSIONAL,
+        is_active: true,
+      },
+    });
+    if (!persona) {
       throw new ForbiddenException(sysMsg.PROFESSIONAL_INVALID_ROLE);
     }
   }
@@ -1417,7 +1417,6 @@ export class ProfessionalService {
         first_name: user.first_name,
         last_name: user.last_name,
         phone: user.phone,
-        roles: user.role,
         is_verified: user.is_verified,
       },
       profile: professional

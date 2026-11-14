@@ -1,4 +1,4 @@
-import { UserRole } from '../../user/enums/user-role.enum';
+import { OrganizationMembershipRole } from '../../organization/enums/organization-membership-role.enum';
 import { LaboratoryOnboardingStatus } from '../enums/laboratory-onboarding-status.enum';
 import { LaboratoryVerificationStatus } from '../enums/laboratory-verification-status.enum';
 
@@ -25,7 +25,7 @@ export interface ILaboratoryAdminSetupResult {
     full_name: string;
     email: string;
     phone: string;
-    role: UserRole[];
+    membership_role: OrganizationMembershipRole;
     is_primary: boolean;
   };
   verification_required: boolean;

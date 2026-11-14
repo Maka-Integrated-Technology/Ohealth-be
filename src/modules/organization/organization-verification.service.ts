@@ -35,8 +35,13 @@ export class OrganizationVerificationService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async getMine(userId: string): Promise<OrganizationStatusResponseDto> {
-    return this.toStatus(await this.findForAdministratorOrThrow(userId));
+  async getMine(
+    userId: string,
+    organizationId: string,
+  ): Promise<OrganizationStatusResponseDto> {
+    return this.toStatus(
+      await this.findForAdministratorOrThrow(userId, organizationId),
+    );
   }
 
   async getForReview(
@@ -45,8 +50,14 @@ export class OrganizationVerificationService {
     return this.toStatus(await this.findOrganizationOrThrow(organizationId));
   }
 
-  async submitMine(userId: string): Promise<OrganizationStatusResponseDto> {
-    const organization = await this.findForAdministratorOrThrow(userId);
+  async submitMine(
+    userId: string,
+    organizationId: string,
+  ): Promise<OrganizationStatusResponseDto> {
+    const organization = await this.findForAdministratorOrThrow(
+      userId,
+      organizationId,
+    );
     return this.transition(
       organization.id,
       userId,
@@ -234,9 +245,10 @@ export class OrganizationVerificationService {
 
   private async findForAdministratorOrThrow(
     userId: string,
+    organizationId: string,
   ): Promise<Organization> {
     const administrator = await this.administratorRepository.findOne({
-      where: { user_id: userId },
+      where: { user_id: userId, organization_id: organizationId },
       relations: { organization: true },
     });
     if (!administrator?.organization) {

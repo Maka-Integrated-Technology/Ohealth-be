@@ -2,17 +2,21 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { UserPersona } from '../../identity/entities/user-persona.entity';
 import { LaboratoryAdmin } from '../../laboratory/entities/laboratory-admin.entity';
 import { LaboratoryStaff } from '../../laboratory/entities/laboratory-staff.entity';
 import { OrganizationAdmin } from '../../organization/entities/organization-admin.entity';
+import { OrganizationMembership } from '../../organization/entities/organization-membership.entity';
+import { Organization } from '../../organization/entities/organization.entity';
 import { PatientProfile } from '../../patient/entities/patient-profile.entity';
 import { PlatformEventsModule } from '../../platform-events/platform-events.module';
 import { Professional } from '../../professional/entities/professional.entity';
 import { User } from '../../user/entities/user.entity';
 import { UserModule } from '../../user/user.module';
-import { AuthRoutingService } from '../auth-routing.service';
 import { AuthAbuseGuard } from '../challenges/auth-abuse.guard';
 import { AuthChallengeModule } from '../challenges/auth-challenge.module';
+import { AuthContextService } from '../context/auth-context.service';
+import { PlatformPrivilegeEntity } from '../context/platform-privilege.entity';
 import { AuthSession } from '../entities/auth.entity';
 import { PasswordCredentialsService } from '../password-policy/password-credentials.service';
 import { RegistrationModule } from '../registration/registration.module';
@@ -41,6 +45,10 @@ import { OAuthService } from './oauth.service';
       ExternalIdentity,
       AuthSession,
       User,
+      UserPersona,
+      Organization,
+      OrganizationMembership,
+      PlatformPrivilegeEntity,
       PatientProfile,
       Professional,
       OrganizationAdmin,
@@ -55,7 +63,7 @@ import { OAuthService } from './oauth.service';
     OAuthTransactionMaintenanceService,
     GoogleTokenVerifierService,
     PasswordCredentialsService,
-    AuthRoutingService,
+    AuthContextService,
     AuthAbuseGuard,
   ],
   exports: [OAuthService],

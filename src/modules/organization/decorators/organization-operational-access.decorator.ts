@@ -1,17 +1,17 @@
 import { applyDecorators, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiForbiddenResponse } from '@nestjs/swagger';
 
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { AuthCapability } from '../../auth/context/auth-capability';
+import { RequireCapabilities } from '../../auth/decorators/capabilities.decorator';
+import { CapabilitiesGuard } from '../../auth/guards/capabilities.guard';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { ORGANIZATION_ADMIN_ROLES } from '../constants/organization-role.constant';
 import { OrganizationApprovedGuard } from '../guards/organization-approved.guard';
 
 export const OrganizationOperationalAccess = () =>
   applyDecorators(
     ApiBearerAuth(),
-    Roles(...ORGANIZATION_ADMIN_ROLES),
-    UseGuards(JwtAuthGuard, RolesGuard, OrganizationApprovedGuard),
+    RequireCapabilities(AuthCapability.ORGANIZATION_OPERATIONAL),
+    UseGuards(JwtAuthGuard, CapabilitiesGuard, OrganizationApprovedGuard),
     ApiForbiddenResponse({
       description:
         'Organization administrator access requires an active, approved organization',

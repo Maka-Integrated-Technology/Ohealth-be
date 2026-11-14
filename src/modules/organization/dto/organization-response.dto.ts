@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-import { UserRole } from '../../user/enums/user-role.enum';
+import { OrganizationMembershipRole } from '../enums/organization-membership-role.enum';
 import { OrganizationType } from '../enums/organization-type.enum';
 import { OrganizationVerificationStatus } from '../enums/organization-verification-status.enum';
 
@@ -55,8 +55,8 @@ export class OrganizationAdministratorResponseDto {
   @ApiProperty()
   phone: string;
 
-  @ApiProperty({ enum: UserRole, isArray: true })
-  roles: UserRole[];
+  @ApiProperty({ enum: OrganizationMembershipRole })
+  membership_role: OrganizationMembershipRole;
 }
 
 export class SetupOrganizationResponseDto {

@@ -9,6 +9,9 @@ import { Logger } from 'winston';
 
 import * as sysMsg from '../../constants/system.messages';
 import { AuthService } from '../auth/auth.service';
+import { OrganizationAdmin } from '../organization/entities/organization-admin.entity';
+import { OrganizationMembership } from '../organization/entities/organization-membership.entity';
+import { Organization } from '../organization/entities/organization.entity';
 import { User } from '../user/entities/user.entity';
 import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserRole } from '../user/enums/user-role.enum';
@@ -39,6 +42,18 @@ describe('LaboratoryAuthService', () => {
   const mockUserRepository = {
     findOne: jest.fn(),
     create: jest.fn((payload: Partial<User>) => payload),
+    save: jest.fn(),
+  };
+  const mockOrganizationRepository = {
+    create: jest.fn((payload) => payload),
+    save: jest.fn(),
+  };
+  const mockOrganizationAdminRepository = {
+    create: jest.fn((payload) => payload),
+    save: jest.fn(),
+  };
+  const mockMembershipRepository = {
+    create: jest.fn((payload) => payload),
     save: jest.fn(),
   };
 
@@ -99,6 +114,18 @@ describe('LaboratoryAuthService', () => {
         {
           provide: getRepositoryToken(User),
           useValue: mockUserRepository,
+        },
+        {
+          provide: getRepositoryToken(Organization),
+          useValue: mockOrganizationRepository,
+        },
+        {
+          provide: getRepositoryToken(OrganizationAdmin),
+          useValue: mockOrganizationAdminRepository,
+        },
+        {
+          provide: getRepositoryToken(OrganizationMembership),
+          useValue: mockMembershipRepository,
         },
         {
           provide: DataSource,
@@ -197,7 +224,7 @@ describe('LaboratoryAuthService', () => {
         first_name: 'Tunde',
         middle_name: 'Ade',
         last_name: 'Adebayo',
-        role: [UserRole.LAB_ADMIN],
+        role: [],
         is_active: false,
         is_verified: false,
         account_status: AccountStatus.PENDING_VERIFICATION,
@@ -234,7 +261,7 @@ describe('LaboratoryAuthService', () => {
         id: 'administrator-id',
         user_id: 'user-id',
         email: 'tunde@medcheck.example',
-        role: [UserRole.LAB_ADMIN],
+        membership_role: 'owner',
       }),
       verification_required: true,
     });
