@@ -31,16 +31,10 @@ describe('Browser session transport (e2e)', () => {
     access_token: 'short-lived-access-token',
     session_id: '550e8400-e29b-41d4-a716-446655440000',
     session_expires_at: expiresAt,
-    user: {
-      id: 'user-id',
-      email: 'user@example.test',
-      first_name: 'Test',
-      last_name: 'User',
-      role: ['PATIENT'],
+    account_context: {
+      account: { id: 'user-id', email: 'user@example.test' },
+      capabilities: [],
     },
-    routing_target: 'patient_home',
-    access_level: 'full',
-    verification_status: null,
   };
   const transport = {
     verifySignup: jest.fn(),

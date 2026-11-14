@@ -9,12 +9,12 @@ import { WINSTON_MODULE_PROVIDER } from 'nest-winston';
 import * as request from 'supertest';
 
 import { AccountAccessPolicyService } from '../src/modules/auth/account-access-policy.service';
-import { AuthRoutingService } from '../src/modules/auth/auth-routing.service';
 import { AuthController } from '../src/modules/auth/auth.controller';
 import { AuthService } from '../src/modules/auth/auth.service';
 import { AuthAbuseGuard } from '../src/modules/auth/challenges/auth-abuse.guard';
 import { AuthChallengeDeliveryService } from '../src/modules/auth/challenges/auth-challenge-delivery.service';
 import { SecureAuthChallengeFlowsService } from '../src/modules/auth/challenges/secure-auth-challenge-flows.service';
+import { AuthContextService } from '../src/modules/auth/context/auth-context.service';
 import { AuthRateLimitService } from '../src/modules/auth/challenges/auth-rate-limit.service';
 import { AuthSession } from '../src/modules/auth/entities/auth.entity';
 import { JwtAuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
@@ -108,7 +108,7 @@ describe('Credential enumeration resistance (isolated HTTP e2e)', () => {
         { provide: getRepositoryToken(AuthSession), useValue: {} },
         { provide: JwtService, useValue: {} },
         { provide: EmailService, useValue: {} },
-        { provide: AuthRoutingService, useValue: {} },
+        { provide: AuthContextService, useValue: {} },
         { provide: JwtAuthGuard, useValue: { canActivate: () => false } },
         {
           provide: ConfigService,
