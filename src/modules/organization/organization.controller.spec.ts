@@ -1,10 +1,11 @@
 import { HTTP_CODE_METADATA } from '@nestjs/common/constants';
 import { Reflector } from '@nestjs/core';
 
-import { AUTH_CAPABILITIES_KEY } from '../auth/decorators/capabilities.decorator';
 import { AuthCapability } from '../auth/context/auth-capability';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AUTH_CAPABILITIES_KEY } from '../auth/decorators/capabilities.decorator';
 import { CapabilitiesGuard } from '../auth/guards/capabilities.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+
 import { OrganizationController } from './organization.controller';
 
 describe('OrganizationController', () => {

@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
 import * as sysMsg from '../../constants/system.messages';
-import { AUTH_CAPABILITIES_KEY } from '../auth/decorators/capabilities.decorator';
 import { AuthCapability } from '../auth/context/auth-capability';
+import { AUTH_CAPABILITIES_KEY } from '../auth/decorators/capabilities.decorator';
 
 import { LaboratoryAdminSetupDto } from './dto/laboratory-admin-setup.dto';
 import { LaboratoryAuthController } from './laboratory-auth.controller';

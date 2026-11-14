@@ -9,9 +9,9 @@ import { OutboxEvent } from '../../platform-events/entities/outbox-event.entity'
 import { User } from '../../user/entities/user.entity';
 import { AccountStatus } from '../../user/enums/account-status.enum';
 import { AccountAccessPolicyService } from '../account-access-policy.service';
-import { AuthContextService } from '../context/auth-context.service';
 import { AuthChallengeDeliveryService } from '../challenges/auth-challenge-delivery.service';
 import { AuthChallengePurpose } from '../challenges/auth-challenge.entity';
+import { AuthContextService } from '../context/auth-context.service';
 import { AuthSession } from '../entities/auth.entity';
 import { SignupIntent } from '../enums/signup-intent.enum';
 import { PasswordCredentialsService } from '../password-policy/password-credentials.service';
@@ -179,9 +179,10 @@ export class OAuthService {
     if (routed.user) {
       const sessionId = (result as { session_id?: string }).session_id;
       if (sessionId) {
-        const { user: _user, ...response } = result as typeof result & {
+        const response = { ...result } as typeof result & {
           user?: unknown;
         };
+        delete response.user;
         return {
           ...response,
           account_context: await this.authContext.resolve(

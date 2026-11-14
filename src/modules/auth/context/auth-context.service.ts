@@ -18,12 +18,12 @@ import {
 } from '../../professional/entities/professional.entity';
 import { User } from '../../user/entities/user.entity';
 import { AccountStatus } from '../../user/enums/account-status.enum';
+import { AuthSession } from '../entities/auth.entity';
 
 import { AuthCapability } from './auth-capability';
-import { AuthAccountContext } from './auth-context.types';
-import { PlatformPrivilege } from './platform-privilege.enum';
+import { IAuthAccountContext } from './auth-context.types';
 import { PlatformPrivilegeEntity } from './platform-privilege.entity';
-import { AuthSession } from '../entities/auth.entity';
+import { PlatformPrivilege } from './platform-privilege.enum';
 
 @Injectable()
 export class AuthContextService {
@@ -45,7 +45,7 @@ export class AuthContextService {
   async resolve(
     userId: string,
     sessionId: string,
-  ): Promise<AuthAccountContext> {
+  ): Promise<IAuthAccountContext> {
     const [
       user,
       personas,
@@ -196,7 +196,7 @@ export class AuthContextService {
     userId: string,
     sessionId: string,
     required: readonly string[],
-  ): Promise<AuthAccountContext> {
+  ): Promise<IAuthAccountContext> {
     const context = await this.resolve(userId, sessionId);
     if (
       !required.every((capability) => context.capabilities.includes(capability))

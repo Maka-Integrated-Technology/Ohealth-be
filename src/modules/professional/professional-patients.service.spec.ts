@@ -8,8 +8,8 @@ import {
   BookingStatus,
   ConsultationType,
 } from '../booking/entities/booking.entity';
-import { PatientProfile } from '../patient/entities/patient-profile.entity';
 import { UserPersona } from '../identity/entities/user-persona.entity';
+import { PatientProfile } from '../patient/entities/patient-profile.entity';
 import { User } from '../user/entities/user.entity';
 
 import { ProfessionalPatientSortBy } from './dto/professional-patient-response.dto';

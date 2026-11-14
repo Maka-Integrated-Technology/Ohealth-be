@@ -8,9 +8,9 @@ import {
 import { Reflector } from '@nestjs/core';
 
 import { IRequestWithUser } from '../../../common/types';
-import { AUTH_CAPABILITIES_KEY } from '../decorators/capabilities.decorator';
 import { AuthCapability } from '../context/auth-capability';
 import { AuthContextService } from '../context/auth-context.service';
+import { AUTH_CAPABILITIES_KEY } from '../decorators/capabilities.decorator';
 
 @Injectable()
 export class CapabilitiesGuard implements CanActivate {

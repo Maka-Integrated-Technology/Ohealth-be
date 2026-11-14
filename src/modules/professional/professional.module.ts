@@ -2,8 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { AuthModule } from '../auth/auth.module';
-import { UserPersona } from '../identity/entities/user-persona.entity';
 import { Booking } from '../booking/entities/booking.entity';
+import { UserPersona } from '../identity/entities/user-persona.entity';
 import { PatientProfile } from '../patient/entities/patient-profile.entity';
 import { SpecialityModule } from '../speciality/speciality.module';
 import { StorageModule } from '../storage/storage.module';

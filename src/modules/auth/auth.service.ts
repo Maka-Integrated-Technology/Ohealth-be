@@ -18,10 +18,10 @@ import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserService } from '../user/user.service';
 
 import { AccountAccessPolicyService } from './account-access-policy.service';
-import { AuthContextService } from './context/auth-context.service';
 import { AuthChallengeDeliveryService } from './challenges/auth-challenge-delivery.service';
 import { AuthChallengePurpose } from './challenges/auth-challenge.entity';
 import { SecureAuthChallengeFlowsService } from './challenges/secure-auth-challenge-flows.service';
+import { AuthContextService } from './context/auth-context.service';
 import {
   RegistrationBootstrapDto,
   RegisterAccountDto,

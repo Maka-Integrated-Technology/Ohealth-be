@@ -1,8 +1,8 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 
-import { UserRole } from '../../user/enums/user-role.enum';
 import { AuthContextService } from '../../auth/context/auth-context.service';
+import { UserRole } from '../../user/enums/user-role.enum';
 import { OrganizationAdmin } from '../entities/organization-admin.entity';
 import { OrganizationType } from '../enums/organization-type.enum';
 import { OrganizationVerificationStatus } from '../enums/organization-verification-status.enum';

@@ -18,6 +18,7 @@ import { UserPersonaType } from '../identity/enums/user-persona-type.enum';
 import { PatientProfile } from '../patient/entities/patient-profile.entity';
 import { SpecialityService } from '../speciality/speciality.service';
 import { User } from '../user/entities/user.entity';
+
 import { BulkCreateAvailabilityDto } from './dto/create-professional-availability.dto';
 import { CreateProfessionalDto } from './dto/create-professional.dto';
 import { CreateReviewDto } from './dto/create-review.dto';

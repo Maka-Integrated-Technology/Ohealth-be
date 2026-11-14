@@ -1,12 +1,12 @@
-import { AccountStatus } from '../../user/enums/account-status.enum';
 import { UserPersonaType } from '../../identity/enums/user-persona-type.enum';
 import { OrganizationMembershipRole } from '../../organization/enums/organization-membership-role.enum';
 import { OrganizationMembershipStatus } from '../../organization/enums/organization-membership-status.enum';
 import { OrganizationType } from '../../organization/enums/organization-type.enum';
 import { OrganizationVerificationStatus } from '../../organization/enums/organization-verification-status.enum';
 import { ProfessionalVerificationStatus } from '../../professional/entities/professional.entity';
+import { AccountStatus } from '../../user/enums/account-status.enum';
 
-export interface AuthAccountContext {
+export interface IAuthAccountContext {
   account: {
     id: string;
     email: string;

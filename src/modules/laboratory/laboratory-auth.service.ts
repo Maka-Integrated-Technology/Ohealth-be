@@ -6,10 +6,9 @@ import { Logger } from 'winston';
 
 import * as sysMsg from '../../constants/system.messages';
 import { AuthService } from '../auth/auth.service';
-import { User } from '../user/entities/user.entity';
 import { OrganizationMembershipRole } from '../organization/enums/organization-membership-role.enum';
+import { User } from '../user/entities/user.entity';
 import { AccountStatus } from '../user/enums/account-status.enum';
-import { UserRole } from '../user/enums/user-role.enum';
 
 import { LaboratoryAdminSetupDto } from './dto/laboratory-admin-setup.dto';
 import { LaboratoryAdmin } from './entities/laboratory-admin.entity';

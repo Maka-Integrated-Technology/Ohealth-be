@@ -10,17 +10,16 @@ import { Logger } from 'winston';
 import { IRequestWithUser } from '../../common/types';
 import * as sysMsg from '../../constants/system.messages';
 import { EmailService } from '../email/email.service';
-import { ProfessionalVerificationStatus } from '../professional/entities/professional.entity';
 import { User } from '../user/entities/user.entity';
 import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserRole } from '../user/enums/user-role.enum';
 import { UserService } from '../user/user.service';
 
 import { AccountAccessPolicyService } from './account-access-policy.service';
-import { AuthContextService } from './context/auth-context.service';
 import { AuthService } from './auth.service';
 import { AuthChallengeDeliveryService } from './challenges/auth-challenge-delivery.service';
 import { SecureAuthChallengeFlowsService } from './challenges/secure-auth-challenge-flows.service';
+import { AuthContextService } from './context/auth-context.service';
 import { VerifySignupDto } from './dto/auth.dto';
 import { AuthSession } from './entities/auth.entity';
 import { SignupIntent } from './enums/signup-intent.enum';

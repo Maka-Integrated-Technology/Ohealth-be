@@ -1,7 +1,7 @@
 import { Reflector } from '@nestjs/core';
 
-import { AUTH_CAPABILITIES_KEY } from '../auth/decorators/capabilities.decorator';
 import { AuthCapability } from '../auth/context/auth-capability';
+import { AUTH_CAPABILITIES_KEY } from '../auth/decorators/capabilities.decorator';
 
 import { ProfessionalController } from './professional.controller';
 

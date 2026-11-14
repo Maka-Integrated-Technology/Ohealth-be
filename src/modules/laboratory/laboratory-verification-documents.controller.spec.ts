@@ -1,10 +1,10 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { AUTH_CAPABILITIES_KEY } from '../auth/decorators/capabilities.decorator';
 import { AuthCapability } from '../auth/context/auth-capability';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AUTH_CAPABILITIES_KEY } from '../auth/decorators/capabilities.decorator';
 import { CapabilitiesGuard } from '../auth/guards/capabilities.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 import { LaboratoryVerificationDocumentType } from './enums/laboratory-verification-document-type.enum';
 import { LaboratoryVerificationDocumentsController } from './laboratory-verification-documents.controller';

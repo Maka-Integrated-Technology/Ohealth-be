@@ -21,9 +21,9 @@ import {
   ALLOWED_LAB_VERIFICATION_DOCUMENT_MIME_TYPES,
   MAX_LAB_VERIFICATION_DOCUMENT_SIZE,
 } from '../../constants/file-upload.constants';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { AuthCapability } from '../auth/context/auth-capability';
 import { RequireCapabilities } from '../auth/decorators/capabilities.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CapabilitiesGuard } from '../auth/guards/capabilities.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 

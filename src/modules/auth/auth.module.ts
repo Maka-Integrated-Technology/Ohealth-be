@@ -4,13 +4,13 @@ import { PassportModule } from '@nestjs/passport';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { EmailModule } from '../email/email.module';
+import { UserPersona } from '../identity/entities/user-persona.entity';
 import { LaboratoryAdmin } from '../laboratory/entities/laboratory-admin.entity';
 import { LaboratoryStaff } from '../laboratory/entities/laboratory-staff.entity';
 import { OrganizationAdmin } from '../organization/entities/organization-admin.entity';
-import { Organization } from '../organization/entities/organization.entity';
 import { OrganizationMembership } from '../organization/entities/organization-membership.entity';
+import { Organization } from '../organization/entities/organization.entity';
 import { Professional } from '../professional/entities/professional.entity';
-import { UserPersona } from '../identity/entities/user-persona.entity';
 import { User } from '../user/entities/user.entity';
 import { UserModule } from '../user/user.module';
 
@@ -21,13 +21,13 @@ import { BrowserSessionTransportService } from './browser/browser-session-transp
 import { BrowserSessionConfig } from './browser/browser-session.config';
 import { BrowserSessionController } from './browser/browser-session.controller';
 import { BrowserSessionGuard } from './browser/browser-session.guard';
-import { AuthContextService } from './context/auth-context.service';
 import { AuthAbuseGuard } from './challenges/auth-abuse.guard';
 import { AuthChallengeModule } from './challenges/auth-challenge.module';
 import { SecureAuthChallengeFlowsService } from './challenges/secure-auth-challenge-flows.service';
-import { User2fa } from './entities/user-2fa.entity';
-import { AuthSession } from './entities/auth.entity';
+import { AuthContextService } from './context/auth-context.service';
 import { PlatformPrivilegeEntity } from './context/platform-privilege.entity';
+import { AuthSession } from './entities/auth.entity';
+import { User2fa } from './entities/user-2fa.entity';
 import { CapabilitiesGuard } from './guards/capabilities.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';

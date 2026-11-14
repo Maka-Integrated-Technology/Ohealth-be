@@ -13,8 +13,8 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import { AuthCapability } from '../auth/context/auth-capability';
 import { RequireCapabilities } from '../auth/decorators/capabilities.decorator';
-import { CapabilitiesGuard } from '../auth/guards/capabilities.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CapabilitiesGuard } from '../auth/guards/capabilities.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 import {

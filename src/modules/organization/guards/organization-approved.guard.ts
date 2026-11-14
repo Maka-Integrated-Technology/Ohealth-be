@@ -9,9 +9,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 
 import { IRequestWithUser } from '../../../common/types';
+import { AuthContextService } from '../../auth/context/auth-context.service';
 import { OrganizationAdmin } from '../entities/organization-admin.entity';
 import { OrganizationVerificationStatus } from '../enums/organization-verification-status.enum';
-import { AuthContextService } from '../../auth/context/auth-context.service';
 
 @Injectable()
 export class OrganizationApprovedGuard implements CanActivate {
