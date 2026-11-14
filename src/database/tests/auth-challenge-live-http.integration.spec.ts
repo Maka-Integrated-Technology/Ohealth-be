@@ -20,7 +20,6 @@ import { DataSource, QueryRunner } from 'typeorm';
 import { GlobalExceptionFilter } from '../../common/exceptions/filters/global-exception.filter';
 import { TransformInterceptor } from '../../common/interceptors/transform.interceptor';
 import { AccountAccessPolicyService } from '../../modules/auth/account-access-policy.service';
-import { AuthRoutingService } from '../../modules/auth/auth-routing.service';
 import { AuthController } from '../../modules/auth/auth.controller';
 import { AuthService } from '../../modules/auth/auth.service';
 import { BrowserSessionCookieService } from '../../modules/auth/browser/browser-session-cookie.service';
@@ -262,10 +261,6 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
           useValue: new JwtService(),
         },
         { provide: EmailService, useValue: { sendMail: mail } },
-        {
-          provide: AuthRoutingService,
-          useValue: { resolve: jest.fn().mockResolvedValue({}) },
-        },
         JwtStrategy,
         JwtAuthGuard,
         { provide: APP_GUARD, useClass: JwtAuthGuard },

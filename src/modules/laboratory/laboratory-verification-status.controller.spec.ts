@@ -1,10 +1,10 @@
 import { Reflector } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { ROLES_KEY } from '../auth/decorators/roles.decorator';
+import { AUTH_CAPABILITIES_KEY } from '../auth/decorators/capabilities.decorator';
+import { AuthCapability } from '../auth/context/auth-capability';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { UserRole } from '../user/enums/user-role.enum';
+import { CapabilitiesGuard } from '../auth/guards/capabilities.guard';
 
 import { LaboratoryVerificationStatusController } from './laboratory-verification-status.controller';
 import { LaboratoryVerificationStatusService } from './laboratory-verification-status.service';
@@ -17,7 +17,6 @@ describe('LaboratoryVerificationStatusController', () => {
   const currentUser = {
     id: 'user-id',
     email: 'lab@example.com',
-    roles: [UserRole.LAB_ADMIN],
   };
 
   beforeEach(async () => {
@@ -45,22 +44,25 @@ describe('LaboratoryVerificationStatusController', () => {
     reflector = module.get(Reflector);
   });
 
-  it('should be protected by JWT and roles guards', () => {
+  it('should be protected by JWT and capability guards', () => {
     const guards = Reflect.getMetadata(
       '__guards__',
       LaboratoryVerificationStatusController,
     );
 
-    expect(guards).toEqual([JwtAuthGuard, RolesGuard]);
+    expect(guards).toEqual([JwtAuthGuard, CapabilitiesGuard]);
   });
 
   it('should restrict lab-owned routes to lab admins', () => {
     const routes = [controller.getMyStatus, controller.submitMyVerification];
 
     routes.forEach((route) => {
-      const roles = reflector.get<UserRole[]>(ROLES_KEY, route);
+      const roles = reflector.get<AuthCapability[]>(
+        AUTH_CAPABILITIES_KEY,
+        route,
+      );
 
-      expect(roles).toEqual([UserRole.LAB_ADMIN]);
+      expect(roles).toEqual([AuthCapability.ORGANIZATION_ONBOARDING]);
     });
   });
 
@@ -74,9 +76,12 @@ describe('LaboratoryVerificationStatusController', () => {
     ];
 
     routes.forEach((route) => {
-      const roles = reflector.get<UserRole[]>(ROLES_KEY, route);
+      const roles = reflector.get<AuthCapability[]>(
+        AUTH_CAPABILITIES_KEY,
+        route,
+      );
 
-      expect(roles).toEqual([UserRole.ADMIN]);
+      expect(roles).toEqual([AuthCapability.PLATFORM_ORGANIZATION_REVIEW]);
     });
   });
 

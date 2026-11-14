@@ -8,7 +8,6 @@ import {
   IsUUID,
 } from 'class-validator';
 
-import { UserRole } from '../../user/enums/user-role.enum';
 import { isSecurePassword } from '../password-policy/is-secure-password.decorator';
 import { PASSWORD_MIN_LENGTH } from '../password-policy/password-policy';
 
@@ -64,51 +63,6 @@ export class GoogleLoginDto {
   @IsString()
   @IsNotEmpty()
   token: string;
-}
-
-export class AuthMeResponseDto {
-  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
-  id: string;
-
-  @ApiProperty({ example: 'john.doe@example.com' })
-  email: string;
-
-  @ApiProperty({ example: 'John' })
-  first_name: string;
-
-  @ApiProperty({ example: 'Doe' })
-  last_name: string;
-
-  @ApiProperty({ example: ['PATIENT'], type: [String] })
-  role: UserRole[];
-
-  @ApiProperty({ example: 'Michael' })
-  middle_name: string;
-
-  @ApiProperty({ example: 'Male' })
-  gender: string;
-
-  @ApiProperty({ example: '2000-01-15' })
-  dob: string;
-
-  @ApiProperty({ example: '+1234567890' })
-  phone: string;
-
-  @ApiProperty({
-    example: 'https://res.cloudinary.com/ohealth/image/upload/v123/avatar.png',
-    required: false,
-    nullable: true,
-  })
-  image?: string | null;
-
-  @ApiProperty({ example: true })
-  is_active: boolean;
-
-  @ApiProperty({ example: '2024-01-15T10:30:00Z' })
-  created_at: Date;
-
-  @ApiProperty({ example: '2024-01-15T10:30:00Z' })
-  updated_at: Date;
 }
 
 export class VerifySignupDto {

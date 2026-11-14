@@ -7,7 +7,7 @@ import {
 } from '@nestjs/swagger';
 
 import * as sysMsg from '../../../constants/system.messages';
-import { AuthMeResponseDto } from '../dto/auth.dto';
+import { AuthContextResponseDto } from '../dto/auth-response.dto';
 
 export const UpdateProfileDocs = () =>
   applyDecorators(
@@ -15,7 +15,7 @@ export const UpdateProfileDocs = () =>
     ApiOperation({ summary: 'Update authenticated user profile' }),
     ApiOkResponse({
       description: sysMsg.PROFILE_UPDATED,
-      type: AuthMeResponseDto,
+      type: AuthContextResponseDto,
     }),
     ApiUnauthorizedResponse({
       description: sysMsg.UNAUTHORIZED,

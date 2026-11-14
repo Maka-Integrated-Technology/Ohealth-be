@@ -166,6 +166,32 @@ missing, suspended, or removed.
 Cache keys always include both identifiers. Membership and permission changes
 invalidate their cache entries immediately.
 
+## Canonical account context and capability matrix
+
+Authenticated login verification, signup verification, Google OAuth completion,
+refresh, and `GET /auth/me` return the same server-resolved account context.
+The context contains account lifecycle state, active personas, professional
+onboarding and verification state, organization memberships, session-safe
+metadata, and derived capabilities. It never contains frontend route names or
+client-writable authorization state.
+
+The initial capability boundary is:
+
+| Subject and state | Allowed capabilities | Denied capabilities |
+| --- | --- | --- |
+| Active patient persona | patient bookings and professional reviews | professional care, organization administration, platform review |
+| Active healthcare-professional persona, pending/rejected verification | profile onboarding and verification documents/status | dashboard, availability operations, booking operations, patient records/notes |
+| Active approved healthcare professional | professional onboarding, verification, dashboard, availability, booking operations, patient-care resources | unrelated organization administration and platform review |
+| Active organization owner/admin, organization pending | organization onboarding, documents, status and submission | approved operational resources |
+| Active organization owner/admin, organization approved | organization onboarding and approved operational resources | resources in other organizations |
+| Active organization member | capabilities granted by the active membership and explicit overrides | owner/admin and unrelated organization resources |
+| Platform administrator | explicitly assigned platform review capabilities | organization resources without an independent membership |
+
+Personas are not roles. Organization access is resolved from the membership for
+the requested organization, and platform privileges are stored separately from
+the legacy user role array. Protected requests re-read current account and
+session state; a JWT never authorizes from embedded roles or permissions.
+
 ## Prohibited patterns
 
 - Accepting a role or permission in public registration.

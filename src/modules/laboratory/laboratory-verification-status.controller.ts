@@ -11,11 +11,11 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
+import { AuthCapability } from '../auth/context/auth-capability';
+import { RequireCapabilities } from '../auth/decorators/capabilities.decorator';
+import { CapabilitiesGuard } from '../auth/guards/capabilities.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { UserRole } from '../user/enums/user-role.enum';
 
 import {
   ApproveLaboratoryVerificationDocs,
@@ -36,12 +36,11 @@ import { LaboratoryVerificationStatusService } from './laboratory-verification-s
 interface ICurrentUser {
   id: string;
   email: string;
-  roles: UserRole[];
 }
 
 @ApiTags('Laboratory Verification Status')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, CapabilitiesGuard)
 @Controller('laboratories')
 export class LaboratoryVerificationStatusController {
   constructor(
@@ -49,7 +48,7 @@ export class LaboratoryVerificationStatusController {
   ) {}
 
   @Get('me/verification-status')
-  @Roles(UserRole.LAB_ADMIN)
+  @RequireCapabilities(AuthCapability.ORGANIZATION_ONBOARDING)
   @GetMyLaboratoryVerificationStatusDocs()
   getMyStatus(
     @CurrentUser() user: ICurrentUser,
@@ -58,7 +57,7 @@ export class LaboratoryVerificationStatusController {
   }
 
   @Post('me/verification-status/submit')
-  @Roles(UserRole.LAB_ADMIN)
+  @RequireCapabilities(AuthCapability.ORGANIZATION_ONBOARDING)
   @HttpCode(HttpStatus.OK)
   @SubmitMyLaboratoryVerificationDocs()
   submitMyVerification(
@@ -68,7 +67,7 @@ export class LaboratoryVerificationStatusController {
   }
 
   @Get(':laboratoryId/verification-status')
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_ORGANIZATION_REVIEW)
   @GetLaboratoryVerificationStatusForAdminDocs()
   getLaboratoryStatus(
     @Param('laboratoryId', ParseUUIDPipe) laboratoryId: string,
@@ -77,7 +76,7 @@ export class LaboratoryVerificationStatusController {
   }
 
   @Get(':laboratoryId/verification-status/history')
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_ORGANIZATION_REVIEW)
   @ListLaboratoryVerificationStatusHistoryDocs()
   listHistory(
     @Param('laboratoryId', ParseUUIDPipe) laboratoryId: string,
@@ -86,7 +85,7 @@ export class LaboratoryVerificationStatusController {
   }
 
   @Post(':laboratoryId/verification-status/under-review')
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_ORGANIZATION_REVIEW)
   @HttpCode(HttpStatus.OK)
   @MarkLaboratoryVerificationUnderReviewDocs()
   markUnderReview(
@@ -100,7 +99,7 @@ export class LaboratoryVerificationStatusController {
   }
 
   @Post(':laboratoryId/verification-status/approve')
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_ORGANIZATION_REVIEW)
   @HttpCode(HttpStatus.OK)
   @ApproveLaboratoryVerificationDocs()
   approve(
@@ -111,7 +110,7 @@ export class LaboratoryVerificationStatusController {
   }
 
   @Post(':laboratoryId/verification-status/reject')
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_ORGANIZATION_REVIEW)
   @HttpCode(HttpStatus.OK)
   @RejectLaboratoryVerificationDocs()
   reject(

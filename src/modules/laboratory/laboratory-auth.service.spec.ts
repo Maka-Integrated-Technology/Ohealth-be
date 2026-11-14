@@ -197,7 +197,7 @@ describe('LaboratoryAuthService', () => {
         first_name: 'Tunde',
         middle_name: 'Ade',
         last_name: 'Adebayo',
-        role: [UserRole.LAB_ADMIN],
+        role: [],
         is_active: false,
         is_verified: false,
         account_status: AccountStatus.PENDING_VERIFICATION,
@@ -234,7 +234,7 @@ describe('LaboratoryAuthService', () => {
         id: 'administrator-id',
         user_id: 'user-id',
         email: 'tunde@medcheck.example',
-        role: [UserRole.LAB_ADMIN],
+        membership_role: 'owner',
       }),
       verification_required: true,
     });

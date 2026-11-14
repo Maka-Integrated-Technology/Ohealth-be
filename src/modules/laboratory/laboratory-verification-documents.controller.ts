@@ -22,10 +22,10 @@ import {
   MAX_LAB_VERIFICATION_DOCUMENT_SIZE,
 } from '../../constants/file-upload.constants';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { AuthCapability } from '../auth/context/auth-capability';
+import { RequireCapabilities } from '../auth/decorators/capabilities.decorator';
+import { CapabilitiesGuard } from '../auth/guards/capabilities.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { UserRole } from '../user/enums/user-role.enum';
 
 import {
   DeleteMyLaboratoryVerificationDocumentDocs,
@@ -46,7 +46,6 @@ import { LaboratoryVerificationDocumentsService } from './laboratory-verificatio
 interface ICurrentUser {
   id: string;
   email: string;
-  roles: UserRole[];
 }
 
 const laboratoryVerificationDocumentUploadOptions = {
@@ -70,7 +69,7 @@ const laboratoryVerificationDocumentUploadOptions = {
 
 @ApiTags('Laboratory Verification Documents')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, CapabilitiesGuard)
 @Controller('laboratories')
 export class LaboratoryVerificationDocumentsController {
   constructor(
@@ -78,7 +77,7 @@ export class LaboratoryVerificationDocumentsController {
   ) {}
 
   @Post('me/verification-documents/:documentType')
-  @Roles(UserRole.LAB_ADMIN)
+  @RequireCapabilities(AuthCapability.ORGANIZATION_ONBOARDING)
   @UseInterceptors(
     FileInterceptor('file', laboratoryVerificationDocumentUploadOptions),
   )
@@ -101,7 +100,7 @@ export class LaboratoryVerificationDocumentsController {
   }
 
   @Get('me/verification-documents')
-  @Roles(UserRole.LAB_ADMIN)
+  @RequireCapabilities(AuthCapability.ORGANIZATION_ONBOARDING)
   @ListMyLaboratoryVerificationDocumentsDocs()
   listMyDocuments(
     @CurrentUser() user: ICurrentUser,
@@ -110,7 +109,7 @@ export class LaboratoryVerificationDocumentsController {
   }
 
   @Get('me/verification-documents/:documentType/download')
-  @Roles(UserRole.LAB_ADMIN)
+  @RequireCapabilities(AuthCapability.ORGANIZATION_ONBOARDING)
   @DownloadMyLaboratoryVerificationDocumentDocs()
   downloadMyDocument(
     @CurrentUser() user: ICurrentUser,
@@ -127,7 +126,7 @@ export class LaboratoryVerificationDocumentsController {
   }
 
   @Delete('me/verification-documents/:documentType')
-  @Roles(UserRole.LAB_ADMIN)
+  @RequireCapabilities(AuthCapability.ORGANIZATION_ONBOARDING)
   @DeleteMyLaboratoryVerificationDocumentDocs()
   deleteMyDocument(
     @CurrentUser() user: ICurrentUser,
@@ -144,7 +143,7 @@ export class LaboratoryVerificationDocumentsController {
   }
 
   @Get(':laboratoryId/verification-documents')
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_ORGANIZATION_REVIEW)
   @ListLaboratoryVerificationDocumentsForAdminDocs()
   listLaboratoryDocuments(
     @Param('laboratoryId', ParseUUIDPipe) laboratoryId: string,
@@ -155,7 +154,7 @@ export class LaboratoryVerificationDocumentsController {
   }
 
   @Get(':laboratoryId/verification-documents/:documentType/download')
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_ORGANIZATION_REVIEW)
   @DownloadLaboratoryVerificationDocumentForAdminDocs()
   downloadLaboratoryDocument(
     @Param('laboratoryId', ParseUUIDPipe) laboratoryId: string,

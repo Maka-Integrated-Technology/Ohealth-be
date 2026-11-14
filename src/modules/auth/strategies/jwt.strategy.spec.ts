@@ -2,7 +2,6 @@ import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import * as sysMsg from '../../../constants/system.messages';
-import { UserRole } from '../../user/enums/user-role.enum';
 import { RefreshSessionService } from '../sessions/refresh-session.service';
 
 import { JwtStrategy } from './jwt.strategy';
@@ -35,14 +34,12 @@ describe('JwtStrategy', () => {
     sessions.validate.mockResolvedValue({
       id: payload.sub,
       email: 'current@example.com',
-      role: [UserRole.DOCTOR],
     });
 
     await expect(strategy.validate(payload)).resolves.toEqual({
       id: payload.sub,
       userId: payload.sub,
       email: 'current@example.com',
-      roles: [UserRole.DOCTOR],
       sessionId: payload.sid,
     });
     expect(sessions.validate).toHaveBeenCalledWith(payload.sub, payload.sid);

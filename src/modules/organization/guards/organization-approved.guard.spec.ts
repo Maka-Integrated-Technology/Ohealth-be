@@ -2,6 +2,7 @@ import { ExecutionContext, ForbiddenException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 
 import { UserRole } from '../../user/enums/user-role.enum';
+import { AuthContextService } from '../../auth/context/auth-context.service';
 import { OrganizationAdmin } from '../entities/organization-admin.entity';
 import { OrganizationType } from '../enums/organization-type.enum';
 import { OrganizationVerificationStatus } from '../enums/organization-verification-status.enum';
@@ -14,12 +15,27 @@ describe('OrganizationApprovedGuard', () => {
     ({
       switchToHttp: () => ({
         getRequest: () => ({
-          user: { id: 'user-id', userId: 'user-id', roles },
+          user: {
+            id: 'user-id',
+            userId: 'user-id',
+            roles,
+            sessionId: 'session-id',
+          },
         }),
       }),
     }) as ExecutionContext;
   const guard = new OrganizationApprovedGuard(
     repository as unknown as Repository<OrganizationAdmin>,
+    {
+      resolve: jest.fn().mockResolvedValue({
+        memberships: [
+          {
+            organization_id: 'organization-id',
+            role: 'admin',
+          },
+        ],
+      }),
+    } as unknown as AuthContextService,
   );
 
   beforeEach(() => jest.clearAllMocks());
@@ -27,6 +43,7 @@ describe('OrganizationApprovedGuard', () => {
   it('allows an approved administrator with the matching role', async () => {
     repository.findOne.mockResolvedValue({
       organization: {
+        id: 'organization-id',
         organization_type: OrganizationType.PHARMACY,
         verification_status: OrganizationVerificationStatus.APPROVED,
         is_active: true,
@@ -41,6 +58,7 @@ describe('OrganizationApprovedGuard', () => {
   it('denies access before approval', async () => {
     repository.findOne.mockResolvedValue({
       organization: {
+        id: 'organization-id',
         organization_type: OrganizationType.PHARMACY,
         verification_status: OrganizationVerificationStatus.UNDER_REVIEW,
         is_active: true,
@@ -55,6 +73,7 @@ describe('OrganizationApprovedGuard', () => {
   it('denies a role that does not match the linked organization type', async () => {
     repository.findOne.mockResolvedValue({
       organization: {
+        id: 'other-organization-id',
         organization_type: OrganizationType.HOSPITAL,
         verification_status: OrganizationVerificationStatus.APPROVED,
         is_active: true,
@@ -69,6 +88,7 @@ describe('OrganizationApprovedGuard', () => {
   it('denies an inactive organization even when approved', async () => {
     repository.findOne.mockResolvedValue({
       organization: {
+        id: 'organization-id',
         organization_type: OrganizationType.PHARMACY,
         verification_status: OrganizationVerificationStatus.APPROVED,
         is_active: false,

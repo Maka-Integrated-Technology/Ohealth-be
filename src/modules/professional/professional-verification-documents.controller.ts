@@ -33,11 +33,11 @@ import {
   MAX_PROFESSIONAL_VERIFICATION_DOCUMENT_SIZE,
 } from '../../constants/file-upload.constants';
 import { createFileUploadSchema } from '../../openapi/openapi-upload-schema';
+import { AuthCapability } from '../auth/context/auth-capability';
+import { RequireCapabilities } from '../auth/decorators/capabilities.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { CapabilitiesGuard } from '../auth/guards/capabilities.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { UserRole } from '../user/enums/user-role.enum';
 
 import {
   ProfessionalVerificationDocumentDownloadDto,
@@ -46,13 +46,6 @@ import {
 } from './dto/professional-verification-document-response.dto';
 import { ProfessionalVerificationDocumentType } from './enums/professional-verification-document-type.enum';
 import { ProfessionalVerificationDocumentsService } from './professional-verification-documents.service';
-
-const PROFESSIONAL_ACCESS_ROLES = [
-  UserRole.DOCTOR,
-  UserRole.THERAPIST,
-  UserRole.COUNSELLOR,
-  UserRole.LAB_PROFESSIONAL,
-];
 
 const professionalVerificationDocumentUploadOptions = {
   limits: { fileSize: MAX_PROFESSIONAL_VERIFICATION_DOCUMENT_SIZE },
@@ -79,7 +72,7 @@ const professionalVerificationDocumentUploadOptions = {
 
 @ApiTags('Professional Verification Documents')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, CapabilitiesGuard)
 @Controller('professionals')
 export class ProfessionalVerificationDocumentsController {
   constructor(
@@ -87,7 +80,7 @@ export class ProfessionalVerificationDocumentsController {
   ) {}
 
   @Post('me/verification-documents/:documentType')
-  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @RequireCapabilities(AuthCapability.PROFESSIONAL_VERIFICATION)
   @UseInterceptors(
     FileInterceptor('file', professionalVerificationDocumentUploadOptions),
   )
@@ -127,7 +120,7 @@ export class ProfessionalVerificationDocumentsController {
   }
 
   @Get('me/verification-documents')
-  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @RequireCapabilities(AuthCapability.PROFESSIONAL_VERIFICATION)
   @ApiOperation({
     summary: 'List the current professional’s verification documents',
   })
@@ -142,7 +135,7 @@ export class ProfessionalVerificationDocumentsController {
   }
 
   @Get('me/verification-documents/:documentType/download')
-  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @RequireCapabilities(AuthCapability.PROFESSIONAL_VERIFICATION)
   @ApiOperation({ summary: 'Get a signed download URL for a document' })
   @ApiParam({
     name: 'documentType',
@@ -167,7 +160,7 @@ export class ProfessionalVerificationDocumentsController {
   }
 
   @Delete('me/verification-documents/:documentType')
-  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @RequireCapabilities(AuthCapability.PROFESSIONAL_VERIFICATION)
   @ApiOperation({ summary: 'Delete an uploaded verification document' })
   @ApiResponse({ status: 200, type: ApiMessageResponseDto })
   @ApiParam({
@@ -189,7 +182,7 @@ export class ProfessionalVerificationDocumentsController {
   }
 
   @Get(':professionalId/verification-documents')
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_PROFESSIONAL_REVIEW)
   @ApiOperation({
     summary: 'List a professional’s verification documents (admin only)',
   })
@@ -207,7 +200,7 @@ export class ProfessionalVerificationDocumentsController {
   }
 
   @Get(':professionalId/verification-documents/:documentType/download')
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_PROFESSIONAL_REVIEW)
   @ApiOperation({
     summary: 'Get a signed download URL for a document (admin only)',
   })

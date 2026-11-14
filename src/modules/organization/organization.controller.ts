@@ -18,13 +18,12 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import { IAuthUser, IMulterFile } from '../../common/types';
+import { AuthCapability } from '../auth/context/auth-capability';
+import { RequireCapabilities } from '../auth/decorators/capabilities.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { CapabilitiesGuard } from '../auth/guards/capabilities.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { UserRole } from '../user/enums/user-role.enum';
 
-import { ORGANIZATION_ADMIN_ROLES } from './constants/organization-role.constant';
 import { ORGANIZATION_DOCUMENT_UPLOAD_OPTIONS } from './constants/organization-upload.constant';
 import {
   DeleteOrganizationDocumentDocs,
@@ -50,7 +49,7 @@ import { OrganizationVerificationService } from './organization-verification.ser
 
 @ApiTags('Organization Onboarding')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, CapabilitiesGuard)
 @Controller('organizations/onboarding')
 export class OrganizationController {
   constructor(
@@ -60,14 +59,14 @@ export class OrganizationController {
   ) {}
 
   @Post('admin-setup')
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_ORGANIZATION_REVIEW)
   @SetupOrganizationDocs()
   setup(@Body() dto: SetupOrganizationDto) {
     return this.onboardingService.setupAdministrator(dto);
   }
 
   @Post('me/documents/:documentType')
-  @Roles(...ORGANIZATION_ADMIN_ROLES)
+  @RequireCapabilities(AuthCapability.ORGANIZATION_ONBOARDING)
   @UseInterceptors(
     FileInterceptor('file', ORGANIZATION_DOCUMENT_UPLOAD_OPTIONS),
   )
@@ -83,14 +82,14 @@ export class OrganizationController {
   }
 
   @Get('me/documents')
-  @Roles(...ORGANIZATION_ADMIN_ROLES)
+  @RequireCapabilities(AuthCapability.ORGANIZATION_ONBOARDING)
   @ListOrganizationDocumentsDocs()
   listMine(@CurrentUser() user: IAuthUser) {
     return this.documentsService.listMine(user.id);
   }
 
   @Get('me/documents/:documentType/download')
-  @Roles(...ORGANIZATION_ADMIN_ROLES)
+  @RequireCapabilities(AuthCapability.ORGANIZATION_ONBOARDING)
   @DownloadOrganizationDocumentDocs()
   downloadMine(
     @CurrentUser() user: IAuthUser,
@@ -101,7 +100,7 @@ export class OrganizationController {
   }
 
   @Delete('me/documents/:documentType')
-  @Roles(...ORGANIZATION_ADMIN_ROLES)
+  @RequireCapabilities(AuthCapability.ORGANIZATION_ONBOARDING)
   @DeleteOrganizationDocumentDocs()
   deleteMine(
     @CurrentUser() user: IAuthUser,
@@ -112,14 +111,14 @@ export class OrganizationController {
   }
 
   @Get('me/status')
-  @Roles(...ORGANIZATION_ADMIN_ROLES)
+  @RequireCapabilities(AuthCapability.ORGANIZATION_ONBOARDING)
   @GetOrganizationStatusDocs()
   getMyStatus(@CurrentUser() user: IAuthUser) {
     return this.verificationService.getMine(user.id);
   }
 
   @Post('me/submit')
-  @Roles(...ORGANIZATION_ADMIN_ROLES)
+  @RequireCapabilities(AuthCapability.ORGANIZATION_ONBOARDING)
   @HttpCode(HttpStatus.OK)
   @SubmitOrganizationDocs()
   submitMine(@CurrentUser() user: IAuthUser) {
@@ -127,14 +126,14 @@ export class OrganizationController {
   }
 
   @Get('review/applications')
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_ORGANIZATION_REVIEW)
   @ListOrganizationApplicationsDocs()
   listApplications(@Query() query: OrganizationReviewQueryDto) {
     return this.verificationService.listApplications(query);
   }
 
   @Get(':organizationId/documents')
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_ORGANIZATION_REVIEW)
   @ListOrganizationDocumentsDocs()
   listForReview(
     @Param('organizationId', ParseUUIDPipe) organizationId: string,
@@ -143,7 +142,7 @@ export class OrganizationController {
   }
 
   @Get(':organizationId/documents/:documentType/download')
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_ORGANIZATION_REVIEW)
   @DownloadOrganizationDocumentDocs()
   downloadForReview(
     @Param('organizationId', ParseUUIDPipe) organizationId: string,
@@ -157,21 +156,21 @@ export class OrganizationController {
   }
 
   @Get(':organizationId/status')
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_ORGANIZATION_REVIEW)
   @GetOrganizationStatusDocs()
   getStatus(@Param('organizationId', ParseUUIDPipe) organizationId: string) {
     return this.verificationService.getForReview(organizationId);
   }
 
   @Get(':organizationId/status/history')
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_ORGANIZATION_REVIEW)
   @ListOrganizationStatusHistoryDocs()
   listHistory(@Param('organizationId', ParseUUIDPipe) organizationId: string) {
     return this.verificationService.listHistory(organizationId);
   }
 
   @Post(':organizationId/status/under-review')
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_ORGANIZATION_REVIEW)
   @HttpCode(HttpStatus.OK)
   @TransitionOrganizationDocs('Mark organization under review')
   markUnderReview(
@@ -182,7 +181,7 @@ export class OrganizationController {
   }
 
   @Post(':organizationId/status/approve')
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_ORGANIZATION_REVIEW)
   @HttpCode(HttpStatus.OK)
   @TransitionOrganizationDocs('Approve organization')
   approve(
@@ -193,7 +192,7 @@ export class OrganizationController {
   }
 
   @Post(':organizationId/status/reject')
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_ORGANIZATION_REVIEW)
   @HttpCode(HttpStatus.OK)
   @TransitionOrganizationDocs('Reject organization')
   reject(

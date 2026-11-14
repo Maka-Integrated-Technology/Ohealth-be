@@ -1,25 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-import { UserRole } from '../../user/enums/user-role.enum';
 import { AuthChallengeContinuationDto } from '../contracts/auth-contract-response.dto';
-import { AuthAccessLevel, AuthRoutingTarget } from '../enums/auth-routing.enum';
-
-class UserDto {
-  @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
-  id: string;
-
-  @ApiProperty({ example: 'john.doe@example.com' })
-  email: string;
-
-  @ApiProperty({ example: 'John' })
-  first_name: string;
-
-  @ApiProperty({ example: 'Doe' })
-  last_name: string;
-
-  @ApiProperty({ example: [UserRole.PATIENT], type: [String] })
-  role: UserRole[];
-}
 
 export class TokensDto {
   @ApiProperty({
@@ -35,31 +16,36 @@ export class TokensDto {
   refresh_token: string;
 }
 
-class RoutedAuthResponseDto extends TokensDto {
-  @ApiProperty({ type: UserDto })
-  user: UserDto;
+export class AuthContextResponseDto {
+  @ApiProperty({ type: Object })
+  account: Record<string, unknown>;
 
-  @ApiProperty({
-    enum: AuthRoutingTarget,
-    example: AuthRoutingTarget.PATIENT_HOME,
-  })
-  routing_target: AuthRoutingTarget;
+  @ApiProperty({ type: [Object] })
+  personas: Array<Record<string, unknown>>;
 
-  @ApiProperty({
-    enum: AuthAccessLevel,
-    example: AuthAccessLevel.FULL,
-  })
-  access_level: AuthAccessLevel;
+  @ApiProperty({ type: Object, nullable: true })
+  professional: Record<string, unknown> | null;
 
-  @ApiProperty({
-    example: null,
-    nullable: true,
-    description: 'Current provider verification status, when applicable',
-  })
-  verification_status: string | null;
+  @ApiProperty({ type: [Object] })
+  memberships: Array<Record<string, unknown>>;
+
+  @ApiProperty({ type: [String] })
+  capabilities: string[];
+
+  @ApiProperty({ type: Object })
+  session: Record<string, unknown>;
 }
 
-export class LoginResponseDto extends RoutedAuthResponseDto {
+export class CanonicalAuthResponseDto extends TokensDto {
+  @ApiProperty({
+    type: Object,
+    description:
+      'Server-resolved account, persona, membership, verification, and capability context',
+  })
+  account_context: Record<string, unknown>;
+}
+
+export class LoginResponseDto extends CanonicalAuthResponseDto {
   @ApiProperty({
     example: 200,
     nullable: true,
@@ -92,7 +78,7 @@ export class VerifySignupResponseDto extends LoginResponseDto {
   message: string;
 }
 
-export class RefreshTokenResponseDto extends RoutedAuthResponseDto {
+export class RefreshTokenResponseDto extends CanonicalAuthResponseDto {
   @ApiProperty({
     example: 200,
     nullable: true,

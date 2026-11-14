@@ -294,82 +294,44 @@
         ],
         "type": "object"
       },
-      "AuthMeResponseDto": {
+      "AuthContextResponseDto": {
         "properties": {
-          "created_at": {
-            "example": "2024-01-15T10:30:00Z",
-            "format": "date-time",
-            "type": "string"
+          "account": {
+            "type": "object"
           },
-          "dob": {
-            "example": "2000-01-15",
-            "type": "string"
-          },
-          "email": {
-            "example": "john.doe@example.com",
-            "type": "string"
-          },
-          "first_name": {
-            "example": "John",
-            "type": "string"
-          },
-          "gender": {
-            "example": "Male",
-            "type": "string"
-          },
-          "id": {
-            "example": "550e8400-e29b-41d4-a716-446655440000",
-            "type": "string"
-          },
-          "image": {
-            "example": "https://res.cloudinary.com/ohealth/image/upload/v123/avatar.png",
-            "nullable": true,
-            "type": "string"
-          },
-          "is_active": {
-            "example": true,
-            "type": "boolean"
-          },
-          "last_name": {
-            "example": "Doe",
-            "type": "string"
-          },
-          "middle_name": {
-            "example": "Michael",
-            "type": "string"
-          },
-          "phone": {
-            "example": "+1234567890",
-            "type": "string"
-          },
-          "role": {
-            "example": [
-              "PATIENT"
-            ],
+          "capabilities": {
             "items": {
               "type": "string"
             },
             "type": "array"
           },
-          "updated_at": {
-            "example": "2024-01-15T10:30:00Z",
-            "format": "date-time",
-            "type": "string"
+          "memberships": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "personas": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "professional": {
+            "nullable": true,
+            "type": "object"
+          },
+          "session": {
+            "type": "object"
           }
         },
         "required": [
-          "id",
-          "email",
-          "first_name",
-          "last_name",
-          "role",
-          "middle_name",
-          "gender",
-          "dob",
-          "phone",
-          "is_active",
-          "created_at",
-          "updated_at"
+          "account",
+          "personas",
+          "professional",
+          "memberships",
+          "capabilities",
+          "session"
         ],
         "type": "object"
       },
@@ -494,37 +456,16 @@
       },
       "BrowserSessionResponseDto": {
         "properties": {
-          "access_level": {
-            "enum": [
-              "full",
-              "limited"
-            ],
-            "type": "string"
-          },
           "access_token": {
             "description": "Short-lived access JWT for in-memory use only",
             "type": "string"
           },
+          "account_context": {
+            "description": "Server-resolved canonical account context",
+            "type": "object"
+          },
           "message": {
             "example": "Login success",
-            "type": "string"
-          },
-          "routing_target": {
-            "enum": [
-              "email_verification",
-              "admin_dashboard",
-              "patient_home",
-              "professional_verification",
-              "professional_dashboard",
-              "hospital_verification",
-              "hospital_dashboard",
-              "laboratory_verification",
-              "laboratory_dashboard",
-              "pharmacy_verification",
-              "pharmacy_dashboard",
-              "account_setup",
-              "account_restricted"
-            ],
             "type": "string"
           },
           "session_expires_at": {
@@ -533,13 +474,6 @@
           },
           "session_id": {
             "format": "uuid",
-            "type": "string"
-          },
-          "user": {
-            "$ref": "#/components/schemas/BrowserSessionUserDto"
-          },
-          "verification_status": {
-            "nullable": true,
             "type": "string"
           }
         },
@@ -548,43 +482,19 @@
           "access_token",
           "session_id",
           "session_expires_at",
-          "user",
-          "routing_target",
-          "access_level",
-          "verification_status"
+          "account_context"
         ],
         "type": "object"
       },
       "BrowserSessionResponseDtoData": {
         "properties": {
-          "access_level": {
-            "enum": [
-              "full",
-              "limited"
-            ],
-            "type": "string"
-          },
           "access_token": {
             "description": "Short-lived access JWT for in-memory use only",
             "type": "string"
           },
-          "routing_target": {
-            "enum": [
-              "email_verification",
-              "admin_dashboard",
-              "patient_home",
-              "professional_verification",
-              "professional_dashboard",
-              "hospital_verification",
-              "hospital_dashboard",
-              "laboratory_verification",
-              "laboratory_dashboard",
-              "pharmacy_verification",
-              "pharmacy_dashboard",
-              "account_setup",
-              "account_restricted"
-            ],
-            "type": "string"
+          "account_context": {
+            "description": "Server-resolved canonical account context",
+            "type": "object"
           },
           "session_expires_at": {
             "format": "date-time",
@@ -593,60 +503,13 @@
           "session_id": {
             "format": "uuid",
             "type": "string"
-          },
-          "user": {
-            "$ref": "#/components/schemas/BrowserSessionUserDto"
-          },
-          "verification_status": {
-            "nullable": true,
-            "type": "string"
           }
         },
         "required": [
           "access_token",
           "session_id",
           "session_expires_at",
-          "user",
-          "routing_target",
-          "access_level",
-          "verification_status"
-        ],
-        "type": "object"
-      },
-      "BrowserSessionUserDto": {
-        "properties": {
-          "email": {
-            "example": "john.doe@example.com",
-            "type": "string"
-          },
-          "first_name": {
-            "example": "John",
-            "type": "string"
-          },
-          "id": {
-            "format": "uuid",
-            "type": "string"
-          },
-          "last_name": {
-            "example": "Doe",
-            "type": "string"
-          },
-          "role": {
-            "example": [
-              "PATIENT"
-            ],
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "id",
-          "email",
-          "first_name",
-          "last_name",
-          "role"
+          "account_context"
         ],
         "type": "object"
       },
@@ -1279,30 +1142,18 @@
             "example": true,
             "type": "boolean"
           },
+          "membership_role": {
+            "enum": [
+              "owner",
+              "admin",
+              "member"
+            ],
+            "example": "owner",
+            "type": "string"
+          },
           "phone": {
             "example": "+2348098765432",
             "type": "string"
-          },
-          "role": {
-            "example": [
-              "LAB_ADMIN"
-            ],
-            "items": {
-              "enum": [
-                "ADMIN",
-                "PATIENT",
-                "DOCTOR",
-                "THERAPIST",
-                "COUNSELLOR",
-                "LAB_PROFESSIONAL",
-                "LAB_STAFF",
-                "LAB_ADMIN",
-                "HOSPITAL_ADMIN",
-                "PHARMACY_ADMIN"
-              ],
-              "type": "string"
-            },
-            "type": "array"
           },
           "user_id": {
             "example": "550e8400-e29b-41d4-a716-446655440002",
@@ -1315,7 +1166,7 @@
           "full_name",
           "email",
           "phone",
-          "role",
+          "membership_role",
           "is_primary"
         ],
         "type": "object"
@@ -1880,18 +1731,14 @@
       },
       "LoginResponseDto": {
         "properties": {
-          "access_level": {
-            "enum": [
-              "full",
-              "limited"
-            ],
-            "example": "full",
-            "type": "string"
-          },
           "access_token": {
             "description": "JWT access token with 15 minutes expiration",
             "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
             "type": "string"
+          },
+          "account_context": {
+            "description": "Server-resolved account, persona, membership, verification, and capability context",
+            "type": "object"
           },
           "message": {
             "example": "Login success",
@@ -1901,25 +1748,6 @@
           "refresh_token": {
             "description": "Opaque, rotating refresh credential",
             "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
-            "type": "string"
-          },
-          "routing_target": {
-            "enum": [
-              "email_verification",
-              "admin_dashboard",
-              "patient_home",
-              "professional_verification",
-              "professional_dashboard",
-              "hospital_verification",
-              "hospital_dashboard",
-              "laboratory_verification",
-              "laboratory_dashboard",
-              "pharmacy_verification",
-              "pharmacy_dashboard",
-              "account_setup",
-              "account_restricted"
-            ],
-            "example": "patient_home",
             "type": "string"
           },
           "session_expires_at": {
@@ -1937,24 +1765,12 @@
             "example": 200,
             "nullable": true,
             "type": "number"
-          },
-          "user": {
-            "$ref": "#/components/schemas/UserDto"
-          },
-          "verification_status": {
-            "description": "Current provider verification status, when applicable",
-            "example": null,
-            "nullable": true,
-            "type": "string"
           }
         },
         "required": [
           "access_token",
           "refresh_token",
-          "user",
-          "routing_target",
-          "access_level",
-          "verification_status",
+          "account_context",
           "status_code",
           "message",
           "session_id",
@@ -1964,41 +1780,18 @@
       },
       "LoginResponseDtoData": {
         "properties": {
-          "access_level": {
-            "enum": [
-              "full",
-              "limited"
-            ],
-            "example": "full",
-            "type": "string"
-          },
           "access_token": {
             "description": "JWT access token with 15 minutes expiration",
             "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
             "type": "string"
           },
+          "account_context": {
+            "description": "Server-resolved account, persona, membership, verification, and capability context",
+            "type": "object"
+          },
           "refresh_token": {
             "description": "Opaque, rotating refresh credential",
             "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
-            "type": "string"
-          },
-          "routing_target": {
-            "enum": [
-              "email_verification",
-              "admin_dashboard",
-              "patient_home",
-              "professional_verification",
-              "professional_dashboard",
-              "hospital_verification",
-              "hospital_dashboard",
-              "laboratory_verification",
-              "laboratory_dashboard",
-              "pharmacy_verification",
-              "pharmacy_dashboard",
-              "account_setup",
-              "account_restricted"
-            ],
-            "example": "patient_home",
             "type": "string"
           },
           "session_expires_at": {
@@ -2011,24 +1804,12 @@
             "example": "550e8400-e29b-41d4-a716-446655440000",
             "nullable": true,
             "type": "string"
-          },
-          "user": {
-            "$ref": "#/components/schemas/UserDto"
-          },
-          "verification_status": {
-            "description": "Current provider verification status, when applicable",
-            "example": null,
-            "nullable": true,
-            "type": "string"
           }
         },
         "required": [
           "access_token",
           "refresh_token",
-          "user",
-          "routing_target",
-          "access_level",
-          "verification_status",
+          "account_context",
           "session_id",
           "session_expires_at"
         ],
@@ -2267,26 +2048,16 @@
           "id": {
             "type": "string"
           },
-          "phone": {
+          "membership_role": {
+            "enum": [
+              "owner",
+              "admin",
+              "member"
+            ],
             "type": "string"
           },
-          "roles": {
-            "items": {
-              "enum": [
-                "ADMIN",
-                "PATIENT",
-                "DOCTOR",
-                "THERAPIST",
-                "COUNSELLOR",
-                "LAB_PROFESSIONAL",
-                "LAB_STAFF",
-                "LAB_ADMIN",
-                "HOSPITAL_ADMIN",
-                "PHARMACY_ADMIN"
-              ],
-              "type": "string"
-            },
-            "type": "array"
+          "phone": {
+            "type": "string"
           },
           "user_id": {
             "type": "string"
@@ -2298,7 +2069,7 @@
           "full_name",
           "email",
           "phone",
-          "roles"
+          "membership_role"
         ],
         "type": "object"
       },
@@ -3100,12 +2871,6 @@
           },
           "phone": {
             "type": "string"
-          },
-          "roles": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
           }
         },
         "required": [
@@ -3113,7 +2878,6 @@
           "email",
           "first_name",
           "last_name",
-          "roles",
           "is_verified"
         ],
         "type": "object"
@@ -4392,18 +4156,14 @@
       },
       "RefreshTokenResponseDto": {
         "properties": {
-          "access_level": {
-            "enum": [
-              "full",
-              "limited"
-            ],
-            "example": "full",
-            "type": "string"
-          },
           "access_token": {
             "description": "JWT access token with 15 minutes expiration",
             "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
             "type": "string"
+          },
+          "account_context": {
+            "description": "Server-resolved account, persona, membership, verification, and capability context",
+            "type": "object"
           },
           "message": {
             "example": "Token refresh successful",
@@ -4413,25 +4173,6 @@
           "refresh_token": {
             "description": "Opaque, rotating refresh credential",
             "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
-            "type": "string"
-          },
-          "routing_target": {
-            "enum": [
-              "email_verification",
-              "admin_dashboard",
-              "patient_home",
-              "professional_verification",
-              "professional_dashboard",
-              "hospital_verification",
-              "hospital_dashboard",
-              "laboratory_verification",
-              "laboratory_dashboard",
-              "pharmacy_verification",
-              "pharmacy_dashboard",
-              "account_setup",
-              "account_restricted"
-            ],
-            "example": "patient_home",
             "type": "string"
           },
           "session_expires_at": {
@@ -4447,24 +4188,12 @@
             "example": 200,
             "nullable": true,
             "type": "number"
-          },
-          "user": {
-            "$ref": "#/components/schemas/UserDto"
-          },
-          "verification_status": {
-            "description": "Current provider verification status, when applicable",
-            "example": null,
-            "nullable": true,
-            "type": "string"
           }
         },
         "required": [
           "access_token",
           "refresh_token",
-          "user",
-          "routing_target",
-          "access_level",
-          "verification_status",
+          "account_context",
           "status_code",
           "message",
           "session_id",
@@ -4474,41 +4203,18 @@
       },
       "RefreshTokenResponseDtoData": {
         "properties": {
-          "access_level": {
-            "enum": [
-              "full",
-              "limited"
-            ],
-            "example": "full",
-            "type": "string"
-          },
           "access_token": {
             "description": "JWT access token with 15 minutes expiration",
             "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
             "type": "string"
           },
+          "account_context": {
+            "description": "Server-resolved account, persona, membership, verification, and capability context",
+            "type": "object"
+          },
           "refresh_token": {
             "description": "Opaque, rotating refresh credential",
             "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
-            "type": "string"
-          },
-          "routing_target": {
-            "enum": [
-              "email_verification",
-              "admin_dashboard",
-              "patient_home",
-              "professional_verification",
-              "professional_dashboard",
-              "hospital_verification",
-              "hospital_dashboard",
-              "laboratory_verification",
-              "laboratory_dashboard",
-              "pharmacy_verification",
-              "pharmacy_dashboard",
-              "account_setup",
-              "account_restricted"
-            ],
-            "example": "patient_home",
             "type": "string"
           },
           "session_expires_at": {
@@ -4519,24 +4225,12 @@
           "session_id": {
             "example": "550e8400-e29b-41d4-a716-446655440000",
             "type": "string"
-          },
-          "user": {
-            "$ref": "#/components/schemas/UserDto"
-          },
-          "verification_status": {
-            "description": "Current provider verification status, when applicable",
-            "example": null,
-            "nullable": true,
-            "type": "string"
           }
         },
         "required": [
           "access_token",
           "refresh_token",
-          "user",
-          "routing_target",
-          "access_level",
-          "verification_status",
+          "account_context",
           "session_id",
           "session_expires_at"
         ],
@@ -5319,43 +5013,6 @@
         ],
         "type": "object"
       },
-      "UserDto": {
-        "properties": {
-          "email": {
-            "example": "john.doe@example.com",
-            "type": "string"
-          },
-          "first_name": {
-            "example": "John",
-            "type": "string"
-          },
-          "id": {
-            "example": "550e8400-e29b-41d4-a716-446655440000",
-            "type": "string"
-          },
-          "last_name": {
-            "example": "Doe",
-            "type": "string"
-          },
-          "role": {
-            "example": [
-              "PATIENT"
-            ],
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "id",
-          "email",
-          "first_name",
-          "last_name",
-          "role"
-        ],
-        "type": "object"
-      },
       "VerifyAuthChallengeDto": {
         "properties": {
           "challenge_id": {
@@ -5394,18 +5051,14 @@
       },
       "VerifySignupResponseDto": {
         "properties": {
-          "access_level": {
-            "enum": [
-              "full",
-              "limited"
-            ],
-            "example": "full",
-            "type": "string"
-          },
           "access_token": {
             "description": "JWT access token with 15 minutes expiration",
             "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
             "type": "string"
+          },
+          "account_context": {
+            "description": "Server-resolved account, persona, membership, verification, and capability context",
+            "type": "object"
           },
           "message": {
             "example": "account verified",
@@ -5415,25 +5068,6 @@
           "refresh_token": {
             "description": "Opaque, rotating refresh credential",
             "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
-            "type": "string"
-          },
-          "routing_target": {
-            "enum": [
-              "email_verification",
-              "admin_dashboard",
-              "patient_home",
-              "professional_verification",
-              "professional_dashboard",
-              "hospital_verification",
-              "hospital_dashboard",
-              "laboratory_verification",
-              "laboratory_dashboard",
-              "pharmacy_verification",
-              "pharmacy_dashboard",
-              "account_setup",
-              "account_restricted"
-            ],
-            "example": "patient_home",
             "type": "string"
           },
           "session_expires_at": {
@@ -5451,24 +5085,12 @@
             "example": 200,
             "nullable": true,
             "type": "number"
-          },
-          "user": {
-            "$ref": "#/components/schemas/UserDto"
-          },
-          "verification_status": {
-            "description": "Current provider verification status, when applicable",
-            "example": null,
-            "nullable": true,
-            "type": "string"
           }
         },
         "required": [
           "access_token",
           "refresh_token",
-          "user",
-          "routing_target",
-          "access_level",
-          "verification_status",
+          "account_context",
           "status_code",
           "message",
           "session_id",
@@ -5478,41 +5100,18 @@
       },
       "VerifySignupResponseDtoData": {
         "properties": {
-          "access_level": {
-            "enum": [
-              "full",
-              "limited"
-            ],
-            "example": "full",
-            "type": "string"
-          },
           "access_token": {
             "description": "JWT access token with 15 minutes expiration",
             "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
             "type": "string"
           },
+          "account_context": {
+            "description": "Server-resolved account, persona, membership, verification, and capability context",
+            "type": "object"
+          },
           "refresh_token": {
             "description": "Opaque, rotating refresh credential",
             "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
-            "type": "string"
-          },
-          "routing_target": {
-            "enum": [
-              "email_verification",
-              "admin_dashboard",
-              "patient_home",
-              "professional_verification",
-              "professional_dashboard",
-              "hospital_verification",
-              "hospital_dashboard",
-              "laboratory_verification",
-              "laboratory_dashboard",
-              "pharmacy_verification",
-              "pharmacy_dashboard",
-              "account_setup",
-              "account_restricted"
-            ],
-            "example": "patient_home",
             "type": "string"
           },
           "session_expires_at": {
@@ -5525,24 +5124,12 @@
             "example": "550e8400-e29b-41d4-a716-446655440000",
             "nullable": true,
             "type": "string"
-          },
-          "user": {
-            "$ref": "#/components/schemas/UserDto"
-          },
-          "verification_status": {
-            "description": "Current provider verification status, when applicable",
-            "example": null,
-            "nullable": true,
-            "type": "string"
           }
         },
         "required": [
           "access_token",
           "refresh_token",
-          "user",
-          "routing_target",
-          "access_level",
-          "verification_status",
+          "account_context",
           "session_id",
           "session_expires_at"
         ],
@@ -6813,7 +6400,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/AuthMeResponseDto"
+                          "$ref": "#/components/schemas/AuthContextResponseDto"
                         }
                       },
                       "required": [
@@ -6853,7 +6440,7 @@
             "bearer": []
           }
         ],
-        "summary": "Fetches authenticated user profile",
+        "summary": "Fetches the canonical authenticated account context",
         "tags": [
           "Authentication"
         ]
@@ -6883,7 +6470,7 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/AuthMeResponseDto"
+                          "$ref": "#/components/schemas/AuthContextResponseDto"
                         }
                       },
                       "required": [

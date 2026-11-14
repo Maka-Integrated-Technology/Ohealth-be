@@ -7,6 +7,7 @@ import { Logger } from 'winston';
 import * as sysMsg from '../../constants/system.messages';
 import { AuthService } from '../auth/auth.service';
 import { User } from '../user/entities/user.entity';
+import { OrganizationMembershipRole } from '../organization/enums/organization-membership-role.enum';
 import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserRole } from '../user/enums/user-role.enum';
 
@@ -87,7 +88,7 @@ export class LaboratoryAuthService {
         full_name: administrator.full_name,
         email: user.email,
         phone: administrator.phone,
-        role: user.role,
+        membership_role: OrganizationMembershipRole.OWNER,
         is_primary: administrator.is_primary,
       },
       verification_required: true,
@@ -157,7 +158,7 @@ export class LaboratoryAuthService {
             last_name: parsedName.lastName,
             middle_name: parsedName.middleName,
             phone: administratorPayload.phone,
-            role: [UserRole.LAB_ADMIN],
+            role: [],
             is_active: false,
             is_verified: false,
             account_status: AccountStatus.PENDING_VERIFICATION,

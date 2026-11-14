@@ -17,10 +17,10 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 
-import { Roles } from '../auth/decorators/roles.decorator';
+import { AuthCapability } from '../auth/context/auth-capability';
+import { RequireCapabilities } from '../auth/decorators/capabilities.decorator';
+import { CapabilitiesGuard } from '../auth/guards/capabilities.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { UserRole } from '../user/enums/user-role.enum';
 
 import { CreateSpecialityDto } from './dto/create-speciality.dto';
 import { SpecialityResponseDto } from './dto/speciality-response.dto';
@@ -51,8 +51,8 @@ export class SpecialityController {
   }
 
   @Post()
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @UseGuards(CapabilitiesGuard)
+  @RequireCapabilities(AuthCapability.PLATFORM_SPECIALITY_MANAGE)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new speciality (admin only)' })
   @ApiResponse({ status: 201, type: SpecialityResponseDto })
@@ -62,8 +62,8 @@ export class SpecialityController {
   }
 
   @Patch(':id')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @UseGuards(CapabilitiesGuard)
+  @RequireCapabilities(AuthCapability.PLATFORM_SPECIALITY_MANAGE)
   @ApiOperation({ summary: 'Update a speciality (admin only)' })
   @ApiParam({ name: 'id', description: 'Speciality UUID' })
   @ApiResponse({ status: 200, type: SpecialityResponseDto })

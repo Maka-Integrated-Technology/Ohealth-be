@@ -9,7 +9,7 @@ import { OutboxEvent } from '../../platform-events/entities/outbox-event.entity'
 import { User } from '../../user/entities/user.entity';
 import { AccountStatus } from '../../user/enums/account-status.enum';
 import { AccountAccessPolicyService } from '../account-access-policy.service';
-import { AuthRoutingService } from '../auth-routing.service';
+import { AuthContextService } from '../context/auth-context.service';
 import { AuthChallengeDeliveryService } from '../challenges/auth-challenge-delivery.service';
 import { AuthChallengePurpose } from '../challenges/auth-challenge.entity';
 import { AuthSession } from '../entities/auth.entity';
@@ -43,7 +43,7 @@ export class OAuthService {
     private readonly transactions: OAuthTransactionService,
     private readonly verifier: GoogleTokenVerifierService,
     private readonly sessions: RefreshSessionService,
-    private readonly routing: AuthRoutingService,
+    private readonly authContext: AuthContextService,
     private readonly passwords: PasswordCredentialsService,
     private readonly provisioning: AccountProvisioningService,
     private readonly delivery: AuthChallengeDeliveryService,
@@ -177,7 +177,19 @@ export class OAuthService {
 
     const routed = result as typeof result & { user?: User };
     if (routed.user) {
-      return { ...result, ...(await this.routing.resolve(routed.user)) };
+      const sessionId = (result as { session_id?: string }).session_id;
+      if (sessionId) {
+        const { user: _user, ...response } = result as typeof result & {
+          user?: unknown;
+        };
+        return {
+          ...response,
+          account_context: await this.authContext.resolve(
+            routed.user.id,
+            sessionId,
+          ),
+        };
+      }
     }
     return result;
   }

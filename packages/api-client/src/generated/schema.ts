@@ -252,7 +252,7 @@ export interface paths {
       readonly path?: never;
       readonly cookie?: never;
     };
-    /** Fetches authenticated user profile */
+    /** Fetches the canonical authenticated account context */
     readonly get: operations['AuthController_getProfile'];
     readonly put?: never;
     readonly post?: never;
@@ -1766,43 +1766,13 @@ export interface components {
        */
       readonly timestamp: string;
     };
-    readonly AuthMeResponseDto: {
-      /**
-       * Format: date-time
-       * @example 2024-01-15T10:30:00Z
-       */
-      readonly created_at: string;
-      /** @example 2000-01-15 */
-      readonly dob: string;
-      /** @example john.doe@example.com */
-      readonly email: string;
-      /** @example John */
-      readonly first_name: string;
-      /** @example Male */
-      readonly gender: string;
-      /** @example 550e8400-e29b-41d4-a716-446655440000 */
-      readonly id: string;
-      /** @example https://res.cloudinary.com/ohealth/image/upload/v123/avatar.png */
-      readonly image?: string | null;
-      /** @example true */
-      readonly is_active: boolean;
-      /** @example Doe */
-      readonly last_name: string;
-      /** @example Michael */
-      readonly middle_name: string;
-      /** @example +1234567890 */
-      readonly phone: string;
-      /**
-       * @example [
-       *       "PATIENT"
-       *     ]
-       */
-      readonly role: readonly string[];
-      /**
-       * Format: date-time
-       * @example 2024-01-15T10:30:00Z
-       */
-      readonly updated_at: string;
+    readonly AuthContextResponseDto: {
+      readonly account: Record<string, never>;
+      readonly capabilities: readonly string[];
+      readonly memberships: readonly Record<string, never>[];
+      readonly personas: readonly Record<string, never>[];
+      readonly professional: Record<string, never> | null;
+      readonly session: Record<string, never>;
     };
     readonly AvailabilitySlotDto: {
       /** @example 2026-07-15 */
@@ -1839,50 +1809,26 @@ export interface components {
       readonly status: string;
     };
     readonly BrowserSessionResponseDto: {
-      /** @enum {string} */
-      readonly access_level: BrowserSessionResponseDtoAccess_level;
       /** @description Short-lived access JWT for in-memory use only */
       readonly access_token: string;
+      /** @description Server-resolved canonical account context */
+      readonly account_context: Record<string, never>;
       /** @example Login success */
       readonly message: string;
-      /** @enum {string} */
-      readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /** Format: date-time */
       readonly session_expires_at: string;
       /** Format: uuid */
       readonly session_id: string;
-      readonly user: components['schemas']['BrowserSessionUserDto'];
-      readonly verification_status: string | null;
     };
     readonly BrowserSessionResponseDtoData: {
-      /** @enum {string} */
-      readonly access_level: BrowserSessionResponseDtoAccess_level;
       /** @description Short-lived access JWT for in-memory use only */
       readonly access_token: string;
-      /** @enum {string} */
-      readonly routing_target: BrowserSessionResponseDtoRouting_target;
+      /** @description Server-resolved canonical account context */
+      readonly account_context: Record<string, never>;
       /** Format: date-time */
       readonly session_expires_at: string;
       /** Format: uuid */
       readonly session_id: string;
-      readonly user: components['schemas']['BrowserSessionUserDto'];
-      readonly verification_status: string | null;
-    };
-    readonly BrowserSessionUserDto: {
-      /** @example john.doe@example.com */
-      readonly email: string;
-      /** @example John */
-      readonly first_name: string;
-      /** Format: uuid */
-      readonly id: string;
-      /** @example Doe */
-      readonly last_name: string;
-      /**
-       * @example [
-       *       "PATIENT"
-       *     ]
-       */
-      readonly role: readonly string[];
     };
     readonly BulkCreateAvailabilityDto: {
       readonly slots: readonly components['schemas']['AvailabilitySlotDto'][];
@@ -2115,14 +2061,13 @@ export interface components {
       readonly id: string;
       /** @example true */
       readonly is_primary: boolean;
+      /**
+       * @example owner
+       * @enum {string}
+       */
+      readonly membership_role: LaboratoryAdministratorSetupResponseDtoMembership_role;
       /** @example +2348098765432 */
       readonly phone: string;
-      /**
-       * @example [
-       *       "LAB_ADMIN"
-       *     ]
-       */
-      readonly role: readonly LaboratoryAdministratorSetupResponseDtoRole[];
       /** @example 550e8400-e29b-41d4-a716-446655440002 */
       readonly user_id: string;
     };
@@ -2366,15 +2311,12 @@ export interface components {
     };
     readonly LoginResponseDto: {
       /**
-       * @example full
-       * @enum {string}
-       */
-      readonly access_level: BrowserSessionResponseDtoAccess_level;
-      /**
        * @description JWT access token with 15 minutes expiration
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
        */
       readonly access_token: string;
+      /** @description Server-resolved account, persona, membership, verification, and capability context */
+      readonly account_context: Record<string, never>;
       /** @example Login success */
       readonly message: string | null;
       /**
@@ -2382,11 +2324,6 @@ export interface components {
        * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
        */
       readonly refresh_token: string;
-      /**
-       * @example patient_home
-       * @enum {string}
-       */
-      readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /**
        * Format: date-time
        * @example 2024-01-15T10:30:00Z
@@ -2396,34 +2333,20 @@ export interface components {
       readonly session_id: string | null;
       /** @example 200 */
       readonly status_code: number | null;
-      readonly user: components['schemas']['UserDto'];
-      /**
-       * @description Current provider verification status, when applicable
-       * @example null
-       */
-      readonly verification_status: string | null;
     };
     readonly LoginResponseDtoData: {
-      /**
-       * @example full
-       * @enum {string}
-       */
-      readonly access_level: BrowserSessionResponseDtoAccess_level;
       /**
        * @description JWT access token with 15 minutes expiration
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
        */
       readonly access_token: string;
+      /** @description Server-resolved account, persona, membership, verification, and capability context */
+      readonly account_context: Record<string, never>;
       /**
        * @description Opaque, rotating refresh credential
        * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
        */
       readonly refresh_token: string;
-      /**
-       * @example patient_home
-       * @enum {string}
-       */
-      readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /**
        * Format: date-time
        * @example 2024-01-15T10:30:00Z
@@ -2431,12 +2354,6 @@ export interface components {
       readonly session_expires_at: string | null;
       /** @example 550e8400-e29b-41d4-a716-446655440000 */
       readonly session_id: string | null;
-      readonly user: components['schemas']['UserDto'];
-      /**
-       * @description Current provider verification status, when applicable
-       * @example null
-       */
-      readonly verification_status: string | null;
     };
     readonly LogoutDto: {
       /**
@@ -2528,8 +2445,9 @@ export interface components {
       readonly email: string;
       readonly full_name: string;
       readonly id: string;
+      /** @enum {string} */
+      readonly membership_role: LaboratoryAdministratorSetupResponseDtoMembership_role;
       readonly phone: string;
-      readonly roles: readonly LaboratoryAdministratorSetupResponseDtoRole[];
       readonly user_id: string;
     };
     readonly OrganizationDetailsDto: {
@@ -2759,7 +2677,6 @@ export interface components {
       readonly is_verified: boolean;
       readonly last_name: string;
       readonly phone?: string;
-      readonly roles: readonly string[];
     };
     readonly ProfessionalPatientConsultationHistoryItemDto: {
       readonly amount: number;
@@ -3139,15 +3056,12 @@ export interface components {
     };
     readonly RefreshTokenResponseDto: {
       /**
-       * @example full
-       * @enum {string}
-       */
-      readonly access_level: BrowserSessionResponseDtoAccess_level;
-      /**
        * @description JWT access token with 15 minutes expiration
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
        */
       readonly access_token: string;
+      /** @description Server-resolved account, persona, membership, verification, and capability context */
+      readonly account_context: Record<string, never>;
       /** @example Token refresh successful */
       readonly message: string | null;
       /**
@@ -3155,11 +3069,6 @@ export interface components {
        * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
        */
       readonly refresh_token: string;
-      /**
-       * @example patient_home
-       * @enum {string}
-       */
-      readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /**
        * Format: date-time
        * @example 2024-01-15T10:30:00Z
@@ -3169,34 +3078,20 @@ export interface components {
       readonly session_id: string;
       /** @example 200 */
       readonly status_code: number | null;
-      readonly user: components['schemas']['UserDto'];
-      /**
-       * @description Current provider verification status, when applicable
-       * @example null
-       */
-      readonly verification_status: string | null;
     };
     readonly RefreshTokenResponseDtoData: {
-      /**
-       * @example full
-       * @enum {string}
-       */
-      readonly access_level: BrowserSessionResponseDtoAccess_level;
       /**
        * @description JWT access token with 15 minutes expiration
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
        */
       readonly access_token: string;
+      /** @description Server-resolved account, persona, membership, verification, and capability context */
+      readonly account_context: Record<string, never>;
       /**
        * @description Opaque, rotating refresh credential
        * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
        */
       readonly refresh_token: string;
-      /**
-       * @example patient_home
-       * @enum {string}
-       */
-      readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /**
        * Format: date-time
        * @example 2024-01-15T10:30:00Z
@@ -3204,12 +3099,6 @@ export interface components {
       readonly session_expires_at: string;
       /** @example 550e8400-e29b-41d4-a716-446655440000 */
       readonly session_id: string;
-      readonly user: components['schemas']['UserDto'];
-      /**
-       * @description Current provider verification status, when applicable
-       * @example null
-       */
-      readonly verification_status: string | null;
     };
     readonly RegisterAccountDto: {
       /** @example 2026-08-01 */
@@ -3529,22 +3418,6 @@ export interface components {
       /** @example 8 */
       readonly years_of_experience: number;
     };
-    readonly UserDto: {
-      /** @example john.doe@example.com */
-      readonly email: string;
-      /** @example John */
-      readonly first_name: string;
-      /** @example 550e8400-e29b-41d4-a716-446655440000 */
-      readonly id: string;
-      /** @example Doe */
-      readonly last_name: string;
-      /**
-       * @example [
-       *       "PATIENT"
-       *     ]
-       */
-      readonly role: readonly string[];
-    };
     readonly VerifyAuthChallengeDto: {
       /** Format: uuid */
       readonly challenge_id: string;
@@ -3565,15 +3438,12 @@ export interface components {
     };
     readonly VerifySignupResponseDto: {
       /**
-       * @example full
-       * @enum {string}
-       */
-      readonly access_level: BrowserSessionResponseDtoAccess_level;
-      /**
        * @description JWT access token with 15 minutes expiration
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
        */
       readonly access_token: string;
+      /** @description Server-resolved account, persona, membership, verification, and capability context */
+      readonly account_context: Record<string, never>;
       /** @example account verified */
       readonly message: string | null;
       /**
@@ -3581,11 +3451,6 @@ export interface components {
        * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
        */
       readonly refresh_token: string;
-      /**
-       * @example patient_home
-       * @enum {string}
-       */
-      readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /**
        * Format: date-time
        * @example 2024-01-15T10:30:00Z
@@ -3595,34 +3460,20 @@ export interface components {
       readonly session_id: string | null;
       /** @example 200 */
       readonly status_code: number | null;
-      readonly user: components['schemas']['UserDto'];
-      /**
-       * @description Current provider verification status, when applicable
-       * @example null
-       */
-      readonly verification_status: string | null;
     };
     readonly VerifySignupResponseDtoData: {
-      /**
-       * @example full
-       * @enum {string}
-       */
-      readonly access_level: BrowserSessionResponseDtoAccess_level;
       /**
        * @description JWT access token with 15 minutes expiration
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
        */
       readonly access_token: string;
+      /** @description Server-resolved account, persona, membership, verification, and capability context */
+      readonly account_context: Record<string, never>;
       /**
        * @description Opaque, rotating refresh credential
        * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
        */
       readonly refresh_token: string;
-      /**
-       * @example patient_home
-       * @enum {string}
-       */
-      readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /**
        * Format: date-time
        * @example 2024-01-15T10:30:00Z
@@ -3630,12 +3481,6 @@ export interface components {
       readonly session_expires_at: string | null;
       /** @example 550e8400-e29b-41d4-a716-446655440000 */
       readonly session_id: string | null;
-      readonly user: components['schemas']['UserDto'];
-      /**
-       * @description Current provider verification status, when applicable
-       * @example null
-       */
-      readonly verification_status: string | null;
     };
   };
   responses: never;
@@ -4457,7 +4302,7 @@ export interface operations {
         };
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
-            readonly data: components['schemas']['AuthMeResponseDto'];
+            readonly data: components['schemas']['AuthContextResponseDto'];
           };
         };
       };
@@ -4501,7 +4346,7 @@ export interface operations {
         };
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
-            readonly data: components['schemas']['AuthMeResponseDto'];
+            readonly data: components['schemas']['AuthContextResponseDto'];
           };
         };
       };
@@ -9406,25 +9251,6 @@ export enum BookingResponseDtoPayment_status {
   paid = 'paid',
   unpaid = 'unpaid',
 }
-export enum BrowserSessionResponseDtoAccess_level {
-  full = 'full',
-  limited = 'limited',
-}
-export enum BrowserSessionResponseDtoRouting_target {
-  email_verification = 'email_verification',
-  admin_dashboard = 'admin_dashboard',
-  patient_home = 'patient_home',
-  professional_verification = 'professional_verification',
-  professional_dashboard = 'professional_dashboard',
-  hospital_verification = 'hospital_verification',
-  hospital_dashboard = 'hospital_dashboard',
-  laboratory_verification = 'laboratory_verification',
-  laboratory_dashboard = 'laboratory_dashboard',
-  pharmacy_verification = 'pharmacy_verification',
-  pharmacy_dashboard = 'pharmacy_dashboard',
-  account_setup = 'account_setup',
-  account_restricted = 'account_restricted',
-}
 export enum ChatMessageResponseDtoSender {
   user = 'user',
   ai = 'ai',
@@ -9450,17 +9276,10 @@ export enum InviteLaboratoryStaffDtoRole {
   phlebotomist = 'phlebotomist',
   receptionist = 'receptionist',
 }
-export enum LaboratoryAdministratorSetupResponseDtoRole {
-  ADMIN = 'ADMIN',
-  PATIENT = 'PATIENT',
-  DOCTOR = 'DOCTOR',
-  THERAPIST = 'THERAPIST',
-  COUNSELLOR = 'COUNSELLOR',
-  LAB_PROFESSIONAL = 'LAB_PROFESSIONAL',
-  LAB_STAFF = 'LAB_STAFF',
-  LAB_ADMIN = 'LAB_ADMIN',
-  HOSPITAL_ADMIN = 'HOSPITAL_ADMIN',
-  PHARMACY_ADMIN = 'PHARMACY_ADMIN',
+export enum LaboratoryAdministratorSetupResponseDtoMembership_role {
+  owner = 'owner',
+  admin = 'admin',
+  member = 'member',
 }
 export enum LaboratoryOperatingHourResponseDtoDay_of_week {
   monday = 'monday',

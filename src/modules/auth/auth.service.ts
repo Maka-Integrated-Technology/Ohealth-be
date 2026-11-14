@@ -18,7 +18,7 @@ import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserService } from '../user/user.service';
 
 import { AccountAccessPolicyService } from './account-access-policy.service';
-import { AuthRoutingService } from './auth-routing.service';
+import { AuthContextService } from './context/auth-context.service';
 import { AuthChallengeDeliveryService } from './challenges/auth-challenge-delivery.service';
 import { AuthChallengePurpose } from './challenges/auth-challenge.entity';
 import { SecureAuthChallengeFlowsService } from './challenges/secure-auth-challenge-flows.service';
@@ -52,7 +52,7 @@ export class AuthService {
     private readonly userService: UserService,
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
-    private readonly authRoutingService: AuthRoutingService,
+    private readonly authContext: AuthContextService,
     private readonly accountAccessPolicy: AccountAccessPolicyService,
     private readonly passwordCredentials: PasswordCredentialsService,
     private readonly challengeFlows: SecureAuthChallengeFlowsService,
@@ -113,12 +113,14 @@ export class AuthService {
       payload.challenge_id,
       payload.code,
     );
-    const routing = await this.authRoutingService.resolve(user);
+    const accountContext = await this.authContext.resolve(
+      user.id,
+      session.session_id,
+    );
     this.logger.info(sysMsg.LOGIN_SUCCESS);
     return {
       message: sysMsg.LOGIN_SUCCESS,
-      user: this.toUserResponse(user),
-      ...routing,
+      account_context: accountContext,
       ...session,
     };
   }
@@ -134,13 +136,14 @@ export class AuthService {
 
   async issueAuthSession(user: User) {
     this.accountAccessPolicy.assertCanAuthenticate(user);
-    const [session, routing] = await Promise.all([
-      this.sessions.issue(user.id, user.password),
-      this.authRoutingService.resolve(user),
-    ]);
+    const session = await this.sessions.issue(user.id, user.password);
+    const accountContext = await this.authContext.resolve(
+      user.id,
+      session.session_id,
+    );
 
     return {
-      ...routing,
+      account_context: accountContext,
       ...session,
     };
   }
@@ -152,14 +155,16 @@ export class AuthService {
     const user = await this.userService.findById(userId);
     this.accountAccessPolicy.assertCanAuthenticate(user);
     if (!user) throw new UnauthorizedException(sysMsg.USER_INACTIVE);
-    const routing = await this.authRoutingService.resolve(user);
+    const accountContext = await this.authContext.resolve(
+      user.id,
+      credentials.session_id,
+    );
 
     this.logger.info(sysMsg.TOKEN_REFRESH_SUCCESS);
 
     return {
       message: sysMsg.TOKEN_REFRESH_SUCCESS,
-      user: this.toUserResponse(user),
-      ...routing,
+      account_context: accountContext,
       ...credentials,
     };
   }
@@ -187,12 +192,14 @@ export class AuthService {
       payload.challenge_id,
       payload.code,
     );
-    const routing = await this.authRoutingService.resolve(user);
+    const accountContext = await this.authContext.resolve(
+      user.id,
+      session.session_id,
+    );
     void this.sendWelcomeEmail(user);
     return {
       message: sysMsg.ACCOUNT_VERIFIED,
-      user: this.toUserResponse(user),
-      ...routing,
+      account_context: accountContext,
       ...session,
     };
   }
@@ -240,22 +247,7 @@ export class AuthService {
       throw new UnauthorizedException(sysMsg.USER_NOT_FOUND);
     }
 
-    return {
-      id: user.id,
-      email: user.email,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      middle_name: user.middle_name,
-      role: user.role,
-      gender: user.gender,
-      dob: user.dob,
-      phone: user.phone,
-      country: user.country,
-      image: user.image,
-      is_active: user.is_active,
-      created_at: user.created_at,
-      updated_at: user.updated_at,
-    };
+    return this.authContext.resolve(user.id, req.user.sessionId);
   }
 
   async updateProfile(req: IRequestWithUser, dto: UpdateProfileDto) {
@@ -396,15 +388,5 @@ export class AuthService {
     } catch (error) {
       this.logger.error('Failed to send welcome email', error);
     }
-  }
-
-  private toUserResponse(user: User) {
-    return {
-      id: user.id,
-      email: user.email,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      role: user.role,
-    };
   }
 }

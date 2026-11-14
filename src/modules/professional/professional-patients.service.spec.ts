@@ -9,6 +9,7 @@ import {
   ConsultationType,
 } from '../booking/entities/booking.entity';
 import { PatientProfile } from '../patient/entities/patient-profile.entity';
+import { UserPersona } from '../identity/entities/user-persona.entity';
 import { User } from '../user/entities/user.entity';
 
 import { ProfessionalPatientSortBy } from './dto/professional-patient-response.dto';
@@ -204,6 +205,7 @@ describe('ProfessionalService patient dashboard APIs', () => {
       {} as Repository<ProfessionalAvailability>,
       {} as Repository<ProfessionalReview>,
       {} as Repository<User>,
+      {} as Repository<UserPersona>,
       bookingRepository as Repository<Booking>,
       patientProfileRepository as Repository<PatientProfile>,
       patientNoteRepository as unknown as Repository<ProfessionalPatientNote>,

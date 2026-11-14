@@ -35,7 +35,10 @@ describe('OrganizationOnboardingService', () => {
   };
   const dataSource = {
     transaction: jest.fn(async (callback) =>
-      callback({ withRepository: (repository: unknown) => repository }),
+      callback({
+        withRepository: (repository: unknown) => repository,
+        insert: jest.fn(),
+      }),
     ),
   };
   const logger = {
@@ -107,7 +110,7 @@ describe('OrganizationOnboardingService', () => {
         expect.objectContaining({
           email: 'admin@hospital.test',
           password: 'hashed',
-          role: [role],
+          role: [],
           is_active: false,
           is_verified: false,
           account_status: AccountStatus.PENDING_VERIFICATION,

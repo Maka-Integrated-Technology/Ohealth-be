@@ -1,7 +1,7 @@
 import { Reflector } from '@nestjs/core';
 
-import { ROLES_KEY } from '../auth/decorators/roles.decorator';
-import { UserRole } from '../user/enums/user-role.enum';
+import { AUTH_CAPABILITIES_KEY } from '../auth/decorators/capabilities.decorator';
+import { AuthCapability } from '../auth/context/auth-capability';
 
 import { ProfessionalController } from './professional.controller';
 
@@ -29,22 +29,24 @@ describe('ProfessionalController access', () => {
       ProfessionalController.prototype.updateMyPatientNote,
     ],
   ])('restricts %s to professional roles', (_name, handler) => {
-    const roles = reflector.get<UserRole[]>(ROLES_KEY, handler);
+    const capabilities = reflector.get<AuthCapability[]>(
+      AUTH_CAPABILITIES_KEY,
+      handler,
+    );
 
-    expect(roles).toEqual([
-      UserRole.DOCTOR,
-      UserRole.THERAPIST,
-      UserRole.COUNSELLOR,
-      UserRole.LAB_PROFESSIONAL,
+    expect(capabilities).toEqual([
+      _name === 'getMyDashboard'
+        ? AuthCapability.PROFESSIONAL_OPERATIONAL
+        : AuthCapability.PROFESSIONAL_PATIENT_CARE,
     ]);
   });
 
   it('restricts review submission to patients', () => {
-    const roles = reflector.get<UserRole[]>(
-      ROLES_KEY,
+    const capabilities = reflector.get<AuthCapability[]>(
+      AUTH_CAPABILITIES_KEY,
       ProfessionalController.prototype.createReview,
     );
 
-    expect(roles).toEqual([UserRole.PATIENT]);
+    expect(capabilities).toEqual([AuthCapability.PATIENT_REVIEW_PROFESSIONAL]);
   });
 });
