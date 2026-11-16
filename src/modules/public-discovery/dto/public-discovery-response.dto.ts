@@ -131,6 +131,14 @@ export class PublicSpecialityCatalogueDto {
   meta: PublicPaginationMetaDto;
 }
 
+export class PublicProfessionalDirectoryDto {
+  @ApiProperty({ type: [PublicProfessionalSummaryDto] })
+  items: PublicProfessionalSummaryDto[];
+
+  @ApiProperty({ type: PublicPaginationMetaDto })
+  meta: PublicPaginationMetaDto;
+}
+
 export class PublicDiscoveryPaginationContractDto {
   @ApiProperty({ type: 'integer' })
   default_limit: number;

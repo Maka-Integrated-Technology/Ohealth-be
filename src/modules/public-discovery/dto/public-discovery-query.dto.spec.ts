@@ -5,6 +5,7 @@ import { ConsultationType } from '../../professional/entities/professional.entit
 import {
   normalizePublicSearchTerm,
   parsePublicCalendarDate,
+  parsePublicFeeAmount,
   PublicDateRangeQueryDto,
   PublicPaginationQueryDto,
   PublicProfessionalDirectoryQueryDto,
@@ -154,6 +155,81 @@ describe('public discovery query DTOs', () => {
       await expect(
         messages(PublicProfessionalDirectoryQueryDto, query),
       ).resolves.toEqual(expected);
+    });
+  });
+
+  describe('consultation fee bounds', () => {
+    it.each([
+      [{ min_fee: '0' }, { min_fee: 0 }],
+      [{ min_fee: '1500.5' }, { min_fee: 1500.5 }],
+      [{ max_fee: '99999999.99' }, { max_fee: 99999999.99 }],
+      [
+        { min_fee: '3000', max_fee: '3000' },
+        { min_fee: 3000, max_fee: 3000 },
+      ],
+      [
+        { min_fee: '10.25', max_fee: '10.26' },
+        { min_fee: 10.25, max_fee: 10.26 },
+      ],
+    ])('accepts the bounds %p', async (query, expected) => {
+      await expect(
+        parse(PublicProfessionalDirectoryQueryDto, query),
+      ).resolves.toMatchObject(expected);
+    });
+
+    it.each([
+      ['-1'],
+      ['+5'],
+      ['1e3'],
+      ['1,000'],
+      ['10.999'],
+      ['100000000'],
+      ['0x10'],
+      ['Infinity'],
+      ['NaN'],
+      ['abc'],
+      [''],
+      [' 5'],
+      ['5 OR 1=1'],
+      [['1', '2']],
+    ])('rejects the fee value %p with one stable message', async (value) => {
+      await expect(
+        messages(PublicProfessionalDirectoryQueryDto, { min_fee: value }),
+      ).resolves.toEqual([
+        'min_fee must be an amount between 0 and 99999999.99 with at most 2 decimal places',
+      ]);
+      await expect(
+        messages(PublicProfessionalDirectoryQueryDto, { max_fee: value }),
+      ).resolves.toEqual([
+        'max_fee must be an amount between 0 and 99999999.99 with at most 2 decimal places',
+      ]);
+    });
+
+    it('rejects a maximum below the minimum with one range message', async () => {
+      await expect(
+        messages(PublicProfessionalDirectoryQueryDto, {
+          min_fee: '5000',
+          max_fee: '4999.99',
+        }),
+      ).resolves.toEqual(['max_fee must be greater than or equal to min_fee']);
+    });
+
+    it('reports only the invalid bound when the other is valid', async () => {
+      await expect(
+        messages(PublicProfessionalDirectoryQueryDto, {
+          min_fee: 'abc',
+          max_fee: '10',
+        }),
+      ).resolves.toEqual([
+        'min_fee must be an amount between 0 and 99999999.99 with at most 2 decimal places',
+      ]);
+    });
+
+    it('leaves values that are not plain amounts for validation', () => {
+      expect(parsePublicFeeAmount('12.50')).toBe(12.5);
+      expect(parsePublicFeeAmount('1e3')).toBe('1e3');
+      expect(parsePublicFeeAmount(12)).toBe(12);
+      expect(parsePublicFeeAmount(undefined)).toBeUndefined();
     });
   });
 
