@@ -52,6 +52,7 @@ must follow.
 | Public discovery contract          | Foundation  |
 | Public speciality catalogue        | Implemented |
 | Existing role-array authentication | Legacy      |
+| Canonical account context and capability policies | Implemented |
 
 Update this table whenever an area moves between statuses.
 

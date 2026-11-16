@@ -1,82 +1,78 @@
 import { ExecutionContext, ForbiddenException } from '@nestjs/common';
-import { Repository } from 'typeorm';
 
-import { UserRole } from '../../user/enums/user-role.enum';
-import { OrganizationAdmin } from '../entities/organization-admin.entity';
-import { OrganizationType } from '../enums/organization-type.enum';
+import { AuthContextService } from '../../auth/context/auth-context.service';
 import { OrganizationVerificationStatus } from '../enums/organization-verification-status.enum';
 
 import { OrganizationApprovedGuard } from './organization-approved.guard';
 
 describe('OrganizationApprovedGuard', () => {
-  const repository = { findOne: jest.fn() };
-  const createContext = (roles: UserRole[]) =>
-    ({
-      switchToHttp: () => ({
-        getRequest: () => ({
-          user: { id: 'user-id', userId: 'user-id', roles },
-        }),
-      }),
-    }) as ExecutionContext;
+  const contexts = { resolve: jest.fn() };
   const guard = new OrganizationApprovedGuard(
-    repository as unknown as Repository<OrganizationAdmin>,
+    contexts as unknown as AuthContextService,
   );
+  const request = {
+    headers: { ['x-organization-id']: 'organization-id' },
+    user: { id: 'user-id', sessionId: 'session-id' },
+  };
+  const executionContext = {
+    switchToHttp: () => ({ getRequest: () => request }),
+  } as ExecutionContext;
 
-  beforeEach(() => jest.clearAllMocks());
-
-  it('allows an approved administrator with the matching role', async () => {
-    repository.findOne.mockResolvedValue({
-      organization: {
-        organization_type: OrganizationType.PHARMACY,
-        verification_status: OrganizationVerificationStatus.APPROVED,
-        is_active: true,
-      },
+  beforeEach(() => {
+    jest.clearAllMocks();
+    request.headers['x-organization-id'] = 'organization-id';
+    contexts.resolve.mockResolvedValue({
+      memberships: [
+        {
+          organization_id: 'organization-id',
+          role: 'owner',
+          organization_is_active: true,
+          organization_verification_status:
+            OrganizationVerificationStatus.APPROVED,
+        },
+      ],
     });
-
-    await expect(
-      guard.canActivate(createContext([UserRole.PHARMACY_ADMIN])),
-    ).resolves.toBe(true);
   });
 
-  it('denies access before approval', async () => {
-    repository.findOne.mockResolvedValue({
-      organization: {
-        organization_type: OrganizationType.PHARMACY,
-        verification_status: OrganizationVerificationStatus.UNDER_REVIEW,
-        is_active: true,
-      },
-    });
-
-    await expect(
-      guard.canActivate(createContext([UserRole.PHARMACY_ADMIN])),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+  it('requires the selected approved organization membership', async () => {
+    await expect(guard.canActivate(executionContext)).resolves.toBe(true);
+    expect(contexts.resolve).toHaveBeenCalledWith(
+      'user-id',
+      'session-id',
+      'organization-id',
+    );
   });
 
-  it('denies a role that does not match the linked organization type', async () => {
-    repository.findOne.mockResolvedValue({
-      organization: {
-        organization_type: OrganizationType.HOSPITAL,
-        verification_status: OrganizationVerificationStatus.APPROVED,
-        is_active: true,
-      },
+  it.each([
+    { organization_id: 'other-id' },
+    { role: 'member' },
+    { organization_is_active: false },
+    {
+      organization_verification_status: OrganizationVerificationStatus.PENDING,
+    },
+  ])('denies an ineligible membership: %j', async (change) => {
+    contexts.resolve.mockResolvedValue({
+      memberships: [
+        {
+          organization_id: 'organization-id',
+          role: 'owner',
+          organization_is_active: true,
+          organization_verification_status:
+            OrganizationVerificationStatus.APPROVED,
+          ...change,
+        },
+      ],
     });
-
-    await expect(
-      guard.canActivate(createContext([UserRole.PHARMACY_ADMIN])),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(guard.canActivate(executionContext)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
   });
 
-  it('denies an inactive organization even when approved', async () => {
-    repository.findOne.mockResolvedValue({
-      organization: {
-        organization_type: OrganizationType.PHARMACY,
-        verification_status: OrganizationVerificationStatus.APPROVED,
-        is_active: false,
-      },
-    });
-
-    await expect(
-      guard.canActivate(createContext([UserRole.PHARMACY_ADMIN])),
-    ).rejects.toBeInstanceOf(ForbiddenException);
+  it('denies a missing selector', async () => {
+    request.headers['x-organization-id'] = '';
+    await expect(guard.canActivate(executionContext)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    expect(contexts.resolve).not.toHaveBeenCalled();
   });
 });

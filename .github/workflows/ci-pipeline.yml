@@ -225,6 +225,11 @@ jobs:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
         run: npx jest --runInBand src/database/tests/canonical-account-lifecycle.integration.spec.ts
 
+      - name: Verify platform privileges migration on real PostgreSQL
+        env:
+          PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
+        run: npx jest --runInBand src/database/tests/platform-privileges-migration.integration.spec.ts
+
       - name: Verify auth security audit foundation on PostgreSQL
         env:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci

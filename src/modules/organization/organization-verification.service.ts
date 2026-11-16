@@ -13,20 +13,21 @@ import {
   OrganizationStatusResponseDto,
   RejectOrganizationDto,
 } from './dto/organization-verification.dto';
-import { OrganizationAdmin } from './entities/organization-admin.entity';
 import { OrganizationDocument } from './entities/organization-document.entity';
+import { OrganizationMembership } from './entities/organization-membership.entity';
 import { OrganizationStatusHistory } from './entities/organization-status-history.entity';
 import { Organization } from './entities/organization.entity';
 import { OrganizationVerificationStatus } from './enums/organization-verification-status.enum';
 import { OrganizationDocumentsService } from './organization-documents.service';
+import { findAdministrativeOrganization } from './organization-membership-access';
 
 @Injectable()
 export class OrganizationVerificationService {
   constructor(
     @InjectRepository(Organization)
     private readonly organizationRepository: Repository<Organization>,
-    @InjectRepository(OrganizationAdmin)
-    private readonly administratorRepository: Repository<OrganizationAdmin>,
+    @InjectRepository(OrganizationMembership)
+    private readonly membershipRepository: Repository<OrganizationMembership>,
     @InjectRepository(OrganizationDocument)
     private readonly documentRepository: Repository<OrganizationDocument>,
     @InjectRepository(OrganizationStatusHistory)
@@ -35,8 +36,13 @@ export class OrganizationVerificationService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async getMine(userId: string): Promise<OrganizationStatusResponseDto> {
-    return this.toStatus(await this.findForAdministratorOrThrow(userId));
+  async getMine(
+    userId: string,
+    organizationId: string,
+  ): Promise<OrganizationStatusResponseDto> {
+    return this.toStatus(
+      await this.findForAdministratorOrThrow(userId, organizationId),
+    );
   }
 
   async getForReview(
@@ -45,8 +51,14 @@ export class OrganizationVerificationService {
     return this.toStatus(await this.findOrganizationOrThrow(organizationId));
   }
 
-  async submitMine(userId: string): Promise<OrganizationStatusResponseDto> {
-    const organization = await this.findForAdministratorOrThrow(userId);
+  async submitMine(
+    userId: string,
+    organizationId: string,
+  ): Promise<OrganizationStatusResponseDto> {
+    const organization = await this.findForAdministratorOrThrow(
+      userId,
+      organizationId,
+    );
     return this.transition(
       organization.id,
       userId,
@@ -234,17 +246,13 @@ export class OrganizationVerificationService {
 
   private async findForAdministratorOrThrow(
     userId: string,
+    organizationId: string,
   ): Promise<Organization> {
-    const administrator = await this.administratorRepository.findOne({
-      where: { user_id: userId },
-      relations: { organization: true },
-    });
-    if (!administrator?.organization) {
-      throw new NotFoundException(
-        'organization administrator profile not found',
-      );
-    }
-    return administrator.organization;
+    return findAdministrativeOrganization(
+      this.membershipRepository,
+      userId,
+      organizationId,
+    );
   }
 
   private async findOrganizationOrThrow(id: string): Promise<Organization> {

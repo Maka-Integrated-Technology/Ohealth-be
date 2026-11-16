@@ -32,7 +32,6 @@ export interface IValidatedSessionUser {
   email: string;
   first_name: string;
   last_name: string;
-  role: string[];
 }
 
 @Injectable()
@@ -230,7 +229,6 @@ export class RefreshSessionService {
         'user.email',
         'user.first_name',
         'user.last_name',
-        'user.role',
         'user.account_status',
         'user.email_verified_at',
         'user.is_active',

@@ -7,7 +7,7 @@ import {
 } from '@nestjs/swagger';
 
 import * as sysMsg from '../../../constants/system.messages';
-import { AuthMeResponseDto } from '../dto/auth.dto';
+import { AuthMeResponseDto } from '../dto/auth-response.dto';
 
 export const UpdateProfileDocs = () =>
   applyDecorators(

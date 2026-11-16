@@ -22,14 +22,15 @@ import {
   OrganizationDocumentDownloadDto,
   OrganizationDocumentResponseDto,
 } from './dto/organization-verification.dto';
-import { OrganizationAdmin } from './entities/organization-admin.entity';
 import { OrganizationDocument } from './entities/organization-document.entity';
+import { OrganizationMembership } from './entities/organization-membership.entity';
 import { Organization } from './entities/organization.entity';
 import {
   OrganizationDocumentType,
   REQUIRED_ORGANIZATION_DOCUMENT_TYPES,
 } from './enums/organization-document-type.enum';
 import { OrganizationVerificationStatus } from './enums/organization-verification-status.enum';
+import { findAdministrativeOrganization } from './organization-membership-access';
 
 const EDITABLE_STATUSES = new Set([
   OrganizationVerificationStatus.PENDING,
@@ -44,8 +45,8 @@ export class OrganizationDocumentsService {
   constructor(
     @InjectRepository(Organization)
     private readonly organizationRepository: Repository<Organization>,
-    @InjectRepository(OrganizationAdmin)
-    private readonly administratorRepository: Repository<OrganizationAdmin>,
+    @InjectRepository(OrganizationMembership)
+    private readonly membershipRepository: Repository<OrganizationMembership>,
     @InjectRepository(OrganizationDocument)
     private readonly documentRepository: Repository<OrganizationDocument>,
     private readonly dataSource: DataSource,
@@ -60,10 +61,14 @@ export class OrganizationDocumentsService {
 
   async uploadMine(
     userId: string,
+    organizationId: string,
     documentType: OrganizationDocumentType,
     file?: IMulterFile,
   ): Promise<OrganizationDocumentResponseDto> {
-    const organization = await this.findForAdministratorOrThrow(userId);
+    const organization = await this.findForAdministratorOrThrow(
+      userId,
+      organizationId,
+    );
     this.assertDocumentTypeAllowed(organization, documentType);
     this.assertDocumentsEditable(organization);
     const validated = this.fileValidator.validate(file);
@@ -111,8 +116,14 @@ export class OrganizationDocumentsService {
     return this.toDto(persisted.saved);
   }
 
-  async listMine(userId: string): Promise<OrganizationDocumentChecklistDto> {
-    const organization = await this.findForAdministratorOrThrow(userId);
+  async listMine(
+    userId: string,
+    organizationId: string,
+  ): Promise<OrganizationDocumentChecklistDto> {
+    const organization = await this.findForAdministratorOrThrow(
+      userId,
+      organizationId,
+    );
     return this.buildChecklist(
       organization,
       await this.findAll(organization.id),
@@ -131,9 +142,13 @@ export class OrganizationDocumentsService {
 
   async downloadMine(
     userId: string,
+    organizationId: string,
     documentType: OrganizationDocumentType,
   ): Promise<OrganizationDocumentDownloadDto> {
-    const organization = await this.findForAdministratorOrThrow(userId);
+    const organization = await this.findForAdministratorOrThrow(
+      userId,
+      organizationId,
+    );
     return this.createDownload(organization.id, documentType);
   }
 
@@ -147,9 +162,13 @@ export class OrganizationDocumentsService {
 
   async deleteMine(
     userId: string,
+    organizationId: string,
     documentType: OrganizationDocumentType,
   ): Promise<{ message: string }> {
-    const organization = await this.findForAdministratorOrThrow(userId);
+    const organization = await this.findForAdministratorOrThrow(
+      userId,
+      organizationId,
+    );
     this.assertDocumentTypeAllowed(organization, documentType);
 
     const removed = await this.dataSource.transaction(async (manager) => {
@@ -311,17 +330,13 @@ export class OrganizationDocumentsService {
 
   private async findForAdministratorOrThrow(
     userId: string,
+    organizationId: string,
   ): Promise<Organization> {
-    const administrator = await this.administratorRepository.findOne({
-      where: { user_id: userId },
-      relations: { organization: true },
-    });
-    if (!administrator?.organization) {
-      throw new NotFoundException(
-        'organization administrator profile not found',
-      );
-    }
-    return administrator.organization;
+    return findAdministrativeOrganization(
+      this.membershipRepository,
+      userId,
+      organizationId,
+    );
   }
 
   private async findOrganizationOrThrow(id: string): Promise<Organization> {

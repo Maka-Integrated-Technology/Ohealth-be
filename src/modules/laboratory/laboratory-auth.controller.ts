@@ -8,10 +8,10 @@ import {
 } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 
-import { Roles } from '../auth/decorators/roles.decorator';
+import { AuthCapability } from '../auth/context/auth-capability';
+import { RequireCapabilities } from '../auth/decorators/capabilities.decorator';
+import { CapabilitiesGuard } from '../auth/guards/capabilities.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { UserRole } from '../user/enums/user-role.enum';
 
 import { LaboratoryAdminSetupDocs } from './docs';
 import { LaboratoryAdminSetupDto } from './dto/laboratory-admin-setup.dto';
@@ -24,8 +24,8 @@ export class LaboratoryAuthController {
   constructor(private readonly laboratoryAuthService: LaboratoryAuthService) {}
 
   @Post('admin-setup')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, CapabilitiesGuard)
+  @RequireCapabilities(AuthCapability.PLATFORM_ORGANIZATION_REVIEW)
   @HttpCode(HttpStatus.CREATED)
   @LaboratoryAdminSetupDocs()
   setupAdministrator(

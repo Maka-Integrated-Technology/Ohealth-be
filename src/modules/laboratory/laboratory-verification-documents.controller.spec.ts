@@ -1,10 +1,10 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { ROLES_KEY } from '../auth/decorators/roles.decorator';
+import { AuthCapability } from '../auth/context/auth-capability';
+import { AUTH_CAPABILITIES_KEY } from '../auth/decorators/capabilities.decorator';
+import { CapabilitiesGuard } from '../auth/guards/capabilities.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { UserRole } from '../user/enums/user-role.enum';
 
 import { LaboratoryVerificationDocumentType } from './enums/laboratory-verification-document-type.enum';
 import { LaboratoryVerificationDocumentsController } from './laboratory-verification-documents.controller';
@@ -37,13 +37,13 @@ describe('LaboratoryVerificationDocumentsController', () => {
     jest.clearAllMocks();
   });
 
-  it('should protect every endpoint with JWT and role guards', () => {
+  it('should protect every endpoint with JWT and capability guards', () => {
     const guards = Reflect.getMetadata(
       GUARDS_METADATA,
       LaboratoryVerificationDocumentsController,
     );
 
-    expect(guards).toEqual([JwtAuthGuard, RolesGuard]);
+    expect(guards).toEqual([JwtAuthGuard, CapabilitiesGuard]);
   });
 
   it.each([
@@ -52,17 +52,17 @@ describe('LaboratoryVerificationDocumentsController', () => {
     'downloadMyDocument',
     'deleteMyDocument',
   ] as const)('should restrict %s to laboratory administrators', (handler) => {
-    expect(Reflect.getMetadata(ROLES_KEY, controller[handler])).toEqual([
-      UserRole.LAB_ADMIN,
-    ]);
+    expect(
+      Reflect.getMetadata(AUTH_CAPABILITIES_KEY, controller[handler]),
+    ).toEqual([AuthCapability.ORGANIZATION_ONBOARDING]);
   });
 
   it.each(['listLaboratoryDocuments', 'downloadLaboratoryDocument'] as const)(
     'should restrict %s to platform administrators',
     (handler) => {
-      expect(Reflect.getMetadata(ROLES_KEY, controller[handler])).toEqual([
-        UserRole.ADMIN,
-      ]);
+      expect(
+        Reflect.getMetadata(AUTH_CAPABILITIES_KEY, controller[handler]),
+      ).toEqual([AuthCapability.PLATFORM_ORGANIZATION_REVIEW]);
     },
   );
 
@@ -70,13 +70,15 @@ describe('LaboratoryVerificationDocumentsController', () => {
     const user = {
       id: 'user-id',
       email: 'admin@laboratory.test',
-      roles: [UserRole.LAB_ADMIN],
     };
     service.listMyDocuments.mockResolvedValue({ documents: [] });
 
-    await controller.listMyDocuments(user);
+    await controller.listMyDocuments(user, 'laboratory-id');
 
-    expect(service.listMyDocuments).toHaveBeenCalledWith(user.id);
+    expect(service.listMyDocuments).toHaveBeenCalledWith(
+      user.id,
+      'laboratory-id',
+    );
   });
 
   it('should pass the requested laboratory to platform administrator operations', async () => {

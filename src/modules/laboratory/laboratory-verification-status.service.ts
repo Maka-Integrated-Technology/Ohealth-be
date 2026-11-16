@@ -6,6 +6,9 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 
+import { Organization } from '../organization/entities/organization.entity';
+import { OrganizationVerificationStatus } from '../organization/enums/organization-verification-status.enum';
+
 import {
   LaboratoryVerificationStatusHistoryResponseDto,
   LaboratoryVerificationStatusResponseDto,
@@ -30,14 +33,20 @@ export class LaboratoryVerificationStatusService {
     private readonly documentRepository: Repository<LaboratoryVerificationDocument>,
     @InjectRepository(LaboratoryVerificationStatusHistory)
     private readonly historyRepository: Repository<LaboratoryVerificationStatusHistory>,
+    @InjectRepository(Organization)
+    private readonly organizationRepository: Repository<Organization>,
     private readonly verificationDocumentsService: LaboratoryVerificationDocumentsService,
     private readonly dataSource: DataSource,
   ) {}
 
   async getMyStatus(
     userId: string,
+    laboratoryId: string,
   ): Promise<LaboratoryVerificationStatusResponseDto> {
-    const laboratory = await this.findLaboratoryForAdminOrThrow(userId);
+    const laboratory = await this.findLaboratoryForAdminOrThrow(
+      userId,
+      laboratoryId,
+    );
 
     return this.toStatusDto(laboratory);
   }
@@ -52,8 +61,12 @@ export class LaboratoryVerificationStatusService {
 
   async submitMyVerification(
     userId: string,
+    laboratoryId: string,
   ): Promise<LaboratoryVerificationStatusResponseDto> {
-    const laboratory = await this.findLaboratoryForAdminOrThrow(userId);
+    const laboratory = await this.findLaboratoryForAdminOrThrow(
+      userId,
+      laboratoryId,
+    );
 
     return this.transitionLaboratoryStatus({
       laboratoryId: laboratory.id,
@@ -136,6 +149,9 @@ export class LaboratoryVerificationStatusService {
         this.documentRepository,
       );
       const historyRepository = manager.withRepository(this.historyRepository);
+      const organizationRepository = manager.withRepository(
+        this.organizationRepository,
+      );
       const laboratory = await laboratoryRepository.findOne({
         where: { id: options.laboratoryId },
         lock: { mode: 'pessimistic_write' },
@@ -169,6 +185,19 @@ export class LaboratoryVerificationStatusService {
       }
 
       const savedLaboratory = await laboratoryRepository.save(laboratory);
+      const organization = await organizationRepository.findOne({
+        where: { id: laboratory.id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!organization) {
+        throw new NotFoundException(
+          'canonical laboratory organization not found',
+        );
+      }
+      organization.verification_status =
+        options.nextStatus as unknown as OrganizationVerificationStatus;
+      organization.rejection_reason = options.rejectionReason ?? null;
+      await organizationRepository.save(organization);
       await historyRepository.save(
         historyRepository.create({
           laboratory_id: savedLaboratory.id,
@@ -214,9 +243,10 @@ export class LaboratoryVerificationStatusService {
 
   private async findLaboratoryForAdminOrThrow(
     userId: string,
+    laboratoryId: string,
   ): Promise<Laboratory> {
     const administrator = await this.laboratoryAdminRepository.findOne({
-      where: { user_id: userId },
+      where: { user_id: userId, laboratory_id: laboratoryId },
       relations: ['laboratory'],
     });
 

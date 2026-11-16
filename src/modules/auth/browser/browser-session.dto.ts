@@ -1,24 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 import { UserRole } from '../../user/enums/user-role.enum';
+import { AuthContextResponseDto } from '../dto/auth-response.dto';
 import { AuthAccessLevel, AuthRoutingTarget } from '../enums/auth-routing.enum';
-
-class BrowserSessionUserDto {
-  @ApiProperty({ format: 'uuid' })
-  id: string;
-
-  @ApiProperty({ example: 'john.doe@example.com' })
-  email: string;
-
-  @ApiProperty({ example: 'John' })
-  first_name: string;
-
-  @ApiProperty({ example: 'Doe' })
-  last_name: string;
-
-  @ApiProperty({ example: [UserRole.PATIENT], type: [String] })
-  role: UserRole[];
-}
 
 export class BrowserSessionResponseDto {
   @ApiProperty({ example: 'Login success' })
@@ -33,15 +17,24 @@ export class BrowserSessionResponseDto {
   @ApiProperty({ format: 'date-time' })
   session_expires_at: Date;
 
-  @ApiProperty({ type: BrowserSessionUserDto })
-  user: BrowserSessionUserDto;
+  @ApiProperty({ type: AuthContextResponseDto })
+  account_context: AuthContextResponseDto;
 
-  @ApiProperty({ enum: AuthRoutingTarget })
+  @ApiProperty({ deprecated: true })
+  user: {
+    id: string;
+    email: string;
+    first_name: string;
+    last_name: string;
+    role: UserRole[];
+  };
+
+  @ApiProperty({ enum: AuthRoutingTarget, deprecated: true })
   routing_target: AuthRoutingTarget;
 
-  @ApiProperty({ enum: AuthAccessLevel })
+  @ApiProperty({ enum: AuthAccessLevel, deprecated: true })
   access_level: AuthAccessLevel;
 
-  @ApiProperty({ nullable: true })
+  @ApiProperty({ nullable: true, deprecated: true })
   verification_status: string | null;
 }

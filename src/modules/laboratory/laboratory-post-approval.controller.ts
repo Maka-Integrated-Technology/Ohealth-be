@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -48,16 +49,24 @@ export class LaboratoryPostApprovalController {
   @SetLaboratoryOperatingHoursDocs()
   setOperatingHours(
     @CurrentUser() user: IAuthUser,
+    @Headers('x-organization-id') organizationId: string,
     @Body() dto: SetLaboratoryOperatingHoursDto,
   ) {
-    return this.postApprovalService.setOperatingHours(user.id, dto);
+    return this.postApprovalService.setOperatingHours(
+      user.id,
+      organizationId,
+      dto,
+    );
   }
 
   @Get('operating-hours')
   @LaboratoryPostApprovalAccess()
   @ListLaboratoryOperatingHoursDocs()
-  listOperatingHours(@CurrentUser() user: IAuthUser) {
-    return this.postApprovalService.listOperatingHours(user.id);
+  listOperatingHours(
+    @CurrentUser() user: IAuthUser,
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    return this.postApprovalService.listOperatingHours(user.id, organizationId);
   }
 
   @Post('tests')
@@ -66,16 +75,20 @@ export class LaboratoryPostApprovalController {
   @CreateLaboratoryTestDocs()
   createTest(
     @CurrentUser() user: IAuthUser,
+    @Headers('x-organization-id') organizationId: string,
     @Body() dto: CreateLaboratoryTestDto,
   ) {
-    return this.postApprovalService.createTest(user.id, dto);
+    return this.postApprovalService.createTest(user.id, organizationId, dto);
   }
 
   @Get('tests')
   @LaboratoryPostApprovalAccess()
   @ListLaboratoryTestsDocs()
-  listTests(@CurrentUser() user: IAuthUser) {
-    return this.postApprovalService.listTests(user.id);
+  listTests(
+    @CurrentUser() user: IAuthUser,
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    return this.postApprovalService.listTests(user.id, organizationId);
   }
 
   @Patch('tests/:testId')
@@ -83,10 +96,16 @@ export class LaboratoryPostApprovalController {
   @UpdateLaboratoryTestDocs()
   updateTest(
     @CurrentUser() user: IAuthUser,
+    @Headers('x-organization-id') organizationId: string,
     @Param('testId', ParseUUIDPipe) testId: string,
     @Body() dto: UpdateLaboratoryTestDto,
   ) {
-    return this.postApprovalService.updateTest(user.id, testId, dto);
+    return this.postApprovalService.updateTest(
+      user.id,
+      organizationId,
+      testId,
+      dto,
+    );
   }
 
   @Post('staff/invitations')
@@ -95,16 +114,20 @@ export class LaboratoryPostApprovalController {
   @InviteLaboratoryStaffDocs()
   inviteStaff(
     @CurrentUser() user: IAuthUser,
+    @Headers('x-organization-id') organizationId: string,
     @Body() dto: InviteLaboratoryStaffDto,
   ) {
-    return this.postApprovalService.inviteStaff(user.id, dto);
+    return this.postApprovalService.inviteStaff(user.id, organizationId, dto);
   }
 
   @Get('staff')
   @LaboratoryPostApprovalAccess()
   @ListLaboratoryStaffDocs()
-  listStaff(@CurrentUser() user: IAuthUser) {
-    return this.postApprovalService.listStaff(user.id);
+  listStaff(
+    @CurrentUser() user: IAuthUser,
+    @Headers('x-organization-id') organizationId: string,
+  ) {
+    return this.postApprovalService.listStaff(user.id, organizationId);
   }
 
   @Post('staff/invitations/accept')

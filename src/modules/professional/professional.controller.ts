@@ -21,11 +21,11 @@ import {
 } from '@nestjs/swagger';
 
 import { IRequestWithUser } from '../../common/types';
+import { AuthCapability } from '../auth/context/auth-capability';
+import { RequireCapabilities } from '../auth/decorators/capabilities.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { CapabilitiesGuard } from '../auth/guards/capabilities.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { UserRole } from '../user/enums/user-role.enum';
 
 import { BulkCreateAvailabilityDto } from './dto/create-professional-availability.dto';
 import { CreateProfessionalDto } from './dto/create-professional.dto';
@@ -57,16 +57,9 @@ import { UpdateProfessionalDto } from './dto/update-professional.dto';
 import { UpsertProfessionalProfileDto } from './dto/upsert-professional-profile.dto';
 import { ProfessionalService } from './professional.service';
 
-const PROFESSIONAL_ACCESS_ROLES = [
-  UserRole.DOCTOR,
-  UserRole.THERAPIST,
-  UserRole.COUNSELLOR,
-  UserRole.LAB_PROFESSIONAL,
-];
-
 @ApiTags('Professionals')
 @Controller('professionals')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, CapabilitiesGuard)
 @ApiBearerAuth()
 export class ProfessionalController {
   constructor(private readonly professionalService: ProfessionalService) {}
@@ -86,8 +79,7 @@ export class ProfessionalController {
   }
 
   @Get('me')
-  @UseGuards(RolesGuard)
-  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @RequireCapabilities(AuthCapability.PROFESSIONAL_ONBOARDING)
   @ApiOperation({ summary: 'Get current professional onboarding profile' })
   @ApiResponse({ status: 200, type: ProfessionalMeResponseDto })
   findMe(
@@ -97,8 +89,7 @@ export class ProfessionalController {
   }
 
   @Put('me/profile')
-  @UseGuards(RolesGuard)
-  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @RequireCapabilities(AuthCapability.PROFESSIONAL_ONBOARDING)
   @ApiOperation({
     summary: 'Create or update current professional practice profile',
   })
@@ -111,8 +102,7 @@ export class ProfessionalController {
   }
 
   @Post('me/availabilities')
-  @UseGuards(RolesGuard)
-  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @RequireCapabilities(AuthCapability.PROFESSIONAL_OPERATIONAL)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Add availability slots for current professional' })
   @ApiResponse({
@@ -128,8 +118,7 @@ export class ProfessionalController {
   }
 
   @Get('me/dashboard')
-  @UseGuards(RolesGuard)
-  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @RequireCapabilities(AuthCapability.PROFESSIONAL_OPERATIONAL)
   @ApiOperation({ summary: 'Get current professional dashboard data' })
   @ApiQuery({
     name: 'date',
@@ -145,8 +134,7 @@ export class ProfessionalController {
   }
 
   @Get('me/patients')
-  @UseGuards(RolesGuard)
-  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @RequireCapabilities(AuthCapability.PROFESSIONAL_PATIENT_CARE)
   @ApiOperation({ summary: 'Search and list current professional patients' })
   @ApiQuery({
     name: 'search',
@@ -202,8 +190,7 @@ export class ProfessionalController {
   }
 
   @Get('me/patients/:patientId')
-  @UseGuards(RolesGuard)
-  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @RequireCapabilities(AuthCapability.PROFESSIONAL_PATIENT_CARE)
   @ApiOperation({
     summary: 'Get one patient profile with consultation history',
   })
@@ -221,8 +208,7 @@ export class ProfessionalController {
   }
 
   @Get('me/patients/:patientId/consultations')
-  @UseGuards(RolesGuard)
-  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @RequireCapabilities(AuthCapability.PROFESSIONAL_PATIENT_CARE)
   @ApiOperation({ summary: 'List one patient consultation history' })
   @ApiParam({ name: 'patientId', description: 'Patient user UUID' })
   @ApiQuery({
@@ -256,8 +242,7 @@ export class ProfessionalController {
   }
 
   @Get('me/patients/:patientId/notes')
-  @UseGuards(RolesGuard)
-  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @RequireCapabilities(AuthCapability.PROFESSIONAL_PATIENT_CARE)
   @ApiOperation({ summary: 'List notes for one patient' })
   @ApiParam({ name: 'patientId', description: 'Patient user UUID' })
   @ApiQuery({
@@ -284,8 +269,7 @@ export class ProfessionalController {
   }
 
   @Post('me/patients/:patientId/notes')
-  @UseGuards(RolesGuard)
-  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @RequireCapabilities(AuthCapability.PROFESSIONAL_PATIENT_CARE)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a note for one patient' })
   @ApiParam({ name: 'patientId', description: 'Patient user UUID' })
@@ -303,8 +287,7 @@ export class ProfessionalController {
   }
 
   @Patch('me/patients/:patientId/notes/:noteId')
-  @UseGuards(RolesGuard)
-  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @RequireCapabilities(AuthCapability.PROFESSIONAL_PATIENT_CARE)
   @ApiOperation({ summary: 'Update one patient note' })
   @ApiParam({ name: 'patientId', description: 'Patient user UUID' })
   @ApiParam({ name: 'noteId', description: 'Patient note UUID' })
@@ -324,8 +307,7 @@ export class ProfessionalController {
   }
 
   @Patch('me/bookings/:bookingId/accept')
-  @UseGuards(RolesGuard)
-  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @RequireCapabilities(AuthCapability.PROFESSIONAL_OPERATIONAL)
   @ApiOperation({ summary: 'Accept an appointment request' })
   @ApiParam({ name: 'bookingId', description: 'Booking UUID' })
   @ApiResponse({ status: 200, type: ProfessionalAppointmentResponseDto })
@@ -337,8 +319,7 @@ export class ProfessionalController {
   }
 
   @Patch('me/bookings/:bookingId/reject')
-  @UseGuards(RolesGuard)
-  @Roles(...PROFESSIONAL_ACCESS_ROLES)
+  @RequireCapabilities(AuthCapability.PROFESSIONAL_OPERATIONAL)
   @ApiOperation({ summary: 'Reject an appointment request' })
   @ApiParam({ name: 'bookingId', description: 'Booking UUID' })
   @ApiResponse({ status: 200, type: ProfessionalAppointmentResponseDto })
@@ -369,8 +350,7 @@ export class ProfessionalController {
   }
 
   @Post(':id/reviews')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.PATIENT)
+  @RequireCapabilities(AuthCapability.PATIENT_REVIEW_PROFESSIONAL)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Submit a review for a professional' })
   @ApiParam({ name: 'id', description: 'Professional UUID' })
@@ -389,8 +369,7 @@ export class ProfessionalController {
   }
 
   @Post()
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_PROFESSIONAL_REVIEW)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a professional profile (admin only)' })
   @ApiResponse({ status: 201, type: ProfessionalResponseDto })
@@ -410,8 +389,7 @@ export class ProfessionalController {
   }
 
   @Patch(':id')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_PROFESSIONAL_REVIEW)
   @ApiOperation({ summary: 'Update a professional profile (admin only)' })
   @ApiParam({ name: 'id', description: 'Professional UUID' })
   @ApiResponse({ status: 200, type: ProfessionalResponseDto })
@@ -424,8 +402,7 @@ export class ProfessionalController {
   }
 
   @Post(':id/availabilities')
-  @UseGuards(RolesGuard)
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_PROFESSIONAL_REVIEW)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Add availability slots for a professional (admin only)',

@@ -63,6 +63,27 @@ describe('assertOpenApiDocumentComplete', () => {
     ).not.toThrow();
   });
 
+  it('rejects case-insensitive duplicate headers', () => {
+    const document = createCompleteDocument();
+    document.paths['/api/items/{id}'].get.parameters.push(
+      {
+        name: 'X-Organization-Id',
+        in: 'header',
+        required: false,
+        schema: { type: 'string' },
+      },
+      {
+        name: 'x-organization-id',
+        in: 'header',
+        required: true,
+        schema: { type: 'string' },
+      },
+    );
+    expect(() => assertOpenApiDocumentComplete(document)).toThrow(
+      'duplicate header parameter',
+    );
+  });
+
   it('reports missing required operation metadata', () => {
     const document = createCompleteDocument();
     document.paths['/api/items/{id}'].get.summary = '';

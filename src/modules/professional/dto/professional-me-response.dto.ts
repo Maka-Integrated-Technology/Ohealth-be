@@ -21,9 +21,6 @@ class ProfessionalMeUserDto {
   @ApiPropertyOptional()
   phone?: string;
 
-  @ApiProperty({ type: [String] })
-  roles: string[];
-
   @ApiProperty()
   is_verified: boolean;
 }
