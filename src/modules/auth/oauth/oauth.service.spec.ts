@@ -59,6 +59,7 @@ describe('OAuthService', () => {
     recordAttempt: jest.fn(),
   };
   const accountPolicy = { assertCanAuthenticate: jest.fn() };
+  const mfa = { isEnabled: jest.fn().mockResolvedValue(false) };
   let service: OAuthService;
 
   beforeEach(() => {
@@ -79,6 +80,8 @@ describe('OAuthService', () => {
       delivery as never,
       audit as never,
       accountPolicy as never,
+      { issueInTransaction: jest.fn() } as never,
+      mfa as never,
     );
     const preview = {
       operation: OAuthOperation.SIGNIN,

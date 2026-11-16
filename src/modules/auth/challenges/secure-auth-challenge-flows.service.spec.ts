@@ -83,6 +83,7 @@ describe('SecureAuthChallengeFlowsService', () => {
       recordAttempt,
     } as unknown as AuthSecurityAuditService,
     { issueInTransaction } as never,
+    { isEnabled: jest.fn().mockResolvedValue(false) } as never,
   );
 
   beforeEach(() => {

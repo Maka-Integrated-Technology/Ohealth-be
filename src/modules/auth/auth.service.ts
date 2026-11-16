@@ -38,6 +38,7 @@ import {
   VerifySignupDto,
 } from './dto/auth.dto';
 import { LoginDto } from './dto/login.dto';
+import { VerifyMfaLoginDto } from './dto/mfa.dto';
 import { OAuthException } from './oauth/oauth.error';
 import { PasswordCredentialsService } from './password-policy/password-credentials.service';
 import { isLoginPasswordWithinLimit } from './password-policy/password-policy';
@@ -110,7 +111,29 @@ export class AuthService {
   }
 
   async verifyLogin(payload: VerifyAuthChallengeDto) {
-    const { user, session } = await this.challengeFlows.verifyLogin(
+    const result = await this.challengeFlows.verifyLogin(
+      payload.challenge_id,
+      payload.code,
+    );
+    if ('mfa_challenge_id' in result) {
+      return { message: 'MFA verification required.', ...result };
+    }
+    const { user, session } = result;
+    const accountContext = await this.authContext.resolve(
+      user.id,
+      session.session_id,
+    );
+    this.logger.info(sysMsg.LOGIN_SUCCESS);
+    return {
+      message: sysMsg.LOGIN_SUCCESS,
+      account_context: accountContext,
+      ...presentLegacyAuthResponse(accountContext),
+      ...session,
+    };
+  }
+
+  async verifyMfaLogin(payload: VerifyMfaLoginDto) {
+    const { user, session } = await this.challengeFlows.verifyMfaLogin(
       payload.challenge_id,
       payload.code,
     );
@@ -118,7 +141,6 @@ export class AuthService {
       user.id,
       session.session_id,
     );
-    this.logger.info(sysMsg.LOGIN_SUCCESS);
     return {
       message: sysMsg.LOGIN_SUCCESS,
       account_context: accountContext,

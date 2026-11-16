@@ -232,6 +232,18 @@ export type AuthController_verifyLoginError =
   | operations['AuthController_verifyLogin']['responses'][400]['content']['application/json']
   | operations['AuthController_verifyLogin']['responses'][500]['content']['application/json'];
 
+export type AuthController_verifyMfaLoginRequest = Readonly<{
+  readonly body: NonNullable<
+    operations['AuthController_verifyMfaLogin']['requestBody']
+  >['content']['application/json'];
+  readonly headers?: ApiHeaders;
+}>;
+export type AuthController_verifyMfaLoginResponse =
+  operations['AuthController_verifyMfaLogin']['responses'][200]['content']['application/json'];
+export type AuthController_verifyMfaLoginError =
+  | operations['AuthController_verifyMfaLogin']['responses'][400]['content']['application/json']
+  | operations['AuthController_verifyMfaLogin']['responses'][500]['content']['application/json'];
+
 export type AuthController_verifySignupRequest = Readonly<{
   readonly body: NonNullable<
     operations['AuthController_verifySignup']['requestBody']
@@ -352,6 +364,22 @@ export type BrowserSessionController_verifyLoginError =
   | operations['BrowserSessionController_verifyLogin']['responses'][400]['content']['application/json']
   | operations['BrowserSessionController_verifyLogin']['responses'][403]['content']['application/json']
   | operations['BrowserSessionController_verifyLogin']['responses'][500]['content']['application/json'];
+
+export type BrowserSessionController_verifyMfaLoginRequest = Readonly<{
+  readonly headerParameters: NonNullable<
+    operations['BrowserSessionController_verifyMfaLogin']['parameters']['header']
+  >;
+  readonly body: NonNullable<
+    operations['BrowserSessionController_verifyMfaLogin']['requestBody']
+  >['content']['application/json'];
+  readonly headers?: ApiHeaders;
+}>;
+export type BrowserSessionController_verifyMfaLoginResponse =
+  operations['BrowserSessionController_verifyMfaLogin']['responses'][200]['content']['application/json'];
+export type BrowserSessionController_verifyMfaLoginError =
+  | operations['BrowserSessionController_verifyMfaLogin']['responses'][400]['content']['application/json']
+  | operations['BrowserSessionController_verifyMfaLogin']['responses'][403]['content']['application/json']
+  | operations['BrowserSessionController_verifyMfaLogin']['responses'][500]['content']['application/json'];
 
 export type BrowserSessionController_verifySignupRequest = Readonly<{
   readonly headerParameters: NonNullable<
@@ -1495,14 +1523,57 @@ export type SpecialityController_updateError =
   | operations['SpecialityController_update']['responses'][404]['content']['application/json']
   | operations['SpecialityController_update']['responses'][500]['content']['application/json'];
 
+export type TwoFactorAuthController_confirmRequest = Readonly<{
+  readonly body: NonNullable<
+    operations['TwoFactorAuthController_confirm']['requestBody']
+  >['content']['application/json'];
+  readonly headers?: ApiHeaders;
+}>;
+export type TwoFactorAuthController_confirmResponse =
+  operations['TwoFactorAuthController_confirm']['responses'][200]['content']['application/json'];
+export type TwoFactorAuthController_confirmError =
+  | operations['TwoFactorAuthController_confirm']['responses'][400]['content']['application/json']
+  | operations['TwoFactorAuthController_confirm']['responses'][401]['content']['application/json']
+  | operations['TwoFactorAuthController_confirm']['responses'][500]['content']['application/json'];
+
+export type TwoFactorAuthController_disableRequest = Readonly<{
+  readonly body: NonNullable<
+    operations['TwoFactorAuthController_disable']['requestBody']
+  >['content']['application/json'];
+  readonly headers?: ApiHeaders;
+}>;
+export type TwoFactorAuthController_disableResponse =
+  operations['TwoFactorAuthController_disable']['responses'][200]['content']['application/json'];
+export type TwoFactorAuthController_disableError =
+  | operations['TwoFactorAuthController_disable']['responses'][400]['content']['application/json']
+  | operations['TwoFactorAuthController_disable']['responses'][401]['content']['application/json']
+  | operations['TwoFactorAuthController_disable']['responses'][500]['content']['application/json'];
+
 export type TwoFactorAuthController_enable2faRequest = Readonly<{
+  readonly body: NonNullable<
+    operations['TwoFactorAuthController_enable2fa']['requestBody']
+  >['content']['application/json'];
   readonly headers?: ApiHeaders;
 }>;
 export type TwoFactorAuthController_enable2faResponse =
   operations['TwoFactorAuthController_enable2fa']['responses'][200]['content']['application/json'];
 export type TwoFactorAuthController_enable2faError =
+  | operations['TwoFactorAuthController_enable2fa']['responses'][400]['content']['application/json']
   | operations['TwoFactorAuthController_enable2fa']['responses'][401]['content']['application/json']
   | operations['TwoFactorAuthController_enable2fa']['responses'][500]['content']['application/json'];
+
+export type TwoFactorAuthController_regenerateRequest = Readonly<{
+  readonly body: NonNullable<
+    operations['TwoFactorAuthController_regenerate']['requestBody']
+  >['content']['application/json'];
+  readonly headers?: ApiHeaders;
+}>;
+export type TwoFactorAuthController_regenerateResponse =
+  operations['TwoFactorAuthController_regenerate']['responses'][200]['content']['application/json'];
+export type TwoFactorAuthController_regenerateError =
+  | operations['TwoFactorAuthController_regenerate']['responses'][400]['content']['application/json']
+  | operations['TwoFactorAuthController_regenerate']['responses'][401]['content']['application/json']
+  | operations['TwoFactorAuthController_regenerate']['responses'][500]['content']['application/json'];
 
 export interface ApiClient {
   readonly AuthController_changePassword: (
@@ -1559,6 +1630,9 @@ export interface ApiClient {
   readonly AuthController_verifyLogin: (
     request: AuthController_verifyLoginRequest,
   ) => Promise<AuthController_verifyLoginResponse>;
+  readonly AuthController_verifyMfaLogin: (
+    request: AuthController_verifyMfaLoginRequest,
+  ) => Promise<AuthController_verifyMfaLoginResponse>;
   readonly AuthController_verifySignup: (
     request: AuthController_verifySignupRequest,
   ) => Promise<AuthController_verifySignupResponse>;
@@ -1586,6 +1660,9 @@ export interface ApiClient {
   readonly BrowserSessionController_verifyLogin: (
     request: BrowserSessionController_verifyLoginRequest,
   ) => Promise<BrowserSessionController_verifyLoginResponse>;
+  readonly BrowserSessionController_verifyMfaLogin: (
+    request: BrowserSessionController_verifyMfaLoginRequest,
+  ) => Promise<BrowserSessionController_verifyMfaLoginResponse>;
   readonly BrowserSessionController_verifySignup: (
     request: BrowserSessionController_verifySignupRequest,
   ) => Promise<BrowserSessionController_verifySignupResponse>;
@@ -1829,9 +1906,18 @@ export interface ApiClient {
   readonly SpecialityController_update: (
     request: SpecialityController_updateRequest,
   ) => Promise<SpecialityController_updateResponse>;
+  readonly TwoFactorAuthController_confirm: (
+    request: TwoFactorAuthController_confirmRequest,
+  ) => Promise<TwoFactorAuthController_confirmResponse>;
+  readonly TwoFactorAuthController_disable: (
+    request: TwoFactorAuthController_disableRequest,
+  ) => Promise<TwoFactorAuthController_disableResponse>;
   readonly TwoFactorAuthController_enable2fa: (
-    request?: TwoFactorAuthController_enable2faRequest,
+    request: TwoFactorAuthController_enable2faRequest,
   ) => Promise<TwoFactorAuthController_enable2faResponse>;
+  readonly TwoFactorAuthController_regenerate: (
+    request: TwoFactorAuthController_regenerateRequest,
+  ) => Promise<TwoFactorAuthController_regenerateResponse>;
 }
 
 export const createApiClient = (config: ApiClientConfig): ApiClient => {
@@ -2059,6 +2145,19 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
         },
         request,
       ),
+    AuthController_verifyMfaLogin: (request) =>
+      core.request<
+        AuthController_verifyMfaLoginResponse,
+        AuthController_verifyMfaLoginError
+      >(
+        {
+          operationId: 'AuthController_verifyMfaLogin',
+          method: 'POST',
+          path: '/api/auth/login/mfa/verify',
+          requestMediaType: 'application/json',
+        },
+        request,
+      ),
     AuthController_verifySignup: (request) =>
       core.request<
         AuthController_verifySignupResponse,
@@ -2167,6 +2266,19 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
           operationId: 'BrowserSessionController_verifyLogin',
           method: 'POST',
           path: '/api/auth/browser/login/verify',
+          requestMediaType: 'application/json',
+        },
+        request,
+      ),
+    BrowserSessionController_verifyMfaLogin: (request) =>
+      core.request<
+        BrowserSessionController_verifyMfaLoginResponse,
+        BrowserSessionController_verifyMfaLoginError
+      >(
+        {
+          operationId: 'BrowserSessionController_verifyMfaLogin',
+          method: 'POST',
+          path: '/api/auth/browser/login/mfa/verify',
           requestMediaType: 'application/json',
         },
         request,
@@ -3190,7 +3302,33 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
         },
         request,
       ),
-    TwoFactorAuthController_enable2fa: (request = {}) =>
+    TwoFactorAuthController_confirm: (request) =>
+      core.request<
+        TwoFactorAuthController_confirmResponse,
+        TwoFactorAuthController_confirmError
+      >(
+        {
+          operationId: 'TwoFactorAuthController_confirm',
+          method: 'POST',
+          path: '/api/auth/2fa/confirm',
+          requestMediaType: 'application/json',
+        },
+        request,
+      ),
+    TwoFactorAuthController_disable: (request) =>
+      core.request<
+        TwoFactorAuthController_disableResponse,
+        TwoFactorAuthController_disableError
+      >(
+        {
+          operationId: 'TwoFactorAuthController_disable',
+          method: 'POST',
+          path: '/api/auth/2fa/disable',
+          requestMediaType: 'application/json',
+        },
+        request,
+      ),
+    TwoFactorAuthController_enable2fa: (request) =>
       core.request<
         TwoFactorAuthController_enable2faResponse,
         TwoFactorAuthController_enable2faError
@@ -3199,6 +3337,20 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
           operationId: 'TwoFactorAuthController_enable2fa',
           method: 'POST',
           path: '/api/auth/2fa/enable',
+          requestMediaType: 'application/json',
+        },
+        request,
+      ),
+    TwoFactorAuthController_regenerate: (request) =>
+      core.request<
+        TwoFactorAuthController_regenerateResponse,
+        TwoFactorAuthController_regenerateError
+      >(
+        {
+          operationId: 'TwoFactorAuthController_regenerate',
+          method: 'POST',
+          path: '/api/auth/2fa/recovery-codes/regenerate',
+          requestMediaType: 'application/json',
         },
         request,
       ),

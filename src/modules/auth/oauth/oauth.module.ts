@@ -18,6 +18,8 @@ import { AuthChallengeModule } from '../challenges/auth-challenge.module';
 import { AuthContextService } from '../context/auth-context.service';
 import { PlatformPrivilegeEntity } from '../context/platform-privilege.entity';
 import { AuthSession } from '../entities/auth.entity';
+import { User2fa } from '../entities/user-2fa.entity';
+import { MfaModule } from '../mfa.module';
 import { PasswordCredentialsService } from '../password-policy/password-credentials.service';
 import { RegistrationModule } from '../registration/registration.module';
 import { AuthSecurityAuditModule } from '../security-audit/auth-security-audit.module';
@@ -36,6 +38,7 @@ import { OAuthService } from './oauth.service';
     ConfigModule,
     UserModule,
     AuthChallengeModule,
+    MfaModule,
     AuthSecurityAuditModule,
     RefreshSessionModule,
     RegistrationModule,
@@ -44,6 +47,7 @@ import { OAuthService } from './oauth.service';
       OAuthTransaction,
       ExternalIdentity,
       AuthSession,
+      User2fa,
       User,
       UserPersona,
       Organization,

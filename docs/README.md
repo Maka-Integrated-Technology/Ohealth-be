@@ -48,7 +48,7 @@ must follow.
 | BullMQ email worker                | Target      |
 | Rotating refresh-token families    | Implemented |
 | Browser refresh-cookie transport   | Implemented |
-| Encrypted MFA factors              | Target      |
+| Encrypted MFA factors              | Implemented |
 | Public discovery contract          | Foundation  |
 | Public speciality catalogue        | Implemented |
 | Existing role-array authentication | Legacy      |

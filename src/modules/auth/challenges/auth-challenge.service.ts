@@ -238,6 +238,59 @@ export class AuthChallengeService {
     return result.value;
   }
 
+  /** Consume an opaque, purpose-bound challenge after an external factor proof.
+   * Invalid proofs increment the same persisted attempt counter as email codes.
+   */
+  async consumeWithExternalProof<T>(
+    id: string,
+    purpose: AuthChallengePurpose,
+    proveAndMutate: (
+      manager: EntityManager,
+      userId: string,
+    ) => Promise<T | null>,
+  ): Promise<T> {
+    const result = await this.dataSource.transaction(async (manager) => {
+      if (!UUID_PATTERN.test(id)) return null;
+      const refs: Array<{ subject_user_id: string }> = await manager.query(
+        'SELECT subject_user_id FROM auth_challenges WHERE id = $1',
+        [id],
+      );
+      if (!refs.length) return null;
+      await this.lockSubject(manager, refs[0].subject_user_id, false);
+      const rows: IChallengeRow[] = await manager.query(
+        'SELECT * FROM auth_challenges WHERE id = $1 FOR UPDATE',
+        [id],
+      );
+      const row = rows[0];
+      if (
+        !row ||
+        row.purpose !== purpose ||
+        row.terminal_reason ||
+        row.consumed_at ||
+        new Date(row.expires_at) <= new Date() ||
+        row.attempt_count >= MAX_ATTEMPTS
+      )
+        return null;
+      const value = await proveAndMutate(manager, row.subject_user_id);
+      if (value === null) {
+        await manager.query(
+          'UPDATE auth_challenges SET attempt_count = attempt_count + 1, ' +
+            'consumed_at = CASE WHEN attempt_count + 1 >= $2 THEN now() ELSE NULL END, ' +
+            'terminal_reason = CASE WHEN attempt_count + 1 >= $2 THEN $3 ELSE NULL END WHERE id = $1',
+          [id, MAX_ATTEMPTS, AuthChallengeTerminalReason.ATTEMPTS_EXHAUSTED],
+        );
+        return null;
+      }
+      await manager.query(
+        'UPDATE auth_challenges SET consumed_at = now(), terminal_reason = $2 WHERE id = $1',
+        [id, AuthChallengeTerminalReason.VERIFIED],
+      );
+      return value;
+    });
+    if (result === null) await this.throwConsumptionFailure(id, purpose);
+    return result;
+  }
+
   async consumeInTransaction(
     manager: EntityManager,
     challengeId: string,

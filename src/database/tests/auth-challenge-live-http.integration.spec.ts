@@ -44,6 +44,7 @@ import { RegistrationService } from '../../modules/auth/registration/registratio
 import { AuthSecurityAuditService } from '../../modules/auth/security-audit/auth-security-audit.service';
 import { RefreshSessionService } from '../../modules/auth/sessions/refresh-session.service';
 import { JwtStrategy } from '../../modules/auth/strategies/jwt.strategy';
+import { TwoFactorAuthService } from '../../modules/auth/two-factor-auth.service';
 import { EmailService } from '../../modules/email/email.service';
 import { User } from '../../modules/user/entities/user.entity';
 import { UserService } from '../../modules/user/user.service';
@@ -120,6 +121,12 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         'refresh_token_hash varchar NOT NULL, expires_at timestamptz NOT NULL, ' +
         'revoked_at timestamptz, created_at timestamptz NOT NULL DEFAULT now(), ' +
         'updated_at timestamptz NOT NULL DEFAULT now())',
+    );
+    await database.query(
+      'CREATE TABLE user_2fa (' +
+        'id uuid PRIMARY KEY DEFAULT uuid_generate_v4(), ' +
+        'user_id uuid NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE, ' +
+        'two_fa_enabled boolean NOT NULL DEFAULT false, encrypted_secret text)',
     );
     await database.query(
       'CREATE TABLE user_account_status_history (' +
@@ -247,6 +254,13 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         PasswordCredentialsService,
         AccountProvisioningService,
         RegistrationService,
+        {
+          provide: TwoFactorAuthService,
+          useValue: {
+            isEnabled: jest.fn().mockResolvedValue(false),
+            verifyForLogin: jest.fn().mockResolvedValue(false),
+          },
+        },
         {
           provide: AuthContextService,
           useValue: {

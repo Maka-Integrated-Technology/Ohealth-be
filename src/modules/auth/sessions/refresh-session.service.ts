@@ -58,6 +58,7 @@ export class RefreshSessionService {
     manager: EntityManager,
     userId: string,
     expectedPasswordHash?: string,
+    mfaVerified = false,
   ): Promise<IIssuedSession> {
     if (!manager.queryRunner?.isTransactionActive) {
       throw new Error('Session issuance requires an active transaction.');
@@ -73,6 +74,16 @@ export class RefreshSessionService {
       !this.sameSecret(expectedPasswordHash, user.password)
     ) {
       throw new UnauthorizedException(sysMsg.INVALID_CREDENTIALS);
+    }
+    if (!mfaVerified) {
+      const factors: Array<{ enabled: boolean }> = await manager.query(
+        'SELECT EXISTS (SELECT 1 FROM user_2fa WHERE user_id = $1 ' +
+          'AND two_fa_enabled = true AND encrypted_secret IS NOT NULL) AS enabled',
+        [user.id],
+      );
+      if (factors[0]?.enabled) {
+        throw new UnauthorizedException('MFA verification required.');
+      }
     }
 
     const settings = sessionSettings(this.config);

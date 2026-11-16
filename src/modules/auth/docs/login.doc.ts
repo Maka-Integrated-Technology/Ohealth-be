@@ -2,10 +2,12 @@ import { applyDecorators } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiOkResponse,
+  ApiExtraModels,
   ApiOperation,
   ApiServiceUnavailableResponse,
   ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
+  getSchemaPath,
 } from '@nestjs/swagger';
 
 import * as sysMsg from '../../../constants/system.messages';
@@ -14,6 +16,7 @@ import {
   LoginChallengeResponseDto,
   LoginResponseDto,
 } from '../dto/auth-response.dto';
+import { MfaChallengeResponseDto } from '../dto/mfa.dto';
 
 export const LoginDocs = () =>
   applyDecorators(
@@ -36,10 +39,16 @@ export const LoginDocs = () =>
 
 export const VerifyLoginDocs = () =>
   applyDecorators(
+    ApiExtraModels(LoginResponseDto, MfaChallengeResponseDto),
     ApiOperation({ summary: 'Verify a login code and issue a session' }),
     ApiOkResponse({
       description: sysMsg.LOGIN_SUCCESS,
-      type: LoginResponseDto,
+      schema: {
+        oneOf: [
+          { $ref: getSchemaPath(LoginResponseDto) },
+          { $ref: getSchemaPath(MfaChallengeResponseDto) },
+        ],
+      },
     }),
     ApiBadRequestResponse({
       description: 'Invalid or expired authentication challenge',

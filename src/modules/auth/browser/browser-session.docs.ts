@@ -18,6 +18,7 @@ import {
 import { ApiMessageResponseDto } from '../../../common/dto/response.dto';
 import { AuthChallengeErrorResponseDto } from '../contracts';
 import { LogoutResponseDto } from '../dto/auth-response.dto';
+import { MfaChallengeResponseDto } from '../dto/mfa.dto';
 import { OAuthContactVerificationResponseDto } from '../oauth/oauth.dto';
 import { OAuthErrorResponseDto } from '../oauth/oauth.error';
 
@@ -44,6 +45,24 @@ export const BrowserSessionCompletionDocs = (summary: string) =>
     }),
   );
 
+export const BrowserLoginCompletionDocs = () =>
+  applyDecorators(
+    BrowserBoundaryDocs(),
+    ApiExtraModels(BrowserSessionResponseDto, MfaChallengeResponseDto),
+    ApiOperation({
+      summary: 'Verify a login code and continue with MFA when required',
+    }),
+    ApiOkResponse({
+      schema: {
+        oneOf: [
+          { $ref: getSchemaPath(BrowserSessionResponseDto) },
+          { $ref: getSchemaPath(MfaChallengeResponseDto) },
+        ],
+      },
+    }),
+    ApiBadRequestResponse({ type: AuthChallengeErrorResponseDto }),
+  );
+
 export const BrowserRefreshDocs = () =>
   applyDecorators(
     BrowserBoundaryDocs(),
@@ -58,7 +77,11 @@ export const BrowserRefreshDocs = () =>
 export const BrowserOAuthCompletionDocs = () =>
   applyDecorators(
     BrowserBoundaryDocs(),
-    ApiExtraModels(BrowserSessionResponseDto, ApiMessageResponseDto),
+    ApiExtraModels(
+      BrowserSessionResponseDto,
+      ApiMessageResponseDto,
+      MfaChallengeResponseDto,
+    ),
     ApiOperation({
       summary: 'Complete a web Google OAuth transaction',
       description:
@@ -69,6 +92,7 @@ export const BrowserOAuthCompletionDocs = () =>
         oneOf: [
           { $ref: getSchemaPath(BrowserSessionResponseDto) },
           { $ref: getSchemaPath(ApiMessageResponseDto) },
+          { $ref: getSchemaPath(MfaChallengeResponseDto) },
         ],
       },
     }),

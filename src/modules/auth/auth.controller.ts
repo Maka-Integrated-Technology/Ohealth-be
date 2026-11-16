@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBadRequestResponse,
   ApiExcludeEndpoint,
   ApiOkResponse,
   ApiOperation,
@@ -31,6 +32,7 @@ import {
   RegistrationBootstrapDto,
   ResendAuthChallengeDto,
   VerifyAuthChallengeDto,
+  AuthChallengeErrorResponseDto,
 } from './contracts';
 import { CurrentUser } from './decorators/current-user.decorator';
 import {
@@ -49,7 +51,7 @@ import {
   VerifySignupDocs,
   VerifyLoginDocs,
 } from './docs';
-import { LogoutResponseDto } from './dto/auth-response.dto';
+import { LogoutResponseDto, LoginResponseDto } from './dto/auth-response.dto';
 import {
   ChangePasswordDto,
   ForgotPasswordDto,
@@ -61,6 +63,7 @@ import {
   VerifySignupDto,
 } from './dto/auth.dto';
 import { LoginDto } from './dto/login.dto';
+import { VerifyMfaLoginDto } from './dto/mfa.dto';
 import { RevokeOwnedSessionDto, SessionMetadataDto } from './dto/session.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
@@ -109,6 +112,18 @@ export class AuthController {
   @UseGuards(AuthAbuseGuard)
   verifyLogin(@Body() payload: VerifyAuthChallengeDto) {
     return this.authService.verifyLogin(payload);
+  }
+
+  @Public()
+  @Post('login/mfa/verify')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  @UseGuards(AuthAbuseGuard)
+  @ApiOperation({ summary: 'Verify MFA and issue the pending login session' })
+  @ApiOkResponse({ type: LoginResponseDto })
+  @ApiBadRequestResponse({ type: AuthChallengeErrorResponseDto })
+  verifyMfaLogin(@Body() payload: VerifyMfaLoginDto) {
+    return this.authService.verifyMfaLogin(payload);
   }
 
   @Public()

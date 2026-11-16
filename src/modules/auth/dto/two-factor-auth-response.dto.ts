@@ -9,9 +9,6 @@ export class EnableTwoFactorAuthDataDto {
   })
   qrCodeUrl: string;
 
-  @ApiProperty({
-    example: ['A1B2C3D4', 'E5F6G7H8'],
-    type: [String],
-  })
-  backupCodes: string[];
+  @ApiProperty({ example: 600 })
+  expires_in_seconds: number;
 }
