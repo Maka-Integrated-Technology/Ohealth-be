@@ -51,6 +51,7 @@ must follow.
 | Encrypted MFA factors              | Implemented |
 | Public discovery contract          | Foundation  |
 | Public speciality catalogue        | Implemented |
+| Public professional directory      | Implemented |
 | Existing role-array authentication | Legacy      |
 | Canonical account context and capability policies | Implemented |
 

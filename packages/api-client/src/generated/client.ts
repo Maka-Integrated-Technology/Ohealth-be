@@ -1446,6 +1446,18 @@ export type PublicDiscoveryController_getContractResponse =
 export type PublicDiscoveryController_getContractError =
   operations['PublicDiscoveryController_getContract']['responses'][500]['content']['application/json'];
 
+export type PublicProfessionalController_listRequest = Readonly<{
+  readonly query?: NonNullable<
+    operations['PublicProfessionalController_list']['parameters']['query']
+  >;
+  readonly headers?: ApiHeaders;
+}>;
+export type PublicProfessionalController_listResponse =
+  operations['PublicProfessionalController_list']['responses'][200]['content']['application/json'];
+export type PublicProfessionalController_listError =
+  | operations['PublicProfessionalController_list']['responses'][400]['content']['application/json']
+  | operations['PublicProfessionalController_list']['responses'][500]['content']['application/json'];
+
 export type PublicSpecialityController_findOneRequest = Readonly<{
   readonly path: NonNullable<
     operations['PublicSpecialityController_findOne']['parameters']['path']
@@ -1889,6 +1901,9 @@ export interface ApiClient {
   readonly PublicDiscoveryController_getContract: (
     request?: PublicDiscoveryController_getContractRequest,
   ) => Promise<PublicDiscoveryController_getContractResponse>;
+  readonly PublicProfessionalController_list: (
+    request?: PublicProfessionalController_listRequest,
+  ) => Promise<PublicProfessionalController_listResponse>;
   readonly PublicSpecialityController_findOne: (
     request: PublicSpecialityController_findOneRequest,
   ) => Promise<PublicSpecialityController_findOneResponse>;
@@ -3226,6 +3241,18 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
           operationId: 'PublicDiscoveryController_getContract',
           method: 'GET',
           path: '/api/public/discovery/contract',
+        },
+        request,
+      ),
+    PublicProfessionalController_list: (request = {}) =>
+      core.request<
+        PublicProfessionalController_listResponse,
+        PublicProfessionalController_listError
+      >(
+        {
+          operationId: 'PublicProfessionalController_list',
+          method: 'GET',
+          path: '/api/public/professionals',
         },
         request,
       ),

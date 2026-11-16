@@ -50,8 +50,30 @@ test('exposes every canonical operationId exactly once', async () => {
     transport: async () => ({ status: 200, data: {} }),
   });
 
-  assert.equal(operationIds.length, 114);
+  assert.equal(operationIds.length, 115);
   assert.deepEqual(Object.keys(client).sort(), operationIds);
+});
+
+test('exports the public discovery enums under their contract names', async () => {
+  const exported = await import('../../dist/index.js');
+
+  assert.deepEqual(Object.values(exported.ConsultationType), [
+    'chat',
+    'video',
+    'both',
+  ]);
+  assert.deepEqual(Object.values(exported.PublicProfessionalSortField), [
+    'rating',
+    'experience',
+    'consultation_fee',
+    'name',
+  ]);
+  // A query parameter that inlines an enum instead of referencing its named
+  // schema renames the export after the path.
+  assert.deepEqual(
+    Object.keys(exported).filter((name) => name.startsWith('PathsApiPublic')),
+    [],
+  );
 });
 
 test('uses injected transport and resolves current authorization headers', async () => {

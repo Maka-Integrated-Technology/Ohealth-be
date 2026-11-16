@@ -12,6 +12,7 @@ import {
 import { ConsultationType } from '../../professional/entities/professional.entity';
 import {
   PUBLIC_DISCOVERY_DEFAULT_SORT,
+  PUBLIC_DISCOVERY_FEE,
   PUBLIC_DISCOVERY_MAX_DATE_RANGE_DAYS,
   PUBLIC_DISCOVERY_PAGINATION,
   PUBLIC_DISCOVERY_SEARCH,
@@ -20,6 +21,9 @@ import {
 } from '../public-discovery.constants';
 
 const CALENDAR_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+const FEE_AMOUNT_PATTERN = new RegExp(
+  `^\\d{1,8}(?:\\.\\d{1,${PUBLIC_DISCOVERY_FEE.maxDecimalPlaces}})?$`,
+);
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 
 /**
@@ -47,6 +51,18 @@ export function parsePublicCalendarDate(value: unknown): number | null {
     date.getUTCDate() === day;
 
   return isRealDate ? timestamp / MILLISECONDS_PER_DAY : null;
+}
+
+/**
+ * Reads a fee amount written as plain digits with at most two decimal places.
+ * Anything else, including signs, exponents, and separators, is left as it
+ * was received so validation rejects it.
+ */
+export function parsePublicFeeAmount(value: unknown): unknown {
+  if (typeof value !== 'string' || !FEE_AMOUNT_PATTERN.test(value)) {
+    return value;
+  }
+  return Number(value);
 }
 
 /** One bounded-integer rule per field so a bad value yields one message. */
@@ -107,6 +123,48 @@ const IsPublicCalendarDate =
         validate: (value: unknown) => parsePublicCalendarDate(value) !== null,
         defaultMessage: (args: ValidationArguments) =>
           `${args.property} must be a valid calendar date in YYYY-MM-DD format`,
+      },
+    });
+  };
+
+const isPublicFeeAmount = (value: unknown): value is number =>
+  typeof value === 'number' &&
+  Number.isFinite(value) &&
+  value >= PUBLIC_DISCOVERY_FEE.minimum &&
+  value <= PUBLIC_DISCOVERY_FEE.maximum;
+
+/**
+ * A fee bound. When `lowerBoundProperty` is given and both bounds are valid
+ * amounts, this bound must also not be below it; the range message replaces
+ * the amount message so each parameter still reports exactly one problem.
+ */
+const IsPublicFeeAmount =
+  (
+    lowerBoundProperty?: string,
+    options?: ValidationOptions,
+  ): PropertyDecorator =>
+  (target: object, propertyName: string | symbol) => {
+    const isBelowLowerBound = (value: unknown, args: ValidationArguments) => {
+      if (!lowerBoundProperty || !isPublicFeeAmount(value)) return false;
+      const lowerBound = (args.object as Record<string, unknown>)[
+        lowerBoundProperty
+      ];
+      return isPublicFeeAmount(lowerBound) && value < lowerBound;
+    };
+
+    registerDecorator({
+      name: 'isPublicFeeAmount',
+      target: target.constructor,
+      propertyName: String(propertyName),
+      constraints: [lowerBoundProperty],
+      options,
+      validator: {
+        validate: (value: unknown, args: ValidationArguments) =>
+          isPublicFeeAmount(value) && !isBelowLowerBound(value, args),
+        defaultMessage: (args: ValidationArguments) =>
+          isBelowLowerBound(args.value, args)
+            ? `${args.property} must be greater than or equal to ${lowerBoundProperty}`
+            : `${args.property} must be an amount between ${PUBLIC_DISCOVERY_FEE.minimum} and ${PUBLIC_DISCOVERY_FEE.maximum} with at most ${PUBLIC_DISCOVERY_FEE.maxDecimalPlaces} decimal places`,
       },
     });
   };
@@ -188,7 +246,12 @@ export class PublicProfessionalDirectoryQueryDto extends PublicSearchQueryDto {
   @IsUUID(undefined, { message: 'speciality_id must be a UUID' })
   speciality_id?: string;
 
-  @ApiPropertyOptional({ enum: ConsultationType })
+  @ApiPropertyOptional({
+    enum: ConsultationType,
+    enumName: 'ConsultationType',
+    description:
+      'chat or video also returns professionals who offer both; both returns only those who offer both',
+  })
   @IsOptional()
   @IsEnum(ConsultationType, {
     message: `consultation_type must be one of: ${Object.values(ConsultationType).join(', ')}`,
@@ -196,8 +259,35 @@ export class PublicProfessionalDirectoryQueryDto extends PublicSearchQueryDto {
   consultation_type?: ConsultationType;
 
   @ApiPropertyOptional({
+    type: 'number',
+    minimum: PUBLIC_DISCOVERY_FEE.minimum,
+    maximum: PUBLIC_DISCOVERY_FEE.maximum,
+    multipleOf: 0.01,
+    description: 'Lowest consultation fee to include',
+  })
+  @IsOptional()
+  @Transform(({ value }) => parsePublicFeeAmount(value))
+  @IsPublicFeeAmount()
+  min_fee?: number;
+
+  @ApiPropertyOptional({
+    type: 'number',
+    minimum: PUBLIC_DISCOVERY_FEE.minimum,
+    maximum: PUBLIC_DISCOVERY_FEE.maximum,
+    multipleOf: 0.01,
+    description:
+      'Highest consultation fee to include; not below min_fee when both are sent',
+  })
+  @IsOptional()
+  @Transform(({ value }) => parsePublicFeeAmount(value))
+  @IsPublicFeeAmount('min_fee')
+  max_fee?: number;
+
+  @ApiPropertyOptional({
     enum: PublicProfessionalSortField,
+    enumName: 'PublicProfessionalSortField',
     default: PUBLIC_DISCOVERY_DEFAULT_SORT.field,
+    description: `Defaults to ${PUBLIC_DISCOVERY_DEFAULT_SORT.field}`,
   })
   @IsOptional()
   @IsEnum(PublicProfessionalSortField, {
@@ -207,7 +297,9 @@ export class PublicProfessionalDirectoryQueryDto extends PublicSearchQueryDto {
 
   @ApiPropertyOptional({
     enum: PublicSortOrder,
+    enumName: 'PublicSortOrder',
     default: PUBLIC_DISCOVERY_DEFAULT_SORT.order,
+    description: `Defaults to ${PUBLIC_DISCOVERY_DEFAULT_SORT.order}. Ties are always broken by identifier, ascending`,
   })
   @IsOptional()
   @IsEnum(PublicSortOrder, {

@@ -27,6 +27,16 @@ export const PUBLIC_DISCOVERY_ICON = {
   pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
 } as const;
 
+/**
+ * Bounds of a consultation-fee filter. The maximum is the largest amount the
+ * `professionals.consultation_fee` column can store.
+ */
+export const PUBLIC_DISCOVERY_FEE = {
+  minimum: 0,
+  maximum: 99_999_999.99,
+  maxDecimalPlaces: 2,
+} as const;
+
 /** Inclusive number of calendar days one availability query may cover. */
 export const PUBLIC_DISCOVERY_MAX_DATE_RANGE_DAYS = 31;
 
