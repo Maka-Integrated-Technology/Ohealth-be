@@ -51,6 +51,7 @@ must follow.
 | Encrypted MFA factors              | Target      |
 | Public discovery contract          | Foundation  |
 | Public speciality catalogue        | Implemented |
+| Public professional directory      | Implemented |
 | Existing role-array authentication | Legacy      |
 
 Update this table whenever an area moves between statuses.
