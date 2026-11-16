@@ -1582,6 +1582,26 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly '/api/public/professionals': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Search the directory of approved professionals
+     * @description Returns active, approved professionals owned by active accounts. The search term matches the display name or the speciality name, ignoring case. Results are ordered by the requested sort and then by identifier.
+     */
+    readonly get: operations['PublicProfessionalController_list'];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly '/api/public/specialities': {
     readonly parameters: {
       readonly query?: never;
@@ -1948,7 +1968,7 @@ export interface components {
       readonly transaction_token: string;
     };
     /** @enum {string} */
-    readonly ConsultationType: ConsultationType;
+    readonly ConsultationType: PathsApiPublicProfessionalsGetParametersQueryConsultation_type;
     readonly CreateBookingDto: {
       /** @example 2024-02-10 */
       readonly booking_date: string;
@@ -1999,7 +2019,7 @@ export interface components {
        * @default both
        * @enum {string}
        */
-      readonly consultation_type: ConsultationType;
+      readonly consultation_type: PathsApiPublicProfessionalsGetParametersQueryConsultation_type;
       readonly image?: string;
       /** @example MDCN-123456 */
       readonly license_number?: string;
@@ -2729,7 +2749,7 @@ export interface components {
       readonly about?: string;
       readonly consultation_fee: number;
       /** @enum {string} */
-      readonly consultation_type: ConsultationType;
+      readonly consultation_type: PathsApiPublicProfessionalsGetParametersQueryConsultation_type;
       /** Format: date-time */
       readonly created_at: string;
       readonly id: string;
@@ -3062,7 +3082,7 @@ export interface components {
       /** @example 5000 */
       readonly consultation_fee: number;
       /** @enum {string} */
-      readonly consultation_type: ConsultationType;
+      readonly consultation_type: PathsApiPublicProfessionalsGetParametersQueryConsultation_type;
       /** Format: uuid */
       readonly id: string;
       /**
@@ -3081,8 +3101,12 @@ export interface components {
       /** @example 8 */
       readonly years_of_experience: number;
     };
+    readonly PublicProfessionalDirectoryDto: {
+      readonly items: readonly components['schemas']['PublicProfessionalSummaryDto'][];
+      readonly meta: components['schemas']['PublicPaginationMetaDto'];
+    };
     /** @enum {string} */
-    readonly PublicProfessionalSortField: PublicProfessionalSortField;
+    readonly PublicProfessionalSortField: PathsApiPublicProfessionalsGetParametersQuerySort;
     readonly PublicProfessionalSpecialityDto: {
       /** Format: uuid */
       readonly id: string;
@@ -3093,7 +3117,7 @@ export interface components {
       /** @example 5000 */
       readonly consultation_fee: number;
       /** @enum {string} */
-      readonly consultation_type: ConsultationType;
+      readonly consultation_type: PathsApiPublicProfessionalsGetParametersQueryConsultation_type;
       /** Format: uuid */
       readonly id: string;
       /**
@@ -3440,7 +3464,7 @@ export interface components {
        * @default both
        * @enum {string}
        */
-      readonly consultation_type: ConsultationType;
+      readonly consultation_type: PathsApiPublicProfessionalsGetParametersQueryConsultation_type;
       readonly image?: string;
       readonly is_active?: boolean;
       readonly is_available?: boolean;
@@ -3519,7 +3543,7 @@ export interface components {
        * @example video
        * @enum {string}
        */
-      readonly consultation_type: ConsultationType;
+      readonly consultation_type: PathsApiPublicProfessionalsGetParametersQueryConsultation_type;
       /** @example https://cdn.example.com/me.jpg */
       readonly image?: string;
       /** @example MDCN-123456 */
@@ -9053,6 +9077,60 @@ export interface operations {
       };
     };
   };
+  readonly PublicProfessionalController_list: {
+    readonly parameters: {
+      readonly query?: {
+        /** @description chat or video also returns professionals who offer both; both returns only those who offer both */
+        readonly consultation_type?: PathsApiPublicProfessionalsGetParametersQueryConsultation_type;
+        readonly limit?: number;
+        /** @description Highest consultation fee to include; not below min_fee when both are sent */
+        readonly max_fee?: number;
+        /** @description Lowest consultation fee to include */
+        readonly min_fee?: number;
+        readonly order?: PathsApiProfessionalsMePatientsGetParametersQuerySort_order;
+        readonly page?: number;
+        /** @description Case-insensitive search term. Surrounding and repeated whitespace is ignored. */
+        readonly q?: string;
+        readonly sort?: PathsApiPublicProfessionalsGetParametersQuerySort;
+        /** @description Canonical identifier from the public speciality catalogue */
+        readonly speciality_id?: string;
+      };
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['PublicProfessionalDirectoryDto'];
+          };
+        };
+      };
+      /** @description A query parameter failed validation */
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
   readonly PublicSpecialityController_list: {
     readonly parameters: {
       readonly query?: {
@@ -9390,6 +9468,17 @@ export enum PathsApiProfessionalsMePatientsGetParametersQuerySort_order {
   asc = 'asc',
   desc = 'desc',
 }
+export enum PathsApiPublicProfessionalsGetParametersQueryConsultation_type {
+  chat = 'chat',
+  video = 'video',
+  both = 'both',
+}
+export enum PathsApiPublicProfessionalsGetParametersQuerySort {
+  rating = 'rating',
+  experience = 'experience',
+  consultation_fee = 'consultation_fee',
+  name = 'name',
+}
 export enum AuthChallengeErrorResponseDtoError_code {
   AUTH_CHALLENGE_INVALID = 'AUTH_CHALLENGE_INVALID',
   AUTH_CHALLENGE_CODE_INVALID = 'AUTH_CHALLENGE_CODE_INVALID',
@@ -9428,11 +9517,6 @@ export enum BrowserSessionResponseDtoRouting_target {
 export enum ChatMessageResponseDtoSender {
   user = 'user',
   ai = 'ai',
-}
-export enum ConsultationType {
-  chat = 'chat',
-  video = 'video',
-  both = 'both',
 }
 export enum CreateBookingDtoConsultation_type {
   chat = 'chat',
@@ -9523,12 +9607,6 @@ export enum ProfessionalAppointmentResponseDtoStatus {
   confirmed = 'confirmed',
   completed = 'completed',
   cancelled = 'cancelled',
-}
-export enum PublicProfessionalSortField {
-  rating = 'rating',
-  experience = 'experience',
-  consultation_fee = 'consultation_fee',
-  name = 'name',
 }
 export enum SignupIntent {
   patient = 'patient',
