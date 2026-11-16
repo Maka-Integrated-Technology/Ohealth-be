@@ -2037,7 +2037,7 @@ export interface components {
       readonly transaction_token: string;
     };
     /** @enum {string} */
-    readonly ConsultationType: PathsApiPublicProfessionalsGetParametersQueryConsultation_type;
+    readonly ConsultationType: ConsultationType;
     readonly CreateBookingDto: {
       /** @example 2024-02-10 */
       readonly booking_date: string;
@@ -2088,7 +2088,7 @@ export interface components {
        * @default both
        * @enum {string}
        */
-      readonly consultation_type: PathsApiPublicProfessionalsGetParametersQueryConsultation_type;
+      readonly consultation_type: ConsultationType;
       readonly image?: string;
       /** @example MDCN-123456 */
       readonly license_number?: string;
@@ -2818,7 +2818,7 @@ export interface components {
       readonly about?: string;
       readonly consultation_fee: number;
       /** @enum {string} */
-      readonly consultation_type: PathsApiPublicProfessionalsGetParametersQueryConsultation_type;
+      readonly consultation_type: ConsultationType;
       /** Format: date-time */
       readonly created_at: string;
       readonly id: string;
@@ -3150,7 +3150,7 @@ export interface components {
       /** @example 5000 */
       readonly consultation_fee: number;
       /** @enum {string} */
-      readonly consultation_type: PathsApiPublicProfessionalsGetParametersQueryConsultation_type;
+      readonly consultation_type: ConsultationType;
       /** Format: uuid */
       readonly id: string;
       /**
@@ -3174,7 +3174,7 @@ export interface components {
       readonly meta: components['schemas']['PublicPaginationMetaDto'];
     };
     /** @enum {string} */
-    readonly PublicProfessionalSortField: PathsApiPublicProfessionalsGetParametersQuerySort;
+    readonly PublicProfessionalSortField: PublicProfessionalSortField;
     readonly PublicProfessionalSpecialityDto: {
       /** Format: uuid */
       readonly id: string;
@@ -3185,7 +3185,7 @@ export interface components {
       /** @example 5000 */
       readonly consultation_fee: number;
       /** @enum {string} */
-      readonly consultation_type: PathsApiPublicProfessionalsGetParametersQueryConsultation_type;
+      readonly consultation_type: ConsultationType;
       /** Format: uuid */
       readonly id: string;
       /**
@@ -3532,7 +3532,7 @@ export interface components {
        * @default both
        * @enum {string}
        */
-      readonly consultation_type: PathsApiPublicProfessionalsGetParametersQueryConsultation_type;
+      readonly consultation_type: ConsultationType;
       readonly image?: string;
       readonly is_active?: boolean;
       readonly is_available?: boolean;
@@ -3611,7 +3611,7 @@ export interface components {
        * @example video
        * @enum {string}
        */
-      readonly consultation_type: PathsApiPublicProfessionalsGetParametersQueryConsultation_type;
+      readonly consultation_type: ConsultationType;
       /** @example https://cdn.example.com/me.jpg */
       readonly image?: string;
       /** @example MDCN-123456 */
@@ -9171,17 +9171,19 @@ export interface operations {
     readonly parameters: {
       readonly query?: {
         /** @description chat or video also returns professionals who offer both; both returns only those who offer both */
-        readonly consultation_type?: PathsApiPublicProfessionalsGetParametersQueryConsultation_type;
+        readonly consultation_type?: components['schemas']['ConsultationType'];
         readonly limit?: number;
         /** @description Highest consultation fee to include; not below min_fee when both are sent */
         readonly max_fee?: number;
         /** @description Lowest consultation fee to include */
         readonly min_fee?: number;
-        readonly order?: PathsApiProfessionalsMePatientsGetParametersQuerySort_order;
+        /** @description Defaults to desc. Ties are always broken by identifier, ascending */
+        readonly order?: components['schemas']['PublicSortOrder'];
         readonly page?: number;
         /** @description Case-insensitive search term. Surrounding and repeated whitespace is ignored. */
         readonly q?: string;
-        readonly sort?: PathsApiPublicProfessionalsGetParametersQuerySort;
+        /** @description Defaults to rating */
+        readonly sort?: components['schemas']['PublicProfessionalSortField'];
         /** @description Canonical identifier from the public speciality catalogue */
         readonly speciality_id?: string;
       };
@@ -9558,17 +9560,6 @@ export enum PathsApiProfessionalsMePatientsGetParametersQuerySort_order {
   asc = 'asc',
   desc = 'desc',
 }
-export enum PathsApiPublicProfessionalsGetParametersQueryConsultation_type {
-  chat = 'chat',
-  video = 'video',
-  both = 'both',
-}
-export enum PathsApiPublicProfessionalsGetParametersQuerySort {
-  rating = 'rating',
-  experience = 'experience',
-  consultation_fee = 'consultation_fee',
-  name = 'name',
-}
 export enum AuthAccountResponseDtoStatus {
   pending_verification = 'pending_verification',
   active = 'active',
@@ -9633,6 +9624,11 @@ export enum BrowserSessionResponseDtoRouting_target {
 export enum ChatMessageResponseDtoSender {
   user = 'user',
   ai = 'ai',
+}
+export enum ConsultationType {
+  chat = 'chat',
+  video = 'video',
+  both = 'both',
 }
 export enum CreateBookingDtoConsultation_type {
   chat = 'chat',
@@ -9706,6 +9702,12 @@ export enum ProfessionalAppointmentResponseDtoStatus {
   confirmed = 'confirmed',
   completed = 'completed',
   cancelled = 'cancelled',
+}
+export enum PublicProfessionalSortField {
+  rating = 'rating',
+  experience = 'experience',
+  consultation_fee = 'consultation_fee',
+  name = 'name',
 }
 export enum SignupIntent {
   patient = 'patient',

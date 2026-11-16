@@ -14763,12 +14763,7 @@
             "name": "consultation_type",
             "required": false,
             "schema": {
-              "enum": [
-                "chat",
-                "video",
-                "both"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/ConsultationType"
             }
           },
           {
@@ -14796,31 +14791,21 @@
             }
           },
           {
+            "description": "Defaults to rating",
             "in": "query",
             "name": "sort",
             "required": false,
             "schema": {
-              "default": "rating",
-              "enum": [
-                "rating",
-                "experience",
-                "consultation_fee",
-                "name"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/PublicProfessionalSortField"
             }
           },
           {
+            "description": "Defaults to desc. Ties are always broken by identifier, ascending",
             "in": "query",
             "name": "order",
             "required": false,
             "schema": {
-              "default": "desc",
-              "enum": [
-                "asc",
-                "desc"
-              ],
-              "type": "string"
+              "$ref": "#/components/schemas/PublicSortOrder"
             }
           }
         ],

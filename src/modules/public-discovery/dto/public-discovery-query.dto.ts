@@ -248,6 +248,7 @@ export class PublicProfessionalDirectoryQueryDto extends PublicSearchQueryDto {
 
   @ApiPropertyOptional({
     enum: ConsultationType,
+    enumName: 'ConsultationType',
     description:
       'chat or video also returns professionals who offer both; both returns only those who offer both',
   })
@@ -284,7 +285,9 @@ export class PublicProfessionalDirectoryQueryDto extends PublicSearchQueryDto {
 
   @ApiPropertyOptional({
     enum: PublicProfessionalSortField,
+    enumName: 'PublicProfessionalSortField',
     default: PUBLIC_DISCOVERY_DEFAULT_SORT.field,
+    description: `Defaults to ${PUBLIC_DISCOVERY_DEFAULT_SORT.field}`,
   })
   @IsOptional()
   @IsEnum(PublicProfessionalSortField, {
@@ -294,7 +297,9 @@ export class PublicProfessionalDirectoryQueryDto extends PublicSearchQueryDto {
 
   @ApiPropertyOptional({
     enum: PublicSortOrder,
+    enumName: 'PublicSortOrder',
     default: PUBLIC_DISCOVERY_DEFAULT_SORT.order,
+    description: `Defaults to ${PUBLIC_DISCOVERY_DEFAULT_SORT.order}. Ties are always broken by identifier, ascending`,
   })
   @IsOptional()
   @IsEnum(PublicSortOrder, {
