@@ -38,6 +38,7 @@ const PUBLIC_OPERATION_IDS = new Set([
   'BrowserSessionController_completeGoogle',
   'BrowserSessionController_refresh',
   'BrowserSessionController_verifyLogin',
+  'BrowserSessionController_verifyMfaLogin',
   'BrowserSessionController_verifySignup',
   'AuthController_forgotPassword',
   'AuthController_googleLogin',
@@ -51,6 +52,7 @@ const PUBLIC_OPERATION_IDS = new Set([
   'AuthController_signup',
   'AuthController_verifySignup',
   'AuthController_verifyLogin',
+  'AuthController_verifyMfaLogin',
   'LaboratoryPostApprovalController_acceptStaffInvitation',
   'PharmacyController_register',
   'PublicDiscoveryController_getContract',
@@ -65,6 +67,7 @@ const PUBLIC_DISCOVERY_PATH_PREFIX = `/${OPENAPI_API_PREFIX}/${PUBLIC_DISCOVERY_
 
 const AUTH_CHALLENGE_ERROR_RESPONSES = new Map<string, readonly string[]>([
   ['BrowserSessionController_verifyLogin', ['400']],
+  ['BrowserSessionController_verifyMfaLogin', ['400']],
   ['BrowserSessionController_verifySignup', ['400']],
   ['AuthController_forgotPassword', ['429', '503']],
   ['AuthController_login', ['429', '503']],
@@ -74,6 +77,7 @@ const AUTH_CHALLENGE_ERROR_RESPONSES = new Map<string, readonly string[]>([
   ['AuthController_resetPassword', ['400']],
   ['AuthController_signup', ['503']],
   ['AuthController_verifyLogin', ['400']],
+  ['AuthController_verifyMfaLogin', ['400']],
   ['AuthController_verifySignup', ['400']],
 ]);
 

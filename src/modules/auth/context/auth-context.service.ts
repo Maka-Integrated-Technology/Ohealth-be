@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 
@@ -19,6 +20,8 @@ import {
 import { User } from '../../user/entities/user.entity';
 import { AccountStatus } from '../../user/enums/account-status.enum';
 import { AuthSession } from '../entities/auth.entity';
+import { User2fa } from '../entities/user-2fa.entity';
+import { mfaRequiredCategories } from '../mfa-required-categories';
 
 import { AuthCapability } from './auth-capability';
 import { IAuthAccountContext } from './auth-context.types';
@@ -40,6 +43,9 @@ export class AuthContextService {
     private readonly sessions: Repository<AuthSession>,
     @InjectRepository(PlatformPrivilegeEntity)
     private readonly platformPrivileges: Repository<PlatformPrivilegeEntity>,
+    @InjectRepository(User2fa)
+    private readonly factors: Repository<User2fa>,
+    private readonly config: ConfigService,
   ) {}
 
   async resolve(
@@ -54,6 +60,7 @@ export class AuthContextService {
       memberships,
       session,
       platformPrivileges,
+      factor,
     ] = await Promise.all([
       this.users.findOne({ where: { id: userId } }),
       this.personas.find({ where: { user_id: userId, is_active: true } }),
@@ -66,6 +73,7 @@ export class AuthContextService {
         where: { user_id: userId, session_id: sessionId, revoked_at: IsNull() },
       }),
       this.platformPrivileges.find({ where: { user_id: userId } }),
+      this.factors.findOne({ where: { userId } }),
     ]);
 
     if (!user || !session || session.expires_at <= new Date()) {
@@ -97,11 +105,14 @@ export class AuthContextService {
       AuthCapability.ACCOUNT_PROFILE_READ,
       AuthCapability.ACCOUNT_PROFILE_UPDATE,
     ]);
+    const mfaEnabled = Boolean(factor?.twoFaEnabled && factor.encryptedSecret);
+    const categories = mfaRequiredCategories(this.config);
 
     if (
       platformPrivileges.some(
         (privilege) => privilege.privilege === PlatformPrivilege.ADMIN,
-      )
+      ) &&
+      (mfaEnabled || !categories.has('platform_admin'))
     ) {
       capabilities.add(AuthCapability.PLATFORM_ADMIN);
       capabilities.add(AuthCapability.PLATFORM_ORGANIZATION_REVIEW);
@@ -136,16 +147,22 @@ export class AuthContextService {
       const membership = activeMembership;
       const organization = membership.organization;
       capabilities.add(AuthCapability.ORGANIZATION_MEMBER);
-      if (
+      const privilegedMembership =
         membership.role === OrganizationMembershipRole.OWNER ||
-        membership.role === OrganizationMembershipRole.ADMIN
-      ) {
+        membership.role === OrganizationMembershipRole.ADMIN;
+      const requiresMfa =
+        (membership.role === OrganizationMembershipRole.OWNER &&
+          categories.has('organization_owner')) ||
+        (membership.role === OrganizationMembershipRole.ADMIN &&
+          categories.has('organization_admin'));
+      if (privilegedMembership && (!requiresMfa || mfaEnabled)) {
         capabilities.add(AuthCapability.ORGANIZATION_ADMIN);
         capabilities.add(AuthCapability.ORGANIZATION_ONBOARDING);
       }
       if (
         organization.verification_status ===
           OrganizationVerificationStatus.APPROVED &&
+        (!requiresMfa || mfaEnabled) &&
         (membership.role === OrganizationMembershipRole.OWNER ||
           membership.role === OrganizationMembershipRole.ADMIN ||
           membership.permission_overrides?.includes(

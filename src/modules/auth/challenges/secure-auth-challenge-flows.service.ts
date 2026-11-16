@@ -25,9 +25,13 @@ import {
   IIssuedSession,
   RefreshSessionService,
 } from '../sessions/refresh-session.service';
+import { TwoFactorAuthService } from '../two-factor-auth.service';
 
 import { AuthChallengeDeliveryService } from './auth-challenge-delivery.service';
-import { AuthChallengePurpose } from './auth-challenge.entity';
+import {
+  AuthChallengePurpose,
+  AuthChallengeTransport,
+} from './auth-challenge.entity';
 import {
   AuthChallengeErrorCode,
   AuthChallengeException,
@@ -60,6 +64,7 @@ export class SecureAuthChallengeFlowsService {
     private readonly policy: AccountAccessPolicyService,
     private readonly audit: AuthSecurityAuditService,
     private readonly sessions: RefreshSessionService,
+    private readonly mfa: TwoFactorAuthService,
   ) {}
 
   async requestLogin(
@@ -135,7 +140,10 @@ export class SecureAuthChallengeFlowsService {
   async verifyLogin(
     challengeId: string,
     code: string,
-  ): Promise<{ user: User; session: IIssuedSession }> {
+  ): Promise<
+    | { user: User; session: IIssuedSession }
+    | { mfa_challenge_id: string; expires_in_seconds: number }
+  > {
     try {
       return await this.challenges.consumeWithMutation(
         challengeId,
@@ -148,6 +156,25 @@ export class SecureAuthChallengeFlowsService {
           });
           this.policy.assertCanAuthenticate(user);
           if (!user) throw new Error('Login challenge subject missing.');
+          if (await this.mfa.isEnabled(manager, user.id)) {
+            const next = await this.challenges.issueInTransaction(
+              manager,
+              user.id,
+              AuthChallengePurpose.MFA_LOGIN,
+            );
+            await this.audit.recordInTransaction(manager, {
+              event_type: AuthSecurityEventType.MFA,
+              outcome: AuthSecurityEventOutcome.SUCCEEDED,
+              actor_user_id: user.id,
+              subject_user_id: user.id,
+            });
+            return {
+              mfa_challenge_id: next.challengeId,
+              expires_in_seconds: Math.ceil(
+                (next.expiresAt.getTime() - Date.now()) / 1000,
+              ),
+            };
+          }
           const session = await this.sessions.issueInTransaction(
             manager,
             user.id,
@@ -190,6 +217,49 @@ export class SecureAuthChallengeFlowsService {
       }
       throw error;
     }
+  }
+
+  async verifyMfaLogin(
+    challengeId: string,
+    code: string,
+    transport: AuthChallengeTransport,
+  ): Promise<{ user: User; session: IIssuedSession }> {
+    return this.challenges.consumeWithExternalProof(
+      challengeId,
+      AuthChallengePurpose.MFA_LOGIN,
+      async (manager, userId) => {
+        const user = await manager.findOne(User, {
+          where: { id: userId },
+          lock: { mode: 'pessimistic_write' },
+        });
+        this.policy.assertCanAuthenticate(user);
+        if (!user) return null;
+        if (!(await this.mfa.verifyForLogin(manager, user.id, code))) {
+          await this.audit.recordInTransaction(manager, {
+            event_type: AuthSecurityEventType.MFA,
+            outcome: AuthSecurityEventOutcome.DENIED,
+            actor_user_id: user.id,
+            subject_user_id: user.id,
+          });
+          return null;
+        }
+        const session = await this.sessions.issueInTransaction(
+          manager,
+          user.id,
+          undefined,
+          true,
+        );
+        await this.audit.recordInTransaction(manager, {
+          event_type: AuthSecurityEventType.MFA,
+          outcome: AuthSecurityEventOutcome.SUCCEEDED,
+          actor_user_id: user.id,
+          subject_user_id: user.id,
+          session_id: session.session_id,
+        });
+        return { user, session };
+      },
+      transport,
+    );
   }
 
   resendLogin(

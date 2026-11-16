@@ -12,12 +12,18 @@ export class User2fa extends BaseEntity {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @Column({ name: 'two_fa_secret' })
-  twoFaSecret: string;
+  @Column({ name: 'encrypted_secret', type: 'text', nullable: true })
+  encryptedSecret: string | null;
+
+  @Column({ name: 'pending_secret', type: 'text', nullable: true })
+  pendingSecret: string | null;
+
+  @Column({ name: 'pending_expires_at', type: 'timestamptz', nullable: true })
+  pendingExpiresAt: Date | null;
+
+  @Column({ name: 'last_used_step', type: 'bigint', nullable: true })
+  lastUsedStep: string | null;
 
   @Column({ name: 'two_fa_enabled', default: false })
   twoFaEnabled: boolean;
-
-  @Column({ name: 'backup_codes', type: 'text', array: true, nullable: true })
-  backupCodes?: string[];
 }

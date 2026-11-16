@@ -16,11 +16,13 @@ import {
   ApiConflictResponse,
   ApiCreatedResponse,
   ApiOkResponse,
+  ApiExtraModels,
   ApiOperation,
   ApiServiceUnavailableResponse,
   ApiTags,
   ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
+  getSchemaPath,
 } from '@nestjs/swagger';
 
 import { Public } from '../../../common/decorators/public.decorator';
@@ -29,6 +31,7 @@ import { IRequestWithUser } from '../../../common/types';
 import { AuthAbuseGuard } from '../challenges/auth-abuse.guard';
 import { AuthChallengeErrorResponseDto } from '../contracts/auth-contract-response.dto';
 import { LoginResponseDto } from '../dto/auth-response.dto';
+import { MfaChallengeResponseDto } from '../dto/mfa.dto';
 
 import {
   CompleteGoogleOAuthDto,
@@ -87,7 +90,15 @@ export class OAuthController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthAbuseGuard)
   @ApiOperation({ summary: 'Consume a Google OAuth transaction exactly once' })
-  @ApiOkResponse({ type: LoginResponseDto })
+  @ApiExtraModels(LoginResponseDto, MfaChallengeResponseDto)
+  @ApiOkResponse({
+    schema: {
+      oneOf: [
+        { $ref: getSchemaPath(LoginResponseDto) },
+        { $ref: getSchemaPath(MfaChallengeResponseDto) },
+      ],
+    },
+  })
   @ApiAcceptedResponse({ type: OAuthContactVerificationResponseDto })
   @ApiBadRequestResponse({ type: OAuthErrorResponseDto })
   @ApiUnauthorizedResponse({ type: OAuthErrorResponseDto })

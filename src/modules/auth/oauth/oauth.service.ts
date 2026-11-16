@@ -10,7 +10,11 @@ import { User } from '../../user/entities/user.entity';
 import { AccountStatus } from '../../user/enums/account-status.enum';
 import { AccountAccessPolicyService } from '../account-access-policy.service';
 import { AuthChallengeDeliveryService } from '../challenges/auth-challenge-delivery.service';
-import { AuthChallengePurpose } from '../challenges/auth-challenge.entity';
+import {
+  AuthChallengePurpose,
+  AuthChallengeTransport,
+} from '../challenges/auth-challenge.entity';
+import { AuthChallengeService } from '../challenges/auth-challenge.service';
 import { AuthContextService } from '../context/auth-context.service';
 import { AuthSession } from '../entities/auth.entity';
 import { SignupIntent } from '../enums/signup-intent.enum';
@@ -23,6 +27,7 @@ import {
   AuthSecurityEventType,
 } from '../security-audit/auth-security-event.enum';
 import { RefreshSessionService } from '../sessions/refresh-session.service';
+import { TwoFactorAuthService } from '../two-factor-auth.service';
 
 import { ExternalIdentity } from './external-identity.entity';
 import {
@@ -50,6 +55,8 @@ export class OAuthService {
     private readonly delivery: AuthChallengeDeliveryService,
     private readonly audit: AuthSecurityAuditService,
     private readonly accountPolicy: AccountAccessPolicyService,
+    private readonly challenges: AuthChallengeService,
+    private readonly mfa: TwoFactorAuthService,
   ) {}
 
   async start(dto: StartGoogleOAuthDto) {
@@ -155,7 +162,7 @@ export class OAuthService {
 
     const result = await this.dataSource.transaction(async (manager) => {
       if (transaction.operation === OAuthOperation.SIGNIN) {
-        return this.signIn(manager, proof);
+        return this.signIn(manager, proof, transaction.consumer);
       }
       if (transaction.operation === OAuthOperation.SIGNUP) {
         this.assertSupportedIntent(transaction.intent ?? undefined);
@@ -262,7 +269,11 @@ export class OAuthService {
     }
   }
 
-  private async signIn(manager: EntityManager, proof: IVerifiedGoogleIdentity) {
+  private async signIn(
+    manager: EntityManager,
+    proof: IVerifiedGoogleIdentity,
+    consumer: OAuthConsumer,
+  ) {
     const identity = await manager.findOne(ExternalIdentity, {
       where: { issuer: proof.issuer, subject: proof.subject },
     });
@@ -284,6 +295,32 @@ export class OAuthService {
       lock: { mode: 'pessimistic_write' },
     });
     if (!user) throw new OAuthException('OAUTH_AUTHENTICATION_FAILED');
+    if (await this.mfa.isEnabled(manager, user.id)) {
+      const challenge = await this.challenges.issueInTransaction(
+        manager,
+        user.id,
+        AuthChallengePurpose.MFA_LOGIN,
+        consumer === OAuthConsumer.WEB
+          ? AuthChallengeTransport.WEB
+          : AuthChallengeTransport.MOBILE,
+      );
+      await manager.update(ExternalIdentity, identity.id, {
+        last_authenticated_at: new Date(),
+      });
+      await this.audit.recordInTransaction(manager, {
+        event_type: AuthSecurityEventType.MFA,
+        outcome: AuthSecurityEventOutcome.SUCCEEDED,
+        actor_user_id: user.id,
+        subject_user_id: user.id,
+      });
+      return {
+        message: 'MFA verification required.',
+        mfa_challenge_id: challenge.challengeId,
+        expires_in_seconds: Math.ceil(
+          (challenge.expiresAt.getTime() - Date.now()) / 1000,
+        ),
+      };
+    }
     const session = await this.sessions.issueInTransaction(manager, user.id);
     await manager.update(ExternalIdentity, identity.id, {
       last_authenticated_at: new Date(),

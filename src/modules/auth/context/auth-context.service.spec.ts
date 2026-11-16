@@ -31,6 +31,8 @@ describe('AuthContextService', () => {
   const memberships = { find: jest.fn() };
   const sessions = { findOne: jest.fn() };
   const platformPrivileges = { find: jest.fn() };
+  const factors = { findOne: jest.fn() };
+  const config = { get: jest.fn() };
   let service: AuthContextService;
 
   beforeEach(() => {
@@ -69,6 +71,10 @@ describe('AuthContextService', () => {
       revoked_at: null,
     });
     platformPrivileges.find.mockResolvedValue([]);
+    factors.findOne.mockResolvedValue({
+      twoFaEnabled: true,
+      encryptedSecret: 'encrypted',
+    });
     service = new AuthContextService(
       users as never,
       personas as never,
@@ -76,6 +82,8 @@ describe('AuthContextService', () => {
       memberships as never,
       sessions as never,
       platformPrivileges as never,
+      factors as never,
+      config as never,
     );
   });
 
@@ -109,6 +117,21 @@ describe('AuthContextService', () => {
         AuthCapability.PLATFORM_SPECIALITY_MANAGE,
       ]),
     );
+  });
+
+  it('withholds configured privileged capabilities until MFA is active', async () => {
+    factors.findOne.mockResolvedValue(null);
+    platformPrivileges.find.mockResolvedValue([
+      { privilege: PlatformPrivilege.ADMIN },
+    ]);
+
+    const context = await service.resolve('user-id', 'session-id', 'org-id');
+
+    expect(context.capabilities).not.toContain(AuthCapability.PLATFORM_ADMIN);
+    expect(context.capabilities).not.toContain(
+      AuthCapability.ORGANIZATION_ADMIN,
+    );
+    expect(context.capabilities).toContain(AuthCapability.ORGANIZATION_MEMBER);
   });
 
   it('preserves deployed professional roles only in the deprecated response', async () => {

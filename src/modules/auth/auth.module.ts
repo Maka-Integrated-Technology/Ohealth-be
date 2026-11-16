@@ -31,6 +31,7 @@ import { User2fa } from './entities/user-2fa.entity';
 import { CapabilitiesGuard } from './guards/capabilities.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { MfaModule } from './mfa.module';
 import { OAuthModule } from './oauth/oauth.module';
 import { PasswordCredentialsService } from './password-policy/password-credentials.service';
 import { RegistrationModule } from './registration/registration.module';
@@ -38,11 +39,11 @@ import { AuthSecurityAuditModule } from './security-audit/auth-security-audit.mo
 import { RefreshSessionModule } from './sessions/refresh-session.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { TwoFactorAuthController } from './two-factor-auth.controller';
-import { TwoFactorAuthService } from './two-factor-auth.service';
 
 @Module({
   imports: [
     AuthChallengeModule,
+    MfaModule,
     AuthSecurityAuditModule,
     RefreshSessionModule,
     RegistrationModule,
@@ -84,7 +85,6 @@ import { TwoFactorAuthService } from './two-factor-auth.service';
     JwtAuthGuard,
     RolesGuard,
     CapabilitiesGuard,
-    TwoFactorAuthService,
   ],
   exports: [
     AuthChallengeModule,

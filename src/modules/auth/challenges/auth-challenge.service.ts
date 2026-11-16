@@ -11,6 +11,7 @@ import { DataSource, EntityManager } from 'typeorm';
 
 import {
   AuthChallengePurpose,
+  AuthChallengeTransport,
   AuthChallengeTerminalReason,
 } from './auth-challenge.entity';
 import {
@@ -59,6 +60,7 @@ interface IChallengeRow {
   terminal_reason: AuthChallengeTerminalReason | null;
   replacement_count: number;
   flow_expires_at: Date;
+  continuation_transport: AuthChallengeTransport | null;
 }
 
 @Injectable()
@@ -71,9 +73,15 @@ export class AuthChallengeService {
   issueForUser(
     subjectUserId: string,
     purpose: AuthChallengePurpose,
+    continuationTransport?: AuthChallengeTransport,
   ): Promise<IAuthChallengeIssued> {
     return this.dataSource.transaction((manager) =>
-      this.issueInTransaction(manager, subjectUserId, purpose),
+      this.issueInTransaction(
+        manager,
+        subjectUserId,
+        purpose,
+        continuationTransport,
+      ),
     );
   }
 
@@ -81,6 +89,7 @@ export class AuthChallengeService {
     manager: EntityManager,
     subjectUserId: string,
     purpose: AuthChallengePurpose,
+    continuationTransport?: AuthChallengeTransport,
   ): Promise<IAuthChallengeIssued> {
     this.assertTransaction(manager);
     this.assertPurpose(purpose);
@@ -125,6 +134,7 @@ export class AuthChallengeService {
       replacementCount: 0,
       flowExpiresAt,
       now,
+      continuationTransport: continuationTransport ?? null,
     });
   }
 
@@ -204,6 +214,7 @@ export class AuthChallengeService {
       replacementCount: requested.replacement_count + 1,
       flowExpiresAt: new Date(requested.flow_expires_at),
       now,
+      continuationTransport: requested.continuation_transport,
     });
     await manager.query(
       'UPDATE auth_challenges SET replaced_by_challenge_id = $2 WHERE id = $1',
@@ -236,6 +247,65 @@ export class AuthChallengeService {
     });
     if (!result.approved) await this.throwConsumptionFailure(id, purpose);
     return result.value;
+  }
+
+  /** Consume an opaque, purpose-bound challenge after an external factor proof.
+   * Invalid proofs increment the same persisted attempt counter as email codes.
+   */
+  async consumeWithExternalProof<T>(
+    id: string,
+    purpose: AuthChallengePurpose,
+    proveAndMutate: (
+      manager: EntityManager,
+      userId: string,
+    ) => Promise<T | null>,
+    expectedTransport?: AuthChallengeTransport,
+  ): Promise<T> {
+    const result = await this.dataSource.transaction(async (manager) => {
+      if (!UUID_PATTERN.test(id)) return null;
+      const refs: Array<{ subject_user_id: string }> = await manager.query(
+        'SELECT subject_user_id FROM auth_challenges WHERE id = $1',
+        [id],
+      );
+      if (!refs.length) return null;
+      await this.lockSubject(manager, refs[0].subject_user_id, false);
+      const rows: IChallengeRow[] = await manager.query(
+        'SELECT * FROM auth_challenges WHERE id = $1 FOR UPDATE',
+        [id],
+      );
+      const row = rows[0];
+      if (
+        !row ||
+        row.purpose !== purpose ||
+        row.terminal_reason ||
+        row.consumed_at ||
+        new Date(row.expires_at) <= new Date() ||
+        row.attempt_count >= MAX_ATTEMPTS
+      )
+        return null;
+      if (
+        row.continuation_transport !== null &&
+        row.continuation_transport !== expectedTransport
+      )
+        return null;
+      const value = await proveAndMutate(manager, row.subject_user_id);
+      if (value === null) {
+        await manager.query(
+          'UPDATE auth_challenges SET attempt_count = attempt_count + 1, ' +
+            'consumed_at = CASE WHEN attempt_count + 1 >= $2 THEN now() ELSE NULL END, ' +
+            'terminal_reason = CASE WHEN attempt_count + 1 >= $2 THEN $3 ELSE NULL END WHERE id = $1',
+          [id, MAX_ATTEMPTS, AuthChallengeTerminalReason.ATTEMPTS_EXHAUSTED],
+        );
+        return null;
+      }
+      await manager.query(
+        'UPDATE auth_challenges SET consumed_at = now(), terminal_reason = $2 WHERE id = $1',
+        [id, AuthChallengeTerminalReason.VERIFIED],
+      );
+      return value;
+    });
+    if (result === null) await this.throwConsumptionFailure(id, purpose);
+    return result;
   }
 
   async consumeInTransaction(
@@ -319,6 +389,7 @@ export class AuthChallengeService {
       replacementCount: number;
       flowExpiresAt: Date;
       now: Date;
+      continuationTransport: AuthChallengeTransport | null;
     },
   ): Promise<IAuthChallengeIssued> {
     const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
@@ -337,8 +408,8 @@ export class AuthChallengeService {
     await manager.query(
       `INSERT INTO auth_challenges (
          id, purpose, subject_user_id, secret_hash, expires_at,
-         lineage_id, replacement_count, flow_expires_at
-       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+         lineage_id, replacement_count, flow_expires_at, continuation_transport
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [
         input.challengeId,
         input.purpose,
@@ -348,6 +419,7 @@ export class AuthChallengeService {
         input.lineageId,
         input.replacementCount,
         input.flowExpiresAt,
+        input.continuationTransport,
       ],
     );
     return {

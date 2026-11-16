@@ -80,6 +80,13 @@ describe('Protected controller authorization with current account context (HTTP)
       memberships as never,
       sessions as never,
       privileges as never,
+      {
+        findOne: jest.fn().mockResolvedValue({
+          twoFaEnabled: true,
+          encryptedSecret: 'encrypted',
+        }),
+      } as never,
+      { get: jest.fn() } as never,
     );
     const module = await Test.createTestingModule({
       controllers: [OrganizationController, ProfessionalController],

@@ -4,6 +4,40 @@
  */
 
 export interface paths {
+  readonly '/api/auth/2fa/confirm': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Confirm a pending MFA enrollment */
+    readonly post: operations['TwoFactorAuthController_confirm'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly '/api/auth/2fa/disable': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Disable MFA after recent authentication */
+    readonly post: operations['TwoFactorAuthController_disable'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly '/api/auth/2fa/enable': {
     readonly parameters: {
       readonly query?: never;
@@ -13,8 +47,42 @@ export interface paths {
     };
     readonly get?: never;
     readonly put?: never;
-    /** Enable two-factor authentication for the current user */
+    /** Begin MFA enrollment for the current user */
     readonly post: operations['TwoFactorAuthController_enable2fa'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly '/api/auth/2fa/recovery-codes/regenerate': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Regenerate MFA recovery codes after recent authentication */
+    readonly post: operations['TwoFactorAuthController_regenerate'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly '/api/auth/browser/login/mfa/verify': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Verify MFA and issue a browser session */
+    readonly post: operations['BrowserSessionController_verifyMfaLogin'];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -30,7 +98,7 @@ export interface paths {
     };
     readonly get?: never;
     readonly put?: never;
-    /** Verify a login code and issue a browser session */
+    /** Verify a login code and continue with MFA when required */
     readonly post: operations['BrowserSessionController_verifyLogin'];
     readonly delete?: never;
     readonly options?: never;
@@ -188,6 +256,23 @@ export interface paths {
     readonly put?: never;
     /** Validate password and queue a login verification code */
     readonly post: operations['AuthController_login'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly '/api/auth/login/mfa/verify': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Verify MFA and issue the pending login session */
+    readonly post: operations['AuthController_verifyMfaLogin'];
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
@@ -1905,6 +1990,10 @@ export interface components {
       readonly is_available: boolean;
       readonly start_time: string;
     };
+    readonly BeginMfaDto: {
+      readonly current_code?: string;
+      readonly password: string;
+    };
     readonly BookingResponseDto: {
       readonly amount: number;
       readonly booking_date: string;
@@ -1976,6 +2065,10 @@ export interface components {
     readonly BulkCreateAvailabilityDto: {
       readonly slots: readonly components['schemas']['AvailabilitySlotDto'][];
     };
+    readonly ChangeMfaDto: {
+      readonly code: string;
+      readonly password: string;
+    };
     readonly ChangePasswordDto: {
       /**
        * @description Current password
@@ -2035,6 +2128,9 @@ export interface components {
       /** Format: uuid */
       readonly transaction_id: string;
       readonly transaction_token: string;
+    };
+    readonly ConfirmMfaDto: {
+      readonly code: string;
     };
     /** @enum {string} */
     readonly ConsultationType: ConsultationType;
@@ -2128,13 +2224,8 @@ export interface components {
       readonly name: string;
     };
     readonly EnableTwoFactorAuthDataDto: {
-      /**
-       * @example [
-       *       "A1B2C3D4",
-       *       "E5F6G7H8"
-       *     ]
-       */
-      readonly backupCodes: readonly string[];
+      /** @example 600 */
+      readonly expires_in_seconds: number;
       /** @example data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA... */
       readonly qrCodeUrl: string;
       /** @example JBSWY3DPEHPK3PXP */
@@ -2538,6 +2629,23 @@ export interface components {
       readonly message: string | null;
       /** @example 200 */
       readonly status_code: number | null;
+    };
+    readonly MfaChallengeResponseDto: {
+      /** @example 600 */
+      readonly expires_in_seconds: number;
+      /** @example MFA verification required. */
+      readonly message: string;
+      /** Format: uuid */
+      readonly mfa_challenge_id: string;
+    };
+    readonly MfaRecoveryCodesResponseDto: {
+      readonly message: string;
+      /** @description Shown once. Store offline. */
+      readonly recovery_codes: readonly string[];
+    };
+    readonly MfaRecoveryCodesResponseDtoData: {
+      /** @description Shown once. Store offline. */
+      readonly recovery_codes: readonly string[];
     };
     readonly OAuthContactVerificationResponseDto: {
       /** Format: uuid */
@@ -3627,6 +3735,11 @@ export interface components {
       /** @example 123456 */
       readonly code: string;
     };
+    readonly VerifyMfaLoginDto: {
+      /** Format: uuid */
+      readonly challenge_id: string;
+      readonly code: string;
+    };
     readonly VerifySignupDto: {
       /**
        * Format: uuid
@@ -3722,6 +3835,120 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  readonly TwoFactorAuthController_confirm: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly 'application/json': components['schemas']['ConfirmMfaDto'];
+      };
+    };
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['MfaRecoveryCodesResponseDtoData'];
+          };
+        };
+      };
+      /** @description Request validation failed */
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Authentication is required */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly TwoFactorAuthController_disable: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly 'application/json': components['schemas']['ChangeMfaDto'];
+      };
+    };
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            /** @example null */
+            readonly data: unknown;
+          };
+        };
+      };
+      /** @description Request validation failed */
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Authentication is required */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description MFA is required for the current privileged account. */
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
   readonly TwoFactorAuthController_enable2fa: {
     readonly parameters: {
       readonly query?: never;
@@ -3729,9 +3956,13 @@ export interface operations {
       readonly path?: never;
       readonly cookie?: never;
     };
-    readonly requestBody?: never;
+    readonly requestBody: {
+      readonly content: {
+        readonly 'application/json': components['schemas']['BeginMfaDto'];
+      };
+    };
     readonly responses: {
-      /** @description Returns secret, QR code, and backup codes */
+      /** @description Returns a pending secret and QR code for confirmation */
       readonly 200: {
         headers: {
           readonly [name: string]: unknown;
@@ -3740,6 +3971,15 @@ export interface operations {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
             readonly data: components['schemas']['EnableTwoFactorAuthDataDto'];
           };
+        };
+      };
+      /** @description Request validation failed */
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
         };
       };
       /** @description A valid access token is required */
@@ -3762,18 +4002,70 @@ export interface operations {
       };
     };
   };
-  readonly BrowserSessionController_verifyLogin: {
+  readonly TwoFactorAuthController_regenerate: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly 'application/json': components['schemas']['ChangeMfaDto'];
+      };
+    };
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['MfaRecoveryCodesResponseDtoData'];
+          };
+        };
+      };
+      /** @description Request validation failed */
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Authentication is required */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly BrowserSessionController_verifyMfaLogin: {
     readonly parameters: {
       readonly query?: never;
       readonly header: {
-        readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginVerifyPostParametersHeaderXOHealthClient;
+        readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginMfaVerifyPostParametersHeaderXOHealthClient;
       };
       readonly path?: never;
       readonly cookie?: never;
     };
     readonly requestBody: {
       readonly content: {
-        readonly 'application/json': components['schemas']['VerifyAuthChallengeDto'];
+        readonly 'application/json': components['schemas']['VerifyMfaLoginDto'];
       };
     };
     readonly responses: {
@@ -3816,11 +4108,66 @@ export interface operations {
       };
     };
   };
+  readonly BrowserSessionController_verifyLogin: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header: {
+        readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginMfaVerifyPostParametersHeaderXOHealthClient;
+      };
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly 'application/json': components['schemas']['VerifyAuthChallengeDto'];
+      };
+    };
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data:
+              | components['schemas']['BrowserSessionResponseDto']
+              | components['schemas']['MfaChallengeResponseDto'];
+          };
+        };
+      };
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
+      /** @description Origin or browser header rejected */
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
   readonly BrowserSessionController_logout: {
     readonly parameters: {
       readonly query?: never;
       readonly header: {
-        readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginVerifyPostParametersHeaderXOHealthClient;
+        readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginMfaVerifyPostParametersHeaderXOHealthClient;
       };
       readonly path?: never;
       readonly cookie?: never;
@@ -3872,7 +4219,7 @@ export interface operations {
     readonly parameters: {
       readonly query?: never;
       readonly header: {
-        readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginVerifyPostParametersHeaderXOHealthClient;
+        readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginMfaVerifyPostParametersHeaderXOHealthClient;
       };
       readonly path?: never;
       readonly cookie?: never;
@@ -3891,7 +4238,8 @@ export interface operations {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
             readonly data:
               | components['schemas']['BrowserSessionResponseDto']
-              | components['schemas']['ApiMessageResponseDto'];
+              | components['schemas']['ApiMessageResponseDto']
+              | components['schemas']['MfaChallengeResponseDto'];
           };
         };
       };
@@ -3969,7 +4317,7 @@ export interface operations {
     readonly parameters: {
       readonly query?: never;
       readonly header: {
-        readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginVerifyPostParametersHeaderXOHealthClient;
+        readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginMfaVerifyPostParametersHeaderXOHealthClient;
       };
       readonly path?: never;
       readonly cookie?: never;
@@ -4019,7 +4367,7 @@ export interface operations {
     readonly parameters: {
       readonly query?: never;
       readonly header: {
-        readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginVerifyPostParametersHeaderXOHealthClient;
+        readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginMfaVerifyPostParametersHeaderXOHealthClient;
       };
       readonly path?: never;
       readonly cookie?: never;
@@ -4359,6 +4707,48 @@ export interface operations {
       };
     };
   };
+  readonly AuthController_verifyMfaLogin: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly 'application/json': components['schemas']['VerifyMfaLoginDto'];
+      };
+    };
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['LoginResponseDtoData'];
+          };
+        };
+      };
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
   readonly AuthController_resendLogin: {
     readonly parameters: {
       readonly query?: never;
@@ -4439,7 +4829,9 @@ export interface operations {
         };
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
-            readonly data: components['schemas']['LoginResponseDtoData'];
+            readonly data:
+              | components['schemas']['LoginResponseDto']
+              | components['schemas']['MfaChallengeResponseDto'];
           };
         };
       };
@@ -4629,7 +5021,9 @@ export interface operations {
         };
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
-            readonly data: components['schemas']['LoginResponseDtoData'];
+            readonly data:
+              | components['schemas']['LoginResponseDto']
+              | components['schemas']['MfaChallengeResponseDto'];
           };
         };
       };
@@ -9525,7 +9919,7 @@ export interface operations {
     };
   };
 }
-export enum PathsApiAuthBrowserLoginVerifyPostParametersHeaderXOHealthClient {
+export enum PathsApiAuthBrowserLoginMfaVerifyPostParametersHeaderXOHealthClient {
   browser = 'browser',
 }
 export enum PathsApiLaboratoriesLaboratoryIdVerificationDocumentsDocumentTypeDownloadGetParametersPathDocumentType {

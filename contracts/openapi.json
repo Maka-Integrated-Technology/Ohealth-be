@@ -704,6 +704,20 @@
         ],
         "type": "object"
       },
+      "BeginMfaDto": {
+        "properties": {
+          "current_code": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
+        ],
+        "type": "object"
+      },
       "BookingResponseDto": {
         "properties": {
           "amount": {
@@ -929,6 +943,21 @@
         ],
         "type": "object"
       },
+      "ChangeMfaDto": {
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "password",
+          "code"
+        ],
+        "type": "object"
+      },
       "ChangePasswordDto": {
         "properties": {
           "currentPassword": {
@@ -1056,6 +1085,17 @@
           "transaction_id",
           "transaction_token",
           "id_token"
+        ],
+        "type": "object"
+      },
+      "ConfirmMfaDto": {
+        "properties": {
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
         ],
         "type": "object"
       },
@@ -1283,15 +1323,9 @@
       },
       "EnableTwoFactorAuthDataDto": {
         "properties": {
-          "backupCodes": {
-            "example": [
-              "A1B2C3D4",
-              "E5F6G7H8"
-            ],
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
+          "expires_in_seconds": {
+            "example": 600,
+            "type": "number"
           },
           "qrCodeUrl": {
             "example": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
@@ -1305,7 +1339,7 @@
         "required": [
           "secret",
           "qrCodeUrl",
-          "backupCodes"
+          "expires_in_seconds"
         ],
         "type": "object"
       },
@@ -2335,6 +2369,62 @@
         "required": [
           "status_code",
           "message"
+        ],
+        "type": "object"
+      },
+      "MfaChallengeResponseDto": {
+        "properties": {
+          "expires_in_seconds": {
+            "example": 600,
+            "type": "number"
+          },
+          "message": {
+            "example": "MFA verification required.",
+            "type": "string"
+          },
+          "mfa_challenge_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "message",
+          "mfa_challenge_id",
+          "expires_in_seconds"
+        ],
+        "type": "object"
+      },
+      "MfaRecoveryCodesResponseDto": {
+        "properties": {
+          "message": {
+            "type": "string"
+          },
+          "recovery_codes": {
+            "description": "Shown once. Store offline.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "message",
+          "recovery_codes"
+        ],
+        "type": "object"
+      },
+      "MfaRecoveryCodesResponseDtoData": {
+        "properties": {
+          "recovery_codes": {
+            "description": "Shown once. Store offline.",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "recovery_codes"
         ],
         "type": "object"
       },
@@ -5627,6 +5717,22 @@
         ],
         "type": "object"
       },
+      "VerifyMfaLoginDto": {
+        "properties": {
+          "challenge_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "challenge_id",
+          "code"
+        ],
+        "type": "object"
+      },
       "VerifySignupDto": {
         "properties": {
           "challenge_id": {
@@ -5844,10 +5950,195 @@
   },
   "openapi": "3.0.0",
   "paths": {
+    "/api/auth/2fa/confirm": {
+      "post": {
+        "operationId": "TwoFactorAuthController_confirm",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmMfaDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/MfaRecoveryCodesResponseDtoData"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Authentication is required"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Confirm a pending MFA enrollment",
+        "tags": [
+          "2FA"
+        ]
+      }
+    },
+    "/api/auth/2fa/disable": {
+      "post": {
+        "operationId": "TwoFactorAuthController_disable",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeMfaDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "example": null,
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Authentication is required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "MFA is required for the current privileged account."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Disable MFA after recent authentication",
+        "tags": [
+          "2FA"
+        ]
+      }
+    },
     "/api/auth/2fa/enable": {
       "post": {
         "operationId": "TwoFactorAuthController_enable2fa",
         "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BeginMfaDto"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
@@ -5872,7 +6163,17 @@
                 }
               }
             },
-            "description": "Returns secret, QR code, and backup codes"
+            "description": "Returns a pending secret and QR code for confirmation"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Request validation failed"
           },
           "401": {
             "content": {
@@ -5900,15 +6201,97 @@
             "bearer": []
           }
         ],
-        "summary": "Enable two-factor authentication for the current user",
+        "summary": "Begin MFA enrollment for the current user",
         "tags": [
           "2FA"
         ]
       }
     },
-    "/api/auth/browser/login/verify": {
+    "/api/auth/2fa/recovery-codes/regenerate": {
       "post": {
-        "operationId": "BrowserSessionController_verifyLogin",
+        "operationId": "TwoFactorAuthController_regenerate",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeMfaDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/MfaRecoveryCodesResponseDtoData"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Authentication is required"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Regenerate MFA recovery codes after recent authentication",
+        "tags": [
+          "2FA"
+        ]
+      }
+    },
+    "/api/auth/browser/login/mfa/verify": {
+      "post": {
+        "operationId": "BrowserSessionController_verifyMfaLogin",
         "parameters": [
           {
             "in": "header",
@@ -5926,7 +6309,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/VerifyAuthChallengeDto"
+                "$ref": "#/components/schemas/VerifyMfaLoginDto"
               }
             }
           },
@@ -5989,7 +6372,103 @@
             "description": "Internal server error"
           }
         },
-        "summary": "Verify a login code and issue a browser session",
+        "summary": "Verify MFA and issue a browser session",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/browser/login/verify": {
+      "post": {
+        "operationId": "BrowserSessionController_verifyLogin",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-OHealth-Client",
+            "required": true,
+            "schema": {
+              "enum": [
+                "browser"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyAuthChallengeDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "oneOf": [
+                            {
+                              "$ref": "#/components/schemas/BrowserSessionResponseDto"
+                            },
+                            {
+                              "$ref": "#/components/schemas/MfaChallengeResponseDto"
+                            }
+                          ]
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Origin or browser header rejected"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Verify a login code and continue with MFA when required",
         "tags": [
           "Authentication"
         ]
@@ -6125,6 +6604,9 @@
                             },
                             {
                               "$ref": "#/components/schemas/ApiMessageResponseDto"
+                            },
+                            {
+                              "$ref": "#/components/schemas/MfaChallengeResponseDto"
                             }
                           ]
                         }
@@ -6832,6 +7314,73 @@
         ]
       }
     },
+    "/api/auth/login/mfa/verify": {
+      "post": {
+        "operationId": "AuthController_verifyMfaLogin",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyMfaLoginDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/LoginResponseDtoData"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Verify MFA and issue the pending login session",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
     "/api/auth/login/resend": {
       "post": {
         "operationId": "AuthController_resendLogin",
@@ -6945,7 +7494,14 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/LoginResponseDtoData"
+                          "oneOf": [
+                            {
+                              "$ref": "#/components/schemas/LoginResponseDto"
+                            },
+                            {
+                              "$ref": "#/components/schemas/MfaChallengeResponseDto"
+                            }
+                          ]
                         }
                       },
                       "required": [
@@ -7237,7 +7793,14 @@
                     {
                       "properties": {
                         "data": {
-                          "$ref": "#/components/schemas/LoginResponseDtoData"
+                          "oneOf": [
+                            {
+                              "$ref": "#/components/schemas/LoginResponseDto"
+                            },
+                            {
+                              "$ref": "#/components/schemas/MfaChallengeResponseDto"
+                            }
+                          ]
                         }
                       },
                       "required": [

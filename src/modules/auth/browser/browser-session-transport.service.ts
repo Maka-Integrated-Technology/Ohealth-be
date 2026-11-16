@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 
 import { AuthService } from '../auth.service';
+import { AuthChallengeTransport } from '../challenges/auth-challenge.entity';
 import { VerifyAuthChallengeDto } from '../contracts';
 import { VerifySignupDto } from '../dto/auth.dto';
+import { VerifyMfaLoginDto } from '../dto/mfa.dto';
 import { CompleteGoogleOAuthDto } from '../oauth/oauth.dto';
 import { OAuthConsumer } from '../oauth/oauth.enums';
 import { OAuthService } from '../oauth/oauth.service';
@@ -29,7 +31,17 @@ export class BrowserSessionTransportService {
   }
 
   async verifyLogin(payload: VerifyAuthChallengeDto) {
-    return this.present(await this.auth.verifyLogin(payload));
+    const result = await this.auth.verifyLogin(payload);
+    if ('mfa_challenge_id' in result) {
+      return { issuedSession: false as const, response: result };
+    }
+    return { issuedSession: true as const, ...this.present(result) };
+  }
+
+  async verifyMfaLogin(payload: VerifyMfaLoginDto) {
+    return this.present(
+      await this.auth.verifyMfaLogin(payload, AuthChallengeTransport.WEB),
+    );
   }
 
   async refresh(refreshCredential: string) {

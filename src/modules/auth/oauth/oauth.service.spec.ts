@@ -4,6 +4,10 @@ import { ConfigService } from '@nestjs/config';
 import { OutboxEvent } from '../../platform-events/entities/outbox-event.entity';
 import { User } from '../../user/entities/user.entity';
 import { AccountStatus } from '../../user/enums/account-status.enum';
+import {
+  AuthChallengePurpose,
+  AuthChallengeTransport,
+} from '../challenges/auth-challenge.entity';
 import { SignupIntent } from '../enums/signup-intent.enum';
 
 import { ExternalIdentity } from './external-identity.entity';
@@ -59,6 +63,8 @@ describe('OAuthService', () => {
     recordAttempt: jest.fn(),
   };
   const accountPolicy = { assertCanAuthenticate: jest.fn() };
+  const challenges = { issueInTransaction: jest.fn() };
+  const mfa = { isEnabled: jest.fn().mockResolvedValue(false) };
   let service: OAuthService;
 
   beforeEach(() => {
@@ -79,6 +85,8 @@ describe('OAuthService', () => {
       delivery as never,
       audit as never,
       accountPolicy as never,
+      challenges as never,
+      mfa as never,
     );
     const preview = {
       operation: OAuthOperation.SIGNIN,
@@ -102,6 +110,10 @@ describe('OAuthService', () => {
     });
     authContext.resolve.mockResolvedValue({ account: { id: 'new-user' } });
     manager.delete.mockResolvedValue({ affected: 1 });
+    challenges.issueInTransaction.mockResolvedValue({
+      challengeId: '27d36477-ae70-4ac6-b557-d584bc840ad2',
+      expiresAt: new Date(Date.now() + 600_000),
+    });
     provisioning.provisionPersonaAndLegalIdentity.mockImplementation(
       async (_manager: unknown, input: Record<string, unknown>) => ({
         id: 'new-user',
@@ -402,6 +414,45 @@ describe('OAuthService', () => {
       expect.objectContaining({ last_authenticated_at: expect.any(Date) }),
     );
   });
+
+  it.each([
+    [OAuthConsumer.WEB, AuthChallengeTransport.WEB],
+    [OAuthConsumer.MOBILE, AuthChallengeTransport.MOBILE],
+  ])(
+    'binds a %s OAuth MFA continuation to the same transport',
+    async (consumer, transport) => {
+      const transaction = {
+        operation: OAuthOperation.SIGNIN,
+        consumer,
+        audience: 'bound-client-id',
+        nonce_hash: 'nonce-hash',
+      };
+      transactions.load.mockResolvedValue(transaction);
+      transactions.consumeInTransaction.mockResolvedValue(transaction);
+      const user = {
+        id: 'mfa-user',
+        account_status: AccountStatus.ACTIVE,
+        email_verified_at: new Date(),
+      };
+      manager.findOne
+        .mockResolvedValueOnce({ id: 'identity-id', user_id: user.id })
+        .mockResolvedValueOnce(user);
+      mfa.isEnabled.mockResolvedValueOnce(true);
+
+      await expect(
+        service.complete(transactionDto, consumer),
+      ).resolves.toMatchObject({
+        mfa_challenge_id: '27d36477-ae70-4ac6-b557-d584bc840ad2',
+      });
+      expect(challenges.issueInTransaction).toHaveBeenCalledWith(
+        manager,
+        user.id,
+        AuthChallengePurpose.MFA_LOGIN,
+        transport,
+      );
+      expect(sessions.issueInTransaction).not.toHaveBeenCalled();
+    },
+  );
 
   it('prevents a Google-only user from unlinking the final authenticator', async () => {
     const recentSession = {

@@ -4,6 +4,12 @@ export enum AuthChallengePurpose {
   CONTACT_VERIFICATION = 'contact_verification',
   PASSWORD_RECOVERY = 'password_recovery',
   LOGIN_VERIFICATION = 'login_verification',
+  MFA_LOGIN = 'mfa_login',
+}
+
+export enum AuthChallengeTransport {
+  WEB = 'web',
+  MOBILE = 'mobile',
 }
 
 export enum AuthChallengeTerminalReason {
@@ -21,13 +27,17 @@ export enum AuthChallengeTerminalReason {
 ])
 @Check(
   'CHK_auth_challenge_purpose',
-  `"purpose" IN ('contact_verification', 'password_recovery', 'login_verification')`,
+  `"purpose" IN ('contact_verification', 'password_recovery', 'login_verification', 'mfa_login')`,
 )
 @Check(
   'CHK_auth_challenge_attempts',
   '"attempt_count" >= 0 AND "attempt_count" <= 5',
 )
 @Check('CHK_auth_challenge_expiry', '"expires_at" > "issued_at"')
+@Check(
+  'CHK_auth_challenge_transport',
+  `"continuation_transport" IS NULL OR "continuation_transport" IN ('web', 'mobile')`,
+)
 @Entity('auth_challenges')
 export class AuthChallenge {
   @PrimaryGeneratedColumn('uuid')
@@ -65,6 +75,9 @@ export class AuthChallenge {
 
   @Column({ type: 'timestamp with time zone' })
   flow_expires_at: Date;
+
+  @Column({ type: 'varchar', nullable: true })
+  continuation_transport: AuthChallengeTransport | null;
 
   @Column({ type: 'timestamp with time zone', nullable: true })
   consumed_at: Date | null;

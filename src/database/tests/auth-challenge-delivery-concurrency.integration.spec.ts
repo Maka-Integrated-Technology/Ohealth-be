@@ -54,6 +54,12 @@ integration('Delivery leases across independent PostgreSQL connections', () => {
       await new LeasedAuthChallengeDelivery1793006000000().up(runner);
       await new AuthChallengeWorkerHeartbeat1793007000000().up(runner);
       await new AuthChallengeContinuation1793700000000().up(runner);
+      await runner.query(
+        'ALTER TABLE auth_challenges ADD COLUMN continuation_transport varchar',
+      );
+      await runner.query(
+        `ALTER TABLE auth_challenges ADD CONSTRAINT "CHK_auth_challenge_transport" CHECK (continuation_transport IS NULL OR continuation_transport IN ('web', 'mobile'))`,
+      );
     } finally {
       await runner.release();
     }

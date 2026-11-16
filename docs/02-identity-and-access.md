@@ -156,6 +156,40 @@ privacy rules, and rollout configuration.
 - Sensitive operations may require a recent step-up challenge even when the
   session is otherwise valid.
 
+The live lifecycle uses POST /auth/2fa/enable, /confirm,
+/recovery-codes/regenerate, and /disable. Enrollment and factor changes require
+the current password; replacing, regenerating, and disabling an active factor
+also require a fresh TOTP proof. Confirmation and factor-state changes revoke
+existing sessions.
+
+Password or Google sign-in first completes its existing proof. When an active
+factor exists, the response contains an opaque mfa_challenge_id instead of a
+session. POST /auth/login/mfa/verify, or its browser-cookie equivalent, accepts
+a TOTP or one-time recovery code and is the only continuation that may issue
+the session. The challenge is purpose-bound, expires, permits five attempts,
+and is atomically consumed with the factor proof and session.
+OAuth-created MFA continuations also retain the transaction's web or mobile
+consumer binding, so a browser flow cannot be exchanged through the mobile
+JSON credential boundary or vice versa. Password-login continuations remain
+transport-neutral because the caller selects its presentation boundary after
+the shared password and contact proofs.
+
+MFA_ENCRYPTION_KEY is a managed 32-byte base64 key-encryption key. Each TOTP
+secret uses a fresh data key and authenticated AES-GCM envelope. Recovery codes
+are returned only when created, stored as individual SHA-256 hashes, and
+deleted atomically when used. The secure-MFA migration disables legacy factors
+and removes their plaintext secret and backup-code columns, requiring
+re-enrollment.
+
+Privileged capability enforcement reads current platform privileges and active
+organization memberships. MFA_REQUIRED_CATEGORIES configures whether
+platform_admin, organization_owner, and organization_admin capabilities require
+an active factor. Users retain basic account access while enrolling, but
+configured privileged capabilities fail closed until enrollment completes.
+Enrollment start, activation, recovery-code regeneration, and disablement use
+distinct durable security-audit event types. MFA login proof successes and
+denials remain under the general `mfa` verification event.
+
 ## Organization authorization
 
 The active organization is session or explicit request context, not user

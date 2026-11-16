@@ -1,19 +1,31 @@
-import { Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Header,
+  HttpCode,
+  HttpStatus,
+  Post,
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiForbiddenResponse,
   ApiOperation,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
 
+import { ApiMessageResponseDto } from '../../common/dto/response.dto';
 import { IAuthUser } from '../../common/types';
 
 import { CurrentUser } from './decorators/current-user.decorator';
-import { EnableTwoFactorAuthDataDto } from './dto/two-factor-auth-response.dto';
 import {
-  IEnable2faResponse,
-  TwoFactorAuthService,
-} from './two-factor-auth.service';
+  BeginMfaDto,
+  ConfirmMfaDto,
+  ChangeMfaDto,
+  MfaRecoveryCodesResponseDto,
+} from './dto/mfa.dto';
+import { EnableTwoFactorAuthDataDto } from './dto/two-factor-auth-response.dto';
+import { TwoFactorAuthService } from './two-factor-auth.service';
 
 @ApiTags('2FA')
 @ApiBearerAuth()
@@ -26,18 +38,62 @@ export class TwoFactorAuthController {
   @Post('enable')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Enable two-factor authentication for the current user',
+    summary: 'Begin MFA enrollment for the current user',
   })
   @ApiResponse({
     status: HttpStatus.OK,
-    description: 'Returns secret, QR code, and backup codes',
+    description: 'Returns a pending secret and QR code for confirmation',
     type: EnableTwoFactorAuthDataDto,
   })
   @ApiResponse({
     status: HttpStatus.UNAUTHORIZED,
     description: 'A valid access token is required',
   })
-  async enable2fa(@CurrentUser() user: IAuthUser): Promise<IEnable2faResponse> {
-    return this.twoFactorAuthService.enable2fa(user.id);
+  @Header('Cache-Control', 'no-store')
+  async enable2fa(@CurrentUser() user: IAuthUser, @Body() body: BeginMfaDto) {
+    return this.twoFactorAuthService.enable2fa(
+      user.id,
+      body.password,
+      body.current_code,
+    );
+  }
+
+  @Post('confirm')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({ summary: 'Confirm a pending MFA enrollment' })
+  @ApiResponse({ status: HttpStatus.OK, type: MfaRecoveryCodesResponseDto })
+  confirm(@CurrentUser() user: IAuthUser, @Body() body: ConfirmMfaDto) {
+    return this.twoFactorAuthService.confirm2fa(user.id, body.code);
+  }
+
+  @Post('recovery-codes/regenerate')
+  @HttpCode(HttpStatus.OK)
+  @Header('Cache-Control', 'no-store')
+  @ApiOperation({
+    summary: 'Regenerate MFA recovery codes after recent authentication',
+  })
+  @ApiResponse({ status: HttpStatus.OK, type: MfaRecoveryCodesResponseDto })
+  regenerate(@CurrentUser() user: IAuthUser, @Body() body: ChangeMfaDto) {
+    return this.twoFactorAuthService.regenerateCodes(
+      user.id,
+      body.password,
+      body.code,
+    );
+  }
+
+  @Post('disable')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Disable MFA after recent authentication' })
+  @ApiResponse({ status: HttpStatus.OK, type: ApiMessageResponseDto })
+  @ApiForbiddenResponse({
+    description: 'MFA is required for the current privileged account.',
+  })
+  disable(@CurrentUser() user: IAuthUser, @Body() body: ChangeMfaDto) {
+    return this.twoFactorAuthService.disable2fa(
+      user.id,
+      body.password,
+      body.code,
+    );
   }
 }

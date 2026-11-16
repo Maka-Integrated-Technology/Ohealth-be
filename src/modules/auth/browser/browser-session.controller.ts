@@ -16,6 +16,7 @@ import { Public } from '../../../common/decorators/public.decorator';
 import { AuthAbuseGuard } from '../challenges/auth-abuse.guard';
 import { VerifyAuthChallengeDto } from '../contracts';
 import { VerifySignupDto } from '../dto/auth.dto';
+import { VerifyMfaLoginDto } from '../dto/mfa.dto';
 import { CompleteGoogleOAuthDto } from '../oauth/oauth.dto';
 
 import { BrowserSessionCookieService } from './browser-session-cookie.service';
@@ -25,6 +26,7 @@ import {
   BrowserOAuthCompletionDocs,
   BrowserRefreshDocs,
   BrowserSessionCompletionDocs,
+  BrowserLoginCompletionDocs,
 } from './browser-session.docs';
 import { BrowserSessionGuard } from './browser-session.guard';
 
@@ -62,14 +64,32 @@ export class BrowserSessionController {
   @Header('Cache-Control', 'no-store')
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthAbuseGuard)
-  @BrowserSessionCompletionDocs(
-    'Verify a login code and issue a browser session',
-  )
+  @BrowserLoginCompletionDocs()
   async verifyLogin(
     @Body() payload: VerifyAuthChallengeDto,
     @Res({ passthrough: true }) response: Response,
   ) {
     const result = await this.transport.verifyLogin(payload);
+    if (result.issuedSession) {
+      this.cookies.write(
+        response,
+        result.refreshCredential,
+        result.sessionExpiresAt,
+      );
+    }
+    return result.response;
+  }
+
+  @Post('login/mfa/verify')
+  @Header('Cache-Control', 'no-store')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthAbuseGuard)
+  @BrowserSessionCompletionDocs('Verify MFA and issue a browser session')
+  async verifyMfaLogin(
+    @Body() payload: VerifyMfaLoginDto,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.transport.verifyMfaLogin(payload);
     this.cookies.write(
       response,
       result.refreshCredential,

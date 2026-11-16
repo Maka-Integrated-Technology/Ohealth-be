@@ -32,6 +32,8 @@ describe('BrowserSessionTransportService', () => {
         challenge_id: '550e8400-e29b-41d4-a716-446655440000',
         code: '123456',
       });
+      if ('issuedSession' in result && !result.issuedSession)
+        throw new Error('Expected session');
       expect(result.refreshCredential).toBe(session.refresh_token);
       expect(result.response).not.toHaveProperty('refresh_token');
       expect(JSON.stringify(result.response)).not.toContain(

@@ -14,6 +14,7 @@ import {
   WINSTON_MODULE_NEST_PROVIDER,
   WINSTON_MODULE_PROVIDER,
 } from 'nest-winston';
+import * as speakeasy from 'speakeasy';
 import * as request from 'supertest';
 import { DataSource, QueryRunner } from 'typeorm';
 
@@ -30,13 +31,17 @@ import { BrowserSessionGuard } from '../../modules/auth/browser/browser-session.
 import { AuthAbuseGuard } from '../../modules/auth/challenges/auth-abuse.guard';
 import { AuthChallengeDeliveryService } from '../../modules/auth/challenges/auth-challenge-delivery.service';
 import { AuthChallengeValidationPipe } from '../../modules/auth/challenges/auth-challenge-validation.pipe';
-import { AuthChallengePurpose } from '../../modules/auth/challenges/auth-challenge.entity';
+import {
+  AuthChallengePurpose,
+  AuthChallengeTransport,
+} from '../../modules/auth/challenges/auth-challenge.entity';
 import { AuthChallengeService } from '../../modules/auth/challenges/auth-challenge.service';
 import { AuthRateLimitService } from '../../modules/auth/challenges/auth-rate-limit.service';
 import { SecureAuthChallengeFlowsService } from '../../modules/auth/challenges/secure-auth-challenge-flows.service';
 import { AuthContextService } from '../../modules/auth/context/auth-context.service';
 import { AuthSession } from '../../modules/auth/entities/auth.entity';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
+import { MfaSecretBox } from '../../modules/auth/mfa-secret-box';
 import { OAuthService } from '../../modules/auth/oauth/oauth.service';
 import { PasswordCredentialsService } from '../../modules/auth/password-policy/password-credentials.service';
 import { AccountProvisioningService } from '../../modules/auth/registration/account-provisioning.service';
@@ -44,6 +49,8 @@ import { RegistrationService } from '../../modules/auth/registration/registratio
 import { AuthSecurityAuditService } from '../../modules/auth/security-audit/auth-security-audit.service';
 import { RefreshSessionService } from '../../modules/auth/sessions/refresh-session.service';
 import { JwtStrategy } from '../../modules/auth/strategies/jwt.strategy';
+import { TwoFactorAuthController } from '../../modules/auth/two-factor-auth.controller';
+import { TwoFactorAuthService } from '../../modules/auth/two-factor-auth.service';
 import { EmailService } from '../../modules/email/email.service';
 import { User } from '../../modules/user/entities/user.entity';
 import { UserService } from '../../modules/user/user.service';
@@ -122,6 +129,28 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         'updated_at timestamptz NOT NULL DEFAULT now())',
     );
     await database.query(
+      'CREATE TABLE user_2fa (' +
+        'id uuid PRIMARY KEY DEFAULT uuid_generate_v4(), ' +
+        'user_id uuid NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE, ' +
+        'two_fa_enabled boolean NOT NULL DEFAULT false, encrypted_secret text, ' +
+        'pending_secret text, pending_expires_at timestamptz, last_used_step bigint, ' +
+        'created_at timestamptz NOT NULL DEFAULT now(), ' +
+        'updated_at timestamptz NOT NULL DEFAULT now())',
+    );
+    await database.query(
+      'CREATE TABLE mfa_recovery_codes (' +
+        'id uuid PRIMARY KEY DEFAULT uuid_generate_v4(), ' +
+        'user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE, ' +
+        'code_hash char(64) NOT NULL UNIQUE, ' +
+        'created_at timestamptz NOT NULL DEFAULT now())',
+    );
+    await database.query(
+      'CREATE TABLE platform_privileges (' +
+        'id uuid PRIMARY KEY DEFAULT uuid_generate_v4(), ' +
+        'user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE, ' +
+        "privilege varchar NOT NULL DEFAULT 'admin')",
+    );
+    await database.query(
       'CREATE TABLE user_account_status_history (' +
         'id uuid PRIMARY KEY DEFAULT uuid_generate_v4(), user_id uuid NOT NULL, ' +
         'previous_status varchar, new_status varchar NOT NULL, ' +
@@ -138,7 +167,9 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         'CONSTRAINT "CHK_auth_security_events_type" CHECK (' +
         "event_type IN ('sign_in', 'contact_verification', 'password_recovery', " +
         "'password_change', 'session_refresh', 'session_reuse', 'logout', " +
-        "'account_state_change', 'oauth_link', 'registration', 'mfa')))",
+        "'account_state_change', 'oauth_link', 'registration', 'mfa', " +
+        "'mfa_enrollment_started', 'mfa_activated', " +
+        "'mfa_recovery_codes_regenerated', 'mfa_disabled')))",
     );
     await database.query(
       'CREATE TABLE user_personas (' +
@@ -190,6 +221,24 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     } finally {
       await runner.release();
     }
+    await database.query(
+      `ALTER TABLE auth_challenges DROP CONSTRAINT "CHK_auth_challenge_purpose"`,
+    );
+    await database.query(
+      `ALTER TABLE auth_challenges ADD CONSTRAINT "CHK_auth_challenge_purpose" CHECK (purpose IN ('contact_verification', 'password_recovery', 'login_verification', 'mfa_login'))`,
+    );
+    await database.query(
+      'ALTER TABLE auth_challenges ADD COLUMN continuation_transport varchar',
+    );
+    await database.query(
+      `ALTER TABLE auth_challenges ADD CONSTRAINT "CHK_auth_challenge_transport" CHECK (continuation_transport IS NULL OR continuation_transport IN ('web', 'mobile'))`,
+    );
+    await database.query(
+      `ALTER TABLE auth_security_events DROP CONSTRAINT "CHK_auth_security_events_type"`,
+    );
+    await database.query(
+      `ALTER TABLE auth_security_events ADD CONSTRAINT "CHK_auth_security_events_type" CHECK (event_type IN ('sign_in', 'contact_verification', 'password_recovery', 'password_change', 'session_refresh', 'session_reuse', 'logout', 'account_state_change', 'oauth_signup', 'oauth_sign_in', 'oauth_link', 'oauth_unlink', 'oauth_conflict', 'oauth_denial', 'registration', 'mfa', 'mfa_enrollment_started', 'mfa_activated', 'mfa_recovery_codes_regenerated', 'mfa_disabled', 'login_challenge_request', 'login_challenge_resend', 'login_challenge_delivery', 'login_challenge_expiry', 'login_challenge_verification'))`,
+    );
     await healthyWorker();
     const values = new Map<string, unknown>([
       ['NODE_ENV', 'production'],
@@ -197,6 +246,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       ['cors.origins', ['https://app.ohealth.example']],
       ['AUTH_CHALLENGE_PEPPER', pepper],
       ['AUTH_CHALLENGE_DELIVERY_KEY', encryptionKey],
+      ['MFA_ENCRYPTION_KEY', randomBytes(32).toString('base64')],
       ['AUTH_CHALLENGE_FLOWS_ENABLED', 'true'],
       ['AUTH_TRUSTED_PROXY_CIDRS', ''],
       ['HASH_SALT', '10'],
@@ -228,7 +278,11 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
   async function createApp(source: DataSource): Promise<INestApplication> {
     const module = await Test.createTestingModule({
       imports: [PassportModule.register({ defaultStrategy: 'jwt' })],
-      controllers: [AuthController, BrowserSessionController],
+      controllers: [
+        AuthController,
+        BrowserSessionController,
+        TwoFactorAuthController,
+      ],
       providers: [
         AuthService,
         BrowserSessionConfig,
@@ -247,6 +301,8 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         PasswordCredentialsService,
         AccountProvisioningService,
         RegistrationService,
+        TwoFactorAuthService,
+        MfaSecretBox,
         {
           provide: AuthContextService,
           useValue: {
@@ -915,6 +971,276 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       ]),
     );
   }, 20_000);
+
+  it('runs the secure MFA lifecycle over HTTP and preserves mobile/browser challenge binding', async () => {
+    const password = 'a memorable MFA passphrase';
+    const user = await createUser(
+      'mfa-live-http',
+      'active',
+      await bcrypt.hash(password, 10),
+    );
+    const sessions = app.get(RefreshSessionService);
+    const challenges = app.get(AuthChallengeService);
+    const enrollmentSession = await sessions.issue(user.id);
+    const base = Math.floor(Date.now() / 30_000) * 30_000;
+    const now = jest.spyOn(Date, 'now').mockReturnValue(base);
+    const browserHeaders = {
+      Origin: 'https://app.ohealth.example',
+      ['X-OHealth-Client']: 'browser',
+    };
+    try {
+      const enrollment = await request(app.getHttpServer())
+        .post('/api/auth/2fa/enable')
+        .set('Authorization', `Bearer ${enrollmentSession.access_token}`)
+        .send({ password })
+        .expect(200);
+      const secret = enrollment.body.data.secret as string;
+      expect(secret).toMatch(/^[A-Z2-7]+$/);
+      await expect(
+        database.query(
+          'SELECT two_fa_enabled FROM user_2fa WHERE user_id = $1',
+          [user.id],
+        ),
+      ).resolves.toEqual([{ two_fa_enabled: false }]);
+
+      const confirmationCode = speakeasy.totp({
+        secret,
+        encoding: 'base32',
+        time: base / 1000,
+      });
+      const confirmation = await request(app.getHttpServer())
+        .post('/api/auth/2fa/confirm')
+        .set('Authorization', `Bearer ${enrollmentSession.access_token}`)
+        .send({ code: confirmationCode })
+        .expect(200);
+      const originalRecoveryCodes = confirmation.body.data
+        .recovery_codes as string[];
+      expect(originalRecoveryCodes).toHaveLength(8);
+
+      const login = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ email: user.email, password })
+        .expect(200);
+      expect(await delivery.dispatchBatch(1)).toMatchObject({ accepted: 1 });
+      const loginMail = mail.mock.calls[mail.mock.calls.length - 1][0] as {
+        templateData: { code: string };
+      };
+      const loginContinuation = await request(app.getHttpServer())
+        .post('/api/auth/login/verify')
+        .send({
+          challenge_id: login.body.data.challenge_id,
+          code: loginMail.templateData.code,
+        })
+        .expect(200);
+      expect(loginContinuation.body.data).toMatchObject({
+        mfa_challenge_id: expect.stringMatching(/^[a-f0-9-]{36}$/i),
+      });
+      expect(loginContinuation.body.data).not.toHaveProperty('access_token');
+
+      now.mockReturnValue(base + 60_000);
+      const firstLoginCode = speakeasy.totp({
+        secret,
+        encoding: 'base32',
+        time: (base + 60_000) / 1000,
+      });
+      const mobileSession = await request(app.getHttpServer())
+        .post('/api/auth/login/mfa/verify')
+        .send({
+          challenge_id: loginContinuation.body.data.mfa_challenge_id,
+          code: firstLoginCode,
+        })
+        .expect(200);
+      expect(mobileSession.body.data).toMatchObject({
+        access_token: expect.any(String),
+        refresh_token: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
+      });
+      await request(app.getHttpServer())
+        .post('/api/auth/login/mfa/verify')
+        .send({
+          challenge_id: loginContinuation.body.data.mfa_challenge_id,
+          code: firstLoginCode,
+        })
+        .expect(400);
+
+      now.mockReturnValue(base + 120_000);
+      await ageMfaChallenges(user.id);
+      const recoveryChallenge = await challenges.issueForUser(
+        user.id,
+        AuthChallengePurpose.MFA_LOGIN,
+        AuthChallengeTransport.MOBILE,
+      );
+      await request(app.getHttpServer())
+        .post('/api/auth/login/mfa/verify')
+        .send({
+          challenge_id: recoveryChallenge.challengeId,
+          code: originalRecoveryCodes[0],
+        })
+        .expect(200);
+      now.mockReturnValue(base + 180_000);
+      await ageMfaChallenges(user.id);
+      const replayChallenge = await challenges.issueForUser(
+        user.id,
+        AuthChallengePurpose.MFA_LOGIN,
+        AuthChallengeTransport.MOBILE,
+      );
+      await request(app.getHttpServer())
+        .post('/api/auth/login/mfa/verify')
+        .send({
+          challenge_id: replayChallenge.challengeId,
+          code: originalRecoveryCodes[0],
+        })
+        .expect(400);
+
+      const regenerationCode = speakeasy.totp({
+        secret,
+        encoding: 'base32',
+        time: (base + 180_000) / 1000,
+      });
+      const regeneration = await request(app.getHttpServer())
+        .post('/api/auth/2fa/recovery-codes/regenerate')
+        .set('Authorization', `Bearer ${mobileSession.body.data.access_token}`)
+        .send({ password, code: regenerationCode })
+        .expect(200);
+      expect(regeneration.body.data.recovery_codes).toHaveLength(8);
+      expect(regeneration.body.data.recovery_codes).not.toEqual(
+        originalRecoveryCodes,
+      );
+
+      now.mockReturnValue(base + 240_000);
+      await ageMfaChallenges(user.id);
+      const webChallenge = await challenges.issueForUser(
+        user.id,
+        AuthChallengePurpose.MFA_LOGIN,
+        AuthChallengeTransport.WEB,
+      );
+      const webCode = speakeasy.totp({
+        secret,
+        encoding: 'base32',
+        time: (base + 240_000) / 1000,
+      });
+      await request(app.getHttpServer())
+        .post('/api/auth/login/mfa/verify')
+        .send({ challenge_id: webChallenge.challengeId, code: webCode })
+        .expect(400);
+      const browserSession = await request(app.getHttpServer())
+        .post('/api/auth/browser/login/mfa/verify')
+        .set(browserHeaders)
+        .send({ challenge_id: webChallenge.challengeId, code: webCode })
+        .expect(200);
+      expect(browserSession.body.data).not.toHaveProperty('refresh_token');
+      expect(browserSession.headers['set-cookie']?.[0]).toContain(
+        '__Host-ohealth_refresh=',
+      );
+
+      now.mockReturnValue(base + 300_000);
+      await ageMfaChallenges(user.id);
+      const mobileChallenge = await challenges.issueForUser(
+        user.id,
+        AuthChallengePurpose.MFA_LOGIN,
+        AuthChallengeTransport.MOBILE,
+      );
+      const mobileCode = speakeasy.totp({
+        secret,
+        encoding: 'base32',
+        time: (base + 300_000) / 1000,
+      });
+      await request(app.getHttpServer())
+        .post('/api/auth/browser/login/mfa/verify')
+        .set(browserHeaders)
+        .send({ challenge_id: mobileChallenge.challengeId, code: mobileCode })
+        .expect(400);
+      const channelBoundMobileSession = await request(app.getHttpServer())
+        .post('/api/auth/login/mfa/verify')
+        .send({ challenge_id: mobileChallenge.challengeId, code: mobileCode })
+        .expect(200);
+      expect(channelBoundMobileSession.body.data.refresh_token).toMatch(
+        /^[A-Za-z0-9_-]{43}$/,
+      );
+
+      await database.query('TRUNCATE auth_rate_limit_buckets');
+      now.mockReturnValue(base + 360_000);
+      await ageMfaChallenges(user.id);
+      const lockedChallenge = await challenges.issueForUser(
+        user.id,
+        AuthChallengePurpose.MFA_LOGIN,
+        AuthChallengeTransport.MOBILE,
+      );
+      const postLockoutCode = speakeasy.totp({
+        secret,
+        encoding: 'base32',
+        time: (base + 360_000) / 1000,
+      });
+      const invalidCode = postLockoutCode === '000000' ? '000001' : '000000';
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        await request(app.getHttpServer())
+          .post('/api/auth/login/mfa/verify')
+          .send({
+            challenge_id: lockedChallenge.challengeId,
+            code: invalidCode,
+          })
+          .expect(400);
+      }
+      await request(app.getHttpServer())
+        .post('/api/auth/login/mfa/verify')
+        .send({
+          challenge_id: lockedChallenge.challengeId,
+          code: postLockoutCode,
+        })
+        .expect(429);
+      await expect(
+        database.query(
+          'SELECT attempt_count, terminal_reason FROM auth_challenges WHERE id = $1',
+          [lockedChallenge.challengeId],
+        ),
+      ).resolves.toEqual([
+        { attempt_count: 5, terminal_reason: 'attempts_exhausted' },
+      ]);
+
+      now.mockReturnValue(base + 420_000);
+      const disableCode = speakeasy.totp({
+        secret,
+        encoding: 'base32',
+        time: (base + 420_000) / 1000,
+      });
+      await request(app.getHttpServer())
+        .post('/api/auth/2fa/disable')
+        .set(
+          'Authorization',
+          `Bearer ${channelBoundMobileSession.body.data.access_token}`,
+        )
+        .send({ password, code: disableCode })
+        .expect(200);
+      await expect(
+        database.query(
+          'SELECT two_fa_enabled, encrypted_secret FROM user_2fa WHERE user_id = $1',
+          [user.id],
+        ),
+      ).resolves.toEqual([{ two_fa_enabled: false, encrypted_secret: null }]);
+
+      const auditRows: Array<{ event_type: string }> = await database.query(
+        'SELECT event_type FROM auth_security_events WHERE subject_user_id = $1',
+        [user.id],
+      );
+      expect(auditRows).toEqual(
+        expect.arrayContaining([
+          { event_type: 'mfa_enrollment_started' },
+          { event_type: 'mfa_activated' },
+          { event_type: 'mfa_recovery_codes_regenerated' },
+          { event_type: 'mfa_disabled' },
+        ]),
+      );
+    } finally {
+      now.mockRestore();
+    }
+  }, 40_000);
+
+  async function ageMfaChallenges(userId: string): Promise<void> {
+    await database.query(
+      "UPDATE auth_challenges SET issued_at = now() - interval '61 seconds' " +
+        'WHERE subject_user_id = $1 AND purpose = $2',
+      [userId, AuthChallengePurpose.MFA_LOGIN],
+    );
+  }
 
   it.each(['healthcare_professional', 'pharmacy', 'laboratory', 'hospital'])(
     'persists canonical %s onboarding state and legal evidence',
