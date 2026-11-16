@@ -559,9 +559,6 @@ export type LaboratoryVerificationDocumentsController_downloadLaboratoryDocument
     readonly path: NonNullable<
       operations['LaboratoryVerificationDocumentsController_downloadLaboratoryDocument']['parameters']['path']
     >;
-    readonly headerParameters?: NonNullable<
-      operations['LaboratoryVerificationDocumentsController_downloadLaboratoryDocument']['parameters']['header']
-    >;
     readonly headers?: ApiHeaders;
   }>;
 export type LaboratoryVerificationDocumentsController_downloadLaboratoryDocumentResponse =
@@ -592,9 +589,6 @@ export type LaboratoryVerificationDocumentsController_listLaboratoryDocumentsReq
   Readonly<{
     readonly path: NonNullable<
       operations['LaboratoryVerificationDocumentsController_listLaboratoryDocuments']['parameters']['path']
-    >;
-    readonly headerParameters?: NonNullable<
-      operations['LaboratoryVerificationDocumentsController_listLaboratoryDocuments']['parameters']['header']
     >;
     readonly headers?: ApiHeaders;
   }>;
@@ -643,9 +637,6 @@ export type LaboratoryVerificationStatusController_approveRequest = Readonly<{
   readonly path: NonNullable<
     operations['LaboratoryVerificationStatusController_approve']['parameters']['path']
   >;
-  readonly headerParameters?: NonNullable<
-    operations['LaboratoryVerificationStatusController_approve']['parameters']['header']
-  >;
   readonly headers?: ApiHeaders;
 }>;
 export type LaboratoryVerificationStatusController_approveResponse =
@@ -661,9 +652,6 @@ export type LaboratoryVerificationStatusController_getLaboratoryStatusRequest =
   Readonly<{
     readonly path: NonNullable<
       operations['LaboratoryVerificationStatusController_getLaboratoryStatus']['parameters']['path']
-    >;
-    readonly headerParameters?: NonNullable<
-      operations['LaboratoryVerificationStatusController_getLaboratoryStatus']['parameters']['header']
     >;
     readonly headers?: ApiHeaders;
   }>;
@@ -693,9 +681,6 @@ export type LaboratoryVerificationStatusController_listHistoryRequest =
     readonly path: NonNullable<
       operations['LaboratoryVerificationStatusController_listHistory']['parameters']['path']
     >;
-    readonly headerParameters?: NonNullable<
-      operations['LaboratoryVerificationStatusController_listHistory']['parameters']['header']
-    >;
     readonly headers?: ApiHeaders;
   }>;
 export type LaboratoryVerificationStatusController_listHistoryResponse =
@@ -709,9 +694,6 @@ export type LaboratoryVerificationStatusController_markUnderReviewRequest =
   Readonly<{
     readonly path: NonNullable<
       operations['LaboratoryVerificationStatusController_markUnderReview']['parameters']['path']
-    >;
-    readonly headerParameters?: NonNullable<
-      operations['LaboratoryVerificationStatusController_markUnderReview']['parameters']['header']
     >;
     readonly headers?: ApiHeaders;
   }>;
@@ -727,9 +709,6 @@ export type LaboratoryVerificationStatusController_markUnderReviewError =
 export type LaboratoryVerificationStatusController_rejectRequest = Readonly<{
   readonly path: NonNullable<
     operations['LaboratoryVerificationStatusController_reject']['parameters']['path']
-  >;
-  readonly headerParameters?: NonNullable<
-    operations['LaboratoryVerificationStatusController_reject']['parameters']['header']
   >;
   readonly body: NonNullable<
     operations['LaboratoryVerificationStatusController_reject']['requestBody']
@@ -820,9 +799,6 @@ export type OrganizationController_approveRequest = Readonly<{
   readonly path: NonNullable<
     operations['OrganizationController_approve']['parameters']['path']
   >;
-  readonly headerParameters?: NonNullable<
-    operations['OrganizationController_approve']['parameters']['header']
-  >;
   readonly headers?: ApiHeaders;
 }>;
 export type OrganizationController_approveResponse =
@@ -851,9 +827,6 @@ export type OrganizationController_deleteMineError =
 export type OrganizationController_downloadForReviewRequest = Readonly<{
   readonly path: NonNullable<
     operations['OrganizationController_downloadForReview']['parameters']['path']
-  >;
-  readonly headerParameters?: NonNullable<
-    operations['OrganizationController_downloadForReview']['parameters']['header']
   >;
   readonly headers?: ApiHeaders;
 }>;
@@ -896,9 +869,6 @@ export type OrganizationController_getStatusRequest = Readonly<{
   readonly path: NonNullable<
     operations['OrganizationController_getStatus']['parameters']['path']
   >;
-  readonly headerParameters?: NonNullable<
-    operations['OrganizationController_getStatus']['parameters']['header']
-  >;
   readonly headers?: ApiHeaders;
 }>;
 export type OrganizationController_getStatusResponse =
@@ -910,9 +880,6 @@ export type OrganizationController_getStatusError =
 export type OrganizationController_listApplicationsRequest = Readonly<{
   readonly query?: NonNullable<
     operations['OrganizationController_listApplications']['parameters']['query']
-  >;
-  readonly headerParameters?: NonNullable<
-    operations['OrganizationController_listApplications']['parameters']['header']
   >;
   readonly headers?: ApiHeaders;
 }>;
@@ -926,9 +893,6 @@ export type OrganizationController_listForReviewRequest = Readonly<{
   readonly path: NonNullable<
     operations['OrganizationController_listForReview']['parameters']['path']
   >;
-  readonly headerParameters?: NonNullable<
-    operations['OrganizationController_listForReview']['parameters']['header']
-  >;
   readonly headers?: ApiHeaders;
 }>;
 export type OrganizationController_listForReviewResponse =
@@ -941,9 +905,6 @@ export type OrganizationController_listForReviewError =
 export type OrganizationController_listHistoryRequest = Readonly<{
   readonly path: NonNullable<
     operations['OrganizationController_listHistory']['parameters']['path']
-  >;
-  readonly headerParameters?: NonNullable<
-    operations['OrganizationController_listHistory']['parameters']['header']
   >;
   readonly headers?: ApiHeaders;
 }>;
@@ -970,9 +931,6 @@ export type OrganizationController_markUnderReviewRequest = Readonly<{
   readonly path: NonNullable<
     operations['OrganizationController_markUnderReview']['parameters']['path']
   >;
-  readonly headerParameters?: NonNullable<
-    operations['OrganizationController_markUnderReview']['parameters']['header']
-  >;
   readonly headers?: ApiHeaders;
 }>;
 export type OrganizationController_markUnderReviewResponse =
@@ -985,9 +943,6 @@ export type OrganizationController_markUnderReviewError =
 export type OrganizationController_rejectRequest = Readonly<{
   readonly path: NonNullable<
     operations['OrganizationController_reject']['parameters']['path']
-  >;
-  readonly headerParameters?: NonNullable<
-    operations['OrganizationController_reject']['parameters']['header']
   >;
   readonly body: NonNullable<
     operations['OrganizationController_reject']['requestBody']
@@ -1002,9 +957,6 @@ export type OrganizationController_rejectError =
   | operations['OrganizationController_reject']['responses'][500]['content']['application/json'];
 
 export type OrganizationController_setupRequest = Readonly<{
-  readonly headerParameters?: NonNullable<
-    operations['OrganizationController_setup']['parameters']['header']
-  >;
   readonly body: NonNullable<
     operations['OrganizationController_setup']['requestBody']
   >['content']['application/json'];

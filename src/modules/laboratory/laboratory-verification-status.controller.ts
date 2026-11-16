@@ -10,7 +10,7 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import { AuthCapability } from '../auth/context/auth-capability';
 import { RequireCapabilities } from '../auth/decorators/capabilities.decorator';
@@ -41,11 +41,6 @@ interface ICurrentUser {
 
 @ApiTags('Laboratory Verification Status')
 @ApiBearerAuth()
-@ApiHeader({
-  name: 'X-Organization-Id',
-  required: false,
-  description: 'Required on laboratory self-service routes',
-})
 @UseGuards(JwtAuthGuard, CapabilitiesGuard)
 @Controller('laboratories')
 export class LaboratoryVerificationStatusController {

@@ -5550,10 +5550,7 @@ export interface operations {
   readonly LaboratoryVerificationDocumentsController_listLaboratoryDocuments: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: {
-        /** @description Required on laboratory self-service routes */
-        readonly 'X-Organization-Id'?: string;
-      };
+      readonly header?: never;
       readonly path: {
         /** @description Laboratory UUID */
         readonly laboratoryId: string;
@@ -5596,10 +5593,7 @@ export interface operations {
   readonly LaboratoryVerificationDocumentsController_downloadLaboratoryDocument: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: {
-        /** @description Required on laboratory self-service routes */
-        readonly 'X-Organization-Id'?: string;
-      };
+      readonly header?: never;
       readonly path: {
         readonly documentType: PathsApiLaboratoriesLaboratoryIdVerificationDocumentsDocumentTypeDownloadGetParametersPathDocumentType;
         /** @description Laboratory UUID */
@@ -5652,10 +5646,7 @@ export interface operations {
   readonly LaboratoryVerificationStatusController_getLaboratoryStatus: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: {
-        /** @description Required on laboratory self-service routes */
-        readonly 'X-Organization-Id'?: string;
-      };
+      readonly header?: never;
       readonly path: {
         readonly laboratoryId: string;
       };
@@ -5705,10 +5696,7 @@ export interface operations {
   readonly LaboratoryVerificationStatusController_approve: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: {
-        /** @description Required on laboratory self-service routes */
-        readonly 'X-Organization-Id'?: string;
-      };
+      readonly header?: never;
       readonly path: {
         readonly laboratoryId: string;
       };
@@ -5776,10 +5764,7 @@ export interface operations {
   readonly LaboratoryVerificationStatusController_listHistory: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: {
-        /** @description Required on laboratory self-service routes */
-        readonly 'X-Organization-Id'?: string;
-      };
+      readonly header?: never;
       readonly path: {
         readonly laboratoryId: string;
       };
@@ -5829,10 +5814,7 @@ export interface operations {
   readonly LaboratoryVerificationStatusController_reject: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: {
-        /** @description Required on laboratory self-service routes */
-        readonly 'X-Organization-Id'?: string;
-      };
+      readonly header?: never;
       readonly path: {
         readonly laboratoryId: string;
       };
@@ -5904,10 +5886,7 @@ export interface operations {
   readonly LaboratoryVerificationStatusController_markUnderReview: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: {
-        /** @description Required on laboratory self-service routes */
-        readonly 'X-Organization-Id'?: string;
-      };
+      readonly header?: never;
       readonly path: {
         readonly laboratoryId: string;
       };
@@ -6048,8 +6027,6 @@ export interface operations {
       readonly query?: never;
       readonly header: {
         readonly 'x-organization-id': string;
-        /** @description Required on laboratory self-service routes */
-        readonly 'X-Organization-Id'?: string;
       };
       readonly path?: never;
       readonly cookie?: never;
@@ -6092,8 +6069,6 @@ export interface operations {
       readonly query?: never;
       readonly header: {
         readonly 'x-organization-id': string;
-        /** @description Required on laboratory self-service routes */
-        readonly 'X-Organization-Id'?: string;
       };
       readonly path: {
         readonly documentType: PathsApiLaboratoriesLaboratoryIdVerificationDocumentsDocumentTypeDownloadGetParametersPathDocumentType;
@@ -6174,8 +6149,6 @@ export interface operations {
       readonly query?: never;
       readonly header: {
         readonly 'x-organization-id': string;
-        /** @description Required on laboratory self-service routes */
-        readonly 'X-Organization-Id'?: string;
       };
       readonly path: {
         readonly documentType: PathsApiLaboratoriesLaboratoryIdVerificationDocumentsDocumentTypeDownloadGetParametersPathDocumentType;
@@ -6230,8 +6203,6 @@ export interface operations {
       readonly query?: never;
       readonly header: {
         readonly 'x-organization-id': string;
-        /** @description Required on laboratory self-service routes */
-        readonly 'X-Organization-Id'?: string;
       };
       readonly path: {
         readonly documentType: PathsApiLaboratoriesLaboratoryIdVerificationDocumentsDocumentTypeDownloadGetParametersPathDocumentType;
@@ -6285,8 +6256,6 @@ export interface operations {
       readonly query?: never;
       readonly header: {
         readonly 'x-organization-id': string;
-        /** @description Required on laboratory self-service routes */
-        readonly 'X-Organization-Id'?: string;
       };
       readonly path?: never;
       readonly cookie?: never;
@@ -6337,8 +6306,6 @@ export interface operations {
       readonly query?: never;
       readonly header: {
         readonly 'x-organization-id': string;
-        /** @description Required on laboratory self-service routes */
-        readonly 'X-Organization-Id'?: string;
       };
       readonly path?: never;
       readonly cookie?: never;
@@ -6888,10 +6855,7 @@ export interface operations {
   readonly OrganizationController_listForReview: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: {
-        /** @description Required on organization-scoped self-service routes */
-        readonly 'X-Organization-Id'?: string;
-      };
+      readonly header?: never;
       readonly path: {
         readonly organizationId: string;
       };
@@ -6941,10 +6905,7 @@ export interface operations {
   readonly OrganizationController_downloadForReview: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: {
-        /** @description Required on organization-scoped self-service routes */
-        readonly 'X-Organization-Id'?: string;
-      };
+      readonly header?: never;
       readonly path: {
         readonly documentType: string;
         readonly organizationId: string;
@@ -6995,10 +6956,7 @@ export interface operations {
   readonly OrganizationController_getStatus: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: {
-        /** @description Required on organization-scoped self-service routes */
-        readonly 'X-Organization-Id'?: string;
-      };
+      readonly header?: never;
       readonly path: {
         readonly organizationId: string;
       };
@@ -7039,10 +6997,7 @@ export interface operations {
   readonly OrganizationController_approve: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: {
-        /** @description Required on organization-scoped self-service routes */
-        readonly 'X-Organization-Id'?: string;
-      };
+      readonly header?: never;
       readonly path: {
         readonly organizationId: string;
       };
@@ -7092,10 +7047,7 @@ export interface operations {
   readonly OrganizationController_listHistory: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: {
-        /** @description Required on organization-scoped self-service routes */
-        readonly 'X-Organization-Id'?: string;
-      };
+      readonly header?: never;
       readonly path: {
         readonly organizationId: string;
       };
@@ -7136,10 +7088,7 @@ export interface operations {
   readonly OrganizationController_reject: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: {
-        /** @description Required on organization-scoped self-service routes */
-        readonly 'X-Organization-Id'?: string;
-      };
+      readonly header?: never;
       readonly path: {
         readonly organizationId: string;
       };
@@ -7193,10 +7142,7 @@ export interface operations {
   readonly OrganizationController_markUnderReview: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: {
-        /** @description Required on organization-scoped self-service routes */
-        readonly 'X-Organization-Id'?: string;
-      };
+      readonly header?: never;
       readonly path: {
         readonly organizationId: string;
       };
@@ -7246,10 +7192,7 @@ export interface operations {
   readonly OrganizationController_setup: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: {
-        /** @description Required on organization-scoped self-service routes */
-        readonly 'X-Organization-Id'?: string;
-      };
+      readonly header?: never;
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -7312,8 +7255,6 @@ export interface operations {
       readonly query?: never;
       readonly header: {
         readonly 'x-organization-id': string;
-        /** @description Required on organization-scoped self-service routes */
-        readonly 'X-Organization-Id'?: string;
       };
       readonly path?: never;
       readonly cookie?: never;
@@ -7364,8 +7305,6 @@ export interface operations {
       readonly query?: never;
       readonly header: {
         readonly 'x-organization-id': string;
-        /** @description Required on organization-scoped self-service routes */
-        readonly 'X-Organization-Id'?: string;
       };
       readonly path: {
         readonly documentType: string;
@@ -7437,8 +7376,6 @@ export interface operations {
       readonly query?: never;
       readonly header: {
         readonly 'x-organization-id': string;
-        /** @description Required on organization-scoped self-service routes */
-        readonly 'X-Organization-Id'?: string;
       };
       readonly path: {
         readonly documentType: string;
@@ -7493,8 +7430,6 @@ export interface operations {
       readonly query?: never;
       readonly header: {
         readonly 'x-organization-id': string;
-        /** @description Required on organization-scoped self-service routes */
-        readonly 'X-Organization-Id'?: string;
       };
       readonly path: {
         readonly documentType: string;
@@ -7547,8 +7482,6 @@ export interface operations {
       readonly query?: never;
       readonly header: {
         readonly 'x-organization-id': string;
-        /** @description Required on organization-scoped self-service routes */
-        readonly 'X-Organization-Id'?: string;
       };
       readonly path?: never;
       readonly cookie?: never;
@@ -7590,8 +7523,6 @@ export interface operations {
       readonly query?: never;
       readonly header: {
         readonly 'x-organization-id': string;
-        /** @description Required on organization-scoped self-service routes */
-        readonly 'X-Organization-Id'?: string;
       };
       readonly path?: never;
       readonly cookie?: never;
@@ -7645,10 +7576,7 @@ export interface operations {
         readonly page?: number;
         readonly verification_status?: PathsApiOrganizationsOnboardingReviewApplicationsGetParametersQueryVerification_status;
       };
-      readonly header?: {
-        /** @description Required on organization-scoped self-service routes */
-        readonly 'X-Organization-Id'?: string;
-      };
+      readonly header?: never;
       readonly path?: never;
       readonly cookie?: never;
     };

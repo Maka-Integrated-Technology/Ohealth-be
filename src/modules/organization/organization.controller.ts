@@ -16,7 +16,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import { IAuthUser, IMulterFile } from '../../common/types';
 import { AuthCapability } from '../auth/context/auth-capability';
@@ -50,11 +50,6 @@ import { OrganizationVerificationService } from './organization-verification.ser
 
 @ApiTags('Organization Onboarding')
 @ApiBearerAuth()
-@ApiHeader({
-  name: 'X-Organization-Id',
-  required: false,
-  description: 'Required on organization-scoped self-service routes',
-})
 @UseGuards(JwtAuthGuard, CapabilitiesGuard)
 @Controller('organizations/onboarding')
 export class OrganizationController {

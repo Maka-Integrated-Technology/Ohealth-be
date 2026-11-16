@@ -7,6 +7,8 @@ import { OrganizationType } from '../../organization/enums/organization-type.enu
 import { OrganizationVerificationStatus } from '../../organization/enums/organization-verification-status.enum';
 import { ProfessionalVerificationStatus } from '../../professional/entities/professional.entity';
 import { AccountStatus } from '../../user/enums/account-status.enum';
+import { UserRole } from '../../user/enums/user-role.enum';
+import { presentLegacyAuthResponse } from '../presentation/legacy-auth-response.presenter';
 
 import { AuthCapability } from './auth-capability';
 import { AuthContextService } from './auth-context.service';
@@ -109,6 +111,15 @@ describe('AuthContextService', () => {
     );
   });
 
+  it('preserves deployed professional roles only in the deprecated response', async () => {
+    users.findOne.mockResolvedValue({ ...user, role: [UserRole.THERAPIST] });
+    const context = await service.resolve('user-id', 'session-id');
+    expect(presentLegacyAuthResponse(context).user.role).toContain(
+      UserRole.THERAPIST,
+    );
+    expect(JSON.stringify(context)).not.toContain('legacy_roles');
+  });
+
   it('does not grant organization capabilities without an explicit active organization', async () => {
     const context = await service.resolve('user-id', 'session-id');
 
@@ -133,5 +144,53 @@ describe('AuthContextService', () => {
     await expect(
       service.resolve('user-id', 'session-id'),
     ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('ignores platform and persona overrides from an organization membership', async () => {
+    const membership = (await memberships.find())[0];
+    membership.organization.verification_status =
+      OrganizationVerificationStatus.APPROVED;
+    membership.role = OrganizationMembershipRole.MEMBER;
+    membership.permission_overrides = [
+      AuthCapability.PLATFORM_ADMIN,
+      AuthCapability.PLATFORM_ORGANIZATION_REVIEW,
+      AuthCapability.PROFESSIONAL_OPERATIONAL,
+      AuthCapability.ORGANIZATION_ADMIN,
+      'unknown.capability',
+    ];
+    memberships.find.mockResolvedValue([membership]);
+
+    const context = await service.resolve('user-id', 'session-id', 'org-id');
+    expect(context.capabilities).toContain(AuthCapability.ORGANIZATION_MEMBER);
+    expect(context.capabilities).not.toContain(
+      AuthCapability.ORGANIZATION_OPERATIONAL,
+    );
+    expect(context.capabilities).not.toContain(AuthCapability.PLATFORM_ADMIN);
+    expect(context.capabilities).not.toContain(
+      AuthCapability.PLATFORM_ORGANIZATION_REVIEW,
+    );
+    expect(context.capabilities).not.toContain(
+      AuthCapability.PROFESSIONAL_OPERATIONAL,
+    );
+    expect(context.capabilities).not.toContain(
+      AuthCapability.ORGANIZATION_ADMIN,
+    );
+    expect(context.capabilities).not.toContain('unknown.capability');
+  });
+
+  it('grants an explicitly overridden member operational access only after approval', async () => {
+    const membership = (await memberships.find())[0];
+    membership.role = OrganizationMembershipRole.MEMBER;
+    membership.permission_overrides = [AuthCapability.ORGANIZATION_OPERATIONAL];
+    memberships.find.mockResolvedValue([membership]);
+
+    expect(
+      (await service.resolve('user-id', 'session-id', 'org-id')).capabilities,
+    ).not.toContain(AuthCapability.ORGANIZATION_OPERATIONAL);
+    membership.organization.verification_status =
+      OrganizationVerificationStatus.APPROVED;
+    expect(
+      (await service.resolve('user-id', 'session-id', 'org-id')).capabilities,
+    ).toContain(AuthCapability.ORGANIZATION_OPERATIONAL);
   });
 });

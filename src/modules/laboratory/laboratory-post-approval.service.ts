@@ -19,13 +19,13 @@ import { EmailTemplateID } from '../../constants/email-constants';
 import * as sysMsg from '../../constants/system.messages';
 import { PasswordCredentialsService } from '../auth/password-policy/password-credentials.service';
 import { EmailService } from '../email/email.service';
-import { OrganizationAdmin } from '../organization/entities/organization-admin.entity';
 import { OrganizationMembership } from '../organization/entities/organization-membership.entity';
 import { Organization } from '../organization/entities/organization.entity';
 import { OrganizationMembershipRole } from '../organization/enums/organization-membership-role.enum';
 import { OrganizationMembershipStatus } from '../organization/enums/organization-membership-status.enum';
 import { OrganizationType } from '../organization/enums/organization-type.enum';
 import { OrganizationVerificationStatus } from '../organization/enums/organization-verification-status.enum';
+import { findAdministrativeOrganization } from '../organization/organization-membership-access';
 import { User } from '../user/entities/user.entity';
 import { AccountStatus } from '../user/enums/account-status.enum';
 
@@ -61,8 +61,6 @@ export class LaboratoryPostApprovalService {
   constructor(
     @InjectRepository(Organization)
     private readonly organizationRepository: Repository<Organization>,
-    @InjectRepository(OrganizationAdmin)
-    private readonly administratorRepository: Repository<OrganizationAdmin>,
     @InjectRepository(LaboratoryOperatingHour)
     private readonly operatingHourRepository: Repository<LaboratoryOperatingHour>,
     @InjectRepository(LaboratoryTest)
@@ -434,11 +432,11 @@ export class LaboratoryPostApprovalService {
     userId: string,
     organizationId: string,
   ): Promise<Organization> {
-    const administrator = await this.administratorRepository.findOne({
-      where: { user_id: userId, organization_id: organizationId },
-      relations: { organization: true },
-    });
-    const organization = administrator?.organization;
+    const organization = await findAdministrativeOrganization(
+      this.membershipRepository,
+      userId,
+      organizationId,
+    );
     this.assertApprovedLaboratory(organization);
     return organization!;
   }

@@ -12,7 +12,6 @@ import { Logger } from 'winston';
 import * as sysMsg from '../../constants/system.messages';
 import { PasswordCredentialsService } from '../auth/password-policy/password-credentials.service';
 import { EmailService } from '../email/email.service';
-import { OrganizationAdmin } from '../organization/entities/organization-admin.entity';
 import { OrganizationMembership } from '../organization/entities/organization-membership.entity';
 import { Organization } from '../organization/entities/organization.entity';
 import { OrganizationType } from '../organization/enums/organization-type.enum';
@@ -39,7 +38,6 @@ describe('LaboratoryPostApprovalService', () => {
     is_active: true,
   } as Organization;
   const organizations = { findOne: jest.fn() };
-  const administrators = { findOne: jest.fn() };
   const operatingHours = {
     findOne: jest.fn(),
     find: jest.fn(),
@@ -64,6 +62,7 @@ describe('LaboratoryPostApprovalService', () => {
     save: jest.fn(),
   };
   const memberships = {
+    findOne: jest.fn(),
     create: jest.fn((value) => value),
     save: jest.fn(),
   };
@@ -100,7 +99,6 @@ describe('LaboratoryPostApprovalService', () => {
     jest.clearAllMocks();
     service = new LaboratoryPostApprovalService(
       organizations as unknown as Repository<Organization>,
-      administrators as unknown as Repository<OrganizationAdmin>,
       operatingHours as unknown as Repository<LaboratoryOperatingHour>,
       laboratoryTests as unknown as Repository<LaboratoryTest>,
       laboratoryStaff as unknown as Repository<LaboratoryStaff>,
@@ -112,8 +110,9 @@ describe('LaboratoryPostApprovalService', () => {
       passwordCredentials as unknown as PasswordCredentialsService,
       logger as unknown as Logger,
     );
-    administrators.findOne.mockResolvedValue({
+    memberships.findOne = jest.fn().mockResolvedValue({
       organization: approvedLaboratory,
+      role: 'owner',
     });
     organizations.findOne.mockResolvedValue(approvedLaboratory);
     operatingHours.findOne.mockResolvedValue(null);
@@ -218,11 +217,12 @@ describe('LaboratoryPostApprovalService', () => {
   });
 
   it('rejects setup access before laboratory approval', async () => {
-    administrators.findOne.mockResolvedValue({
+    memberships.findOne.mockResolvedValue({
       organization: {
         ...approvedLaboratory,
         verification_status: OrganizationVerificationStatus.UNDER_REVIEW,
       },
+      role: 'owner',
     });
 
     await expect(

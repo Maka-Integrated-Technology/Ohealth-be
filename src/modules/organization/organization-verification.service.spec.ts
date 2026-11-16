@@ -1,8 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 
-import { OrganizationAdmin } from './entities/organization-admin.entity';
 import { OrganizationDocument } from './entities/organization-document.entity';
+import { OrganizationMembership } from './entities/organization-membership.entity';
 import { OrganizationStatusHistory } from './entities/organization-status-history.entity';
 import { Organization } from './entities/organization.entity';
 import { OrganizationType } from './enums/organization-type.enum';
@@ -15,6 +15,7 @@ describe('OrganizationVerificationService', () => {
     id: 'organization-id',
     organization_type: OrganizationType.HOSPITAL,
     verification_status: OrganizationVerificationStatus.PENDING,
+    is_active: true,
     rejection_reason: null,
     updated_at: new Date(),
   } as Organization;
@@ -43,7 +44,7 @@ describe('OrganizationVerificationService', () => {
   beforeEach(() => {
     service = new OrganizationVerificationService(
       organizations as unknown as Repository<Organization>,
-      administrators as unknown as Repository<OrganizationAdmin>,
+      administrators as unknown as Repository<OrganizationMembership>,
       documents as unknown as Repository<OrganizationDocument>,
       history as unknown as Repository<OrganizationStatusHistory>,
       documentService as unknown as OrganizationDocumentsService,
@@ -53,7 +54,7 @@ describe('OrganizationVerificationService', () => {
     organization.verification_status = OrganizationVerificationStatus.PENDING;
     organization.rejection_reason = null;
     organizations.findOne.mockResolvedValue(organization);
-    administrators.findOne.mockResolvedValue({ organization });
+    administrators.findOne.mockResolvedValue({ organization, role: 'owner' });
   });
 
   it('submits only after rechecking all required documents', async () => {

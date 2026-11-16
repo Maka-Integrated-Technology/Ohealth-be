@@ -5,8 +5,11 @@ import { OrganizationType } from '../../organization/enums/organization-type.enu
 import { OrganizationVerificationStatus } from '../../organization/enums/organization-verification-status.enum';
 import { ProfessionalVerificationStatus } from '../../professional/entities/professional.entity';
 import { AccountStatus } from '../../user/enums/account-status.enum';
+import { UserRole } from '../../user/enums/user-role.enum';
 
 export interface IAuthAccountContext {
+  /** Internal compatibility data; never serialized in canonical context. */
+  legacy_roles?: UserRole[];
   active_organization_id: string | null;
   account: {
     id: string;

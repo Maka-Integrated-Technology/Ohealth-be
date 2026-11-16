@@ -145,16 +145,18 @@ export class AuthContextService {
       }
       if (
         organization.verification_status ===
-        OrganizationVerificationStatus.APPROVED
+          OrganizationVerificationStatus.APPROVED &&
+        (membership.role === OrganizationMembershipRole.OWNER ||
+          membership.role === OrganizationMembershipRole.ADMIN ||
+          membership.permission_overrides?.includes(
+            AuthCapability.ORGANIZATION_OPERATIONAL,
+          ))
       ) {
         capabilities.add(AuthCapability.ORGANIZATION_OPERATIONAL);
       }
-      for (const capability of membership.permission_overrides ?? []) {
-        capabilities.add(capability);
-      }
     }
 
-    return {
+    const context: IAuthAccountContext = {
       active_organization_id: activeMembership?.organization_id ?? null,
       account: {
         id: user.id,
@@ -194,7 +196,10 @@ export class AuthContextService {
         organization_is_active: membership.organization.is_active,
         role: membership.role,
         status: membership.status,
-        permission_overrides: membership.permission_overrides ?? [],
+        permission_overrides: (membership.permission_overrides ?? []).filter(
+          (capability) =>
+            capability === AuthCapability.ORGANIZATION_OPERATIONAL,
+        ),
       })),
       capabilities: [...capabilities].sort(),
       session: {
@@ -203,6 +208,11 @@ export class AuthContextService {
         last_used_at: session.last_used_at ?? null,
       },
     };
+    Object.defineProperty(context, 'legacy_roles', {
+      value: user.role ?? [],
+      enumerable: false,
+    });
+    return context;
   }
 
   async assertCapabilities(

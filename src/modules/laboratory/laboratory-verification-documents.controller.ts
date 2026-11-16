@@ -15,7 +15,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiBearerAuth, ApiHeader, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 
 import { IMulterFile } from '../../common/types';
 import {
@@ -70,11 +70,6 @@ const laboratoryVerificationDocumentUploadOptions = {
 
 @ApiTags('Laboratory Verification Documents')
 @ApiBearerAuth()
-@ApiHeader({
-  name: 'X-Organization-Id',
-  required: false,
-  description: 'Required on laboratory self-service routes',
-})
 @UseGuards(JwtAuthGuard, CapabilitiesGuard)
 @Controller('laboratories')
 export class LaboratoryVerificationDocumentsController {

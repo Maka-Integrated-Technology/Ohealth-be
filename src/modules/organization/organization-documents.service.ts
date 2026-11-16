@@ -22,14 +22,15 @@ import {
   OrganizationDocumentDownloadDto,
   OrganizationDocumentResponseDto,
 } from './dto/organization-verification.dto';
-import { OrganizationAdmin } from './entities/organization-admin.entity';
 import { OrganizationDocument } from './entities/organization-document.entity';
+import { OrganizationMembership } from './entities/organization-membership.entity';
 import { Organization } from './entities/organization.entity';
 import {
   OrganizationDocumentType,
   REQUIRED_ORGANIZATION_DOCUMENT_TYPES,
 } from './enums/organization-document-type.enum';
 import { OrganizationVerificationStatus } from './enums/organization-verification-status.enum';
+import { findAdministrativeOrganization } from './organization-membership-access';
 
 const EDITABLE_STATUSES = new Set([
   OrganizationVerificationStatus.PENDING,
@@ -44,8 +45,8 @@ export class OrganizationDocumentsService {
   constructor(
     @InjectRepository(Organization)
     private readonly organizationRepository: Repository<Organization>,
-    @InjectRepository(OrganizationAdmin)
-    private readonly administratorRepository: Repository<OrganizationAdmin>,
+    @InjectRepository(OrganizationMembership)
+    private readonly membershipRepository: Repository<OrganizationMembership>,
     @InjectRepository(OrganizationDocument)
     private readonly documentRepository: Repository<OrganizationDocument>,
     private readonly dataSource: DataSource,
@@ -331,16 +332,11 @@ export class OrganizationDocumentsService {
     userId: string,
     organizationId: string,
   ): Promise<Organization> {
-    const administrator = await this.administratorRepository.findOne({
-      where: { user_id: userId, organization_id: organizationId },
-      relations: { organization: true },
-    });
-    if (!administrator?.organization) {
-      throw new NotFoundException(
-        'organization administrator profile not found',
-      );
-    }
-    return administrator.organization;
+    return findAdministrativeOrganization(
+      this.membershipRepository,
+      userId,
+      organizationId,
+    );
   }
 
   private async findOrganizationOrThrow(id: string): Promise<Organization> {

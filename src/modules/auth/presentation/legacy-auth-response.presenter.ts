@@ -1,4 +1,6 @@
 import { UserPersonaType } from '../../identity/enums/user-persona-type.enum';
+import { ORGANIZATION_ADMIN_ROLE } from '../../organization/constants/organization-role.constant';
+import { OrganizationMembershipRole } from '../../organization/enums/organization-membership-role.enum';
 import { OrganizationType } from '../../organization/enums/organization-type.enum';
 import { OrganizationVerificationStatus } from '../../organization/enums/organization-verification-status.enum';
 import { ProfessionalVerificationStatus } from '../../professional/entities/professional.entity';
@@ -63,11 +65,24 @@ export function presentLegacyAuthResponse(context: IAuthAccountContext) {
     AuthRoutingTarget.LABORATORY_DASHBOARD,
     AuthRoutingTarget.PHARMACY_DASHBOARD,
   ]);
-  const roles: UserRole[] = [];
+  const roles: UserRole[] = [...(context.legacy_roles ?? [])];
   if (capabilities.includes(AuthCapability.PLATFORM_ADMIN))
     roles.push(UserRole.ADMIN);
   if (personas.some((persona) => persona.type === UserPersonaType.PATIENT))
     roles.push(UserRole.PATIENT);
+  if (
+    membership &&
+    [
+      OrganizationMembershipRole.OWNER,
+      OrganizationMembershipRole.ADMIN,
+    ].includes(membership.role)
+  )
+    roles.push(ORGANIZATION_ADMIN_ROLE[membership.organization_type]);
+  if (
+    membership?.role === OrganizationMembershipRole.MEMBER &&
+    membership.organization_type === OrganizationType.LABORATORY
+  )
+    roles.push(UserRole.LAB_STAFF);
 
   return {
     user: {
@@ -75,7 +90,7 @@ export function presentLegacyAuthResponse(context: IAuthAccountContext) {
       email: context.account.email,
       first_name: context.account.first_name,
       last_name: context.account.last_name,
-      role: roles,
+      role: [...new Set(roles)],
     },
     routing_target: routingTarget,
     access_level: fullTargets.has(routingTarget)

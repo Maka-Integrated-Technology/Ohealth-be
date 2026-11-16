@@ -8792,15 +8792,6 @@
         "operationId": "LaboratoryVerificationDocumentsController_listMyDocuments",
         "parameters": [
           {
-            "description": "Required on laboratory self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "header",
             "name": "x-organization-id",
             "required": true,
@@ -8874,15 +8865,6 @@
       "delete": {
         "operationId": "LaboratoryVerificationDocumentsController_deleteMyDocument",
         "parameters": [
-          {
-            "description": "Required on laboratory self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "in": "header",
             "name": "x-organization-id",
@@ -8980,15 +8962,6 @@
       "post": {
         "operationId": "LaboratoryVerificationDocumentsController_uploadMyDocument",
         "parameters": [
-          {
-            "description": "Required on laboratory self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "in": "header",
             "name": "x-organization-id",
@@ -9129,15 +9102,6 @@
         "operationId": "LaboratoryVerificationDocumentsController_downloadMyDocument",
         "parameters": [
           {
-            "description": "Required on laboratory self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "header",
             "name": "x-organization-id",
             "required": true,
@@ -9236,15 +9200,6 @@
         "operationId": "LaboratoryVerificationStatusController_getMyStatus",
         "parameters": [
           {
-            "description": "Required on laboratory self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "header",
             "name": "x-organization-id",
             "required": true,
@@ -9325,15 +9280,6 @@
       "post": {
         "operationId": "LaboratoryVerificationStatusController_submitMyVerification",
         "parameters": [
-          {
-            "description": "Required on laboratory self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "in": "header",
             "name": "x-organization-id",
@@ -10206,15 +10152,6 @@
         "operationId": "LaboratoryVerificationDocumentsController_listLaboratoryDocuments",
         "parameters": [
           {
-            "description": "Required on laboratory self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "description": "Laboratory UUID",
             "in": "path",
             "name": "laboratoryId",
@@ -10289,15 +10226,6 @@
       "get": {
         "operationId": "LaboratoryVerificationDocumentsController_downloadLaboratoryDocument",
         "parameters": [
-          {
-            "description": "Required on laboratory self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "description": "Laboratory UUID",
             "in": "path",
@@ -10398,15 +10326,6 @@
         "operationId": "LaboratoryVerificationStatusController_getLaboratoryStatus",
         "parameters": [
           {
-            "description": "Required on laboratory self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "laboratoryId",
             "required": true,
@@ -10487,15 +10406,6 @@
       "post": {
         "operationId": "LaboratoryVerificationStatusController_approve",
         "parameters": [
-          {
-            "description": "Required on laboratory self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "laboratoryId",
@@ -10598,15 +10508,6 @@
         "operationId": "LaboratoryVerificationStatusController_listHistory",
         "parameters": [
           {
-            "description": "Required on laboratory self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "laboratoryId",
             "required": true,
@@ -10690,15 +10591,6 @@
       "post": {
         "operationId": "LaboratoryVerificationStatusController_reject",
         "parameters": [
-          {
-            "description": "Required on laboratory self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "laboratoryId",
@@ -10811,15 +10703,6 @@
         "operationId": "LaboratoryVerificationStatusController_markUnderReview",
         "parameters": [
           {
-            "description": "Required on laboratory self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "laboratoryId",
             "required": true,
@@ -10919,17 +10802,7 @@
     "/api/organizations/onboarding/admin-setup": {
       "post": {
         "operationId": "OrganizationController_setup",
-        "parameters": [
-          {
-            "description": "Required on organization-scoped self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
+        "parameters": [],
         "requestBody": {
           "content": {
             "application/json": {
@@ -11023,15 +10896,6 @@
         "operationId": "OrganizationController_listMine",
         "parameters": [
           {
-            "description": "Required on organization-scoped self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "header",
             "name": "x-organization-id",
             "required": true,
@@ -11112,15 +10976,6 @@
       "delete": {
         "operationId": "OrganizationController_deleteMine",
         "parameters": [
-          {
-            "description": "Required on organization-scoped self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "in": "header",
             "name": "x-organization-id",
@@ -11209,15 +11064,6 @@
       "post": {
         "operationId": "OrganizationController_uploadMine",
         "parameters": [
-          {
-            "description": "Required on organization-scoped self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "in": "header",
             "name": "x-organization-id",
@@ -11339,15 +11185,6 @@
         "operationId": "OrganizationController_downloadMine",
         "parameters": [
           {
-            "description": "Required on organization-scoped self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "header",
             "name": "x-organization-id",
             "required": true,
@@ -11437,15 +11274,6 @@
         "operationId": "OrganizationController_getMyStatus",
         "parameters": [
           {
-            "description": "Required on organization-scoped self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "header",
             "name": "x-organization-id",
             "required": true,
@@ -11516,15 +11344,6 @@
       "post": {
         "operationId": "OrganizationController_submitMine",
         "parameters": [
-          {
-            "description": "Required on organization-scoped self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "in": "header",
             "name": "x-organization-id",
@@ -11606,15 +11425,6 @@
       "get": {
         "operationId": "OrganizationController_listApplications",
         "parameters": [
-          {
-            "description": "Required on organization-scoped self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "in": "query",
             "name": "organization_type",
@@ -11728,15 +11538,6 @@
         "operationId": "OrganizationController_listForReview",
         "parameters": [
           {
-            "description": "Required on organization-scoped self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "organizationId",
             "required": true,
@@ -11817,15 +11618,6 @@
       "get": {
         "operationId": "OrganizationController_downloadForReview",
         "parameters": [
-          {
-            "description": "Required on organization-scoped self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "organizationId",
@@ -11916,15 +11708,6 @@
         "operationId": "OrganizationController_getStatus",
         "parameters": [
           {
-            "description": "Required on organization-scoped self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "organizationId",
             "required": true,
@@ -11995,15 +11778,6 @@
       "post": {
         "operationId": "OrganizationController_approve",
         "parameters": [
-          {
-            "description": "Required on organization-scoped self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "organizationId",
@@ -12086,15 +11860,6 @@
         "operationId": "OrganizationController_listHistory",
         "parameters": [
           {
-            "description": "Required on organization-scoped self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
             "in": "path",
             "name": "organizationId",
             "required": true,
@@ -12168,15 +11933,6 @@
       "post": {
         "operationId": "OrganizationController_reject",
         "parameters": [
-          {
-            "description": "Required on organization-scoped self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "organizationId",
@@ -12268,15 +12024,6 @@
       "post": {
         "operationId": "OrganizationController_markUnderReview",
         "parameters": [
-          {
-            "description": "Required on organization-scoped self-service routes",
-            "in": "header",
-            "name": "X-Organization-Id",
-            "required": false,
-            "schema": {
-              "type": "string"
-            }
-          },
           {
             "in": "path",
             "name": "organizationId",

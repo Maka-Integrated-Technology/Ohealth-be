@@ -328,6 +328,18 @@ function validateOperation(
   validatePublicDiscoveryBoundary(label, path, method, operation, errors);
   validateResponses(document, label, operation, errors);
 
+  const parameterKeys = new Set<string>();
+  for (const parameter of operation.parameters ?? []) {
+    if (isReferenceObject(parameter)) continue;
+    const key = `${parameter.in}:${parameter.in === 'header' ? parameter.name.toLowerCase() : parameter.name}`;
+    if (parameterKeys.has(key)) {
+      errors.push(
+        `${label} has duplicate ${parameter.in} parameter ${parameter.name}`,
+      );
+    }
+    parameterKeys.add(key);
+  }
+
   const pathParameters = new Set(
     (operation.parameters ?? [])
       .filter(
