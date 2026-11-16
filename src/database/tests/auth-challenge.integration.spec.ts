@@ -55,6 +55,12 @@ integration('Purpose-bound auth challenges on PostgreSQL', () => {
     await new LeasedAuthChallengeDelivery1793006000000().up(runner);
     await new AuthChallengeWorkerHeartbeat1793007000000().up(runner);
     await new AuthChallengeContinuation1793700000000().up(runner);
+    await runner.query(
+      'ALTER TABLE auth_challenges ADD COLUMN continuation_transport varchar',
+    );
+    await runner.query(
+      `ALTER TABLE auth_challenges ADD CONSTRAINT "CHK_auth_challenge_transport" CHECK (continuation_transport IS NULL OR continuation_transport IN ('web', 'mobile'))`,
+    );
   });
 
   afterEach(async () => {
@@ -125,6 +131,7 @@ integration('Purpose-bound auth challenges on PostgreSQL', () => {
       purpose: AuthChallengePurpose.CONTACT_VERIFICATION,
       attempt_count: 0,
       consumed_at: null,
+      continuation_transport: null,
     });
     expect(rows[0].secret_hash).toMatch(/^[a-f0-9]{64}$/);
     expect(JSON.stringify(rows)).not.toContain(challenge.code);
@@ -143,6 +150,7 @@ integration('Purpose-bound auth challenges on PostgreSQL', () => {
         'terminal_reason',
         'replacement_count',
         'flow_expires_at',
+        'continuation_transport',
       ].sort(),
     );
   });
