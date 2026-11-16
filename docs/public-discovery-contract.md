@@ -103,6 +103,12 @@ A blank `q` means no search. Sort values are an allowlist mapped to columns by
 the server; a sort value is never interpolated into SQL. Endpoints must add a
 unique tiebreaker (the identifier) so ordering and pagination are deterministic.
 
+A query parameter that takes an enum declares the enum's `enumName`, so the
+OpenAPI parameter references the named schema (`ConsultationType`,
+`PublicProfessionalSortField`, `PublicSortOrder`). An inlined enum makes the
+generated client rename its exported enum after the path; the client runtime
+test fails if that happens in the public namespace.
+
 Consumers can read these limits at runtime:
 
 ```http
