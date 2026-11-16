@@ -4488,6 +4488,24 @@
         ],
         "type": "object"
       },
+      "PublicProfessionalDirectoryDto": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PublicProfessionalSummaryDto"
+            },
+            "type": "array"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/PublicPaginationMetaDto"
+          }
+        },
+        "required": [
+          "items",
+          "meta"
+        ],
+        "type": "object"
+      },
       "PublicProfessionalSortField": {
         "enum": [
           "rating",
@@ -14686,6 +14704,159 @@
           }
         },
         "summary": "Get the query limits and allowlists for public discovery",
+        "tags": [
+          "Public Discovery"
+        ]
+      }
+    },
+    "/api/public/professionals": {
+      "get": {
+        "description": "Returns active, approved professionals owned by active accounts. The search term matches the display name or the speciality name, ignoring case. Results are ordered by the requested sort and then by identifier.",
+        "operationId": "PublicProfessionalController_list",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "maximum": 1000,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Case-insensitive search term. Surrounding and repeated whitespace is ignored.",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "maxLength": 100,
+              "minLength": 2,
+              "type": "string"
+            }
+          },
+          {
+            "description": "Canonical identifier from the public speciality catalogue",
+            "in": "query",
+            "name": "speciality_id",
+            "required": false,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "chat or video also returns professionals who offer both; both returns only those who offer both",
+            "in": "query",
+            "name": "consultation_type",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ConsultationType"
+            }
+          },
+          {
+            "description": "Lowest consultation fee to include",
+            "in": "query",
+            "name": "min_fee",
+            "required": false,
+            "schema": {
+              "maximum": 99999999.99,
+              "minimum": 0,
+              "multipleOf": 0.01,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Highest consultation fee to include; not below min_fee when both are sent",
+            "in": "query",
+            "name": "max_fee",
+            "required": false,
+            "schema": {
+              "maximum": 99999999.99,
+              "minimum": 0,
+              "multipleOf": 0.01,
+              "type": "number"
+            }
+          },
+          {
+            "description": "Defaults to rating",
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/PublicProfessionalSortField"
+            }
+          },
+          {
+            "description": "Defaults to desc. Ties are always broken by identifier, ascending",
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/PublicSortOrder"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/PublicProfessionalDirectoryDto"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "A query parameter failed validation"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Search the directory of approved professionals",
         "tags": [
           "Public Discovery"
         ]

@@ -54,6 +54,7 @@ const PUBLIC_OPERATION_IDS = new Set([
   'LaboratoryPostApprovalController_acceptStaffInvitation',
   'PharmacyController_register',
   'PublicDiscoveryController_getContract',
+  'PublicProfessionalController_list',
   'PublicSpecialityController_findOne',
   'PublicSpecialityController_list',
   'OAuthController_start',

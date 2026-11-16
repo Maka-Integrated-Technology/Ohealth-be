@@ -1582,6 +1582,26 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly '/api/public/professionals': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Search the directory of approved professionals
+     * @description Returns active, approved professionals owned by active accounts. The search term matches the display name or the speciality name, ignoring case. Results are ordered by the requested sort and then by identifier.
+     */
+    readonly get: operations['PublicProfessionalController_list'];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly '/api/public/specialities': {
     readonly parameters: {
       readonly query?: never;
@@ -3148,6 +3168,10 @@ export interface components {
       readonly total_reviews: number;
       /** @example 8 */
       readonly years_of_experience: number;
+    };
+    readonly PublicProfessionalDirectoryDto: {
+      readonly items: readonly components['schemas']['PublicProfessionalSummaryDto'][];
+      readonly meta: components['schemas']['PublicPaginationMetaDto'];
     };
     /** @enum {string} */
     readonly PublicProfessionalSortField: PublicProfessionalSortField;
@@ -9130,6 +9154,62 @@ export interface operations {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
             readonly data: components['schemas']['PublicDiscoveryContractDto'];
           };
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly PublicProfessionalController_list: {
+    readonly parameters: {
+      readonly query?: {
+        /** @description chat or video also returns professionals who offer both; both returns only those who offer both */
+        readonly consultation_type?: components['schemas']['ConsultationType'];
+        readonly limit?: number;
+        /** @description Highest consultation fee to include; not below min_fee when both are sent */
+        readonly max_fee?: number;
+        /** @description Lowest consultation fee to include */
+        readonly min_fee?: number;
+        /** @description Defaults to desc. Ties are always broken by identifier, ascending */
+        readonly order?: components['schemas']['PublicSortOrder'];
+        readonly page?: number;
+        /** @description Case-insensitive search term. Surrounding and repeated whitespace is ignored. */
+        readonly q?: string;
+        /** @description Defaults to rating */
+        readonly sort?: components['schemas']['PublicProfessionalSortField'];
+        /** @description Canonical identifier from the public speciality catalogue */
+        readonly speciality_id?: string;
+      };
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['PublicProfessionalDirectoryDto'];
+          };
+        };
+      };
+      /** @description A query parameter failed validation */
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
         };
       };
       /** @description Internal server error */

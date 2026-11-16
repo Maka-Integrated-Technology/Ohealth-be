@@ -5,6 +5,7 @@ import { AuthModule } from '../auth/auth.module';
 import { Booking } from '../booking/entities/booking.entity';
 import { UserPersona } from '../identity/entities/user-persona.entity';
 import { PatientProfile } from '../patient/entities/patient-profile.entity';
+import { PublicDiscoveryModule } from '../public-discovery/public-discovery.module';
 import { SpecialityModule } from '../speciality/speciality.module';
 import { StorageModule } from '../storage/storage.module';
 import { User } from '../user/entities/user.entity';
@@ -22,6 +23,8 @@ import { ProfessionalVerificationStatusController } from './professional-verific
 import { ProfessionalVerificationStatusService } from './professional-verification-status.service';
 import { ProfessionalController } from './professional.controller';
 import { ProfessionalService } from './professional.service';
+import { PublicProfessionalController } from './public-professional.controller';
+import { PublicProfessionalService } from './public-professional.service';
 
 @Module({
   imports: [
@@ -40,17 +43,20 @@ import { ProfessionalService } from './professional.service';
     ]),
     SpecialityModule,
     StorageModule,
+    PublicDiscoveryModule,
   ],
   controllers: [
     ProfessionalController,
     ProfessionalVerificationDocumentsController,
     ProfessionalVerificationStatusController,
+    PublicProfessionalController,
   ],
   providers: [
     ProfessionalService,
     ProfessionalVerificationDocumentFileValidator,
     ProfessionalVerificationDocumentsService,
     ProfessionalVerificationStatusService,
+    PublicProfessionalService,
   ],
   exports: [ProfessionalService],
 })
