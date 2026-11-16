@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
   Param,
@@ -21,11 +22,11 @@ import {
   ALLOWED_LAB_VERIFICATION_DOCUMENT_MIME_TYPES,
   MAX_LAB_VERIFICATION_DOCUMENT_SIZE,
 } from '../../constants/file-upload.constants';
+import { AuthCapability } from '../auth/context/auth-capability';
+import { RequireCapabilities } from '../auth/decorators/capabilities.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
-import { Roles } from '../auth/decorators/roles.decorator';
+import { CapabilitiesGuard } from '../auth/guards/capabilities.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { UserRole } from '../user/enums/user-role.enum';
 
 import {
   DeleteMyLaboratoryVerificationDocumentDocs,
@@ -46,7 +47,6 @@ import { LaboratoryVerificationDocumentsService } from './laboratory-verificatio
 interface ICurrentUser {
   id: string;
   email: string;
-  roles: UserRole[];
 }
 
 const laboratoryVerificationDocumentUploadOptions = {
@@ -70,7 +70,7 @@ const laboratoryVerificationDocumentUploadOptions = {
 
 @ApiTags('Laboratory Verification Documents')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard, RolesGuard)
+@UseGuards(JwtAuthGuard, CapabilitiesGuard)
 @Controller('laboratories')
 export class LaboratoryVerificationDocumentsController {
   constructor(
@@ -78,7 +78,7 @@ export class LaboratoryVerificationDocumentsController {
   ) {}
 
   @Post('me/verification-documents/:documentType')
-  @Roles(UserRole.LAB_ADMIN)
+  @RequireCapabilities(AuthCapability.ORGANIZATION_ONBOARDING)
   @UseInterceptors(
     FileInterceptor('file', laboratoryVerificationDocumentUploadOptions),
   )
@@ -86,6 +86,7 @@ export class LaboratoryVerificationDocumentsController {
   @UploadLaboratoryVerificationDocumentDocs()
   uploadMyDocument(
     @CurrentUser() user: ICurrentUser,
+    @Headers('x-organization-id') laboratoryId: string,
     @Param(
       'documentType',
       new ParseEnumPipe(LaboratoryVerificationDocumentType),
@@ -95,25 +96,31 @@ export class LaboratoryVerificationDocumentsController {
   ): Promise<LaboratoryVerificationDocumentResponseDto> {
     return this.verificationDocumentsService.uploadMyDocument(
       user.id,
+      laboratoryId,
       documentType,
       file,
     );
   }
 
   @Get('me/verification-documents')
-  @Roles(UserRole.LAB_ADMIN)
+  @RequireCapabilities(AuthCapability.ORGANIZATION_ONBOARDING)
   @ListMyLaboratoryVerificationDocumentsDocs()
   listMyDocuments(
     @CurrentUser() user: ICurrentUser,
+    @Headers('x-organization-id') laboratoryId: string,
   ): Promise<LaboratoryVerificationDocumentsStatusDto> {
-    return this.verificationDocumentsService.listMyDocuments(user.id);
+    return this.verificationDocumentsService.listMyDocuments(
+      user.id,
+      laboratoryId,
+    );
   }
 
   @Get('me/verification-documents/:documentType/download')
-  @Roles(UserRole.LAB_ADMIN)
+  @RequireCapabilities(AuthCapability.ORGANIZATION_ONBOARDING)
   @DownloadMyLaboratoryVerificationDocumentDocs()
   downloadMyDocument(
     @CurrentUser() user: ICurrentUser,
+    @Headers('x-organization-id') laboratoryId: string,
     @Param(
       'documentType',
       new ParseEnumPipe(LaboratoryVerificationDocumentType),
@@ -122,15 +129,17 @@ export class LaboratoryVerificationDocumentsController {
   ): Promise<LaboratoryVerificationDocumentDownloadDto> {
     return this.verificationDocumentsService.createMyDocumentDownloadUrl(
       user.id,
+      laboratoryId,
       documentType,
     );
   }
 
   @Delete('me/verification-documents/:documentType')
-  @Roles(UserRole.LAB_ADMIN)
+  @RequireCapabilities(AuthCapability.ORGANIZATION_ONBOARDING)
   @DeleteMyLaboratoryVerificationDocumentDocs()
   deleteMyDocument(
     @CurrentUser() user: ICurrentUser,
+    @Headers('x-organization-id') laboratoryId: string,
     @Param(
       'documentType',
       new ParseEnumPipe(LaboratoryVerificationDocumentType),
@@ -139,12 +148,13 @@ export class LaboratoryVerificationDocumentsController {
   ): Promise<{ message: string }> {
     return this.verificationDocumentsService.deleteMyDocument(
       user.id,
+      laboratoryId,
       documentType,
     );
   }
 
   @Get(':laboratoryId/verification-documents')
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_ORGANIZATION_REVIEW)
   @ListLaboratoryVerificationDocumentsForAdminDocs()
   listLaboratoryDocuments(
     @Param('laboratoryId', ParseUUIDPipe) laboratoryId: string,
@@ -155,7 +165,7 @@ export class LaboratoryVerificationDocumentsController {
   }
 
   @Get(':laboratoryId/verification-documents/:documentType/download')
-  @Roles(UserRole.ADMIN)
+  @RequireCapabilities(AuthCapability.PLATFORM_ORGANIZATION_REVIEW)
   @DownloadLaboratoryVerificationDocumentForAdminDocs()
   downloadLaboratoryDocument(
     @Param('laboratoryId', ParseUUIDPipe) laboratoryId: string,

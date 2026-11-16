@@ -20,7 +20,6 @@ import { DataSource, QueryRunner } from 'typeorm';
 import { GlobalExceptionFilter } from '../../common/exceptions/filters/global-exception.filter';
 import { TransformInterceptor } from '../../common/interceptors/transform.interceptor';
 import { AccountAccessPolicyService } from '../../modules/auth/account-access-policy.service';
-import { AuthRoutingService } from '../../modules/auth/auth-routing.service';
 import { AuthController } from '../../modules/auth/auth.controller';
 import { AuthService } from '../../modules/auth/auth.service';
 import { BrowserSessionCookieService } from '../../modules/auth/browser/browser-session-cookie.service';
@@ -35,6 +34,7 @@ import { AuthChallengePurpose } from '../../modules/auth/challenges/auth-challen
 import { AuthChallengeService } from '../../modules/auth/challenges/auth-challenge.service';
 import { AuthRateLimitService } from '../../modules/auth/challenges/auth-rate-limit.service';
 import { SecureAuthChallengeFlowsService } from '../../modules/auth/challenges/secure-auth-challenge-flows.service';
+import { AuthContextService } from '../../modules/auth/context/auth-context.service';
 import { AuthSession } from '../../modules/auth/entities/auth.entity';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { OAuthService } from '../../modules/auth/oauth/oauth.service';
@@ -58,7 +58,8 @@ import { AuthChallengeContinuation1793700000000 } from '../migrations/1793700000
 
 // This suite deliberately uses the production controller, AuthService, abuse
 // guard, limit, challenge, delivery and audit services against real PostgreSQL.
-// Outgoing SMTP and routing are replaced; JWT issuance uses the real adapter.
+// Outgoing SMTP and account-context presentation are replaced; JWT issuance
+// uses the real adapter.
 const integration = env.PG_INTEGRATION_URL ? describe : describe.skip;
 const pepper = 'live-http-integration-pepper-not-for-production';
 const encryptionKey = randomBytes(32).toString('base64');
@@ -246,6 +247,19 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         PasswordCredentialsService,
         AccountProvisioningService,
         RegistrationService,
+        {
+          provide: AuthContextService,
+          useValue: {
+            resolve: jest.fn((userId: string, sessionId: string) => ({
+              account: { id: userId },
+              personas: [],
+              professional: null,
+              memberships: [],
+              capabilities: [],
+              session: { id: sessionId },
+            })),
+          },
+        },
         { provide: OAuthService, useValue: { complete: jest.fn() } },
         { provide: DataSource, useValue: source },
         { provide: ConfigService, useValue: config },
@@ -262,10 +276,6 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
           useValue: new JwtService(),
         },
         { provide: EmailService, useValue: { sendMail: mail } },
-        {
-          provide: AuthRoutingService,
-          useValue: { resolve: jest.fn().mockResolvedValue({}) },
-        },
         JwtStrategy,
         JwtAuthGuard,
         { provide: APP_GUARD, useClass: JwtAuthGuard },

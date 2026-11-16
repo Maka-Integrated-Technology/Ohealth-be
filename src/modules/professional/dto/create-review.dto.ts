@@ -23,12 +23,11 @@ export class CreateReviewDto {
   comment?: string;
 
   @ApiProperty({
-    required: false,
     example: '123e4567-e89b-12d3-a456-426614174000',
     description:
-      'Booking ID this review is tied to. Prevents duplicate reviews.',
+      'Completed booking that proves the patient-professional care relationship.',
   })
   @IsUUID()
-  @IsOptional()
-  booking_id?: string;
+  @IsNotEmpty()
+  booking_id: string;
 }

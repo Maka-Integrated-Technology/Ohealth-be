@@ -9,12 +9,13 @@ import { OutboxEvent } from '../../platform-events/entities/outbox-event.entity'
 import { User } from '../../user/entities/user.entity';
 import { AccountStatus } from '../../user/enums/account-status.enum';
 import { AccountAccessPolicyService } from '../account-access-policy.service';
-import { AuthRoutingService } from '../auth-routing.service';
 import { AuthChallengeDeliveryService } from '../challenges/auth-challenge-delivery.service';
 import { AuthChallengePurpose } from '../challenges/auth-challenge.entity';
+import { AuthContextService } from '../context/auth-context.service';
 import { AuthSession } from '../entities/auth.entity';
 import { SignupIntent } from '../enums/signup-intent.enum';
 import { PasswordCredentialsService } from '../password-policy/password-credentials.service';
+import { presentLegacyAuthResponse } from '../presentation/legacy-auth-response.presenter';
 import { AccountProvisioningService } from '../registration/account-provisioning.service';
 import { AuthSecurityAuditService } from '../security-audit/auth-security-audit.service';
 import {
@@ -43,7 +44,7 @@ export class OAuthService {
     private readonly transactions: OAuthTransactionService,
     private readonly verifier: GoogleTokenVerifierService,
     private readonly sessions: RefreshSessionService,
-    private readonly routing: AuthRoutingService,
+    private readonly authContext: AuthContextService,
     private readonly passwords: PasswordCredentialsService,
     private readonly provisioning: AccountProvisioningService,
     private readonly delivery: AuthChallengeDeliveryService,
@@ -177,7 +178,22 @@ export class OAuthService {
 
     const routed = result as typeof result & { user?: User };
     if (routed.user) {
-      return { ...result, ...(await this.routing.resolve(routed.user)) };
+      const sessionId = (result as { session_id?: string }).session_id;
+      if (sessionId) {
+        const response = { ...result } as typeof result & {
+          user?: unknown;
+        };
+        delete response.user;
+        const accountContext = await this.authContext.resolve(
+          routed.user.id,
+          sessionId,
+        );
+        return {
+          ...response,
+          account_context: accountContext,
+          ...presentLegacyAuthResponse(accountContext),
+        };
+      }
     }
     return result;
   }

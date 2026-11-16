@@ -1,8 +1,4 @@
-export enum AuthAccessLevel {
-  FULL = 'full',
-  LIMITED = 'limited',
-}
-
+/** @deprecated Presentation-only compatibility values; never use for authorization. */
 export enum AuthRoutingTarget {
   EMAIL_VERIFICATION = 'email_verification',
   ADMIN_DASHBOARD = 'admin_dashboard',
@@ -17,4 +13,10 @@ export enum AuthRoutingTarget {
   PHARMACY_DASHBOARD = 'pharmacy_dashboard',
   ACCOUNT_SETUP = 'account_setup',
   ACCOUNT_RESTRICTED = 'account_restricted',
+}
+
+/** @deprecated Presentation-only compatibility values; never use for authorization. */
+export enum AuthAccessLevel {
+  FULL = 'full',
+  LIMITED = 'limited',
 }

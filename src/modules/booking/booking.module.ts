@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { AuthModule } from '../auth/auth.module';
 import { ProfessionalAvailability } from '../professional/entities/professional-availability.entity';
 import { Professional } from '../professional/entities/professional.entity';
 
@@ -10,6 +11,7 @@ import { Booking } from './entities/booking.entity';
 
 @Module({
   imports: [
+    AuthModule,
     TypeOrmModule.forFeature([Booking, Professional, ProfessionalAvailability]),
   ],
   controllers: [BookingController],

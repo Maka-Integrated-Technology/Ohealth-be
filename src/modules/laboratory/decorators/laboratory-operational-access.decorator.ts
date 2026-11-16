@@ -1,17 +1,17 @@
 import { applyDecorators, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiForbiddenResponse } from '@nestjs/swagger';
 
-import { Roles } from '../../auth/decorators/roles.decorator';
+import { AuthCapability } from '../../auth/context/auth-capability';
+import { RequireCapabilities } from '../../auth/decorators/capabilities.decorator';
+import { CapabilitiesGuard } from '../../auth/guards/capabilities.guard';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../../auth/guards/roles.guard';
-import { UserRole } from '../../user/enums/user-role.enum';
 import { LaboratoryApprovedGuard } from '../guards/laboratory-approved.guard';
 
 export const LaboratoryOperationalAccess = () =>
   applyDecorators(
     ApiBearerAuth(),
-    Roles(UserRole.LAB_ADMIN),
-    UseGuards(JwtAuthGuard, RolesGuard, LaboratoryApprovedGuard),
+    RequireCapabilities(AuthCapability.ORGANIZATION_OPERATIONAL),
+    UseGuards(JwtAuthGuard, CapabilitiesGuard, LaboratoryApprovedGuard),
     ApiForbiddenResponse({
       description:
         'Laboratory administrator access requires an approved laboratory',

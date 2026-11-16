@@ -10,20 +10,18 @@ import { Logger } from 'winston';
 import { IRequestWithUser } from '../../common/types';
 import * as sysMsg from '../../constants/system.messages';
 import { EmailService } from '../email/email.service';
-import { ProfessionalVerificationStatus } from '../professional/entities/professional.entity';
 import { User } from '../user/entities/user.entity';
 import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserRole } from '../user/enums/user-role.enum';
 import { UserService } from '../user/user.service';
 
 import { AccountAccessPolicyService } from './account-access-policy.service';
-import { AuthRoutingService } from './auth-routing.service';
 import { AuthService } from './auth.service';
 import { AuthChallengeDeliveryService } from './challenges/auth-challenge-delivery.service';
 import { SecureAuthChallengeFlowsService } from './challenges/secure-auth-challenge-flows.service';
+import { AuthContextService } from './context/auth-context.service';
 import { VerifySignupDto } from './dto/auth.dto';
 import { AuthSession } from './entities/auth.entity';
-import { AuthAccessLevel, AuthRoutingTarget } from './enums/auth-routing.enum';
 import { SignupIntent } from './enums/signup-intent.enum';
 import { PasswordCredentialsService } from './password-policy/password-credentials.service';
 import { RegistrationService } from './registration/registration.service';
@@ -111,14 +109,15 @@ describe('AuthService', () => {
     list: jest.fn(),
   };
 
-  const defaultRouting = {
-    routing_target: AuthRoutingTarget.PATIENT_HOME,
-    access_level: AuthAccessLevel.FULL,
-    verification_status: null,
-  };
-
-  const mockAuthRoutingService = {
-    resolve: jest.fn().mockResolvedValue(defaultRouting),
+  const mockAuthContextService = {
+    resolve: jest.fn().mockResolvedValue({
+      account: { id: 'user-id-1' },
+      personas: [],
+      professional: null,
+      memberships: [],
+      capabilities: [],
+      session: { id: 'session-id-1' },
+    }),
   };
 
   const mockLogger = {
@@ -172,8 +171,8 @@ describe('AuthService', () => {
           useValue: mockRegistration,
         },
         {
-          provide: AuthRoutingService,
-          useValue: mockAuthRoutingService,
+          provide: AuthContextService,
+          useValue: mockAuthContextService,
         },
         {
           provide: WINSTON_MODULE_PROVIDER,
@@ -373,7 +372,6 @@ describe('AuthService', () => {
       });
       expect(mockChallengeFlows.requestLogin).toHaveBeenCalledWith(user);
       expect(mockSessions.issue).not.toHaveBeenCalled();
-      expect(mockAuthRoutingService.resolve).not.toHaveBeenCalled();
     });
 
     it('rejects password login when password authentication is disabled', async () => {
@@ -424,9 +422,12 @@ describe('AuthService', () => {
         message: sysMsg.LOGIN_SUCCESS,
         access_token: 'access-token',
         refresh_token: 'refresh-token',
-        user: { id: user.id },
+        account_context: expect.any(Object),
       });
-      expect(mockAuthRoutingService.resolve).toHaveBeenCalledWith(user);
+      expect(mockAuthContextService.resolve).toHaveBeenCalledWith(
+        user.id,
+        '550e8400-e29b-41d4-a716-446655440000',
+      );
     });
   });
 
@@ -483,13 +484,15 @@ describe('AuthService', () => {
       } as User);
 
       expect(mockSessions.issue).toHaveBeenCalledWith('user-id-1', undefined);
-      expect(result).toEqual({
-        ...defaultRouting,
-        access_token: 'access-token',
-        refresh_token: 'refresh-token',
-        session_id: '550e8400-e29b-41d4-a716-446655440000',
-        session_expires_at: expiresAt,
-      });
+      expect(result).toEqual(
+        expect.objectContaining({
+          account_context: expect.any(Object),
+          access_token: 'access-token',
+          refresh_token: 'refresh-token',
+          session_id: '550e8400-e29b-41d4-a716-446655440000',
+          session_expires_at: expiresAt,
+        }),
+      );
     });
   });
 
@@ -537,7 +540,7 @@ describe('AuthService', () => {
       ).rejects.toThrow(sysMsg.TOKEN_INVALID);
     });
 
-    it('should issue tokens and routing from the current database user', async () => {
+    it('should issue tokens and canonical context from the current database user', async () => {
       const expiresAt = new Date('2026-07-24T12:00:00.000Z');
       const user = {
         id: 'user-id-1',
@@ -558,21 +561,15 @@ describe('AuthService', () => {
         session_expires_at: expiresAt,
       });
       mockUserService.findById.mockResolvedValue(user);
-      mockAuthRoutingService.resolve.mockResolvedValueOnce({
-        routing_target: AuthRoutingTarget.PROFESSIONAL_VERIFICATION,
-        access_level: AuthAccessLevel.LIMITED,
-        verification_status: ProfessionalVerificationStatus.PENDING,
-      });
+      const context = { account: { id: user.id }, capabilities: [] };
+      mockAuthContextService.resolve.mockResolvedValueOnce(context);
 
       const result = await service.refreshToken({
         refresh_token: 'refresh-token',
       });
 
       expect(mockSessions.rotate).toHaveBeenCalledWith('refresh-token');
-      expect(result.user.role).toEqual(user.role);
-      expect(result.routing_target).toBe(
-        AuthRoutingTarget.PROFESSIONAL_VERIFICATION,
-      );
+      expect(result.account_context).toEqual(context);
     });
   });
 
@@ -628,14 +625,17 @@ describe('AuthService', () => {
           userId: 'user-id-1',
           email: 'funke@example.com',
           roles: [UserRole.PATIENT],
+          sessionId: 'session-id-1',
         },
       } as IRequestWithUser;
 
       const result = await service.getProfile(req);
 
-      expect(result.id).toBe('user-id-1');
-      expect(result.email).toBe('funke@example.com');
-      expect(result.role).toEqual([UserRole.PATIENT]);
+      expect(result.account_context).toEqual(
+        await mockAuthContextService.resolve.mock.results[
+          mockAuthContextService.resolve.mock.results.length - 1
+        ].value,
+      );
     });
   });
 
@@ -747,7 +747,7 @@ describe('AuthService', () => {
         message: sysMsg.ACCOUNT_VERIFIED,
         access_token: 'access-token',
         refresh_token: 'refresh-token',
-        user: expect.objectContaining({ email: 'tunde@example.com' }),
+        account_context: expect.any(Object),
       });
       expect(mockSessions.issue).not.toHaveBeenCalled();
       expect(mockChallengeFlows.verifyContact).toHaveBeenCalledWith(

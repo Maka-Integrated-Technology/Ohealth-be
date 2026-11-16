@@ -422,6 +422,9 @@ export type LaboratoryPostApprovalController_acceptStaffInvitationError =
   | operations['LaboratoryPostApprovalController_acceptStaffInvitation']['responses'][500]['content']['application/json'];
 
 export type LaboratoryPostApprovalController_createTestRequest = Readonly<{
+  readonly headerParameters: NonNullable<
+    operations['LaboratoryPostApprovalController_createTest']['parameters']['header']
+  >;
   readonly body: NonNullable<
     operations['LaboratoryPostApprovalController_createTest']['requestBody']
   >['content']['application/json'];
@@ -437,6 +440,9 @@ export type LaboratoryPostApprovalController_createTestError =
   | operations['LaboratoryPostApprovalController_createTest']['responses'][500]['content']['application/json'];
 
 export type LaboratoryPostApprovalController_inviteStaffRequest = Readonly<{
+  readonly headerParameters: NonNullable<
+    operations['LaboratoryPostApprovalController_inviteStaff']['parameters']['header']
+  >;
   readonly body: NonNullable<
     operations['LaboratoryPostApprovalController_inviteStaff']['requestBody']
   >['content']['application/json'];
@@ -453,6 +459,9 @@ export type LaboratoryPostApprovalController_inviteStaffError =
 
 export type LaboratoryPostApprovalController_listOperatingHoursRequest =
   Readonly<{
+    readonly headerParameters: NonNullable<
+      operations['LaboratoryPostApprovalController_listOperatingHours']['parameters']['header']
+    >;
     readonly headers?: ApiHeaders;
   }>;
 export type LaboratoryPostApprovalController_listOperatingHoursResponse =
@@ -463,6 +472,9 @@ export type LaboratoryPostApprovalController_listOperatingHoursError =
   | operations['LaboratoryPostApprovalController_listOperatingHours']['responses'][500]['content']['application/json'];
 
 export type LaboratoryPostApprovalController_listStaffRequest = Readonly<{
+  readonly headerParameters: NonNullable<
+    operations['LaboratoryPostApprovalController_listStaff']['parameters']['header']
+  >;
   readonly headers?: ApiHeaders;
 }>;
 export type LaboratoryPostApprovalController_listStaffResponse =
@@ -473,6 +485,9 @@ export type LaboratoryPostApprovalController_listStaffError =
   | operations['LaboratoryPostApprovalController_listStaff']['responses'][500]['content']['application/json'];
 
 export type LaboratoryPostApprovalController_listTestsRequest = Readonly<{
+  readonly headerParameters: NonNullable<
+    operations['LaboratoryPostApprovalController_listTests']['parameters']['header']
+  >;
   readonly headers?: ApiHeaders;
 }>;
 export type LaboratoryPostApprovalController_listTestsResponse =
@@ -484,6 +499,9 @@ export type LaboratoryPostApprovalController_listTestsError =
 
 export type LaboratoryPostApprovalController_setOperatingHoursRequest =
   Readonly<{
+    readonly headerParameters: NonNullable<
+      operations['LaboratoryPostApprovalController_setOperatingHours']['parameters']['header']
+    >;
     readonly body: NonNullable<
       operations['LaboratoryPostApprovalController_setOperatingHours']['requestBody']
     >['content']['application/json'];
@@ -500,6 +518,9 @@ export type LaboratoryPostApprovalController_setOperatingHoursError =
 export type LaboratoryPostApprovalController_updateTestRequest = Readonly<{
   readonly path: NonNullable<
     operations['LaboratoryPostApprovalController_updateTest']['parameters']['path']
+  >;
+  readonly headerParameters: NonNullable<
+    operations['LaboratoryPostApprovalController_updateTest']['parameters']['header']
   >;
   readonly body: NonNullable<
     operations['LaboratoryPostApprovalController_updateTest']['requestBody']
@@ -520,6 +541,9 @@ export type LaboratoryVerificationDocumentsController_deleteMyDocumentRequest =
   Readonly<{
     readonly path: NonNullable<
       operations['LaboratoryVerificationDocumentsController_deleteMyDocument']['parameters']['path']
+    >;
+    readonly headerParameters: NonNullable<
+      operations['LaboratoryVerificationDocumentsController_deleteMyDocument']['parameters']['header']
     >;
     readonly headers?: ApiHeaders;
   }>;
@@ -549,6 +573,9 @@ export type LaboratoryVerificationDocumentsController_downloadMyDocumentRequest 
     readonly path: NonNullable<
       operations['LaboratoryVerificationDocumentsController_downloadMyDocument']['parameters']['path']
     >;
+    readonly headerParameters: NonNullable<
+      operations['LaboratoryVerificationDocumentsController_downloadMyDocument']['parameters']['header']
+    >;
     readonly headers?: ApiHeaders;
   }>;
 export type LaboratoryVerificationDocumentsController_downloadMyDocumentResponse =
@@ -573,6 +600,9 @@ export type LaboratoryVerificationDocumentsController_listLaboratoryDocumentsErr
 
 export type LaboratoryVerificationDocumentsController_listMyDocumentsRequest =
   Readonly<{
+    readonly headerParameters: NonNullable<
+      operations['LaboratoryVerificationDocumentsController_listMyDocuments']['parameters']['header']
+    >;
     readonly headers?: ApiHeaders;
   }>;
 export type LaboratoryVerificationDocumentsController_listMyDocumentsResponse =
@@ -585,6 +615,9 @@ export type LaboratoryVerificationDocumentsController_uploadMyDocumentRequest =
   Readonly<{
     readonly path: NonNullable<
       operations['LaboratoryVerificationDocumentsController_uploadMyDocument']['parameters']['path']
+    >;
+    readonly headerParameters: NonNullable<
+      operations['LaboratoryVerificationDocumentsController_uploadMyDocument']['parameters']['header']
     >;
     readonly body: NonNullable<
       operations['LaboratoryVerificationDocumentsController_uploadMyDocument']['requestBody']
@@ -631,6 +664,9 @@ export type LaboratoryVerificationStatusController_getLaboratoryStatusError =
 
 export type LaboratoryVerificationStatusController_getMyStatusRequest =
   Readonly<{
+    readonly headerParameters: NonNullable<
+      operations['LaboratoryVerificationStatusController_getMyStatus']['parameters']['header']
+    >;
     readonly headers?: ApiHeaders;
   }>;
 export type LaboratoryVerificationStatusController_getMyStatusResponse =
@@ -690,6 +726,9 @@ export type LaboratoryVerificationStatusController_rejectError =
 
 export type LaboratoryVerificationStatusController_submitMyVerificationRequest =
   Readonly<{
+    readonly headerParameters: NonNullable<
+      operations['LaboratoryVerificationStatusController_submitMyVerification']['parameters']['header']
+    >;
     readonly headers?: ApiHeaders;
   }>;
 export type LaboratoryVerificationStatusController_submitMyVerificationResponse =
@@ -773,6 +812,9 @@ export type OrganizationController_deleteMineRequest = Readonly<{
   readonly path: NonNullable<
     operations['OrganizationController_deleteMine']['parameters']['path']
   >;
+  readonly headerParameters: NonNullable<
+    operations['OrganizationController_deleteMine']['parameters']['header']
+  >;
   readonly headers?: ApiHeaders;
 }>;
 export type OrganizationController_deleteMineResponse =
@@ -799,6 +841,9 @@ export type OrganizationController_downloadMineRequest = Readonly<{
   readonly path: NonNullable<
     operations['OrganizationController_downloadMine']['parameters']['path']
   >;
+  readonly headerParameters: NonNullable<
+    operations['OrganizationController_downloadMine']['parameters']['header']
+  >;
   readonly headers?: ApiHeaders;
 }>;
 export type OrganizationController_downloadMineResponse =
@@ -809,6 +854,9 @@ export type OrganizationController_downloadMineError =
   | operations['OrganizationController_downloadMine']['responses'][500]['content']['application/json'];
 
 export type OrganizationController_getMyStatusRequest = Readonly<{
+  readonly headerParameters: NonNullable<
+    operations['OrganizationController_getMyStatus']['parameters']['header']
+  >;
   readonly headers?: ApiHeaders;
 }>;
 export type OrganizationController_getMyStatusResponse =
@@ -867,6 +915,9 @@ export type OrganizationController_listHistoryError =
   | operations['OrganizationController_listHistory']['responses'][500]['content']['application/json'];
 
 export type OrganizationController_listMineRequest = Readonly<{
+  readonly headerParameters: NonNullable<
+    operations['OrganizationController_listMine']['parameters']['header']
+  >;
   readonly headers?: ApiHeaders;
 }>;
 export type OrganizationController_listMineResponse =
@@ -920,6 +971,9 @@ export type OrganizationController_setupError =
   | operations['OrganizationController_setup']['responses'][500]['content']['application/json'];
 
 export type OrganizationController_submitMineRequest = Readonly<{
+  readonly headerParameters: NonNullable<
+    operations['OrganizationController_submitMine']['parameters']['header']
+  >;
   readonly headers?: ApiHeaders;
 }>;
 export type OrganizationController_submitMineResponse =
@@ -932,6 +986,9 @@ export type OrganizationController_submitMineError =
 export type OrganizationController_uploadMineRequest = Readonly<{
   readonly path: NonNullable<
     operations['OrganizationController_uploadMine']['parameters']['path']
+  >;
+  readonly headerParameters: NonNullable<
+    operations['OrganizationController_uploadMine']['parameters']['header']
   >;
   readonly body: NonNullable<
     operations['OrganizationController_uploadMine']['requestBody']
@@ -1563,13 +1620,13 @@ export interface ApiClient {
     request: LaboratoryPostApprovalController_inviteStaffRequest,
   ) => Promise<LaboratoryPostApprovalController_inviteStaffResponse>;
   readonly LaboratoryPostApprovalController_listOperatingHours: (
-    request?: LaboratoryPostApprovalController_listOperatingHoursRequest,
+    request: LaboratoryPostApprovalController_listOperatingHoursRequest,
   ) => Promise<LaboratoryPostApprovalController_listOperatingHoursResponse>;
   readonly LaboratoryPostApprovalController_listStaff: (
-    request?: LaboratoryPostApprovalController_listStaffRequest,
+    request: LaboratoryPostApprovalController_listStaffRequest,
   ) => Promise<LaboratoryPostApprovalController_listStaffResponse>;
   readonly LaboratoryPostApprovalController_listTests: (
-    request?: LaboratoryPostApprovalController_listTestsRequest,
+    request: LaboratoryPostApprovalController_listTestsRequest,
   ) => Promise<LaboratoryPostApprovalController_listTestsResponse>;
   readonly LaboratoryPostApprovalController_setOperatingHours: (
     request: LaboratoryPostApprovalController_setOperatingHoursRequest,
@@ -1590,7 +1647,7 @@ export interface ApiClient {
     request: LaboratoryVerificationDocumentsController_listLaboratoryDocumentsRequest,
   ) => Promise<LaboratoryVerificationDocumentsController_listLaboratoryDocumentsResponse>;
   readonly LaboratoryVerificationDocumentsController_listMyDocuments: (
-    request?: LaboratoryVerificationDocumentsController_listMyDocumentsRequest,
+    request: LaboratoryVerificationDocumentsController_listMyDocumentsRequest,
   ) => Promise<LaboratoryVerificationDocumentsController_listMyDocumentsResponse>;
   readonly LaboratoryVerificationDocumentsController_uploadMyDocument: (
     request: LaboratoryVerificationDocumentsController_uploadMyDocumentRequest,
@@ -1602,7 +1659,7 @@ export interface ApiClient {
     request: LaboratoryVerificationStatusController_getLaboratoryStatusRequest,
   ) => Promise<LaboratoryVerificationStatusController_getLaboratoryStatusResponse>;
   readonly LaboratoryVerificationStatusController_getMyStatus: (
-    request?: LaboratoryVerificationStatusController_getMyStatusRequest,
+    request: LaboratoryVerificationStatusController_getMyStatusRequest,
   ) => Promise<LaboratoryVerificationStatusController_getMyStatusResponse>;
   readonly LaboratoryVerificationStatusController_listHistory: (
     request: LaboratoryVerificationStatusController_listHistoryRequest,
@@ -1614,7 +1671,7 @@ export interface ApiClient {
     request: LaboratoryVerificationStatusController_rejectRequest,
   ) => Promise<LaboratoryVerificationStatusController_rejectResponse>;
   readonly LaboratoryVerificationStatusController_submitMyVerification: (
-    request?: LaboratoryVerificationStatusController_submitMyVerificationRequest,
+    request: LaboratoryVerificationStatusController_submitMyVerificationRequest,
   ) => Promise<LaboratoryVerificationStatusController_submitMyVerificationResponse>;
   readonly OAuthController_complete: (
     request: OAuthController_completeRequest,
@@ -1641,7 +1698,7 @@ export interface ApiClient {
     request: OrganizationController_downloadMineRequest,
   ) => Promise<OrganizationController_downloadMineResponse>;
   readonly OrganizationController_getMyStatus: (
-    request?: OrganizationController_getMyStatusRequest,
+    request: OrganizationController_getMyStatusRequest,
   ) => Promise<OrganizationController_getMyStatusResponse>;
   readonly OrganizationController_getStatus: (
     request: OrganizationController_getStatusRequest,
@@ -1656,7 +1713,7 @@ export interface ApiClient {
     request: OrganizationController_listHistoryRequest,
   ) => Promise<OrganizationController_listHistoryResponse>;
   readonly OrganizationController_listMine: (
-    request?: OrganizationController_listMineRequest,
+    request: OrganizationController_listMineRequest,
   ) => Promise<OrganizationController_listMineResponse>;
   readonly OrganizationController_markUnderReview: (
     request: OrganizationController_markUnderReviewRequest,
@@ -1668,7 +1725,7 @@ export interface ApiClient {
     request: OrganizationController_setupRequest,
   ) => Promise<OrganizationController_setupResponse>;
   readonly OrganizationController_submitMine: (
-    request?: OrganizationController_submitMineRequest,
+    request: OrganizationController_submitMineRequest,
   ) => Promise<OrganizationController_submitMineResponse>;
   readonly OrganizationController_uploadMine: (
     request: OrganizationController_uploadMineRequest,
@@ -2219,7 +2276,7 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
         },
         request,
       ),
-    LaboratoryPostApprovalController_listOperatingHours: (request = {}) =>
+    LaboratoryPostApprovalController_listOperatingHours: (request) =>
       core.request<
         LaboratoryPostApprovalController_listOperatingHoursResponse,
         LaboratoryPostApprovalController_listOperatingHoursError
@@ -2231,7 +2288,7 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
         },
         request,
       ),
-    LaboratoryPostApprovalController_listStaff: (request = {}) =>
+    LaboratoryPostApprovalController_listStaff: (request) =>
       core.request<
         LaboratoryPostApprovalController_listStaffResponse,
         LaboratoryPostApprovalController_listStaffError
@@ -2243,7 +2300,7 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
         },
         request,
       ),
-    LaboratoryPostApprovalController_listTests: (request = {}) =>
+    LaboratoryPostApprovalController_listTests: (request) =>
       core.request<
         LaboratoryPostApprovalController_listTestsResponse,
         LaboratoryPostApprovalController_listTestsError
@@ -2337,7 +2394,7 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
         },
         request,
       ),
-    LaboratoryVerificationDocumentsController_listMyDocuments: (request = {}) =>
+    LaboratoryVerificationDocumentsController_listMyDocuments: (request) =>
       core.request<
         LaboratoryVerificationDocumentsController_listMyDocumentsResponse,
         LaboratoryVerificationDocumentsController_listMyDocumentsError
@@ -2389,7 +2446,7 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
         },
         request,
       ),
-    LaboratoryVerificationStatusController_getMyStatus: (request = {}) =>
+    LaboratoryVerificationStatusController_getMyStatus: (request) =>
       core.request<
         LaboratoryVerificationStatusController_getMyStatusResponse,
         LaboratoryVerificationStatusController_getMyStatusError
@@ -2438,9 +2495,7 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
         },
         request,
       ),
-    LaboratoryVerificationStatusController_submitMyVerification: (
-      request = {},
-    ) =>
+    LaboratoryVerificationStatusController_submitMyVerification: (request) =>
       core.request<
         LaboratoryVerificationStatusController_submitMyVerificationResponse,
         LaboratoryVerificationStatusController_submitMyVerificationError
@@ -2546,7 +2601,7 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
         },
         request,
       ),
-    OrganizationController_getMyStatus: (request = {}) =>
+    OrganizationController_getMyStatus: (request) =>
       core.request<
         OrganizationController_getMyStatusResponse,
         OrganizationController_getMyStatusError
@@ -2606,7 +2661,7 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
         },
         request,
       ),
-    OrganizationController_listMine: (request = {}) =>
+    OrganizationController_listMine: (request) =>
       core.request<
         OrganizationController_listMineResponse,
         OrganizationController_listMineError
@@ -2656,7 +2711,7 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
         },
         request,
       ),
-    OrganizationController_submitMine: (request = {}) =>
+    OrganizationController_submitMine: (request) =>
       core.request<
         OrganizationController_submitMineResponse,
         OrganizationController_submitMineError

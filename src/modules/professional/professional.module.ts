@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
+import { AuthModule } from '../auth/auth.module';
 import { Booking } from '../booking/entities/booking.entity';
+import { UserPersona } from '../identity/entities/user-persona.entity';
 import { PatientProfile } from '../patient/entities/patient-profile.entity';
 import { PublicDiscoveryModule } from '../public-discovery/public-discovery.module';
 import { SpecialityModule } from '../speciality/speciality.module';
@@ -26,6 +28,7 @@ import { PublicProfessionalService } from './public-professional.service';
 
 @Module({
   imports: [
+    AuthModule,
     TypeOrmModule.forFeature([
       Professional,
       ProfessionalAvailability,
@@ -33,6 +36,7 @@ import { PublicProfessionalService } from './public-professional.service';
       ProfessionalVerificationDocument,
       ProfessionalVerificationStatusHistory,
       User,
+      UserPersona,
       Booking,
       PatientProfile,
       ProfessionalPatientNote,

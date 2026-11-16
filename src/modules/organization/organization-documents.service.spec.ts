@@ -6,8 +6,8 @@ import { IMulterFile } from '../../common/types';
 import { VerificationDocumentFileValidator } from '../../common/validators/verification-document-file.validator';
 import { StorageService } from '../storage/storage.service';
 
-import { OrganizationAdmin } from './entities/organization-admin.entity';
 import { OrganizationDocument } from './entities/organization-document.entity';
+import { OrganizationMembership } from './entities/organization-membership.entity';
 import { Organization } from './entities/organization.entity';
 import { OrganizationDocumentType } from './enums/organization-document-type.enum';
 import { OrganizationType } from './enums/organization-type.enum';
@@ -19,6 +19,7 @@ describe('OrganizationDocumentsService', () => {
     id: 'organization-id',
     organization_type: OrganizationType.PHARMACY,
     verification_status: OrganizationVerificationStatus.PENDING,
+    is_active: true,
   } as Organization;
   const organizations = { findOne: jest.fn() };
   const administrators = { findOne: jest.fn() };
@@ -60,7 +61,7 @@ describe('OrganizationDocumentsService', () => {
   beforeEach(() => {
     service = new OrganizationDocumentsService(
       organizations as unknown as Repository<Organization>,
-      administrators as unknown as Repository<OrganizationAdmin>,
+      administrators as unknown as Repository<OrganizationMembership>,
       documents as unknown as Repository<OrganizationDocument>,
       dataSource as unknown as DataSource,
       storage as unknown as StorageService,
@@ -69,7 +70,7 @@ describe('OrganizationDocumentsService', () => {
     );
     jest.clearAllMocks();
     organization.verification_status = OrganizationVerificationStatus.PENDING;
-    administrators.findOne.mockResolvedValue({ organization });
+    administrators.findOne.mockResolvedValue({ organization, role: 'owner' });
     organizations.findOne.mockResolvedValue(organization);
     documents.find.mockResolvedValue([]);
     documents.findOne.mockResolvedValue(null);
@@ -91,6 +92,7 @@ describe('OrganizationDocumentsService', () => {
   it('uploads a private typed document and stores only its reference', async () => {
     const result = await service.uploadMine(
       'user-id',
+      'organization-id',
       OrganizationDocumentType.OPERATING_LICENSE,
       file,
     );
@@ -112,6 +114,14 @@ describe('OrganizationDocumentsService', () => {
       }),
     );
     expect(result.id).toBe('document-id');
+    expect(administrators.findOne).toHaveBeenCalledWith({
+      where: {
+        user_id: 'user-id',
+        organization_id: 'organization-id',
+        status: 'active',
+      },
+      relations: { organization: true },
+    });
   });
 
   it('cleans up the new S3 object when database persistence fails', async () => {
@@ -120,6 +130,7 @@ describe('OrganizationDocumentsService', () => {
     await expect(
       service.uploadMine(
         'user-id',
+        'organization-id',
         OrganizationDocumentType.OPERATING_LICENSE,
         file,
       ),
@@ -139,6 +150,7 @@ describe('OrganizationDocumentsService', () => {
 
     await service.uploadMine(
       'user-id',
+      'organization-id',
       OrganizationDocumentType.OPERATING_LICENSE,
       file,
     );
@@ -153,6 +165,7 @@ describe('OrganizationDocumentsService', () => {
     await expect(
       service.uploadMine(
         'user-id',
+        'organization-id',
         OrganizationDocumentType.ACCREDITATION_CERTIFICATE,
         file,
       ),
@@ -167,6 +180,7 @@ describe('OrganizationDocumentsService', () => {
     await expect(
       service.uploadMine(
         'user-id',
+        'organization-id',
         OrganizationDocumentType.OPERATING_LICENSE,
         file,
       ),
@@ -192,7 +206,7 @@ describe('OrganizationDocumentsService', () => {
       },
     ]);
 
-    const result = await service.listMine('user-id');
+    const result = await service.listMine('user-id', 'organization-id');
 
     expect(documents.find).toHaveBeenCalledWith({
       where: { organization_id: organization.id },
@@ -211,6 +225,7 @@ describe('OrganizationDocumentsService', () => {
 
     const result = await service.downloadMine(
       'user-id',
+      'organization-id',
       OrganizationDocumentType.OPERATING_LICENSE,
     );
 
@@ -236,6 +251,7 @@ describe('OrganizationDocumentsService', () => {
 
     await service.deleteMine(
       'user-id',
+      'organization-id',
       OrganizationDocumentType.OPERATING_LICENSE,
     );
 

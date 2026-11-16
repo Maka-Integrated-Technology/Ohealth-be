@@ -53,6 +53,7 @@ must follow.
 | Public speciality catalogue        | Implemented |
 | Public professional directory      | Implemented |
 | Existing role-array authentication | Legacy      |
+| Canonical account context and capability policies | Implemented |
 
 Update this table whenever an area moves between statuses.
 

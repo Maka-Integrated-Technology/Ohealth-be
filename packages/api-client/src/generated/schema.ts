@@ -252,7 +252,7 @@ export interface paths {
       readonly path?: never;
       readonly cookie?: never;
     };
-    /** Fetches authenticated user profile */
+    /** Fetches the canonical authenticated account context */
     readonly get: operations['AuthController_getProfile'];
     readonly put?: never;
     readonly post?: never;
@@ -1737,6 +1737,29 @@ export interface components {
       /** @example 200 */
       readonly status_code: number;
     };
+    readonly AuthAccountProfileResponseDto: {
+      readonly country: string | null;
+      readonly dob: string | null;
+      readonly gender: string | null;
+      readonly image: string | null;
+      readonly middle_name: string | null;
+      readonly phone: string | null;
+      /** Format: date-time */
+      readonly updated_at: string;
+    };
+    readonly AuthAccountResponseDto: {
+      /** Format: date-time */
+      readonly created_at: string;
+      readonly email: string;
+      readonly email_verified: boolean;
+      readonly first_name: string;
+      /** Format: uuid */
+      readonly id: string;
+      readonly last_name: string;
+      readonly profile: components['schemas']['AuthAccountProfileResponseDto'];
+      /** @enum {string} */
+      readonly status: AuthAccountResponseDtoStatus;
+    };
     readonly AuthChallengeContinuationDto: {
       /** Format: uuid */
       readonly challenge_id: string;
@@ -1786,43 +1809,87 @@ export interface components {
        */
       readonly timestamp: string;
     };
+    readonly AuthContextResponseDto: {
+      readonly account: components['schemas']['AuthAccountResponseDto'];
+      /** Format: uuid */
+      readonly active_organization_id: string | null;
+      readonly capabilities: readonly string[];
+      readonly memberships: readonly components['schemas']['AuthMembershipResponseDto'][];
+      readonly personas: readonly components['schemas']['AuthPersonaResponseDto'][];
+      readonly professional:
+        components['schemas']['AuthProfessionalResponseDto'] | null;
+      readonly session: components['schemas']['AuthSessionContextResponseDto'];
+    };
+    readonly AuthMembershipResponseDto: {
+      /** Format: uuid */
+      readonly organization_id: string;
+      readonly organization_is_active: boolean;
+      readonly organization_name: string;
+      /** @enum {string} */
+      readonly organization_type: PathsApiOrganizationsOnboardingReviewApplicationsGetParametersQueryOrganization_type;
+      /** @enum {string} */
+      readonly organization_verification_status: PathsApiOrganizationsOnboardingReviewApplicationsGetParametersQueryVerification_status;
+      readonly permission_overrides: readonly string[];
+      /** @enum {string} */
+      readonly role: AuthMembershipResponseDtoRole;
+      /** @enum {string} */
+      readonly status: AuthMembershipResponseDtoStatus;
+    };
     readonly AuthMeResponseDto: {
+      readonly account_context: components['schemas']['AuthContextResponseDto'];
+      /** @deprecated */
+      readonly country: string | null;
       /**
        * Format: date-time
-       * @example 2024-01-15T10:30:00Z
+       * @deprecated
        */
       readonly created_at: string;
-      /** @example 2000-01-15 */
-      readonly dob: string;
-      /** @example john.doe@example.com */
+      /** @deprecated */
+      readonly dob: string | null;
+      /** @deprecated */
       readonly email: string;
-      /** @example John */
+      /** @deprecated */
       readonly first_name: string;
-      /** @example Male */
-      readonly gender: string;
-      /** @example 550e8400-e29b-41d4-a716-446655440000 */
+      /** @deprecated */
+      readonly gender: string | null;
+      /** @deprecated */
       readonly id: string;
-      /** @example https://res.cloudinary.com/ohealth/image/upload/v123/avatar.png */
-      readonly image?: string | null;
-      /** @example true */
+      /** @deprecated */
+      readonly image: string | null;
+      /** @deprecated */
       readonly is_active: boolean;
-      /** @example Doe */
+      /** @deprecated */
       readonly last_name: string;
-      /** @example Michael */
-      readonly middle_name: string;
-      /** @example +1234567890 */
-      readonly phone: string;
-      /**
-       * @example [
-       *       "PATIENT"
-       *     ]
-       */
+      /** @deprecated */
+      readonly middle_name: string | null;
+      /** @deprecated */
+      readonly phone: string | null;
+      /** @deprecated */
       readonly role: readonly string[];
       /**
        * Format: date-time
-       * @example 2024-01-15T10:30:00Z
+       * @deprecated
        */
       readonly updated_at: string;
+    };
+    readonly AuthPersonaResponseDto: {
+      readonly is_active: boolean;
+      /** @enum {string} */
+      readonly type: AuthPersonaResponseDtoType;
+    };
+    readonly AuthProfessionalResponseDto: {
+      readonly is_active: boolean;
+      readonly profile_setup_completed: boolean;
+      /** @enum {string} */
+      readonly verification_status: AuthProfessionalResponseDtoVerification_status;
+    };
+    readonly AuthSessionContextResponseDto: {
+      /** Format: date-time */
+      readonly expires_at: string;
+      /** Format: uuid */
+      readonly id: string;
+      /** Format: date-time */
+      readonly last_used_at: string | null;
     };
     readonly AvailabilitySlotDto: {
       /** @example 2026-07-15 */
@@ -1859,50 +1926,52 @@ export interface components {
       readonly status: string;
     };
     readonly BrowserSessionResponseDto: {
-      /** @enum {string} */
+      /**
+       * @deprecated
+       * @enum {string}
+       */
       readonly access_level: BrowserSessionResponseDtoAccess_level;
       /** @description Short-lived access JWT for in-memory use only */
       readonly access_token: string;
+      readonly account_context: components['schemas']['AuthContextResponseDto'];
       /** @example Login success */
       readonly message: string;
-      /** @enum {string} */
+      /**
+       * @deprecated
+       * @enum {string}
+       */
       readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /** Format: date-time */
       readonly session_expires_at: string;
       /** Format: uuid */
       readonly session_id: string;
-      readonly user: components['schemas']['BrowserSessionUserDto'];
+      /** @deprecated */
+      readonly user: Record<string, never>;
+      /** @deprecated */
       readonly verification_status: string | null;
     };
     readonly BrowserSessionResponseDtoData: {
-      /** @enum {string} */
+      /**
+       * @deprecated
+       * @enum {string}
+       */
       readonly access_level: BrowserSessionResponseDtoAccess_level;
       /** @description Short-lived access JWT for in-memory use only */
       readonly access_token: string;
-      /** @enum {string} */
+      readonly account_context: components['schemas']['AuthContextResponseDto'];
+      /**
+       * @deprecated
+       * @enum {string}
+       */
       readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /** Format: date-time */
       readonly session_expires_at: string;
       /** Format: uuid */
       readonly session_id: string;
-      readonly user: components['schemas']['BrowserSessionUserDto'];
+      /** @deprecated */
+      readonly user: Record<string, never>;
+      /** @deprecated */
       readonly verification_status: string | null;
-    };
-    readonly BrowserSessionUserDto: {
-      /** @example john.doe@example.com */
-      readonly email: string;
-      /** @example John */
-      readonly first_name: string;
-      /** Format: uuid */
-      readonly id: string;
-      /** @example Doe */
-      readonly last_name: string;
-      /**
-       * @example [
-       *       "PATIENT"
-       *     ]
-       */
-      readonly role: readonly string[];
     };
     readonly BulkCreateAvailabilityDto: {
       readonly slots: readonly components['schemas']['AvailabilitySlotDto'][];
@@ -2031,7 +2100,7 @@ export interface components {
        * @default pending
        * @enum {string}
        */
-      readonly verification_status: CreateProfessionalDtoVerification_status;
+      readonly verification_status: AuthProfessionalResponseDtoVerification_status;
       /** @example 8 */
       readonly years_of_experience?: number;
     };
@@ -2041,10 +2110,10 @@ export interface components {
     };
     readonly CreateReviewDto: {
       /**
-       * @description Booking ID this review is tied to. Prevents duplicate reviews.
+       * @description Completed booking that proves the patient-professional care relationship.
        * @example 123e4567-e89b-12d3-a456-426614174000
        */
-      readonly booking_id?: string;
+      readonly booking_id: string;
       /** @example Very helpful and professional. */
       readonly comment?: string;
       /** @example 5 */
@@ -2135,14 +2204,13 @@ export interface components {
       readonly id: string;
       /** @example true */
       readonly is_primary: boolean;
+      /**
+       * @example owner
+       * @enum {string}
+       */
+      readonly membership_role: AuthMembershipResponseDtoRole;
       /** @example +2348098765432 */
       readonly phone: string;
-      /**
-       * @example [
-       *       "LAB_ADMIN"
-       *     ]
-       */
-      readonly role: readonly LaboratoryAdministratorSetupResponseDtoRole[];
       /** @example 550e8400-e29b-41d4-a716-446655440002 */
       readonly user_id: string;
     };
@@ -2386,7 +2454,7 @@ export interface components {
     };
     readonly LoginResponseDto: {
       /**
-       * @example full
+       * @deprecated
        * @enum {string}
        */
       readonly access_level: BrowserSessionResponseDtoAccess_level;
@@ -2395,6 +2463,8 @@ export interface components {
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
        */
       readonly access_token: string;
+      /** @description Server-resolved account, persona, membership, verification, and capability context */
+      readonly account_context: components['schemas']['AuthContextResponseDto'];
       /** @example Login success */
       readonly message: string | null;
       /**
@@ -2403,7 +2473,7 @@ export interface components {
        */
       readonly refresh_token: string;
       /**
-       * @example patient_home
+       * @deprecated
        * @enum {string}
        */
       readonly routing_target: BrowserSessionResponseDtoRouting_target;
@@ -2416,16 +2486,14 @@ export interface components {
       readonly session_id: string | null;
       /** @example 200 */
       readonly status_code: number | null;
-      readonly user: components['schemas']['UserDto'];
-      /**
-       * @description Current provider verification status, when applicable
-       * @example null
-       */
+      /** @deprecated */
+      readonly user: Record<string, never>;
+      /** @deprecated */
       readonly verification_status: string | null;
     };
     readonly LoginResponseDtoData: {
       /**
-       * @example full
+       * @deprecated
        * @enum {string}
        */
       readonly access_level: BrowserSessionResponseDtoAccess_level;
@@ -2434,13 +2502,15 @@ export interface components {
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
        */
       readonly access_token: string;
+      /** @description Server-resolved account, persona, membership, verification, and capability context */
+      readonly account_context: components['schemas']['AuthContextResponseDto'];
       /**
        * @description Opaque, rotating refresh credential
        * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
        */
       readonly refresh_token: string;
       /**
-       * @example patient_home
+       * @deprecated
        * @enum {string}
        */
       readonly routing_target: BrowserSessionResponseDtoRouting_target;
@@ -2451,11 +2521,9 @@ export interface components {
       readonly session_expires_at: string | null;
       /** @example 550e8400-e29b-41d4-a716-446655440000 */
       readonly session_id: string | null;
-      readonly user: components['schemas']['UserDto'];
-      /**
-       * @description Current provider verification status, when applicable
-       * @example null
-       */
+      /** @deprecated */
+      readonly user: Record<string, never>;
+      /** @deprecated */
       readonly verification_status: string | null;
     };
     readonly LogoutDto: {
@@ -2548,8 +2616,9 @@ export interface components {
       readonly email: string;
       readonly full_name: string;
       readonly id: string;
+      /** @enum {string} */
+      readonly membership_role: AuthMembershipResponseDtoRole;
       readonly phone: string;
-      readonly roles: readonly LaboratoryAdministratorSetupResponseDtoRole[];
       readonly user_id: string;
     };
     readonly OrganizationDetailsDto: {
@@ -2763,7 +2832,7 @@ export interface components {
       readonly updated_at: string;
       readonly user_id: string;
       /** @enum {string} */
-      readonly verification_status: CreateProfessionalDtoVerification_status;
+      readonly verification_status: AuthProfessionalResponseDtoVerification_status;
       readonly years_of_experience: number;
     };
     readonly ProfessionalMeResponseDto: {
@@ -2779,7 +2848,6 @@ export interface components {
       readonly is_verified: boolean;
       readonly last_name: string;
       readonly phone?: string;
-      readonly roles: readonly string[];
     };
     readonly ProfessionalPatientConsultationHistoryItemDto: {
       readonly amount: number;
@@ -3011,12 +3079,12 @@ export interface components {
        * @example verified
        * @enum {string}
        */
-      readonly new_status: CreateProfessionalDtoVerification_status;
+      readonly new_status: AuthProfessionalResponseDtoVerification_status;
       /**
        * @example pending
        * @enum {string|null}
        */
-      readonly previous_status: CreateProfessionalDtoVerification_status;
+      readonly previous_status: AuthProfessionalResponseDtoVerification_status;
       /** @example null */
       readonly reason: string | null;
     };
@@ -3029,7 +3097,7 @@ export interface components {
        * @example pending
        * @enum {string}
        */
-      readonly verification_status: CreateProfessionalDtoVerification_status;
+      readonly verification_status: AuthProfessionalResponseDtoVerification_status;
     };
     readonly PublicAvailabilityDayDto: {
       /**
@@ -3163,7 +3231,7 @@ export interface components {
     };
     readonly RefreshTokenResponseDto: {
       /**
-       * @example full
+       * @deprecated
        * @enum {string}
        */
       readonly access_level: BrowserSessionResponseDtoAccess_level;
@@ -3172,6 +3240,8 @@ export interface components {
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
        */
       readonly access_token: string;
+      /** @description Server-resolved account, persona, membership, verification, and capability context */
+      readonly account_context: components['schemas']['AuthContextResponseDto'];
       /** @example Token refresh successful */
       readonly message: string | null;
       /**
@@ -3180,7 +3250,7 @@ export interface components {
        */
       readonly refresh_token: string;
       /**
-       * @example patient_home
+       * @deprecated
        * @enum {string}
        */
       readonly routing_target: BrowserSessionResponseDtoRouting_target;
@@ -3193,16 +3263,14 @@ export interface components {
       readonly session_id: string;
       /** @example 200 */
       readonly status_code: number | null;
-      readonly user: components['schemas']['UserDto'];
-      /**
-       * @description Current provider verification status, when applicable
-       * @example null
-       */
+      /** @deprecated */
+      readonly user: Record<string, never>;
+      /** @deprecated */
       readonly verification_status: string | null;
     };
     readonly RefreshTokenResponseDtoData: {
       /**
-       * @example full
+       * @deprecated
        * @enum {string}
        */
       readonly access_level: BrowserSessionResponseDtoAccess_level;
@@ -3211,13 +3279,15 @@ export interface components {
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
        */
       readonly access_token: string;
+      /** @description Server-resolved account, persona, membership, verification, and capability context */
+      readonly account_context: components['schemas']['AuthContextResponseDto'];
       /**
        * @description Opaque, rotating refresh credential
        * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
        */
       readonly refresh_token: string;
       /**
-       * @example patient_home
+       * @deprecated
        * @enum {string}
        */
       readonly routing_target: BrowserSessionResponseDtoRouting_target;
@@ -3228,11 +3298,9 @@ export interface components {
       readonly session_expires_at: string;
       /** @example 550e8400-e29b-41d4-a716-446655440000 */
       readonly session_id: string;
-      readonly user: components['schemas']['UserDto'];
-      /**
-       * @description Current provider verification status, when applicable
-       * @example null
-       */
+      /** @deprecated */
+      readonly user: Record<string, never>;
+      /** @deprecated */
       readonly verification_status: string | null;
     };
     readonly RegisterAccountDto: {
@@ -3474,7 +3542,7 @@ export interface components {
        * @default pending
        * @enum {string}
        */
-      readonly verification_status: CreateProfessionalDtoVerification_status;
+      readonly verification_status: AuthProfessionalResponseDtoVerification_status;
       /** @example 8 */
       readonly years_of_experience?: number;
     };
@@ -3553,22 +3621,6 @@ export interface components {
       /** @example 8 */
       readonly years_of_experience: number;
     };
-    readonly UserDto: {
-      /** @example john.doe@example.com */
-      readonly email: string;
-      /** @example John */
-      readonly first_name: string;
-      /** @example 550e8400-e29b-41d4-a716-446655440000 */
-      readonly id: string;
-      /** @example Doe */
-      readonly last_name: string;
-      /**
-       * @example [
-       *       "PATIENT"
-       *     ]
-       */
-      readonly role: readonly string[];
-    };
     readonly VerifyAuthChallengeDto: {
       /** Format: uuid */
       readonly challenge_id: string;
@@ -3589,7 +3641,7 @@ export interface components {
     };
     readonly VerifySignupResponseDto: {
       /**
-       * @example full
+       * @deprecated
        * @enum {string}
        */
       readonly access_level: BrowserSessionResponseDtoAccess_level;
@@ -3598,6 +3650,8 @@ export interface components {
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
        */
       readonly access_token: string;
+      /** @description Server-resolved account, persona, membership, verification, and capability context */
+      readonly account_context: components['schemas']['AuthContextResponseDto'];
       /** @example account verified */
       readonly message: string | null;
       /**
@@ -3606,7 +3660,7 @@ export interface components {
        */
       readonly refresh_token: string;
       /**
-       * @example patient_home
+       * @deprecated
        * @enum {string}
        */
       readonly routing_target: BrowserSessionResponseDtoRouting_target;
@@ -3619,16 +3673,14 @@ export interface components {
       readonly session_id: string | null;
       /** @example 200 */
       readonly status_code: number | null;
-      readonly user: components['schemas']['UserDto'];
-      /**
-       * @description Current provider verification status, when applicable
-       * @example null
-       */
+      /** @deprecated */
+      readonly user: Record<string, never>;
+      /** @deprecated */
       readonly verification_status: string | null;
     };
     readonly VerifySignupResponseDtoData: {
       /**
-       * @example full
+       * @deprecated
        * @enum {string}
        */
       readonly access_level: BrowserSessionResponseDtoAccess_level;
@@ -3637,13 +3689,15 @@ export interface components {
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
        */
       readonly access_token: string;
+      /** @description Server-resolved account, persona, membership, verification, and capability context */
+      readonly account_context: components['schemas']['AuthContextResponseDto'];
       /**
        * @description Opaque, rotating refresh credential
        * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
        */
       readonly refresh_token: string;
       /**
-       * @example patient_home
+       * @deprecated
        * @enum {string}
        */
       readonly routing_target: BrowserSessionResponseDtoRouting_target;
@@ -3654,11 +3708,9 @@ export interface components {
       readonly session_expires_at: string | null;
       /** @example 550e8400-e29b-41d4-a716-446655440000 */
       readonly session_id: string | null;
-      readonly user: components['schemas']['UserDto'];
-      /**
-       * @description Current provider verification status, when applicable
-       * @example null
-       */
+      /** @deprecated */
+      readonly user: Record<string, never>;
+      /** @deprecated */
       readonly verification_status: string | null;
     };
   };
@@ -5997,7 +6049,9 @@ export interface operations {
   readonly LaboratoryVerificationDocumentsController_listMyDocuments: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -6037,7 +6091,9 @@ export interface operations {
   readonly LaboratoryVerificationDocumentsController_uploadMyDocument: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path: {
         readonly documentType: PathsApiLaboratoriesLaboratoryIdVerificationDocumentsDocumentTypeDownloadGetParametersPathDocumentType;
       };
@@ -6115,7 +6171,9 @@ export interface operations {
   readonly LaboratoryVerificationDocumentsController_deleteMyDocument: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path: {
         readonly documentType: PathsApiLaboratoriesLaboratoryIdVerificationDocumentsDocumentTypeDownloadGetParametersPathDocumentType;
       };
@@ -6167,7 +6225,9 @@ export interface operations {
   readonly LaboratoryVerificationDocumentsController_downloadMyDocument: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path: {
         readonly documentType: PathsApiLaboratoriesLaboratoryIdVerificationDocumentsDocumentTypeDownloadGetParametersPathDocumentType;
       };
@@ -6218,7 +6278,9 @@ export interface operations {
   readonly LaboratoryVerificationStatusController_getMyStatus: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -6266,7 +6328,9 @@ export interface operations {
   readonly LaboratoryVerificationStatusController_submitMyVerification: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -6323,7 +6387,9 @@ export interface operations {
   readonly LaboratoryPostApprovalController_listOperatingHours: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -6371,7 +6437,9 @@ export interface operations {
   readonly LaboratoryPostApprovalController_setOperatingHours: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -6432,7 +6500,9 @@ export interface operations {
   readonly LaboratoryPostApprovalController_listStaff: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -6480,7 +6550,9 @@ export interface operations {
   readonly LaboratoryPostApprovalController_inviteStaff: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -6602,7 +6674,9 @@ export interface operations {
   readonly LaboratoryPostApprovalController_listTests: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -6650,7 +6724,9 @@ export interface operations {
   readonly LaboratoryPostApprovalController_createTest: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -6720,7 +6796,9 @@ export interface operations {
   readonly LaboratoryPostApprovalController_updateTest: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path: {
         readonly testId: string;
       };
@@ -7199,7 +7277,9 @@ export interface operations {
   readonly OrganizationController_listMine: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -7247,7 +7327,9 @@ export interface operations {
   readonly OrganizationController_uploadMine: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path: {
         readonly documentType: string;
       };
@@ -7316,7 +7398,9 @@ export interface operations {
   readonly OrganizationController_deleteMine: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path: {
         readonly documentType: string;
       };
@@ -7368,7 +7452,9 @@ export interface operations {
   readonly OrganizationController_downloadMine: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path: {
         readonly documentType: string;
       };
@@ -7418,7 +7504,9 @@ export interface operations {
   readonly OrganizationController_getMyStatus: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -7457,7 +7545,9 @@ export interface operations {
   readonly OrganizationController_submitMine: {
     readonly parameters: {
       readonly query?: never;
-      readonly header?: never;
+      readonly header: {
+        readonly 'x-organization-id': string;
+      };
       readonly path?: never;
       readonly cookie?: never;
     };
@@ -9479,6 +9569,12 @@ export enum PathsApiPublicProfessionalsGetParametersQuerySort {
   consultation_fee = 'consultation_fee',
   name = 'name',
 }
+export enum AuthAccountResponseDtoStatus {
+  pending_verification = 'pending_verification',
+  active = 'active',
+  suspended = 'suspended',
+  deactivated = 'deactivated',
+}
 export enum AuthChallengeErrorResponseDtoError_code {
   AUTH_CHALLENGE_INVALID = 'AUTH_CHALLENGE_INVALID',
   AUTH_CHALLENGE_CODE_INVALID = 'AUTH_CHALLENGE_CODE_INVALID',
@@ -9490,6 +9586,26 @@ export enum AuthChallengeErrorResponseDtoError_code {
   AUTH_CHALLENGE_DELIVERY_UNAVAILABLE = 'AUTH_CHALLENGE_DELIVERY_UNAVAILABLE',
   AUTH_SERVICE_TEMPORARILY_UNAVAILABLE = 'AUTH_SERVICE_TEMPORARILY_UNAVAILABLE',
   AUTH_RATE_LIMITED = 'AUTH_RATE_LIMITED',
+}
+export enum AuthMembershipResponseDtoRole {
+  owner = 'owner',
+  admin = 'admin',
+  member = 'member',
+}
+export enum AuthMembershipResponseDtoStatus {
+  invited = 'invited',
+  active = 'active',
+  suspended = 'suspended',
+  removed = 'removed',
+}
+export enum AuthPersonaResponseDtoType {
+  patient = 'patient',
+  healthcare_professional = 'healthcare_professional',
+}
+export enum AuthProfessionalResponseDtoVerification_status {
+  pending = 'pending',
+  verified = 'verified',
+  rejected = 'rejected',
 }
 export enum BookingResponseDtoPayment_status {
   paid = 'paid',
@@ -9522,29 +9638,12 @@ export enum CreateBookingDtoConsultation_type {
   chat = 'chat',
   video = 'video',
 }
-export enum CreateProfessionalDtoVerification_status {
-  pending = 'pending',
-  verified = 'verified',
-  rejected = 'rejected',
-}
 export enum InviteLaboratoryStaffDtoRole {
   manager = 'manager',
   scientist = 'scientist',
   technician = 'technician',
   phlebotomist = 'phlebotomist',
   receptionist = 'receptionist',
-}
-export enum LaboratoryAdministratorSetupResponseDtoRole {
-  ADMIN = 'ADMIN',
-  PATIENT = 'PATIENT',
-  DOCTOR = 'DOCTOR',
-  THERAPIST = 'THERAPIST',
-  COUNSELLOR = 'COUNSELLOR',
-  LAB_PROFESSIONAL = 'LAB_PROFESSIONAL',
-  LAB_STAFF = 'LAB_STAFF',
-  LAB_ADMIN = 'LAB_ADMIN',
-  HOSPITAL_ADMIN = 'HOSPITAL_ADMIN',
-  PHARMACY_ADMIN = 'PHARMACY_ADMIN',
 }
 export enum LaboratoryOperatingHourResponseDtoDay_of_week {
   monday = 'monday',

@@ -50,7 +50,7 @@ describe('OAuthService', () => {
     issueInTransaction: jest.fn(),
     revokeAllInTransaction: jest.fn(),
   };
-  const routing = { resolve: jest.fn() };
+  const authContext = { resolve: jest.fn() };
   const passwords = { hashGeneratedSecret: jest.fn() };
   const provisioning = { provisionPersonaAndLegalIdentity: jest.fn() };
   const delivery = { queueInTransaction: jest.fn() };
@@ -73,7 +73,7 @@ describe('OAuthService', () => {
       transactions as never,
       verifier as never,
       sessions as never,
-      routing as never,
+      authContext as never,
       passwords as never,
       provisioning as never,
       delivery as never,
@@ -100,7 +100,7 @@ describe('OAuthService', () => {
       session_id: 'b606d7d3-54de-4c10-9bb1-f734fa66a801',
       session_expires_at: new Date(),
     });
-    routing.resolve.mockResolvedValue({ routing_target: 'patient_home' });
+    authContext.resolve.mockResolvedValue({ account: { id: 'new-user' } });
     manager.delete.mockResolvedValue({ affected: 1 });
     provisioning.provisionPersonaAndLegalIdentity.mockImplementation(
       async (_manager: unknown, input: Record<string, unknown>) => ({
@@ -229,7 +229,7 @@ describe('OAuthService', () => {
       service.complete(transactionDto, OAuthConsumer.WEB),
     ).resolves.toMatchObject({
       access_token: 'access-token',
-      user: { id: 'new-user', email: 'new.patient@gmail.com' },
+      account_context: { account: { id: 'new-user' } },
     });
     expect(manager.insert).toHaveBeenCalledWith(
       ExternalIdentity,
@@ -393,8 +393,7 @@ describe('OAuthService', () => {
       service.complete(transactionDto, OAuthConsumer.WEB),
     ).resolves.toMatchObject({
       access_token: 'access-token',
-      routing_target: 'patient_home',
-      user: { id: 'linked-user' },
+      account_context: expect.any(Object),
     });
     expect(sessions.issueInTransaction).toHaveBeenCalledWith(manager, user.id);
     expect(manager.update).toHaveBeenCalledWith(

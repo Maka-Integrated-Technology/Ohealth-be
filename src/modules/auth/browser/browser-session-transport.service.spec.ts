@@ -1,5 +1,4 @@
 import { AuthService } from '../auth.service';
-import { AuthAccessLevel, AuthRoutingTarget } from '../enums/auth-routing.enum';
 import { OAuthConsumer } from '../oauth/oauth.enums';
 import { OAuthService } from '../oauth/oauth.service';
 
@@ -12,16 +11,7 @@ describe('BrowserSessionTransportService', () => {
     refresh_token: 'r'.repeat(43),
     session_id: '550e8400-e29b-41d4-a716-446655440000',
     session_expires_at: new Date('2026-12-01T00:00:00Z'),
-    user: {
-      id: 'user-id',
-      email: 'user@example.test',
-      first_name: 'Test',
-      last_name: 'User',
-      role: ['PATIENT'],
-    },
-    routing_target: AuthRoutingTarget.PATIENT_HOME,
-    access_level: AuthAccessLevel.FULL,
-    verification_status: null,
+    account_context: { account: { id: 'user-id' }, capabilities: [] },
   };
   const auth = {
     verifySignup: jest.fn(),

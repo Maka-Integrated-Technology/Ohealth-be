@@ -1,10 +1,11 @@
 import { Reflector } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { ROLES_KEY } from '../auth/decorators/roles.decorator';
+import { AuthCapability } from '../auth/context/auth-capability';
+import { AuthContextService } from '../auth/context/auth-context.service';
+import { AUTH_CAPABILITIES_KEY } from '../auth/decorators/capabilities.decorator';
+import { CapabilitiesGuard } from '../auth/guards/capabilities.guard';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../auth/guards/roles.guard';
-import { UserRole } from '../user/enums/user-role.enum';
 
 import { BookingController } from './booking.controller';
 import { BookingService } from './booking.service';
@@ -18,6 +19,11 @@ describe('BookingController', () => {
       controllers: [BookingController],
       providers: [
         Reflector,
+        CapabilitiesGuard,
+        {
+          provide: AuthContextService,
+          useValue: { assertCapabilities: jest.fn() },
+        },
         {
           provide: BookingService,
           useValue: {
@@ -34,12 +40,15 @@ describe('BookingController', () => {
     reflector = module.get(Reflector);
   });
 
-  it('protects every patient booking route with JWT and role guards', () => {
+  it('protects every patient booking route with JWT and canonical capability guard', () => {
     const guards = Reflect.getMetadata('__guards__', BookingController);
-    const roles = reflector.get<UserRole[]>(ROLES_KEY, BookingController);
+    const capabilities = reflector.get<AuthCapability[]>(
+      AUTH_CAPABILITIES_KEY,
+      BookingController,
+    );
 
     expect(controller).toBeDefined();
-    expect(guards).toEqual([JwtAuthGuard, RolesGuard]);
-    expect(roles).toEqual([UserRole.PATIENT]);
+    expect(guards).toEqual([JwtAuthGuard, CapabilitiesGuard]);
+    expect(capabilities).toEqual([AuthCapability.PATIENT_BOOKINGS]);
   });
 });
