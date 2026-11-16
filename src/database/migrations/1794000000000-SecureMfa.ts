@@ -43,9 +43,33 @@ export class SecureMfa1794000000000 implements MigrationInterface {
     await queryRunner.query(
       `ALTER TABLE auth_challenges ADD CONSTRAINT "CHK_auth_challenge_purpose" CHECK (purpose IN ('contact_verification', 'password_recovery', 'login_verification', 'mfa_login'))`,
     );
+    await queryRunner.query(
+      'ALTER TABLE auth_challenges ADD COLUMN continuation_transport varchar',
+    );
+    await queryRunner.query(
+      `ALTER TABLE auth_challenges ADD CONSTRAINT "CHK_auth_challenge_transport" CHECK (continuation_transport IS NULL OR continuation_transport IN ('web', 'mobile'))`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE auth_security_events DROP CONSTRAINT "CHK_auth_security_events_type"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE auth_security_events ADD CONSTRAINT "CHK_auth_security_events_type" CHECK (event_type IN ('sign_in', 'contact_verification', 'password_recovery', 'password_change', 'session_refresh', 'session_reuse', 'logout', 'account_state_change', 'oauth_signup', 'oauth_sign_in', 'oauth_link', 'oauth_unlink', 'oauth_conflict', 'oauth_denial', 'registration', 'mfa', 'mfa_enrollment_started', 'mfa_activated', 'mfa_recovery_codes_regenerated', 'mfa_disabled', 'login_challenge_request', 'login_challenge_resend', 'login_challenge_delivery', 'login_challenge_expiry', 'login_challenge_verification'))`,
+    );
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(
+      `ALTER TABLE auth_security_events DROP CONSTRAINT "CHK_auth_security_events_type"`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE auth_security_events ADD CONSTRAINT "CHK_auth_security_events_type" CHECK (event_type IN ('sign_in', 'contact_verification', 'password_recovery', 'password_change', 'session_refresh', 'session_reuse', 'logout', 'account_state_change', 'oauth_signup', 'oauth_sign_in', 'oauth_link', 'oauth_unlink', 'oauth_conflict', 'oauth_denial', 'registration', 'mfa', 'login_challenge_request', 'login_challenge_resend', 'login_challenge_delivery', 'login_challenge_expiry', 'login_challenge_verification'))`,
+    );
+    await queryRunner.query(
+      `ALTER TABLE auth_challenges DROP CONSTRAINT "CHK_auth_challenge_transport"`,
+    );
+    await queryRunner.query(
+      'ALTER TABLE auth_challenges DROP COLUMN continuation_transport',
+    );
     await queryRunner.query(
       `ALTER TABLE auth_challenges DROP CONSTRAINT "CHK_auth_challenge_purpose"`,
     );

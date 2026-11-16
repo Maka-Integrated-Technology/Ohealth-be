@@ -7,6 +7,11 @@ export enum AuthChallengePurpose {
   MFA_LOGIN = 'mfa_login',
 }
 
+export enum AuthChallengeTransport {
+  WEB = 'web',
+  MOBILE = 'mobile',
+}
+
 export enum AuthChallengeTerminalReason {
   VERIFIED = 'verified',
   SUPERSEDED = 'superseded',
@@ -29,6 +34,10 @@ export enum AuthChallengeTerminalReason {
   '"attempt_count" >= 0 AND "attempt_count" <= 5',
 )
 @Check('CHK_auth_challenge_expiry', '"expires_at" > "issued_at"')
+@Check(
+  'CHK_auth_challenge_transport',
+  `"continuation_transport" IS NULL OR "continuation_transport" IN ('web', 'mobile')`,
+)
 @Entity('auth_challenges')
 export class AuthChallenge {
   @PrimaryGeneratedColumn('uuid')
@@ -66,6 +75,9 @@ export class AuthChallenge {
 
   @Column({ type: 'timestamp with time zone' })
   flow_expires_at: Date;
+
+  @Column({ type: 'varchar', nullable: true })
+  continuation_transport: AuthChallengeTransport | null;
 
   @Column({ type: 'timestamp with time zone', nullable: true })
   consumed_at: Date | null;

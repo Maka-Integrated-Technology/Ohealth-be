@@ -10,7 +10,10 @@ import { User } from '../../user/entities/user.entity';
 import { AccountStatus } from '../../user/enums/account-status.enum';
 import { AccountAccessPolicyService } from '../account-access-policy.service';
 import { AuthChallengeDeliveryService } from '../challenges/auth-challenge-delivery.service';
-import { AuthChallengePurpose } from '../challenges/auth-challenge.entity';
+import {
+  AuthChallengePurpose,
+  AuthChallengeTransport,
+} from '../challenges/auth-challenge.entity';
 import { AuthChallengeService } from '../challenges/auth-challenge.service';
 import { AuthContextService } from '../context/auth-context.service';
 import { AuthSession } from '../entities/auth.entity';
@@ -159,7 +162,7 @@ export class OAuthService {
 
     const result = await this.dataSource.transaction(async (manager) => {
       if (transaction.operation === OAuthOperation.SIGNIN) {
-        return this.signIn(manager, proof);
+        return this.signIn(manager, proof, transaction.consumer);
       }
       if (transaction.operation === OAuthOperation.SIGNUP) {
         this.assertSupportedIntent(transaction.intent ?? undefined);
@@ -266,7 +269,11 @@ export class OAuthService {
     }
   }
 
-  private async signIn(manager: EntityManager, proof: IVerifiedGoogleIdentity) {
+  private async signIn(
+    manager: EntityManager,
+    proof: IVerifiedGoogleIdentity,
+    consumer: OAuthConsumer,
+  ) {
     const identity = await manager.findOne(ExternalIdentity, {
       where: { issuer: proof.issuer, subject: proof.subject },
     });
@@ -293,6 +300,9 @@ export class OAuthService {
         manager,
         user.id,
         AuthChallengePurpose.MFA_LOGIN,
+        consumer === OAuthConsumer.WEB
+          ? AuthChallengeTransport.WEB
+          : AuthChallengeTransport.MOBILE,
       );
       await manager.update(ExternalIdentity, identity.id, {
         last_authenticated_at: new Date(),

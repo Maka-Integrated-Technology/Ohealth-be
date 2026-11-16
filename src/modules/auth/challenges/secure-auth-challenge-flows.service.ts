@@ -28,7 +28,10 @@ import {
 import { TwoFactorAuthService } from '../two-factor-auth.service';
 
 import { AuthChallengeDeliveryService } from './auth-challenge-delivery.service';
-import { AuthChallengePurpose } from './auth-challenge.entity';
+import {
+  AuthChallengePurpose,
+  AuthChallengeTransport,
+} from './auth-challenge.entity';
 import {
   AuthChallengeErrorCode,
   AuthChallengeException,
@@ -219,6 +222,7 @@ export class SecureAuthChallengeFlowsService {
   async verifyMfaLogin(
     challengeId: string,
     code: string,
+    transport: AuthChallengeTransport,
   ): Promise<{ user: User; session: IIssuedSession }> {
     return this.challenges.consumeWithExternalProof(
       challengeId,
@@ -254,6 +258,7 @@ export class SecureAuthChallengeFlowsService {
         });
         return { user, session };
       },
+      transport,
     );
   }
 

@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiForbiddenResponse,
   ApiOperation,
   ApiResponse,
   ApiTags,
@@ -85,6 +86,9 @@ export class TwoFactorAuthController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Disable MFA after recent authentication' })
   @ApiResponse({ status: HttpStatus.OK, type: ApiMessageResponseDto })
+  @ApiForbiddenResponse({
+    description: 'MFA is required for the current privileged account.',
+  })
   disable(@CurrentUser() user: IAuthUser, @Body() body: ChangeMfaDto) {
     return this.twoFactorAuthService.disable2fa(
       user.id,

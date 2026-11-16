@@ -6075,6 +6075,16 @@
             },
             "description": "Authentication is required"
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "MFA is required for the current privileged account."
+          },
           "500": {
             "content": {
               "application/json": {

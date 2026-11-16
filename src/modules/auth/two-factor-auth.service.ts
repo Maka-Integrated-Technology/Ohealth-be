@@ -60,7 +60,11 @@ export class TwoFactorAuthService {
       record.pendingSecret = this.box.encrypt(secret.base32);
       record.pendingExpiresAt = new Date(Date.now() + 600_000);
       await manager.save(record);
-      await this.auditSuccess(manager, userId);
+      await this.auditSuccess(
+        manager,
+        userId,
+        AuthSecurityEventType.MFA_ENROLLMENT_STARTED,
+      );
     });
     return {
       message: 'MFA setup pending confirmation.',
@@ -93,7 +97,11 @@ export class TwoFactorAuthService {
         'UPDATE auth_sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL',
         [userId],
       );
-      await this.auditSuccess(manager, userId);
+      await this.auditSuccess(
+        manager,
+        userId,
+        AuthSecurityEventType.MFA_ACTIVATED,
+      );
       return { message: 'MFA enabled.', recovery_codes: codes };
     });
   }
@@ -113,7 +121,11 @@ export class TwoFactorAuthService {
         'UPDATE auth_sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL',
         [userId],
       );
-      await this.auditSuccess(manager, userId);
+      await this.auditSuccess(
+        manager,
+        userId,
+        AuthSecurityEventType.MFA_RECOVERY_CODES_REGENERATED,
+      );
       return { message: 'Recovery codes regenerated.', recovery_codes: codes };
     });
   }
@@ -147,7 +159,11 @@ export class TwoFactorAuthService {
         'UPDATE auth_sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL',
         [userId],
       );
-      await this.auditSuccess(manager, userId);
+      await this.auditSuccess(
+        manager,
+        userId,
+        AuthSecurityEventType.MFA_DISABLED,
+      );
     });
     return { message: 'MFA disabled.' };
   }
@@ -259,9 +275,10 @@ export class TwoFactorAuthService {
   private async auditSuccess(
     manager: EntityManager,
     userId: string,
+    eventType: AuthSecurityEventType,
   ): Promise<void> {
     await this.audit.recordInTransaction(manager, {
-      event_type: AuthSecurityEventType.MFA,
+      event_type: eventType,
       outcome: AuthSecurityEventOutcome.SUCCEEDED,
       actor_user_id: userId,
       subject_user_id: userId,

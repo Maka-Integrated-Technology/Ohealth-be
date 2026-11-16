@@ -1547,6 +1547,7 @@ export type TwoFactorAuthController_disableResponse =
 export type TwoFactorAuthController_disableError =
   | operations['TwoFactorAuthController_disable']['responses'][400]['content']['application/json']
   | operations['TwoFactorAuthController_disable']['responses'][401]['content']['application/json']
+  | operations['TwoFactorAuthController_disable']['responses'][403]['content']['application/json']
   | operations['TwoFactorAuthController_disable']['responses'][500]['content']['application/json'];
 
 export type TwoFactorAuthController_enable2faRequest = Readonly<{

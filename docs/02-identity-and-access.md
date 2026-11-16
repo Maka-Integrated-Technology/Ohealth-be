@@ -168,6 +168,11 @@ session. POST /auth/login/mfa/verify, or its browser-cookie equivalent, accepts
 a TOTP or one-time recovery code and is the only continuation that may issue
 the session. The challenge is purpose-bound, expires, permits five attempts,
 and is atomically consumed with the factor proof and session.
+OAuth-created MFA continuations also retain the transaction's web or mobile
+consumer binding, so a browser flow cannot be exchanged through the mobile
+JSON credential boundary or vice versa. Password-login continuations remain
+transport-neutral because the caller selects its presentation boundary after
+the shared password and contact proofs.
 
 MFA_ENCRYPTION_KEY is a managed 32-byte base64 key-encryption key. Each TOTP
 secret uses a fresh data key and authenticated AES-GCM envelope. Recovery codes
@@ -181,6 +186,9 @@ organization memberships. MFA_REQUIRED_CATEGORIES configures whether
 platform_admin, organization_owner, and organization_admin capabilities require
 an active factor. Users retain basic account access while enrolling, but
 configured privileged capabilities fail closed until enrollment completes.
+Enrollment start, activation, recovery-code regeneration, and disablement use
+distinct durable security-audit event types. MFA login proof successes and
+denials remain under the general `mfa` verification event.
 
 ## Organization authorization
 

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
 import { AuthService } from '../auth.service';
+import { AuthChallengeTransport } from '../challenges/auth-challenge.entity';
 import { VerifyAuthChallengeDto } from '../contracts';
 import { VerifySignupDto } from '../dto/auth.dto';
 import { VerifyMfaLoginDto } from '../dto/mfa.dto';
@@ -38,7 +39,9 @@ export class BrowserSessionTransportService {
   }
 
   async verifyMfaLogin(payload: VerifyMfaLoginDto) {
-    return this.present(await this.auth.verifyMfaLogin(payload));
+    return this.present(
+      await this.auth.verifyMfaLogin(payload, AuthChallengeTransport.WEB),
+    );
   }
 
   async refresh(refreshCredential: string) {

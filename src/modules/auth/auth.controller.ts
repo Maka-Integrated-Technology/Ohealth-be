@@ -27,6 +27,7 @@ import * as sysMsg from '../../constants/system.messages';
 
 import { AuthService } from './auth.service';
 import { AuthAbuseGuard } from './challenges/auth-abuse.guard';
+import { AuthChallengeTransport } from './challenges/auth-challenge.entity';
 import {
   RegisterAccountDto,
   RegistrationBootstrapDto,
@@ -123,7 +124,10 @@ export class AuthController {
   @ApiOkResponse({ type: LoginResponseDto })
   @ApiBadRequestResponse({ type: AuthChallengeErrorResponseDto })
   verifyMfaLogin(@Body() payload: VerifyMfaLoginDto) {
-    return this.authService.verifyMfaLogin(payload);
+    return this.authService.verifyMfaLogin(
+      payload,
+      AuthChallengeTransport.MOBILE,
+    );
   }
 
   @Public()

@@ -19,7 +19,10 @@ import { UserService } from '../user/user.service';
 
 import { AccountAccessPolicyService } from './account-access-policy.service';
 import { AuthChallengeDeliveryService } from './challenges/auth-challenge-delivery.service';
-import { AuthChallengePurpose } from './challenges/auth-challenge.entity';
+import {
+  AuthChallengePurpose,
+  AuthChallengeTransport,
+} from './challenges/auth-challenge.entity';
 import { SecureAuthChallengeFlowsService } from './challenges/secure-auth-challenge-flows.service';
 import { AuthContextService } from './context/auth-context.service';
 import {
@@ -132,10 +135,14 @@ export class AuthService {
     };
   }
 
-  async verifyMfaLogin(payload: VerifyMfaLoginDto) {
+  async verifyMfaLogin(
+    payload: VerifyMfaLoginDto,
+    transport: AuthChallengeTransport,
+  ) {
     const { user, session } = await this.challengeFlows.verifyMfaLogin(
       payload.challenge_id,
       payload.code,
+      transport,
     );
     const accountContext = await this.authContext.resolve(
       user.id,

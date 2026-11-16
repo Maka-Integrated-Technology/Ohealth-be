@@ -43,6 +43,12 @@ integration('Secure MFA migration on PostgreSQL', () => {
       CONSTRAINT "CHK_auth_challenge_purpose"
         CHECK (purpose IN ('contact_verification', 'password_recovery', 'login_verification'))
     )`);
+    await runner.query(`CREATE TABLE auth_security_events (
+      id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+      event_type varchar NOT NULL,
+      CONSTRAINT "CHK_auth_security_events_type"
+        CHECK (event_type IN ('sign_in', 'contact_verification', 'password_recovery', 'password_change', 'session_refresh', 'session_reuse', 'logout', 'account_state_change', 'oauth_signup', 'oauth_sign_in', 'oauth_link', 'oauth_unlink', 'oauth_conflict', 'oauth_denial', 'registration', 'mfa', 'login_challenge_request', 'login_challenge_resend', 'login_challenge_delivery', 'login_challenge_expiry', 'login_challenge_verification'))
+    )`);
   });
 
   afterEach(async () => {
@@ -80,10 +86,31 @@ integration('Secure MFA migration on PostgreSQL', () => {
     ).not.toEqual(expect.arrayContaining(['two_fa_secret', 'backup_codes']));
     await expect(
       runner.query(
-        `INSERT INTO auth_challenges (id, purpose) VALUES ($1, 'mfa_login')`,
+        `INSERT INTO auth_challenges (id, purpose, continuation_transport)
+         VALUES ($1, 'mfa_login', 'web')`,
         [randomUUID()],
       ),
     ).resolves.toBeDefined();
+    await expect(
+      runner.query(
+        `INSERT INTO auth_challenges (id, purpose, continuation_transport)
+         VALUES ($1, 'mfa_login', 'email')`,
+        [randomUUID()],
+      ),
+    ).rejects.toMatchObject({ code: '23514' });
+    for (const eventType of [
+      'mfa_enrollment_started',
+      'mfa_activated',
+      'mfa_recovery_codes_regenerated',
+      'mfa_disabled',
+    ]) {
+      await expect(
+        runner.query(
+          'INSERT INTO auth_security_events (event_type) VALUES ($1)',
+          [eventType],
+        ),
+      ).resolves.toBeDefined();
+    }
   });
 
   it('hash rows are unique and deleted with their user', async () => {
