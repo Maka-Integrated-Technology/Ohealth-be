@@ -25,10 +25,12 @@ import { AuthSession } from './entities/auth.entity';
 import { SignupIntent } from './enums/signup-intent.enum';
 import { PasswordCredentialsService } from './password-policy/password-credentials.service';
 import { RegistrationService } from './registration/registration.service';
+import { AuthSecurityAuditService } from './security-audit/auth-security-audit.service';
 import { RefreshSessionService } from './sessions/refresh-session.service';
 
 describe('AuthService', () => {
   let service: AuthService;
+  const audit = { recordAttempt: jest.fn().mockResolvedValue(undefined) };
 
   const mockUserService = {
     findByEmail: jest.fn(),
@@ -173,6 +175,10 @@ describe('AuthService', () => {
         {
           provide: AuthContextService,
           useValue: mockAuthContextService,
+        },
+        {
+          provide: AuthSecurityAuditService,
+          useValue: audit,
         },
         {
           provide: WINSTON_MODULE_PROVIDER,
@@ -636,10 +642,35 @@ describe('AuthService', () => {
           mockAuthContextService.resolve.mock.results.length - 1
         ].value,
       );
+      expect(audit.recordAttempt).toHaveBeenCalledWith(
+        expect.objectContaining({
+          event_type: 'context_restoration',
+          outcome: 'succeeded',
+          subject_user_id: 'user-id-1',
+        }),
+      );
     });
   });
 
   describe('logout', () => {
+    it('audits a rejected session selector using the authenticated session', async () => {
+      await expect(
+        service.logout(
+          'caller-user-id',
+          { session_id: 'other-session-id' },
+          'authenticated-session-id',
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockSessions.revoke).not.toHaveBeenCalled();
+      expect(audit.recordAttempt).toHaveBeenCalledWith({
+        event_type: 'logout',
+        outcome: 'denied',
+        actor_user_id: 'caller-user-id',
+        subject_user_id: 'caller-user-id',
+        session_id: 'authenticated-session-id',
+      });
+    });
+
     it('revokes a browser session by its canonical refresh credential', async () => {
       const result = await service.logoutByRefreshCredential('r'.repeat(43));
 

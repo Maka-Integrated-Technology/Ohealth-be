@@ -1,6 +1,10 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'crypto';
 
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  HttpException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { DataSource, EntityManager, IsNull } from 'typeorm';
@@ -127,6 +131,14 @@ export class RefreshSessionService {
   }
 
   async rotate(
+    refreshToken: string,
+  ): Promise<IIssuedSession & { userId: string }> {
+    return this.auditFailures(AuthSecurityEventType.SESSION_REFRESH, () =>
+      this.rotateUntracked(refreshToken),
+    );
+  }
+
+  private async rotateUntracked(
     refreshToken: string,
   ): Promise<IIssuedSession & { userId: string }> {
     if (!OPAQUE_REFRESH.test(refreshToken)) {
@@ -256,6 +268,18 @@ export class RefreshSessionService {
   }
 
   async revoke(userId: string, sessionId: string): Promise<void> {
+    return this.auditFailures(
+      AuthSecurityEventType.LOGOUT,
+      () => this.revokeUntracked(userId, sessionId),
+      userId,
+      sessionId,
+    );
+  }
+
+  private async revokeUntracked(
+    userId: string,
+    sessionId: string,
+  ): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
       const user = await manager.findOne(User, {
         where: { id: userId },
@@ -286,6 +310,14 @@ export class RefreshSessionService {
   }
 
   async revokeByCredential(refreshToken: string): Promise<void> {
+    return this.auditFailures(AuthSecurityEventType.LOGOUT, () =>
+      this.revokeByCredentialUntracked(refreshToken),
+    );
+  }
+
+  private async revokeByCredentialUntracked(
+    refreshToken: string,
+  ): Promise<void> {
     if (!OPAQUE_REFRESH.test(refreshToken)) {
       throw new UnauthorizedException(sysMsg.TOKEN_INVALID);
     }
@@ -338,6 +370,14 @@ export class RefreshSessionService {
   }
 
   async revokeAll(userId: string): Promise<void> {
+    return this.auditFailures(
+      AuthSecurityEventType.LOGOUT,
+      () => this.revokeAllUntracked(userId),
+      userId,
+    );
+  }
+
+  private async revokeAllUntracked(userId: string): Promise<void> {
     await this.dataSource.transaction((manager) =>
       this.revokeAllInTransaction(manager, userId),
     );
@@ -370,6 +410,23 @@ export class RefreshSessionService {
   }
 
   async replacePassword(
+    userId: string,
+    expectedPasswordHash: string,
+    newPasswordHash: string,
+  ): Promise<void> {
+    return this.auditFailures(
+      AuthSecurityEventType.PASSWORD_CHANGE,
+      () =>
+        this.replacePasswordUntracked(
+          userId,
+          expectedPasswordHash,
+          newPasswordHash,
+        ),
+      userId,
+    );
+  }
+
+  private async replacePasswordUntracked(
     userId: string,
     expectedPasswordHash: string,
     newPasswordHash: string,
@@ -418,6 +475,29 @@ export class RefreshSessionService {
       .then((sessions) =>
         sessions.filter((session) => session.expires_at > new Date()),
       );
+  }
+
+  private async auditFailures<T>(
+    eventType: AuthSecurityEventType,
+    operation: () => Promise<T>,
+    userId?: string,
+    sessionId?: string,
+  ): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      await this.audit.recordAttempt({
+        event_type: eventType,
+        outcome:
+          error instanceof HttpException && error.getStatus() < 500
+            ? AuthSecurityEventOutcome.DENIED
+            : AuthSecurityEventOutcome.FAILED,
+        actor_user_id: userId,
+        subject_user_id: userId,
+        session_id: sessionId,
+      });
+      throw error;
+    }
   }
 
   private newRefreshToken(): string {

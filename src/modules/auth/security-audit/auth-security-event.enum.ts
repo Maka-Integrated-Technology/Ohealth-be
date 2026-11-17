@@ -28,6 +28,8 @@ export enum AuthSecurityEventType {
   LOGIN_CHALLENGE_DELIVERY = 'login_challenge_delivery',
   LOGIN_CHALLENGE_EXPIRY = 'login_challenge_expiry',
   LOGIN_CHALLENGE_VERIFICATION = 'login_challenge_verification',
+  CONTEXT_RESTORATION = 'context_restoration',
+  AUTHORIZATION_DENIAL = 'authorization_denial',
 }
 
 export enum AuthSecurityEventOutcome {

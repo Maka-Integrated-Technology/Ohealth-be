@@ -1,4 +1,4 @@
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { env } from 'node:process';
 
@@ -39,9 +39,17 @@ import { AuthChallengeService } from '../../modules/auth/challenges/auth-challen
 import { AuthRateLimitService } from '../../modules/auth/challenges/auth-rate-limit.service';
 import { SecureAuthChallengeFlowsService } from '../../modules/auth/challenges/secure-auth-challenge-flows.service';
 import { AuthContextService } from '../../modules/auth/context/auth-context.service';
+import { PlatformPrivilegeEntity } from '../../modules/auth/context/platform-privilege.entity';
 import { AuthSession } from '../../modules/auth/entities/auth.entity';
+import { User2fa } from '../../modules/auth/entities/user-2fa.entity';
+import { CapabilitiesGuard } from '../../modules/auth/guards/capabilities.guard';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { MfaSecretBox } from '../../modules/auth/mfa-secret-box';
+import { GoogleTokenVerifierService } from '../../modules/auth/oauth/google-token-verifier.service';
+import { OAuthTransaction } from '../../modules/auth/oauth/oauth-transaction.entity';
+import { OAuthTransactionService } from '../../modules/auth/oauth/oauth-transaction.service';
+import { OAuthController } from '../../modules/auth/oauth/oauth.controller';
+import { OAuthException } from '../../modules/auth/oauth/oauth.error';
 import { OAuthService } from '../../modules/auth/oauth/oauth.service';
 import { PasswordCredentialsService } from '../../modules/auth/password-policy/password-credentials.service';
 import { AccountProvisioningService } from '../../modules/auth/registration/account-provisioning.service';
@@ -51,7 +59,20 @@ import { RefreshSessionService } from '../../modules/auth/sessions/refresh-sessi
 import { JwtStrategy } from '../../modules/auth/strategies/jwt.strategy';
 import { TwoFactorAuthController } from '../../modules/auth/two-factor-auth.controller';
 import { TwoFactorAuthService } from '../../modules/auth/two-factor-auth.service';
+import { BookingController } from '../../modules/booking/booking.controller';
+import { BookingService } from '../../modules/booking/booking.service';
+import { Booking } from '../../modules/booking/entities/booking.entity';
 import { EmailService } from '../../modules/email/email.service';
+import { UserPersona } from '../../modules/identity/entities/user-persona.entity';
+import { OrganizationMembership } from '../../modules/organization/entities/organization-membership.entity';
+import { OrganizationDocumentsService } from '../../modules/organization/organization-documents.service';
+import { OrganizationOnboardingService } from '../../modules/organization/organization-onboarding.service';
+import { OrganizationVerificationService } from '../../modules/organization/organization-verification.service';
+import { OrganizationController } from '../../modules/organization/organization.controller';
+import { ProfessionalAvailability } from '../../modules/professional/entities/professional-availability.entity';
+import { Professional } from '../../modules/professional/entities/professional.entity';
+import { ProfessionalController } from '../../modules/professional/professional.controller';
+import { ProfessionalService } from '../../modules/professional/professional.service';
 import { User } from '../../modules/user/entities/user.entity';
 import { UserService } from '../../modules/user/user.service';
 import { AuthChallengeFoundation1793000000000 } from '../migrations/1793000000000-AuthChallengeFoundation';
@@ -84,6 +105,10 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
   let delivery: AuthChallengeDeliveryService;
   let config: ConfigService;
   const mail = jest.fn().mockResolvedValue(undefined);
+  const oauthProofs = new Map<
+    string,
+    { nonce: string; audience: string; subject: string; email: string }
+  >();
 
   beforeAll(async () => {
     schema = 'auth_live_' + randomUUID().replaceAll('-', '');
@@ -148,6 +173,8 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       'CREATE TABLE platform_privileges (' +
         'id uuid PRIMARY KEY DEFAULT uuid_generate_v4(), ' +
         'user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE, ' +
+        'created_at timestamptz NOT NULL DEFAULT now(), ' +
+        'updated_at timestamptz NOT NULL DEFAULT now(), ' +
         "privilege varchar NOT NULL DEFAULT 'admin')",
     );
     await database.query(
@@ -169,7 +196,30 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         "'password_change', 'session_refresh', 'session_reuse', 'logout', " +
         "'account_state_change', 'oauth_link', 'registration', 'mfa', " +
         "'mfa_enrollment_started', 'mfa_activated', " +
-        "'mfa_recovery_codes_regenerated', 'mfa_disabled')))",
+        "'mfa_recovery_codes_regenerated', 'mfa_disabled', " +
+        "'context_restoration', 'authorization_denial')))",
+    );
+    await database.query(
+      `CREATE TABLE external_identities (
+         id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+         user_id uuid NOT NULL REFERENCES users(id),
+         provider varchar NOT NULL, issuer varchar NOT NULL,
+         subject varchar NOT NULL, linked_at timestamptz NOT NULL DEFAULT now(),
+         last_authenticated_at timestamptz,
+         UNIQUE (issuer, subject), UNIQUE (user_id, provider))`,
+    );
+    await database.query(
+      `CREATE TABLE oauth_transactions (
+         id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+         provider varchar NOT NULL, operation varchar NOT NULL,
+         consumer varchar NOT NULL, audience varchar NOT NULL,
+         transaction_token_hash char(64) NOT NULL,
+         nonce_hash char(64) NOT NULL,
+         intent varchar, accepted_terms_version varchar,
+         accepted_privacy_version varchar, user_id uuid,
+         session_id varchar,
+         created_at timestamptz NOT NULL DEFAULT now(),
+         expires_at timestamptz NOT NULL, consumed_at timestamptz)`,
     );
     await database.query(
       'CREATE TABLE user_personas (' +
@@ -199,6 +249,45 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         'user_id uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE, role varchar NOT NULL, ' +
         "status varchar NOT NULL DEFAULT 'active', permission_overrides jsonb NOT NULL DEFAULT '[]'::jsonb, " +
         'invited_by_user_id uuid, joined_at timestamptz, UNIQUE (organization_id, user_id))',
+    );
+    await database.query(
+      `CREATE TABLE professionals (
+         id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+         created_at timestamptz NOT NULL DEFAULT now(),
+         updated_at timestamptz NOT NULL DEFAULT now(),
+         user_id uuid NOT NULL UNIQUE REFERENCES users(id),
+         speciality_id uuid NOT NULL,
+         image varchar, about text, license_number varchar,
+         years_of_experience int NOT NULL DEFAULT 0,
+         consultation_fee numeric(10,2) NOT NULL DEFAULT 0,
+         rating numeric(3,2) NOT NULL DEFAULT 0,
+         total_reviews int NOT NULL DEFAULT 0,
+         consultation_type varchar NOT NULL DEFAULT 'both',
+         is_available boolean NOT NULL DEFAULT true,
+         is_active boolean NOT NULL DEFAULT true,
+         verification_status varchar NOT NULL DEFAULT 'pending',
+         profile_setup_completed boolean NOT NULL DEFAULT false)`,
+    );
+    await database.query(
+      `CREATE TABLE specialities (
+         id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+         created_at timestamptz NOT NULL DEFAULT now(),
+         updated_at timestamptz NOT NULL DEFAULT now(),
+         name varchar NOT NULL UNIQUE, description varchar,
+         icon varchar, is_active boolean NOT NULL DEFAULT true)`,
+    );
+    await database.query(
+      `CREATE TABLE bookings (
+         id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+         created_at timestamptz NOT NULL DEFAULT now(),
+         updated_at timestamptz NOT NULL DEFAULT now(),
+         patient_id uuid NOT NULL REFERENCES users(id),
+         professional_id uuid NOT NULL REFERENCES professionals(id),
+         booking_date date NOT NULL, booking_time time NOT NULL,
+         consultation_type varchar NOT NULL, amount numeric(10,2) NOT NULL,
+         status varchar NOT NULL DEFAULT 'pending', notes text,
+         payment_reference varchar, is_paid boolean NOT NULL DEFAULT false,
+         availability_id uuid)`,
     );
     await database.query(
       'CREATE TABLE legal_acceptances (' +
@@ -237,7 +326,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       `ALTER TABLE auth_security_events DROP CONSTRAINT "CHK_auth_security_events_type"`,
     );
     await database.query(
-      `ALTER TABLE auth_security_events ADD CONSTRAINT "CHK_auth_security_events_type" CHECK (event_type IN ('sign_in', 'contact_verification', 'password_recovery', 'password_change', 'session_refresh', 'session_reuse', 'logout', 'account_state_change', 'oauth_signup', 'oauth_sign_in', 'oauth_link', 'oauth_unlink', 'oauth_conflict', 'oauth_denial', 'registration', 'mfa', 'mfa_enrollment_started', 'mfa_activated', 'mfa_recovery_codes_regenerated', 'mfa_disabled', 'login_challenge_request', 'login_challenge_resend', 'login_challenge_delivery', 'login_challenge_expiry', 'login_challenge_verification'))`,
+      `ALTER TABLE auth_security_events ADD CONSTRAINT "CHK_auth_security_events_type" CHECK (event_type IN ('sign_in', 'contact_verification', 'password_recovery', 'password_change', 'session_refresh', 'session_reuse', 'logout', 'account_state_change', 'oauth_signup', 'oauth_sign_in', 'oauth_link', 'oauth_unlink', 'oauth_conflict', 'oauth_denial', 'registration', 'mfa', 'mfa_enrollment_started', 'mfa_activated', 'mfa_recovery_codes_regenerated', 'mfa_disabled', 'login_challenge_request', 'login_challenge_resend', 'login_challenge_delivery', 'login_challenge_expiry', 'login_challenge_verification', 'context_restoration', 'authorization_denial'))`,
     );
     await healthyWorker();
     const values = new Map<string, unknown>([
@@ -263,6 +352,9 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       ['registration.termsVersion', 'terms-v1'],
       ['registration.privacyVersion', 'privacy-v1'],
       ['registration.idempotencyPepper', 'r'.repeat(32)],
+      ['oauth.google.enabled', true],
+      ['oauth.google.webClientIds', 'web-audience.test'],
+      ['oauth.google.mobileClientIds', 'mobile-audience.test'],
     ]);
     config = {
       get: (key: string, fallback?: unknown) => values.get(key) ?? fallback,
@@ -282,6 +374,10 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         AuthController,
         BrowserSessionController,
         TwoFactorAuthController,
+        OAuthController,
+        ProfessionalController,
+        OrganizationController,
+        BookingController,
       ],
       providers: [
         AuthService,
@@ -297,26 +393,54 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         AuthChallengeDeliveryService,
         SecureAuthChallengeFlowsService,
         AuthSecurityAuditService,
+        AuthContextService,
+        CapabilitiesGuard,
         RefreshSessionService,
         PasswordCredentialsService,
         AccountProvisioningService,
         RegistrationService,
         TwoFactorAuthService,
+        OAuthService,
+        OAuthTransactionService,
+        BookingService,
         MfaSecretBox,
         {
-          provide: AuthContextService,
+          provide: ProfessionalService,
           useValue: {
-            resolve: jest.fn((userId: string, sessionId: string) => ({
-              account: { id: userId },
-              personas: [],
-              professional: null,
-              memberships: [],
-              capabilities: [],
-              session: { id: sessionId },
-            })),
+            findMe: jest.fn().mockResolvedValue({ ok: true }),
+            getMyDashboard: jest.fn().mockResolvedValue({ ok: true }),
           },
         },
-        { provide: OAuthService, useValue: { complete: jest.fn() } },
+        { provide: OrganizationOnboardingService, useValue: {} },
+        { provide: OrganizationDocumentsService, useValue: {} },
+        {
+          provide: OrganizationVerificationService,
+          useValue: { getMine: jest.fn().mockResolvedValue({ ok: true }) },
+        },
+        {
+          provide: GoogleTokenVerifierService,
+          useValue: {
+            verify: jest.fn(
+              async (token: string, audience: string, nonceHash: string) => {
+                const proof = oauthProofs.get(token);
+                if (
+                  !proof ||
+                  proof.audience !== audience ||
+                  createHash('sha256').update(proof.nonce).digest('hex') !==
+                    nonceHash
+                ) {
+                  throw new OAuthException('OAUTH_TOKEN_INVALID');
+                }
+                return {
+                  issuer: 'https://accounts.google.com',
+                  subject: proof.subject,
+                  email: proof.email,
+                  emailVerified: true,
+                };
+              },
+            ),
+          },
+        },
         { provide: DataSource, useValue: source },
         { provide: ConfigService, useValue: config },
         {
@@ -326,6 +450,38 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         {
           provide: getRepositoryToken(AuthSession),
           useValue: source.getRepository(AuthSession),
+        },
+        {
+          provide: getRepositoryToken(UserPersona),
+          useValue: source.getRepository(UserPersona),
+        },
+        {
+          provide: getRepositoryToken(Professional),
+          useValue: source.getRepository(Professional),
+        },
+        {
+          provide: getRepositoryToken(Booking),
+          useValue: source.getRepository(Booking),
+        },
+        {
+          provide: getRepositoryToken(ProfessionalAvailability),
+          useValue: source.getRepository(ProfessionalAvailability),
+        },
+        {
+          provide: getRepositoryToken(OrganizationMembership),
+          useValue: source.getRepository(OrganizationMembership),
+        },
+        {
+          provide: getRepositoryToken(PlatformPrivilegeEntity),
+          useValue: source.getRepository(PlatformPrivilegeEntity),
+        },
+        {
+          provide: getRepositoryToken(User2fa),
+          useValue: source.getRepository(User2fa),
+        },
+        {
+          provide: getRepositoryToken(OAuthTransaction),
+          useValue: source.getRepository(OAuthTransaction),
         },
         {
           provide: JwtService,
@@ -450,6 +606,428 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     }
     throw new Error(`Timed out waiting for ${expected} database lock waiters.`);
   }
+
+  it('binds OAuth sign-in to one transaction and records denial after rollback', async () => {
+    const user = await createUser('oauth-live', 'active');
+    const subject = `google-${randomUUID()}`;
+    await database.query(
+      `INSERT INTO external_identities
+         (user_id, provider, issuer, subject)
+       VALUES ($1, 'google', 'https://accounts.google.com', $2)`,
+      [user.id, subject],
+    );
+    const start = async () =>
+      request(app.getHttpServer())
+        .post('/api/auth/oauth/google/transactions')
+        .send({
+          operation: 'signin',
+          consumer: 'mobile',
+          audience: 'mobile-audience.test',
+        })
+        .expect(201);
+    const transactionCountBefore: Array<{ count: number }> =
+      await database.query(
+        'SELECT count(*)::int AS count FROM oauth_transactions',
+      );
+    await request(app.getHttpServer())
+      .post('/api/auth/oauth/google/transactions')
+      .send({
+        operation: 'signin',
+        consumer: 'mobile',
+        audience: 'mobile-audience.test',
+        intent: 'patient',
+      })
+      .expect(401);
+    const transactionCountAfter: Array<{ count: number }> =
+      await database.query(
+        'SELECT count(*)::int AS count FROM oauth_transactions',
+      );
+    expect(transactionCountAfter[0].count).toBe(
+      transactionCountBefore[0].count,
+    );
+    const first = (await start()).body.data as {
+      transaction_id: string;
+      transaction_token: string;
+      nonce: string;
+      audience: string;
+    };
+    const token = randomUUID();
+    oauthProofs.set(token, {
+      nonce: first.nonce,
+      audience: first.audience,
+      subject,
+      email: user.email,
+    });
+    const completion = await request(app.getHttpServer())
+      .post('/api/auth/oauth/google/complete')
+      .send({
+        transaction_id: first.transaction_id,
+        transaction_token: first.transaction_token,
+        id_token: token,
+      })
+      .expect(200);
+    expect(completion.body.data.session_id).toMatch(/^[a-f0-9-]{36}$/i);
+    const replay = await request(app.getHttpServer())
+      .post('/api/auth/oauth/google/complete')
+      .send({
+        transaction_id: first.transaction_id,
+        transaction_token: first.transaction_token,
+        id_token: token,
+      })
+      .expect(409);
+    expect(replay.body.error_code).toBe('OAUTH_TRANSACTION_REPLAYED');
+
+    const second = (await start()).body.data as typeof first;
+    const unlinkedToken = randomUUID();
+    oauthProofs.set(unlinkedToken, {
+      nonce: second.nonce,
+      audience: second.audience,
+      subject: `unlinked-${randomUUID()}`,
+      email: user.email,
+    });
+    await request(app.getHttpServer())
+      .post('/api/auth/oauth/google/complete')
+      .send({
+        transaction_id: second.transaction_id,
+        transaction_token: second.transaction_token,
+        id_token: unlinkedToken,
+      })
+      .expect(409);
+
+    const bound = (await start()).body.data as typeof first;
+    const boundToken = randomUUID();
+    oauthProofs.set(boundToken, {
+      nonce: bound.nonce,
+      audience: bound.audience,
+      subject,
+      email: user.email,
+    });
+    await request(app.getHttpServer())
+      .post('/api/auth/browser/oauth/google/complete')
+      .set({
+        Origin: 'https://app.ohealth.example',
+        ['X-OHealth-Client']: 'browser',
+      })
+      .send({
+        transaction_id: bound.transaction_id,
+        transaction_token: bound.transaction_token,
+        id_token: boundToken,
+      })
+      .expect(401);
+    const pending: Array<{ consumed_at: Date | null }> = await database.query(
+      'SELECT consumed_at FROM oauth_transactions WHERE id = $1',
+      [bound.transaction_id],
+    );
+    expect(pending).toEqual([{ consumed_at: null }]);
+    await request(app.getHttpServer())
+      .post('/api/auth/oauth/google/complete')
+      .send({
+        transaction_id: bound.transaction_id,
+        transaction_token: bound.transaction_token,
+        id_token: boundToken,
+      })
+      .expect(200);
+
+    const blocked = await createUser('oauth-blocked', 'suspended');
+    const blockedSubject = `google-${randomUUID()}`;
+    await database.query(
+      `INSERT INTO external_identities
+         (user_id, provider, issuer, subject)
+       VALUES ($1, 'google', 'https://accounts.google.com', $2)`,
+      [blocked.id, blockedSubject],
+    );
+    const blockedTransaction = (await start()).body.data as typeof first;
+    const blockedToken = randomUUID();
+    oauthProofs.set(blockedToken, {
+      nonce: blockedTransaction.nonce,
+      audience: blockedTransaction.audience,
+      subject: blockedSubject,
+      email: blocked.email,
+    });
+    await request(app.getHttpServer())
+      .post('/api/auth/oauth/google/complete')
+      .send({
+        transaction_id: blockedTransaction.transaction_id,
+        transaction_token: blockedTransaction.transaction_token,
+        id_token: blockedToken,
+      })
+      .expect(401);
+    const blockedSessions: Array<{ count: number }> = await database.query(
+      'SELECT count(*)::int AS count FROM auth_sessions WHERE user_id = $1',
+      [blocked.id],
+    );
+    expect(blockedSessions).toEqual([{ count: 0 }]);
+
+    const target = await createUser('oauth-link-target', 'active');
+    const targetSession = await app.get(RefreshSessionService).issue(target.id);
+    const linkStart = await request(app.getHttpServer())
+      .post('/api/auth/oauth/google/link/transactions')
+      .set('Authorization', `Bearer ${targetSession.access_token}`)
+      .send({ consumer: 'mobile', audience: 'mobile-audience.test' })
+      .expect(201);
+    const link = linkStart.body.data as typeof first;
+    const linkToken = randomUUID();
+    oauthProofs.set(linkToken, {
+      nonce: link.nonce,
+      audience: link.audience,
+      subject,
+      email: target.email,
+    });
+    await request(app.getHttpServer())
+      .post('/api/auth/oauth/google/complete')
+      .send({
+        transaction_id: link.transaction_id,
+        transaction_token: link.transaction_token,
+        id_token: linkToken,
+      })
+      .expect(409);
+    const identity: Array<{ user_id: string }> = await database.query(
+      'SELECT user_id FROM external_identities WHERE subject = $1',
+      [subject],
+    );
+    expect(identity).toEqual([{ user_id: user.id }]);
+    const conflicts: Array<{ count: number }> = await database.query(
+      `SELECT count(*)::int AS count FROM auth_security_events
+       WHERE event_type = 'oauth_conflict' AND outcome = 'denied'`,
+    );
+    expect(conflicts[0].count).toBeGreaterThan(0);
+    const events: Array<{ event_type: string; outcome: string }> =
+      await database.query(
+        `SELECT event_type, outcome FROM auth_security_events
+         WHERE subject_user_id = $1 OR event_type = 'oauth_sign_in'`,
+        [user.id],
+      );
+    expect(events).toEqual(
+      expect.arrayContaining([
+        { event_type: 'oauth_sign_in', outcome: 'succeeded' },
+        { event_type: 'oauth_sign_in', outcome: 'denied' },
+      ]),
+    );
+  });
+
+  it('creates a Google-backed patient without exposing its generated credential', async () => {
+    const started = await request(app.getHttpServer())
+      .post('/api/auth/oauth/google/transactions')
+      .send({
+        operation: 'signup',
+        consumer: 'mobile',
+        audience: 'mobile-audience.test',
+        intent: 'patient',
+        accepted_terms_version: 'terms-v1',
+        accepted_privacy_version: 'privacy-v1',
+      })
+      .expect(201);
+    const transaction = started.body.data as {
+      transaction_id: string;
+      transaction_token: string;
+      nonce: string;
+      audience: string;
+    };
+    const email = `oauth-${randomUUID()}@gmail.com`;
+    const token = randomUUID();
+    oauthProofs.set(token, {
+      nonce: transaction.nonce,
+      audience: transaction.audience,
+      subject: `google-${randomUUID()}`,
+      email,
+    });
+    const completed = await request(app.getHttpServer())
+      .post('/api/auth/oauth/google/complete')
+      .send({
+        transaction_id: transaction.transaction_id,
+        transaction_token: transaction.transaction_token,
+        id_token: token,
+      })
+      .expect(200);
+    expect(completed.body.data).not.toHaveProperty('password');
+    const state: Array<{
+      account_status: string;
+      password_authentication_enabled: boolean;
+      persona_type: string;
+    }> = await database.query(
+      `SELECT u.account_status, u.password_authentication_enabled,
+              p.persona_type FROM users u
+       JOIN user_personas p ON p.user_id = u.id WHERE u.email = $1`,
+      [email],
+    );
+    expect(state).toEqual([
+      {
+        account_status: 'active',
+        password_authentication_enabled: false,
+        persona_type: 'patient',
+      },
+    ]);
+    const events: Array<{ event_type: string; outcome: string }> =
+      await database.query(
+        `SELECT e.event_type, e.outcome FROM auth_security_events e
+         JOIN users u ON u.id = e.subject_user_id WHERE u.email = $1`,
+        [email],
+      );
+    expect(events).toEqual(
+      expect.arrayContaining([
+        { event_type: 'oauth_signup', outcome: 'succeeded' },
+        { event_type: 'sign_in', outcome: 'succeeded' },
+      ]),
+    );
+  });
+
+  it('enforces patient, professional, and organization capabilities from current PostgreSQL state', async () => {
+    const patient = await createUser('persona-patient', 'active');
+    await database.query(
+      `INSERT INTO user_personas (user_id, persona_type)
+       VALUES ($1, 'patient')`,
+      [patient.id],
+    );
+    const patientSession = await app
+      .get(RefreshSessionService)
+      .issue(patient.id);
+    const patientAuth = `Bearer ${patientSession.access_token}`;
+    const patientContext = await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .set('Authorization', patientAuth)
+      .expect(200);
+    expect(patientContext.body.data.account_context.capabilities).toContain(
+      'persona.patient',
+    );
+    await request(app.getHttpServer())
+      .get('/api/bookings')
+      .set('Authorization', patientAuth)
+      .expect(200);
+    await request(app.getHttpServer())
+      .get('/api/professionals/me/dashboard')
+      .set('Authorization', patientAuth)
+      .expect(403);
+
+    const professional = await createUser('persona-professional', 'active');
+    await database.query(
+      `INSERT INTO user_personas (user_id, persona_type)
+       VALUES ($1, 'healthcare_professional')`,
+      [professional.id],
+    );
+    await database.query(
+      `INSERT INTO professionals
+         (user_id, speciality_id, verification_status,
+          profile_setup_completed)
+       VALUES ($1, $2, 'pending', true)`,
+      [professional.id, randomUUID()],
+    );
+    const professionalSession = await app
+      .get(RefreshSessionService)
+      .issue(professional.id);
+    const professionalAuth = `Bearer ${professionalSession.access_token}`;
+    await request(app.getHttpServer())
+      .get('/api/bookings')
+      .set('Authorization', professionalAuth)
+      .expect(403);
+    await request(app.getHttpServer())
+      .get('/api/professionals/me')
+      .set('Authorization', professionalAuth)
+      .expect(200);
+    await request(app.getHttpServer())
+      .get('/api/professionals/me/dashboard')
+      .set('Authorization', professionalAuth)
+      .expect(403);
+    await database.query(
+      `UPDATE professionals SET verification_status = 'verified'
+       WHERE user_id = $1`,
+      [professional.id],
+    );
+    await request(app.getHttpServer())
+      .get('/api/professionals/me/dashboard')
+      .set('Authorization', professionalAuth)
+      .expect(200);
+
+    const orgA = randomUUID();
+    const orgB = randomUUID();
+    await database.query(
+      `INSERT INTO organizations
+         (id, organization_type, name, registration_number,
+          location, contact_email, verification_status)
+       VALUES ($1, 'hospital', 'A', $3, 'Lagos', 'a@example.test', 'approved'),
+              ($2, 'hospital', 'B', $4, 'Lagos', 'b@example.test', 'approved')`,
+      [orgA, orgB, `reg-${orgA}`, `reg-${orgB}`],
+    );
+    await database.query(
+      `INSERT INTO organization_memberships
+         (organization_id, user_id, role, status)
+       VALUES ($1, $2, 'owner', 'active')`,
+      [orgA, professional.id],
+    );
+    await database.query(
+      `INSERT INTO user_2fa (user_id, two_fa_enabled, encrypted_secret)
+       VALUES ($1, true, 'test-encrypted-factor')`,
+      [professional.id],
+    );
+    await request(app.getHttpServer())
+      .get('/api/organizations/onboarding/me/status')
+      .set('Authorization', professionalAuth)
+      .set('x-organization-id', orgB)
+      .expect(403);
+    await request(app.getHttpServer())
+      .get('/api/organizations/onboarding/me/status')
+      .set('Authorization', professionalAuth)
+      .set('x-organization-id', orgA)
+      .expect(200);
+
+    const denials: Array<{ count: number }> = await database.query(
+      `SELECT count(*)::int AS count FROM auth_security_events
+       WHERE event_type = 'authorization_denial'
+         AND subject_user_id = ANY($1::uuid[])`,
+      [[patient.id, professional.id]],
+    );
+    expect(denials[0].count).toBeGreaterThanOrEqual(3);
+  });
+
+  it('refuses another patient’s booking even with its resource ID and a forged user selector', async () => {
+    const owner = await createUser('booking-owner', 'active');
+    const other = await createUser('booking-other', 'active');
+    const clinician = await createUser('booking-clinician', 'active');
+    await database.query(
+      `INSERT INTO user_personas (user_id, persona_type)
+       VALUES ($1, 'patient'), ($2, 'patient')`,
+      [owner.id, other.id],
+    );
+    const specialtyId = randomUUID();
+    await database.query(
+      `INSERT INTO specialities (id, name) VALUES ($1, $2)`,
+      [specialtyId, `Specialty ${specialtyId}`],
+    );
+    const clinicianProfile = randomUUID();
+    await database.query(
+      `INSERT INTO professionals (id, user_id, speciality_id)
+       VALUES ($1, $2, $3)`,
+      [clinicianProfile, clinician.id, specialtyId],
+    );
+    const bookingId = randomUUID();
+    await database.query(
+      `INSERT INTO bookings
+         (id, patient_id, professional_id, booking_date,
+          booking_time, consultation_type, amount)
+       VALUES ($1, $2, $3, CURRENT_DATE + 1, '10:00', 'chat', 100)`,
+      [bookingId, owner.id, clinicianProfile],
+    );
+    const ownerSession = await app.get(RefreshSessionService).issue(owner.id);
+    const otherSession = await app.get(RefreshSessionService).issue(other.id);
+    await request(app.getHttpServer())
+      .get(`/api/bookings/${bookingId}`)
+      .set('Authorization', `Bearer ${ownerSession.access_token}`)
+      .expect(200);
+    await request(app.getHttpServer())
+      .get(`/api/bookings/${bookingId}`)
+      .set('Authorization', `Bearer ${otherSession.access_token}`)
+      .expect(404);
+    const forged = await request(app.getHttpServer())
+      .get('/api/bookings')
+      .query({ user_id: owner.id })
+      .set('Authorization', `Bearer ${otherSession.access_token}`)
+      .expect(200);
+    expect(forged.body.data).toEqual([]);
+    const stored: Array<{ patient_id: string }> = await database.query(
+      'SELECT patient_id FROM bookings WHERE id = $1',
+      [bookingId],
+    );
+    expect(stored).toEqual([{ patient_id: owner.id }]);
+  });
 
   it('requires a purpose-bound login code and creates one session under concurrent verification', async () => {
     const password = 'a memorable login passphrase';
@@ -659,6 +1237,35 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
   it('rotates over HTTP, lists safe metadata and enforces logout on access and refresh', async () => {
     const user = await createUser('session-http', 'active');
     const issued = await app.get(RefreshSessionService).issue(user.id);
+    const otherUser = await createUser('other-session-http', 'active');
+    const otherSession = await app
+      .get(RefreshSessionService)
+      .issue(otherUser.id);
+    const deniedBefore: Array<{ count: number }> = await database.query(
+      `SELECT count(*)::int AS count FROM auth_security_events
+       WHERE event_type = 'logout' AND outcome = 'denied'
+         AND actor_user_id = $1 AND subject_user_id = $1 AND session_id = $2`,
+      [user.id, issued.session_id],
+    );
+    await request(app.getHttpServer())
+      .post('/api/auth/logout')
+      .set('Authorization', `Bearer ${issued.access_token}`)
+      .send({ session_id: otherSession.session_id })
+      .expect(401);
+    const deniedAfter: Array<{ count: number }> = await database.query(
+      `SELECT count(*)::int AS count FROM auth_security_events
+       WHERE event_type = 'logout' AND outcome = 'denied'
+         AND actor_user_id = $1 AND subject_user_id = $1 AND session_id = $2`,
+      [user.id, issued.session_id],
+    );
+    expect(deniedAfter[0].count).toBe(deniedBefore[0].count + 1);
+    expect(
+      (
+        await database.getRepository(AuthSession).findOneByOrFail({
+          session_id: otherSession.session_id,
+        })
+      ).revoked_at,
+    ).toBeNull();
     const listed = await request(app.getHttpServer())
       .get('/api/auth/sessions')
       .set('Authorization', `Bearer ${issued.access_token}`)
@@ -687,6 +1294,34 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       .expect(401);
   });
 
+  it('revokes every caller session and records the revocation atomically', async () => {
+    const user = await createUser('revoke-all-http', 'active');
+    const sessions = app.get(RefreshSessionService);
+    const first = await sessions.issue(user.id);
+    const second = await sessions.issue(user.id);
+    await request(app.getHttpServer())
+      .post('/api/auth/sessions/revoke-all')
+      .set('Authorization', `Bearer ${first.access_token}`)
+      .expect(200);
+    for (const issued of [first, second]) {
+      await request(secondApp.getHttpServer())
+        .post('/api/auth/refresh')
+        .send({ refresh_token: issued.refresh_token })
+        .expect(401);
+      const session = await database
+        .getRepository(AuthSession)
+        .findOneByOrFail({ session_id: issued.session_id });
+      expect(session.revoked_at).toBeInstanceOf(Date);
+    }
+    const events: Array<{ count: number }> = await database.query(
+      `SELECT count(*)::int AS count FROM auth_security_events
+       WHERE event_type = 'logout' AND outcome = 'succeeded'
+         AND actor_user_id = $1 AND session_id IS NULL`,
+      [user.id],
+    );
+    expect(events[0].count).toBe(1);
+  });
+
   it('uses browser cookies over the canonical PostgreSQL session authority', async () => {
     const user = await createUser('browser-session-http', 'active');
     const sessions = app.get(RefreshSessionService);
@@ -712,6 +1347,10 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     expect(rotatedCookie).toContain('Secure');
     expect(rotatedCookie).toContain('SameSite=Strict');
 
+    const deniedBefore: Array<{ count: number }> = await database.query(
+      `SELECT count(*)::int AS count FROM auth_security_events
+       WHERE event_type = 'session_refresh' AND outcome = 'denied'`,
+    );
     const replay = await request(secondApp.getHttpServer())
       .post('/api/auth/browser/refresh')
       .set(browserHeaders)
@@ -724,6 +1363,11 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       .getRepository(AuthSession)
       .findOneByOrFail({ session_id: issued.session_id });
     expect(replayedSession.revoked_at).toBeInstanceOf(Date);
+    const deniedAfter: Array<{ count: number }> = await database.query(
+      `SELECT count(*)::int AS count FROM auth_security_events
+       WHERE event_type = 'session_refresh' AND outcome = 'denied'`,
+    );
+    expect(deniedAfter[0].count).toBe(deniedBefore[0].count + 1);
 
     const logoutSession = await sessions.issue(user.id);
     const logout = await request(app.getHttpServer())
@@ -943,9 +1587,13 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     };
     expect(mailed.templateData.challenge_id).toBe(challengeId);
 
-    await request(app.getHttpServer())
+    const verified = await request(app.getHttpServer())
       .post('/api/auth/verify')
       .send({ challenge_id: challengeId, code: mailed.templateData.code })
+      .expect(200);
+    await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${verified.body.data.access_token}`)
       .expect(200);
     const after: Array<{ account_status: string; count: number }> =
       await database.query(
@@ -968,6 +1616,44 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       expect.arrayContaining([
         { reason: 'password_registration' },
         { reason: 'verified_contact_challenge' },
+      ]),
+    );
+    const audit: Array<{
+      event_type: string;
+      outcome: string;
+      actor_user_id: string | null;
+      subject_user_id: string;
+      session_id: string | null;
+    }> = await database.query(
+      'SELECT e.event_type, e.outcome, e.actor_user_id, ' +
+        'e.subject_user_id, e.session_id FROM auth_security_events e ' +
+        'JOIN users u ON u.id = e.subject_user_id WHERE u.email = $1',
+      [email],
+    );
+    expect(audit).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          event_type: 'registration',
+          outcome: 'succeeded',
+          actor_user_id: null,
+          session_id: null,
+        }),
+        expect.objectContaining({
+          event_type: 'contact_verification',
+          outcome: 'succeeded',
+          actor_user_id: null,
+          session_id: null,
+        }),
+        expect.objectContaining({
+          event_type: 'sign_in',
+          outcome: 'succeeded',
+          session_id: expect.any(String),
+        }),
+        expect.objectContaining({
+          event_type: 'context_restoration',
+          outcome: 'succeeded',
+          session_id: expect.any(String),
+        }),
       ]),
     );
   }, 20_000);
@@ -1308,6 +1994,10 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
 
   it('serializes concurrent duplicate and idempotent registration attempts', async () => {
     const suffix = randomUUID();
+    const deniedBefore: Array<{ count: number }> = await database.query(
+      `SELECT count(*)::int AS count FROM auth_security_events
+       WHERE event_type = 'registration' AND outcome = 'denied'`,
+    );
     const payload = {
       first_name: 'Ada',
       last_name: 'Retry',
@@ -1325,6 +2015,11 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       ),
     );
     expect(duplicate.map((reply) => reply.status).sort()).toEqual([201, 409]);
+    const deniedAfter: Array<{ count: number }> = await database.query(
+      `SELECT count(*)::int AS count FROM auth_security_events
+       WHERE event_type = 'registration' AND outcome = 'denied'`,
+    );
+    expect(deniedAfter[0].count).toBe(deniedBefore[0].count + 1);
     const secondPayload = {
       ...payload,
       email: `idempotent+${suffix}@example.test`,
@@ -1467,6 +2162,10 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
 
   it('rolls back identity and legal records when durable delivery cannot queue', async () => {
     const email = `rollback+${randomUUID()}@example.test`;
+    const before: Array<{ count: number }> = await database.query(
+      `SELECT count(*)::int AS count FROM auth_security_events
+       WHERE event_type = 'registration' AND outcome = 'failed'`,
+    );
     const queue = jest
       .spyOn(delivery, 'queueInTransaction')
       .mockRejectedValueOnce(new Error('injected queue failure'));
@@ -1488,6 +2187,11 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       [email],
     );
     expect(rows[0].count).toBe(0);
+    const after: Array<{ count: number }> = await database.query(
+      `SELECT count(*)::int AS count FROM auth_security_events
+       WHERE event_type = 'registration' AND outcome = 'failed'`,
+    );
+    expect(after[0].count).toBe(before[0].count + 1);
   }, 20_000);
 
   it('rejects recovery proof used for contact verification without consuming it', async () => {
@@ -1593,6 +2297,15 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
   });
 
   it('rejects contact proof at recovery, expiry, and the correct code after five wrong attempts', async () => {
+    const before = await database.query(
+      `SELECT event_type, count(*)::int AS count FROM auth_security_events
+       WHERE event_type IN ('contact_verification', 'password_recovery')
+         AND outcome = 'denied' GROUP BY event_type`,
+    );
+    const countBefore = (type: string) =>
+      (before as Array<{ event_type: string; count: number }>).find(
+        (row) => row.event_type === type,
+      )?.count ?? 0;
     const user = await createUser('attempt-boundary', 'pending_verification');
     const challenge = await app
       .get(AuthChallengeService)
@@ -1642,6 +2355,20 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       [expiredUser.id],
     );
     expect(saved[0].account_status).toBe('pending_verification');
+    const after: Array<{ event_type: string; count: number }> =
+      await database.query(
+        `SELECT event_type, count(*)::int AS count FROM auth_security_events
+         WHERE event_type IN ('contact_verification', 'password_recovery')
+           AND outcome = 'denied' GROUP BY event_type`,
+      );
+    expect(
+      (after.find((row) => row.event_type === 'contact_verification')?.count ??
+        0) - countBefore('contact_verification'),
+    ).toBeGreaterThanOrEqual(7);
+    expect(
+      (after.find((row) => row.event_type === 'password_recovery')?.count ??
+        0) - countBefore('password_recovery'),
+    ).toBeGreaterThanOrEqual(1);
   });
 
   it('recovers a provider timeout without claiming acceptance and wipes the envelope on recovery', async () => {

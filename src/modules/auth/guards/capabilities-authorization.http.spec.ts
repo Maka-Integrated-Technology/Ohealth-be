@@ -18,6 +18,7 @@ import { ProfessionalController } from '../../professional/professional.controll
 import { ProfessionalService } from '../../professional/professional.service';
 import { AccountStatus } from '../../user/enums/account-status.enum';
 import { AuthContextService } from '../context/auth-context.service';
+import { AuthSecurityAuditService } from '../security-audit/auth-security-audit.service';
 
 import { CapabilitiesGuard } from './capabilities.guard';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -93,6 +94,10 @@ describe('Protected controller authorization with current account context (HTTP)
       providers: [
         CapabilitiesGuard,
         { provide: AuthContextService, useValue: contexts },
+        {
+          provide: AuthSecurityAuditService,
+          useValue: { recordAttempt: jest.fn().mockResolvedValue(undefined) },
+        },
         { provide: OrganizationOnboardingService, useValue: {} },
         { provide: OrganizationDocumentsService, useValue: {} },
         { provide: OrganizationVerificationService, useValue: verification },

@@ -10,12 +10,18 @@ import { UserRole } from '../../user/enums/user-role.enum';
 import { AuthCapability } from '../context/auth-capability';
 import { AuthContextService } from '../context/auth-context.service';
 import { ROLES_KEY } from '../decorators/roles.decorator';
+import { AuthSecurityAuditService } from '../security-audit/auth-security-audit.service';
+import {
+  AuthSecurityEventOutcome,
+  AuthSecurityEventType,
+} from '../security-audit/auth-security-event.enum';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
     @Optional() private readonly contexts?: AuthContextService,
+    @Optional() private readonly audit?: AuthSecurityAuditService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -28,8 +34,11 @@ export class RolesGuard implements CanActivate {
       return true;
     }
 
+    if (!this.audit) return false;
+
     const { user } = context.switchToHttp().getRequest();
     if (!user?.id || !user.sessionId) {
+      await this.recordDenial();
       return false;
     }
 
@@ -60,18 +69,34 @@ export class RolesGuard implements CanActivate {
       if (role === UserRole.ADMIN) return [AuthCapability.PLATFORM_ADMIN];
       return [];
     });
-    if (!capabilities.length) return false;
-    if (!this.contexts) return false;
-    try {
-      const accountContext = await this.contexts.resolve(
-        user.id,
-        user.sessionId,
-      );
-      return capabilities.some((capability) =>
-        accountContext.capabilities.includes(capability),
-      );
-    } catch {
+    if (!capabilities.length || !this.contexts) {
+      await this.recordDenial(user.id, user.sessionId);
       return false;
     }
+    let accountContext;
+    try {
+      accountContext = await this.contexts.resolve(user.id, user.sessionId);
+    } catch {
+      await this.recordDenial(user.id, user.sessionId);
+      return false;
+    }
+    const allowed = capabilities.some((capability) =>
+      accountContext.capabilities.includes(capability),
+    );
+    if (!allowed) await this.recordDenial(user.id, user.sessionId);
+    return allowed;
+  }
+
+  private async recordDenial(
+    userId?: string,
+    sessionId?: string,
+  ): Promise<void> {
+    await this.audit!.recordAttempt({
+      event_type: AuthSecurityEventType.AUTHORIZATION_DENIAL,
+      outcome: AuthSecurityEventOutcome.DENIED,
+      actor_user_id: userId,
+      subject_user_id: userId,
+      session_id: sessionId,
+    });
   }
 }

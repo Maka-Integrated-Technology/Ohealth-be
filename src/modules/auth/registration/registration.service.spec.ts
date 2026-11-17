@@ -67,6 +67,7 @@ describe('RegistrationService', () => {
   } as unknown as AuthChallengeDeliveryService;
   const audit = {
     recordInTransaction: jest.fn().mockResolvedValue(undefined),
+    recordAttempt: jest.fn().mockResolvedValue(undefined),
   } as unknown as AuthSecurityAuditService;
   const service = new RegistrationService(
     dataSource,
@@ -317,6 +318,12 @@ describe('RegistrationService', () => {
     query.mockRejectedValueOnce({ code: '23505' });
     await expect(service.register(base(SignupIntent.PATIENT))).rejects.toThrow(
       ConflictException,
+    );
+    expect(audit.recordAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_type: 'registration',
+        outcome: 'denied',
+      }),
     );
   });
 
