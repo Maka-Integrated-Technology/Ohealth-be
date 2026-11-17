@@ -384,13 +384,15 @@ integration('Public professional availability on real PostgreSQL', () => {
     currentInstant = () => new Date();
   });
 
+  // Dropping a database waits for its background workers to leave, which can
+  // take longer than the default hook timeout after bulk writes.
   afterAll(async () => {
     await database?.destroy();
     if (admin?.isInitialized) {
       await admin.query(`DROP DATABASE IF EXISTS "${databaseName}"`);
       await admin.destroy();
     }
-  });
+  }, 60_000);
 
   describe('visibility', () => {
     it.each(
