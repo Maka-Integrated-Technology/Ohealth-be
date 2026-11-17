@@ -11,19 +11,17 @@ import {
   PublicSpecialityDto,
 } from './dto/public-discovery-response.dto';
 import { PUBLIC_DISCOVERY_ICON } from './public-discovery.constants';
+import { toPublicLabel, toPublicProse } from './public-discovery.text';
 
 export type PublicSpecialitySource = Pick<
   Speciality,
   'id' | 'name' | 'description' | 'icon'
 >;
 
-export type PublicProfessionalSource = Pick<
+type PublicProfessionalProfileSource = Pick<
   Professional,
   | 'id'
   | 'image'
-  | 'about'
-  | 'rating'
-  | 'total_reviews'
   | 'consultation_fee'
   | 'years_of_experience'
   | 'consultation_type'
@@ -32,6 +30,20 @@ export type PublicProfessionalSource = Pick<
   user: Pick<User, 'first_name' | 'last_name'>;
   speciality: Pick<Speciality, 'id' | 'name'>;
 };
+
+/** A directory row, carrying the stored review summary it is sorted by. */
+export type PublicProfessionalSource = PublicProfessionalProfileSource &
+  Pick<Professional, 'rating' | 'total_reviews'>;
+
+/** A detail row. Its review aggregate is supplied from the review records. */
+export type PublicProfessionalDetailSource = PublicProfessionalProfileSource &
+  Pick<Professional, 'about'>;
+
+/** Aggregate of a professional's review records; no single review is in it. */
+export interface IPublicReviewAggregate {
+  rating: number;
+  total_reviews: number;
+}
 
 export type PublicAvailabilitySource = Pick<
   ProfessionalAvailability,
@@ -73,10 +85,11 @@ export function toPublicIconIdentifier(
 function toPublicDisplayName(
   user: Pick<User, 'first_name' | 'last_name'>,
 ): string {
-  return [user.first_name, user.last_name]
-    .map((part) => (part ?? '').trim())
-    .filter((part) => part.length > 0)
-    .join(' ');
+  return toPublicLabel(
+    [user.first_name, user.last_name]
+      .filter((part) => typeof part === 'string')
+      .join(' '),
+  );
 }
 
 export function toPublicSpeciality(
@@ -84,14 +97,15 @@ export function toPublicSpeciality(
 ): PublicSpecialityDto {
   return {
     id: speciality.id,
-    name: speciality.name,
-    description: speciality.description ?? null,
+    name: toPublicLabel(speciality.name),
+    description: toPublicProse(speciality.description),
     icon: toPublicIconIdentifier(speciality.icon),
   };
 }
 
-export function toPublicProfessionalSummary(
-  professional: PublicProfessionalSource,
+function toPublicProfessionalProfile(
+  professional: PublicProfessionalProfileSource,
+  reviews: IPublicReviewAggregate,
 ): PublicProfessionalSummaryDto {
   return {
     id: professional.id,
@@ -99,10 +113,10 @@ export function toPublicProfessionalSummary(
     image: toPublicImageUrl(professional.image),
     speciality: {
       id: professional.speciality.id,
-      name: professional.speciality.name,
+      name: toPublicLabel(professional.speciality.name),
     },
-    rating: Number(professional.rating),
-    total_reviews: professional.total_reviews,
+    rating: reviews.rating,
+    total_reviews: reviews.total_reviews,
     consultation_fee: Number(professional.consultation_fee),
     years_of_experience: professional.years_of_experience,
     consultation_type: professional.consultation_type,
@@ -110,12 +124,22 @@ export function toPublicProfessionalSummary(
   };
 }
 
-export function toPublicProfessionalDetail(
+export function toPublicProfessionalSummary(
   professional: PublicProfessionalSource,
+): PublicProfessionalSummaryDto {
+  return toPublicProfessionalProfile(professional, {
+    rating: Number(professional.rating),
+    total_reviews: professional.total_reviews,
+  });
+}
+
+export function toPublicProfessionalDetail(
+  professional: PublicProfessionalDetailSource,
+  reviews: IPublicReviewAggregate,
 ): PublicProfessionalDetailDto {
   return {
-    ...toPublicProfessionalSummary(professional),
-    about: professional.about ?? null,
+    ...toPublicProfessionalProfile(professional, reviews),
+    about: toPublicProse(professional.about),
   };
 }
 

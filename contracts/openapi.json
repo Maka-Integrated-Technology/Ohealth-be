@@ -4515,6 +4515,9 @@
       "PublicProfessionalDetailDto": {
         "properties": {
           "about": {
+            "description": "Biography as plain text; never HTML, so render it as text. Published as written, or null when the stored text is absent, too long, or contains markup.",
+            "example": "Consultant cardiologist with ten years of clinical practice.",
+            "maxLength": 4000,
             "nullable": true,
             "type": "string"
           },
@@ -4544,10 +4547,13 @@
             "type": "boolean"
           },
           "name": {
+            "description": "Display name as plain text on one line; never HTML",
             "example": "Ada Obi",
+            "maxLength": 200,
             "type": "string"
           },
           "rating": {
+            "description": "Average of the review ratings, rounded to two decimal places; 0 when there are no reviews",
             "example": 4.5,
             "type": "number"
           },
@@ -4555,6 +4561,7 @@
             "$ref": "#/components/schemas/PublicProfessionalSpecialityDto"
           },
           "total_reviews": {
+            "description": "Number of reviews the rating is the average of",
             "example": 12,
             "type": "integer"
           },
@@ -4612,7 +4619,9 @@
             "type": "string"
           },
           "name": {
+            "description": "Plain text on one line; never HTML",
             "example": "Cardiology",
+            "maxLength": 200,
             "type": "string"
           }
         },
@@ -4650,10 +4659,13 @@
             "type": "boolean"
           },
           "name": {
+            "description": "Display name as plain text on one line; never HTML",
             "example": "Ada Obi",
+            "maxLength": 200,
             "type": "string"
           },
           "rating": {
+            "description": "Average of the review ratings, rounded to two decimal places; 0 when there are no reviews",
             "example": 4.5,
             "type": "number"
           },
@@ -4661,6 +4673,7 @@
             "$ref": "#/components/schemas/PublicProfessionalSpecialityDto"
           },
           "total_reviews": {
+            "description": "Number of reviews the rating is the average of",
             "example": 12,
             "type": "integer"
           },
@@ -4711,6 +4724,8 @@
       "PublicSpecialityDto": {
         "properties": {
           "description": {
+            "description": "Plain text; never HTML. Null when the stored text is absent, too long, or contains markup.",
+            "maxLength": 4000,
             "nullable": true,
             "type": "string"
           },
@@ -4727,7 +4742,9 @@
             "type": "string"
           },
           "name": {
+            "description": "Plain text on one line; never HTML",
             "example": "Cardiology",
+            "maxLength": 200,
             "type": "string"
           }
         },
@@ -15420,6 +15437,75 @@
           }
         },
         "summary": "Search the directory of approved professionals",
+        "tags": [
+          "Public Discovery"
+        ]
+      }
+    },
+    "/api/public/professionals/{id}": {
+      "get": {
+        "description": "Returns the profile only while the professional is publicly visible. The rating and review count are aggregated from the review records; no individual review is returned. Text fields are plain text, never HTML.",
+        "operationId": "PublicProfessionalController_findOne",
+        "parameters": [
+          {
+            "description": "Professional identifier from the public directory",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/PublicProfessionalDetailDto"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Resource not found. Returned identically for missing, malformed, and non-public resources."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Get the public profile of one approved professional",
         "tags": [
           "Public Discovery"
         ]

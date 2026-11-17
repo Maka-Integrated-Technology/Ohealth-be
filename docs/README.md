@@ -36,23 +36,24 @@ must follow.
 
 ## Current status
 
-| Area                               | Status      |
-| ---------------------------------- | ----------- |
-| User personas                      | Implemented |
-| Organization memberships           | Implemented |
-| Legal acceptance records           | Implemented |
-| Transactional outbox table         | Foundation  |
-| Role-free registration contracts   | Implemented |
-| Redis authentication challenges    | Target      |
-| Distributed rate limiting          | Target      |
-| BullMQ email worker                | Target      |
-| Rotating refresh-token families    | Implemented |
-| Browser refresh-cookie transport   | Implemented |
-| Encrypted MFA factors              | Implemented |
-| Public discovery contract          | Foundation  |
-| Public speciality catalogue        | Implemented |
-| Public professional directory      | Implemented |
-| Existing role-array authentication | Legacy      |
+| Area                                              | Status      |
+| ------------------------------------------------- | ----------- |
+| User personas                                     | Implemented |
+| Organization memberships                          | Implemented |
+| Legal acceptance records                          | Implemented |
+| Transactional outbox table                        | Foundation  |
+| Role-free registration contracts                  | Implemented |
+| Redis authentication challenges                   | Target      |
+| Distributed rate limiting                         | Target      |
+| BullMQ email worker                               | Target      |
+| Rotating refresh-token families                   | Implemented |
+| Browser refresh-cookie transport                  | Implemented |
+| Encrypted MFA factors                             | Implemented |
+| Public discovery contract                         | Foundation  |
+| Public speciality catalogue                       | Implemented |
+| Public professional directory                     | Implemented |
+| Public professional details                       | Implemented |
+| Existing role-array authentication                | Legacy      |
 | Canonical account context and capability policies | Implemented |
 
 Update this table whenever an area moves between statuses.

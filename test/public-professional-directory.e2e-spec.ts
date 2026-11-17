@@ -15,6 +15,7 @@ import { JwtAuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../src/modules/auth/guards/roles.guard';
 import { RefreshSessionService } from '../src/modules/auth/sessions/refresh-session.service';
 import { JwtStrategy } from '../src/modules/auth/strategies/jwt.strategy';
+import { ProfessionalReview } from '../src/modules/professional/entities/professional-review.entity';
 import {
   ConsultationType,
   Professional,
@@ -114,6 +115,7 @@ describe('Public professional directory (#143)', () => {
         JwtStrategy,
         RolesGuard,
         { provide: getRepositoryToken(Professional), useValue: repository },
+        { provide: getRepositoryToken(ProfessionalReview), useValue: {} },
         { provide: ProfessionalService, useValue: professionalService },
         {
           provide: RefreshSessionService,
