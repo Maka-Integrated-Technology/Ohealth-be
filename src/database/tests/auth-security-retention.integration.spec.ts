@@ -23,6 +23,15 @@ integration('auth security-event retention on PostgreSQL', () => {
   const schema = `audit_retention_${randomUUID().replaceAll('-', '')}`;
   const runtimeRole = `audit_app_${randomUUID().replaceAll('-', '')}`;
   const maintenanceRole = `audit_maintenance_${randomUUID().replaceAll('-', '')}`;
+  const runtimePassword = randomUUID();
+  const maintenancePassword = randomUUID();
+
+  function roleUrl(role: string, password: string): string {
+    const url = new URL(env.PG_INTEGRATION_URL!);
+    url.username = role;
+    url.password = password;
+    return url.toString();
+  }
 
   beforeAll(async () => {
     admin = new DataSource({
@@ -46,7 +55,9 @@ integration('auth security-event retention on PostgreSQL', () => {
     } finally {
       await runner.release();
     }
-    await admin.query(`CREATE ROLE "${maintenanceRole}" LOGIN`);
+    await admin.query(
+      `CREATE ROLE "${maintenanceRole}" LOGIN PASSWORD '${maintenancePassword}'`,
+    );
     await admin.query(
       `GRANT USAGE ON SCHEMA "${schema}" TO "${maintenanceRole}"`,
     );
@@ -263,17 +274,17 @@ integration('auth security-event retention on PostgreSQL', () => {
   it('allows only the granted maintenance identity to invoke the bounded purge', async () => {
     const eventId = await insertEvent(13);
     await archive(eventId);
-    const maintenanceUrl = env.PG_INTEGRATION_URL!.replace(
-      /^postgresql:\/\/[^@]+@/,
-      `postgresql://${maintenanceRole}@`,
-    );
     const maintenance = new DataSource({
       type: 'postgres',
-      url: maintenanceUrl,
+      url: roleUrl(maintenanceRole, maintenancePassword),
       extra: { options: `-c search_path=${schema},public` },
     });
     await maintenance.initialize();
     try {
+      const identity: Array<{ current_user: string }> = await maintenance.query(
+        'SELECT current_user',
+      );
+      expect(identity).toEqual([{ current_user: maintenanceRole }]);
       const result: Array<{ purged: number }> = await maintenance.query(
         `SELECT purge_archived_auth_security_events(
            'maintenance-operator', 'APPROVAL-81') AS purged`,
@@ -365,7 +376,9 @@ integration('auth security-event retention on PostgreSQL', () => {
     await expect(
       database.query('DELETE FROM auth_security_retention_ledger'),
     ).rejects.toThrow('immutable');
-    await admin.query(`CREATE ROLE "${runtimeRole}" LOGIN`);
+    await admin.query(
+      `CREATE ROLE "${runtimeRole}" LOGIN PASSWORD '${runtimePassword}'`,
+    );
     await admin.query(`GRANT USAGE ON SCHEMA "${schema}" TO "${runtimeRole}"`);
     await admin.query(
       `GRANT SELECT, DELETE ON "${schema}".auth_security_events TO "${runtimeRole}"`,
@@ -400,17 +413,17 @@ integration('auth security-event retention on PostgreSQL', () => {
       await runner.query('RESET ROLE');
       await runner.release();
     }
-    const runtimeUrl = env.PG_INTEGRATION_URL!.replace(
-      /^postgresql:\/\/[^@]+@/,
-      `postgresql://${runtimeRole}@`,
-    );
     const runtime = new DataSource({
       type: 'postgres',
-      url: runtimeUrl,
+      url: roleUrl(runtimeRole, runtimePassword),
       extra: { options: `-c search_path=${schema},public` },
     });
     await runtime.initialize();
     try {
+      const identity: Array<{ current_user: string }> = await runtime.query(
+        'SELECT current_user',
+      );
+      expect(identity).toEqual([{ current_user: runtimeRole }]);
       const owner: Array<{ owner: string }> = await database.query(
         `SELECT pg_get_userbyid(relowner) AS owner FROM pg_class
          WHERE oid = 'auth_security_events'::regclass`,
