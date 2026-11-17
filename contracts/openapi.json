@@ -15442,6 +15442,75 @@
         ]
       }
     },
+    "/api/public/professionals/{id}": {
+      "get": {
+        "description": "Returns the profile only while the professional is publicly visible. The rating and review count are aggregated from the review records; no individual review is returned. Text fields are plain text, never HTML.",
+        "operationId": "PublicProfessionalController_findOne",
+        "parameters": [
+          {
+            "description": "Professional identifier from the public directory",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/PublicProfessionalDetailDto"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Resource not found. Returned identically for missing, malformed, and non-public resources."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Get the public profile of one approved professional",
+        "tags": [
+          "Public Discovery"
+        ]
+      }
+    },
     "/api/public/specialities": {
       "get": {
         "description": "Ordered by name without regard to case, then by identifier. The optional search term matches any part of the name, ignoring case.",

@@ -1687,6 +1687,26 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly '/api/public/professionals/{id}': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Get the public profile of one approved professional
+     * @description Returns the profile only while the professional is publicly visible. The rating and review count are aggregated from the review records; no individual review is returned. Text fields are plain text, never HTML.
+     */
+    readonly get: operations['PublicProfessionalController_findOne'];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly '/api/public/specialities': {
     readonly parameters: {
       readonly query?: never;
@@ -9628,6 +9648,48 @@ export interface operations {
       };
       /** @description A query parameter failed validation */
       readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly PublicProfessionalController_findOne: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path: {
+        /** @description Professional identifier from the public directory */
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['PublicProfessionalDetailDto'];
+          };
+        };
+      };
+      /** @description Resource not found. Returned identically for missing, malformed, and non-public resources. */
+      readonly 404: {
         headers: {
           readonly [name: string]: unknown;
         };

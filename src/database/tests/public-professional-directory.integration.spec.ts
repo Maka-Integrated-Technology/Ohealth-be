@@ -3,6 +3,7 @@ import { env } from 'node:process';
 
 import { DataSource, Logger, Repository } from 'typeorm';
 
+import { ProfessionalReview } from '../../modules/professional/entities/professional-review.entity';
 import {
   ConsultationType,
   Professional,
@@ -229,7 +230,11 @@ integration('Public professional directory on real PostgreSQL', () => {
     await database.runMigrations();
 
     professionals = database.getRepository(Professional);
-    service = new PublicProfessionalService(professionals, policy);
+    service = new PublicProfessionalService(
+      professionals,
+      database.getRepository(ProfessionalReview),
+      policy,
+    );
     const specialities = database.getRepository(Speciality);
     const users = database.getRepository(User);
 
