@@ -11,6 +11,7 @@ import * as request from 'supertest';
 import { AccountAccessPolicyService } from '../src/modules/auth/account-access-policy.service';
 import { AuthController } from '../src/modules/auth/auth.controller';
 import { AuthService } from '../src/modules/auth/auth.service';
+import { AuthSecurityAuditService } from '../src/modules/auth/security-audit/auth-security-audit.service';
 import { AuthAbuseGuard } from '../src/modules/auth/challenges/auth-abuse.guard';
 import { AuthChallengeDeliveryService } from '../src/modules/auth/challenges/auth-challenge-delivery.service';
 import { SecureAuthChallengeFlowsService } from '../src/modules/auth/challenges/secure-auth-challenge-flows.service';
@@ -73,6 +74,10 @@ describe('Credential enumeration resistance (isolated HTTP e2e)', () => {
       controllers: [AuthController],
       providers: [
         AuthService,
+        {
+          provide: AuthSecurityAuditService,
+          useValue: { recordAttempt: jest.fn().mockResolvedValue(undefined) },
+        },
         { provide: RegistrationService, useValue: {} },
         { provide: RefreshSessionService, useValue: {} },
         {
