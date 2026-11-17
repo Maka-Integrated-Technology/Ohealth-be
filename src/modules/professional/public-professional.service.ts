@@ -2,25 +2,39 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 
-import { PublicProfessionalDirectoryQueryDto } from '../public-discovery/dto/public-discovery-query.dto';
+import { Booking, BookingStatus } from '../booking/entities/booking.entity';
 import {
+  isPublicCalendarDateOver,
+  PublicDateRangeQueryDto,
+  PublicProfessionalDirectoryQueryDto,
+} from '../public-discovery/dto/public-discovery-query.dto';
+import {
+  PublicProfessionalAvailabilityDto,
   PublicProfessionalDetailDto,
   PublicProfessionalDirectoryDto,
 } from '../public-discovery/dto/public-discovery-response.dto';
 import { PublicDiscoveryVisibilityPolicy } from '../public-discovery/public-discovery-visibility.policy';
+import { PublicDiscoveryClock } from '../public-discovery/public-discovery.clock';
 import {
+  PUBLIC_DISCOVERY_MAX_AVAILABILITY_SLOTS,
   PublicProfessionalSortField,
   PublicSortOrder,
 } from '../public-discovery/public-discovery.constants';
-import { PublicResourceNotFoundException } from '../public-discovery/public-discovery.errors';
 import {
+  PublicQueryRejectedException,
+  PublicResourceNotFoundException,
+} from '../public-discovery/public-discovery.errors';
+import {
+  IPublicAvailabilitySlotSource,
   IPublicReviewAggregate,
   toPublicPaginationMeta,
+  toPublicProfessionalAvailability,
   toPublicProfessionalDetail,
   toPublicProfessionalSummary,
 } from '../public-discovery/public-discovery.mapper';
 import { toPublicSearchPattern } from '../public-discovery/public-discovery.search';
 
+import { ProfessionalAvailability } from './entities/professional-availability.entity';
 import { ProfessionalReview } from './entities/professional-review.entity';
 import { ConsultationType, Professional } from './entities/professional.entity';
 
@@ -75,6 +89,31 @@ const SORT_EXPRESSIONS: Record<PublicProfessionalSortField, readonly string[]> =
     ],
   };
 
+/**
+ * The instant a slot starts: its local date and time resolved in the zone
+ * stored with the slot. The zone of the database session and of the server
+ * take no part.
+ */
+const SLOT_STARTS_AT =
+  '(availability.date + availability.start_time) AT TIME ZONE availability.time_zone';
+
+/** An end time that is not after the start time is on the following day. */
+const SLOT_ENDS_AT =
+  "(availability.date + availability.end_time + CASE WHEN availability.end_time > availability.start_time THEN INTERVAL '0' ELSE INTERVAL '1 day' END) AT TIME ZONE availability.time_zone";
+
+/** A booking recorded against the slot itself. */
+const BOOKING_LINKED_TO_SLOT = 'occupying.availability_id = availability.id';
+
+/**
+ * A booking of the same professional, date, and time. Bookings made before
+ * slots were linked carry no slot identifier and are found this way.
+ */
+const BOOKING_AT_SLOT_TIME =
+  'occupying.professional_id = availability.professional_id AND occupying.booking_date = availability.date AND occupying.booking_time = availability.start_time';
+
+export const PUBLIC_AVAILABILITY_RANGE_OVER_MESSAGE =
+  'to must not be a date that has already passed';
+
 /** Read-only projection of professional records for public discovery. */
 @Injectable()
 export class PublicProfessionalService {
@@ -83,7 +122,10 @@ export class PublicProfessionalService {
     private readonly professionalRepository: Repository<Professional>,
     @InjectRepository(ProfessionalReview)
     private readonly reviewRepository: Repository<ProfessionalReview>,
+    @InjectRepository(ProfessionalAvailability)
+    private readonly availabilityRepository: Repository<ProfessionalAvailability>,
     private readonly publicVisibility: PublicDiscoveryVisibilityPolicy,
+    private readonly clock: PublicDiscoveryClock,
   ) {}
 
   /**
@@ -170,6 +212,100 @@ export class PublicProfessionalService {
       professional,
       await this.readReviewAggregate(professional.id),
     );
+  }
+
+  /**
+   * The slots of one visible professional that a consumer could still ask to
+   * book: inside the requested dates, starting after this instant, still
+   * offered, and not occupied by a booking. The result is information read at
+   * one instant; it reserves nothing, and booking creation checks the slot
+   * again.
+   *
+   * A professional who is missing and one who is not publicly visible run the
+   * same single statement and produce the same response. A visible one costs
+   * one more statement however many slots or bookings exist.
+   */
+  async findAvailability(
+    id: string,
+    query: PublicDateRangeQueryDto,
+  ): Promise<PublicProfessionalAvailabilityDto> {
+    const now = this.clock.now();
+
+    // Decided before the professional is read, so the outcome of a range
+    // never depends on which professional was asked about.
+    if (isPublicCalendarDateOver(query.to, now)) {
+      throw new PublicQueryRejectedException(
+        PUBLIC_AVAILABILITY_RANGE_OVER_MESSAGE,
+      );
+    }
+
+    const professional = await this.createVisibleProfessionalQuery([
+      'professional.id',
+    ])
+      .andWhere('professional.id = :publicProfessionalId', {
+        publicProfessionalId: id,
+      })
+      .getOne();
+    if (!professional) throw new PublicResourceNotFoundException();
+
+    // One row more than the bound shows whether later slots were left out.
+    const slots = await this.createOpenSlotQuery(professional.id, query, now)
+      .limit(PUBLIC_DISCOVERY_MAX_AVAILABILITY_SLOTS + 1)
+      .getRawMany<IPublicAvailabilitySlotSource>();
+
+    return toPublicProfessionalAvailability(query, now, slots);
+  }
+
+  /**
+   * Slots of one professional that are open at `now`, earliest first. The
+   * professional and date range bound the rows read through the slot index,
+   * and occupancy is two anti-joins on indexed booking columns, so no query
+   * runs per slot. Only published columns are selected; no booking column is.
+   */
+  private createOpenSlotQuery(
+    professionalId: string,
+    range: PublicDateRangeQueryDto,
+    now: Date,
+  ): SelectQueryBuilder<ProfessionalAvailability> {
+    const slots = this.availabilityRepository
+      .createQueryBuilder('availability')
+      .select('availability.id', 'id')
+      .addSelect("TO_CHAR(availability.date, 'YYYY-MM-DD')", 'date')
+      .addSelect("TO_CHAR(availability.start_time, 'HH24:MI:SS')", 'start_time')
+      .addSelect("TO_CHAR(availability.end_time, 'HH24:MI:SS')", 'end_time')
+      .addSelect('availability.time_zone', 'time_zone')
+      .addSelect(SLOT_STARTS_AT, 'starts_at')
+      .addSelect(SLOT_ENDS_AT, 'ends_at')
+      .where('availability.professional_id = :publicProfessionalId', {
+        publicProfessionalId: professionalId,
+      })
+      .andWhere('availability.date BETWEEN :publicFrom AND :publicTo', {
+        publicFrom: range.from,
+        publicTo: range.to,
+      })
+      .andWhere('availability.is_available = :publicSlotOffered', {
+        publicSlotOffered: true,
+      })
+      // A slot that ends when it starts offers no time.
+      .andWhere('availability.end_time <> availability.start_time')
+      .andWhere(`${SLOT_STARTS_AT} > :publicNow`, { publicNow: now });
+
+    [BOOKING_LINKED_TO_SLOT, BOOKING_AT_SLOT_TIME].forEach((occupies) =>
+      slots.andWhere(
+        `NOT EXISTS ${slots
+          .subQuery()
+          .select('1')
+          .from(Booking, 'occupying')
+          .where(occupies)
+          .andWhere('occupying.status <> :publicCancelledBooking')
+          .getQuery()}`,
+      ),
+    );
+
+    return slots
+      .setParameter('publicCancelledBooking', BookingStatus.CANCELLED)
+      .orderBy(SLOT_STARTS_AT, 'ASC')
+      .addOrderBy('availability.id', 'ASC');
   }
 
   /**

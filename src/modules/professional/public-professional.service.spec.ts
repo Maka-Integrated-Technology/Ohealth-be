@@ -1,22 +1,36 @@
 import { Repository, SelectQueryBuilder } from 'typeorm';
 
-import { PublicProfessionalDirectoryQueryDto } from '../public-discovery/dto/public-discovery-query.dto';
-import { PublicDiscoveryVisibilityPolicy } from '../public-discovery/public-discovery-visibility.policy';
+import { Booking, BookingStatus } from '../booking/entities/booking.entity';
 import {
+  PublicDateRangeQueryDto,
+  PublicProfessionalDirectoryQueryDto,
+} from '../public-discovery/dto/public-discovery-query.dto';
+import { PublicDiscoveryVisibilityPolicy } from '../public-discovery/public-discovery-visibility.policy';
+import { PublicDiscoveryClock } from '../public-discovery/public-discovery.clock';
+import {
+  PUBLIC_DISCOVERY_MAX_AVAILABILITY_SLOTS,
   PublicProfessionalSortField,
   PublicSortOrder,
 } from '../public-discovery/public-discovery.constants';
-import { PublicResourceNotFoundException } from '../public-discovery/public-discovery.errors';
+import {
+  PublicQueryRejectedException,
+  PublicResourceNotFoundException,
+} from '../public-discovery/public-discovery.errors';
+import { IPublicAvailabilitySlotSource } from '../public-discovery/public-discovery.mapper';
 import { Speciality } from '../speciality/entities/speciality.entity';
 import { User } from '../user/entities/user.entity';
 
+import { ProfessionalAvailability } from './entities/professional-availability.entity';
 import { ProfessionalReview } from './entities/professional-review.entity';
 import {
   ConsultationType,
   Professional,
   ProfessionalVerificationStatus,
 } from './entities/professional.entity';
-import { PublicProfessionalService } from './public-professional.service';
+import {
+  PUBLIC_AVAILABILITY_RANGE_OVER_MESSAGE,
+  PublicProfessionalService,
+} from './public-professional.service';
 
 type QueryBuilderMock = jest.Mocked<
   Pick<
@@ -40,7 +54,31 @@ type ReviewQueryBuilderMock = jest.Mocked<
   >
 >;
 
+type SlotQueryBuilderMock = jest.Mocked<
+  Pick<
+    SelectQueryBuilder<ProfessionalAvailability>,
+    | 'select'
+    | 'addSelect'
+    | 'where'
+    | 'andWhere'
+    | 'subQuery'
+    | 'setParameter'
+    | 'orderBy'
+    | 'addOrderBy'
+    | 'limit'
+    | 'getRawMany'
+  >
+>;
+
+type OccupancyQueryBuilderMock = jest.Mocked<
+  Pick<
+    SelectQueryBuilder<Booking>,
+    'select' | 'from' | 'where' | 'andWhere' | 'getQuery'
+  >
+>;
+
 const PROFESSIONAL_ID = '33333333-3333-4333-8333-333333333333';
+const NOW = new Date('2031-03-10T12:00:00.000Z');
 
 function createQuery(
   overrides: Partial<PublicProfessionalDirectoryQueryDto> = {},
@@ -73,8 +111,12 @@ function createStoredProfessional(): Professional {
 describe('PublicProfessionalService', () => {
   let queryBuilder: QueryBuilderMock;
   let reviewQueryBuilder: ReviewQueryBuilderMock;
+  let slotQueryBuilder: SlotQueryBuilderMock;
+  let occupancyQueryBuilders: OccupancyQueryBuilderMock[];
   let repository: { createQueryBuilder: jest.Mock };
   let reviewRepository: { createQueryBuilder: jest.Mock };
+  let availabilityRepository: { createQueryBuilder: jest.Mock };
+  let clock: jest.Mocked<PublicDiscoveryClock>;
   let service: PublicProfessionalService;
 
   const predicates = () =>
@@ -104,16 +146,47 @@ describe('PublicProfessionalService', () => {
         .fn()
         .mockResolvedValue({ rating: null, total_reviews: '0' }),
     };
+    occupancyQueryBuilders = [];
+    slotQueryBuilder = {
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      subQuery: jest.fn().mockImplementation(() => {
+        const occupancy: OccupancyQueryBuilderMock = {
+          select: jest.fn().mockReturnThis(),
+          from: jest.fn().mockReturnThis(),
+          where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
+          getQuery: jest
+            .fn()
+            .mockReturnValue(`(OCCUPANCY ${occupancyQueryBuilders.length})`),
+        };
+        occupancyQueryBuilders.push(occupancy);
+        return occupancy;
+      }),
+      setParameter: jest.fn().mockReturnThis(),
+      orderBy: jest.fn().mockReturnThis(),
+      addOrderBy: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      getRawMany: jest.fn().mockResolvedValue([]),
+    };
     repository = {
       createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
     };
+    availabilityRepository = {
+      createQueryBuilder: jest.fn().mockReturnValue(slotQueryBuilder),
+    };
+    clock = { now: jest.fn().mockReturnValue(NOW) };
     reviewRepository = {
       createQueryBuilder: jest.fn().mockReturnValue(reviewQueryBuilder),
     };
     service = new PublicProfessionalService(
       repository as unknown as Repository<Professional>,
       reviewRepository as unknown as Repository<ProfessionalReview>,
+      availabilityRepository as unknown as Repository<ProfessionalAvailability>,
       new PublicDiscoveryVisibilityPolicy(),
+      clock,
     );
   });
 
@@ -486,6 +559,286 @@ describe('PublicProfessionalService', () => {
         PublicResourceNotFoundException,
       );
       expect(reviewRepository.createQueryBuilder).not.toHaveBeenCalled();
+    });
+  });
+  describe('availability', () => {
+    const STARTS_AT =
+      '(availability.date + availability.start_time) AT TIME ZONE availability.time_zone';
+
+    const range = (
+      from = '2031-03-10',
+      to = '2031-03-16',
+    ): PublicDateRangeQueryDto =>
+      Object.assign(new PublicDateRangeQueryDto(), { from, to });
+
+    const row = (
+      id: string,
+      startsAt: string,
+    ): IPublicAvailabilitySlotSource => ({
+      id,
+      date: startsAt.slice(0, 10),
+      start_time: '09:00:00',
+      end_time: '09:30:00',
+      time_zone: 'Africa/Lagos',
+      starts_at: new Date(startsAt),
+      ends_at: new Date(new Date(startsAt).getTime() + 30 * 60_000),
+    });
+
+    const visible = () =>
+      queryBuilder.getOne.mockResolvedValue(
+        Object.assign(new Professional(), { id: PROFESSIONAL_ID }),
+      );
+
+    const slotPredicates = () => [
+      String(slotQueryBuilder.where.mock.calls[0][0]),
+      ...slotQueryBuilder.andWhere.mock.calls.map(([sql]) => String(sql)),
+    ];
+
+    it('checks visibility with the shared rule and reads only the identifier', async () => {
+      visible();
+
+      await service.findAvailability(PROFESSIONAL_ID, range());
+
+      expect(queryBuilder.select).toHaveBeenCalledWith(['professional.id']);
+      expect(predicates()).toEqual([
+        'professional.is_active = :publicProfessionalActive',
+        'professional.verification_status = :publicProfessionalStatus',
+        'account.account_status = :publicAccountStatus',
+        'account.email_verified_at IS NOT NULL',
+        'speciality.is_active = :publicSpecialityActive',
+        'professional.id = :publicProfessionalId',
+      ]);
+      expect(queryBuilder.andWhere).toHaveBeenLastCalledWith(
+        'professional.id = :publicProfessionalId',
+        { publicProfessionalId: PROFESSIONAL_ID },
+      );
+    });
+
+    it('reports a professional the query does not return as not found and reads no slot', async () => {
+      await expect(
+        service.findAvailability(PROFESSIONAL_ID, range()),
+      ).rejects.toThrow(PublicResourceNotFoundException);
+
+      expect(queryBuilder.getOne).toHaveBeenCalledTimes(1);
+      expect(availabilityRepository.createQueryBuilder).not.toHaveBeenCalled();
+    });
+
+    it('refuses a range that is over everywhere before any read', async () => {
+      visible();
+      // 2031-03-09 ends everywhere at 2031-03-10T12:00:00Z, this instant.
+      const refused = service.findAvailability(
+        PROFESSIONAL_ID,
+        range('2031-03-01', '2031-03-09'),
+      );
+
+      await expect(refused).rejects.toThrow(PublicQueryRejectedException);
+      await expect(refused).rejects.toMatchObject({
+        response: {
+          message: [PUBLIC_AVAILABILITY_RANGE_OVER_MESSAGE],
+          error: 'Bad Request',
+          statusCode: 400,
+        },
+      });
+      expect(repository.createQueryBuilder).not.toHaveBeenCalled();
+      expect(availabilityRepository.createQueryBuilder).not.toHaveBeenCalled();
+    });
+
+    it('accepts a range whose last day is still current somewhere', async () => {
+      visible();
+
+      await expect(
+        service.findAvailability(
+          PROFESSIONAL_ID,
+          range('2031-03-01', '2031-03-10'),
+        ),
+      ).resolves.toMatchObject({ days: [] });
+    });
+
+    it('reads the clock once and uses that instant throughout', async () => {
+      visible();
+
+      const availability = await service.findAvailability(
+        PROFESSIONAL_ID,
+        range(),
+      );
+
+      expect(clock.now).toHaveBeenCalledTimes(1);
+      expect(availability.as_of).toBe(NOW.toISOString());
+      expect(slotQueryBuilder.andWhere).toHaveBeenCalledWith(
+        `${STARTS_AT} > :publicNow`,
+        { publicNow: NOW },
+      );
+    });
+
+    it('selects only the published slot columns', async () => {
+      visible();
+
+      await service.findAvailability(PROFESSIONAL_ID, range());
+
+      const selected = [
+        slotQueryBuilder.select.mock.calls[0],
+        ...slotQueryBuilder.addSelect.mock.calls,
+      ] as unknown as Array<[expression: string, alias: string]>;
+      expect(availabilityRepository.createQueryBuilder).toHaveBeenCalledWith(
+        'availability',
+      );
+      expect(selected.map(([, alias]) => alias)).toEqual([
+        'id',
+        'date',
+        'start_time',
+        'end_time',
+        'time_zone',
+        'starts_at',
+        'ends_at',
+      ]);
+      selected.forEach(([expression]) =>
+        expect(String(expression)).not.toMatch(
+          /occupying|professional_id|is_available|created_at|updated_at/,
+        ),
+      );
+      expect(selected[5][0]).toBe(STARTS_AT);
+    });
+
+    it('keeps only open future slots of that professional inside the range', async () => {
+      visible();
+
+      await service.findAvailability(
+        PROFESSIONAL_ID,
+        range('2031-03-10', '2031-03-16'),
+      );
+
+      expect(slotPredicates()).toEqual([
+        'availability.professional_id = :publicProfessionalId',
+        'availability.date BETWEEN :publicFrom AND :publicTo',
+        'availability.is_available = :publicSlotOffered',
+        'availability.end_time <> availability.start_time',
+        `${STARTS_AT} > :publicNow`,
+        'NOT EXISTS (OCCUPANCY 0)',
+        'NOT EXISTS (OCCUPANCY 1)',
+      ]);
+      expect(slotQueryBuilder.where).toHaveBeenCalledWith(
+        'availability.professional_id = :publicProfessionalId',
+        { publicProfessionalId: PROFESSIONAL_ID },
+      );
+      expect(slotQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'availability.date BETWEEN :publicFrom AND :publicTo',
+        { publicFrom: '2031-03-10', publicTo: '2031-03-16' },
+      );
+      expect(slotQueryBuilder.andWhere).toHaveBeenCalledWith(
+        'availability.is_available = :publicSlotOffered',
+        { publicSlotOffered: true },
+      );
+    });
+
+    it('treats every booking that is not cancelled as occupying its slot', async () => {
+      visible();
+
+      await service.findAvailability(PROFESSIONAL_ID, range());
+
+      expect(occupancyQueryBuilders).toHaveLength(2);
+      occupancyQueryBuilders.forEach((occupancy) => {
+        expect(occupancy.select).toHaveBeenCalledWith('1');
+        expect(occupancy.from).toHaveBeenCalledWith(Booking, 'occupying');
+        expect(occupancy.andWhere).toHaveBeenCalledWith(
+          'occupying.status <> :publicCancelledBooking',
+        );
+      });
+      expect(
+        occupancyQueryBuilders.map(
+          (occupancy) => occupancy.where.mock.calls[0][0],
+        ),
+      ).toEqual([
+        'occupying.availability_id = availability.id',
+        'occupying.professional_id = availability.professional_id AND occupying.booking_date = availability.date AND occupying.booking_time = availability.start_time',
+      ]);
+      expect(slotQueryBuilder.setParameter).toHaveBeenCalledWith(
+        'publicCancelledBooking',
+        BookingStatus.CANCELLED,
+      );
+    });
+
+    it('orders by start instant and identifier and reads one row past the bound', async () => {
+      visible();
+
+      await service.findAvailability(PROFESSIONAL_ID, range());
+
+      expect(slotQueryBuilder.orderBy).toHaveBeenCalledWith(STARTS_AT, 'ASC');
+      expect(slotQueryBuilder.addOrderBy).toHaveBeenCalledWith(
+        'availability.id',
+        'ASC',
+      );
+      expect(slotQueryBuilder.limit).toHaveBeenCalledWith(
+        PUBLIC_DISCOVERY_MAX_AVAILABILITY_SLOTS + 1,
+      );
+    });
+
+    it('publishes the slots the query returns', async () => {
+      visible();
+      slotQueryBuilder.getRawMany.mockResolvedValue([
+        row('b', '2031-03-11T08:00:00.000Z'),
+        row('a', '2031-03-10T13:00:00.000Z'),
+      ]);
+
+      await expect(
+        service.findAvailability(PROFESSIONAL_ID, range()),
+      ).resolves.toEqual({
+        from: '2031-03-10',
+        to: '2031-03-16',
+        as_of: NOW.toISOString(),
+        days: [
+          {
+            date: '2031-03-10',
+            slots: [
+              {
+                id: 'a',
+                start_time: '09:00:00',
+                end_time: '09:30:00',
+                time_zone: 'Africa/Lagos',
+                starts_at: '2031-03-10T13:00:00.000Z',
+                ends_at: '2031-03-10T13:30:00.000Z',
+              },
+            ],
+          },
+          {
+            date: '2031-03-11',
+            slots: [
+              {
+                id: 'b',
+                start_time: '09:00:00',
+                end_time: '09:30:00',
+                time_zone: 'Africa/Lagos',
+                starts_at: '2031-03-11T08:00:00.000Z',
+                ends_at: '2031-03-11T08:30:00.000Z',
+              },
+            ],
+          },
+        ],
+        has_more: false,
+      });
+    });
+
+    it('publishes no more than the bound and reports that more exist', async () => {
+      visible();
+      slotQueryBuilder.getRawMany.mockResolvedValue(
+        Array.from(
+          { length: PUBLIC_DISCOVERY_MAX_AVAILABILITY_SLOTS + 1 },
+          (_unused, index) =>
+            row(
+              String(index).padStart(4, '0'),
+              new Date(NOW.getTime() + (index + 1) * 60_000).toISOString(),
+            ),
+        ),
+      );
+
+      const availability = await service.findAvailability(
+        PROFESSIONAL_ID,
+        range(),
+      );
+      const published = availability.days.flatMap((day) => day.slots);
+
+      expect(availability.has_more).toBe(true);
+      expect(published).toHaveLength(PUBLIC_DISCOVERY_MAX_AVAILABILITY_SLOTS);
+      expect(published[published.length - 1].id).toBe('0499');
     });
   });
 });

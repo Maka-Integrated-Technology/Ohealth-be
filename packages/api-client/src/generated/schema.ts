@@ -1707,6 +1707,26 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly '/api/public/professionals/{id}/availability': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Get the open future slots of one approved professional
+     * @description Returns the slots inside the requested dates that start after the response is produced, are still offered, and are not occupied by a booking, earliest first. Every slot declares the IANA time zone its date and times are local to and its start and end as UTC instants; no time is local to the server. Availability is information, not a reservation: a returned slot can be taken at any moment, and booking creation revalidates and reserves the slot atomically and can still refuse it.
+     */
+    readonly get: operations['PublicProfessionalController_findAvailability'];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly '/api/public/specialities': {
     readonly parameters: {
       readonly query?: never;
@@ -3307,6 +3327,31 @@ export interface components {
       readonly page: number;
       readonly total: number;
       readonly total_pages: number;
+    };
+    /** @description Slots one professional offered when the response was produced. It is information, not a reservation: a slot can be taken at any moment after `as_of`, and booking creation revalidates and reserves a slot atomically and can still refuse it. */
+    readonly PublicProfessionalAvailabilityDto: {
+      /**
+       * Format: date-time
+       * @description Instant the slots were read, in UTC. Every returned slot started after it and was neither withdrawn nor occupied by a booking at that instant.
+       * @example 2026-01-14T10:30:00.000Z
+       */
+      readonly as_of: string;
+      /** @description Days that have at least one slot, in chronological order. A day without slots is absent. */
+      readonly days: readonly components['schemas']['PublicAvailabilityDayDto'][];
+      /**
+       * Format: date
+       * @description First calendar date of the range that was read
+       * @example 2026-01-15
+       */
+      readonly from: string;
+      /** @description True when the range holds more slots than one response returns. Request a range that starts on the last returned date to read the rest. */
+      readonly has_more: boolean;
+      /**
+       * Format: date
+       * @description Last calendar date of the range that was read
+       * @example 2026-01-21
+       */
+      readonly to: string;
     };
     readonly PublicProfessionalDetailDto: {
       /**
@@ -9721,6 +9766,62 @@ export interface operations {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
             readonly data: components['schemas']['PublicProfessionalDetailDto'];
           };
+        };
+      };
+      /** @description Resource not found. Returned identically for missing, malformed, and non-public resources. */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly PublicProfessionalController_findAvailability: {
+    readonly parameters: {
+      readonly query: {
+        /** @description First calendar date to read, as YYYY-MM-DD. Dates are local to the time zone of each slot, not to the server or the caller. */
+        readonly from: string;
+        /** @description Last calendar date to read, as YYYY-MM-DD. On or after from; the inclusive range covers at most 31 days and must not have ended in every time zone */
+        readonly to: string;
+      };
+      readonly header?: never;
+      readonly path: {
+        /** @description Professional identifier from the public directory */
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['PublicProfessionalAvailabilityDto'];
+          };
+        };
+      };
+      /** @description A query parameter failed validation */
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
         };
       };
       /** @description Resource not found. Returned identically for missing, malformed, and non-public resources. */
