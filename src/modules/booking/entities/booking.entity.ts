@@ -1,11 +1,4 @@
-import {
-  Column,
-  Entity,
-  Index,
-  JoinColumn,
-  ManyToOne,
-  OneToOne,
-} from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToOne } from 'typeorm';
 
 import { BaseEntity } from '../../../entities/base-entity';
 import { ProfessionalAvailability } from '../../professional/entities/professional-availability.entity';
@@ -25,6 +18,13 @@ export enum ConsultationType {
 }
 
 @Index(['professional_id', 'booking_date', 'booking_time'])
+@Index('IDX_bookings_availability_id', ['availability_id'])
+// A slot is held by at most one booking that is not cancelled. Cancelled
+// bookings keep their link as history, so the slot can be booked again.
+@Index('UQ_bookings_active_availability', ['availability_id'], {
+  unique: true,
+  where: `"status" <> 'cancelled'`,
+})
 @Entity('bookings')
 export class Booking extends BaseEntity {
   @ManyToOne(() => User)
@@ -75,9 +75,10 @@ export class Booking extends BaseEntity {
   /**
    * Links back to the specific availability slot so we can restore it
    * when the booking is cancelled.  Null for bookings created before
-   * this column was added.
+   * this column was added. A slot keeps the links of its cancelled
+   * bookings, so it can have several bookings but only one active one.
    */
-  @OneToOne(() => ProfessionalAvailability, {
+  @ManyToOne(() => ProfessionalAvailability, {
     nullable: true,
     onDelete: 'SET NULL',
   })
