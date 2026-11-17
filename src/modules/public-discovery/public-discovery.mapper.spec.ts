@@ -168,15 +168,77 @@ describe('public discovery mapper', () => {
   it('adds only the biography to the professional detail', () => {
     const summary = toPublicProfessionalSummary(createProfessional());
 
-    expect(toPublicProfessionalDetail(createProfessional())).toEqual({
+    expect(
+      toPublicProfessionalDetail(createProfessional(), {
+        rating: 4.5,
+        total_reviews: 12,
+      }),
+    ).toEqual({
       ...summary,
       about: 'Consultant cardiologist',
     });
   });
 
+  it('takes the detail review aggregate from the caller, not the stored summary', () => {
+    const detail = toPublicProfessionalDetail(createProfessional(), {
+      rating: 3.67,
+      total_reviews: 3,
+    });
+
+    expect(detail).toMatchObject({ rating: 3.67, total_reviews: 3 });
+  });
+
+  it.each([
+    ['<p>Consultant</p>'],
+    ['Call me <script>alert(1)</script>'],
+    ['a'.repeat(4001)],
+    ['   '],
+    [null],
+    [undefined],
+  ])('withholds the biography %p from the detail', (about) => {
+    const professional = createProfessional();
+    professional.about = about;
+
+    expect(
+      toPublicProfessionalDetail(professional, { rating: 0, total_reviews: 0 })
+        .about,
+    ).toBeNull();
+  });
+
+  it('publishes names and speciality names as single-line plain text', () => {
+    const professional = createProfessional();
+    professional.user.first_name = ' <b>Ada</b>\n';
+    professional.user.last_name = 'Obi <script>';
+    professional.speciality.name = 'Cardio<img src=x>logy';
+
+    const summary = toPublicProfessionalSummary(professional);
+
+    expect(summary.name).toBe('b>Ada/b> Obi script>');
+    expect(summary.speciality.name).toBe('Cardioimg src=x>logy');
+    expect(JSON.stringify(summary)).not.toMatch(/<[A-Za-z/!?]/);
+  });
+
+  it('publishes speciality text as plain text', () => {
+    const speciality = createSpeciality();
+    speciality.name = '  Heart   <i>care</i> ';
+    speciality.description = 'Heart <b>care</b>';
+
+    expect(toPublicSpeciality(speciality)).toMatchObject({
+      name: 'Heart i>care/i>',
+      description: null,
+    });
+  });
+
   it.each([
     ['summary', toPublicProfessionalSummary],
-    ['detail', toPublicProfessionalDetail],
+    [
+      'detail',
+      (professional: Professional) =>
+        toPublicProfessionalDetail(professional, {
+          rating: 4.5,
+          total_reviews: 12,
+        }),
+    ],
   ])(
     'never serializes private account or licence data in the %s',
     (_l, map) => {

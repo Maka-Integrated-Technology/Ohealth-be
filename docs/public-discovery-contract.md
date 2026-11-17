@@ -9,15 +9,15 @@ rules.
 
 Status: **Foundation**. The boundary, policy, query conventions, and response
 models are implemented and tested. The live routes are the contract endpoint,
-the speciality catalogue (#142), and the professional directory (#143)
-described below.
+the speciality catalogue (#142), the professional directory (#143), and
+professional details (#144) described below.
 
 ## Boundary
 
 - Module: `src/modules/public-discovery`.
-- Route namespace: `/api/public/...`. `/api/public/specialities` and the
-  `/api/public/professionals` directory are live; professional details and
-  availability are planned.
+- Route namespace: `/api/public/...`. `/api/public/specialities`, the
+  `/api/public/professionals` directory, and `/api/public/professionals/:id`
+  are live; availability is planned.
 - A public controller lives in the module that owns its data and reads through
   that module's service, for example `PublicSpecialityController` in
   `src/modules/speciality`. The owning module imports `PublicDiscoveryModule`
@@ -168,6 +168,31 @@ is withheld only from public responses.
 without embedded credentials. Storage keys, relative paths, and other schemes
 are returned as `null`.
 
+### Stored text
+
+Names, speciality names, descriptions, and biographies are written by
+professionals and administrators, and the protected write contracts accept any
+string. They reach a public response only through `public-discovery.text.ts`,
+as plain text that cannot open markup even in a consumer that wrongly renders
+it as HTML. Consumers must still render every text field as text.
+
+| Kind                              | Fields                                                                            | Rule                                                                                                                                                                                                                                              |
+| --------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Label (`toPublicLabel`), required | Professional `name`, speciality `name` in the catalogue and inside a professional | One line. Control and bidirectional override characters are removed, whitespace is collapsed, any `<` that would open a tag, comment, or declaration is dropped, and the value is cut to 200 characters. A value that is not text becomes `""`.   |
+| Prose (`toPublicProse`), optional | Professional `about`, speciality `description`                                    | Published exactly as written apart from removed control and bidirectional override characters and normalized line endings, or not at all: text that is empty, longer than 4000 characters, or contains the start of markup is returned as `null`. |
+
+"The start of markup" is `<` followed by a letter, `/`, `!`, or `?`, which is
+what an HTML parser reads as a tag, comment, or declaration. `a < b`,
+`BMI > 30`, `<3`, `&`, and character references are ordinary text and are
+returned as written. Lengths count characters, not UTF-16 code units.
+
+A biography states a professional's qualifications, so it is never rewritten:
+it is published as written or withheld. A name must always be present, so it
+is neutralized instead. Stored text is never placed in the OpenAPI document or
+the generated client; their examples are fixed strings. The protected write
+contracts are unchanged, so a withheld value stays visible to its owner on the
+authenticated routes.
+
 ## Speciality catalogue (Issue #142)
 
 `PublicSpecialityController` serves the catalogue from the existing
@@ -249,6 +274,46 @@ are served by the availability endpoint (#145). `is_available` in the summary
 is the professional's stored "accepting consultations" flag from the #141
 model. It is not a filter and does not affect visibility.
 
+## Professional details (Issue #144)
+
+`PublicProfessionalController` serves one professional through
+`PublicProfessionalService.findOne`. No table, entity, or column was added,
+and `ProfessionalController` keeps its guards and behaviour.
+
+| Operation                           | Response                                                  |
+| ----------------------------------- | --------------------------------------------------------- |
+| `GET /api/public/professionals/:id` | `PublicProfessionalDetailDto`, or the non-enumerating 404 |
+
+- `:id` is the `id` returned by the directory. `PublicResourceIdPipe` reports
+  a malformed identifier, including `me`, as not found before any query runs.
+- The professional is read through `applyProfessionalVisibility`, the same
+  rule as the directory. A professional who is missing, inactive, pending,
+  rejected, owned by a suspended, deactivated, or unverified account, or in an
+  inactive speciality produces the identical 404. A hidden professional and a
+  missing one run the same single statement.
+- The response is the directory summary plus `about`: `id`, `name`, `image`,
+  `speciality { id, name }`, `rating`, `total_reviews`, `consultation_fee`,
+  `years_of_experience`, `consultation_type`, `is_available`, `about`.
+  `consultation_fee` has no stored currency. There is no public practice
+  location because none is stored.
+- `rating` and `total_reviews` are aggregated from the `professional_reviews`
+  records when the request is served: the average rating rounded to two
+  decimal places and the number of reviews, or `0` and `0` when there are
+  none. Individual reviews, comments, reviewers, and bookings are not read.
+  Reviews have no moderation state today; when one is added, the aggregate
+  must count only publishable reviews.
+- The directory shows the stored summary (`professionals.rating`,
+  `total_reviews`) because it sorts by it. The review write path recomputes
+  that summary from the same records in the same transaction, so the two
+  agree; if a stored summary ever drifts, the detail still reports the
+  records.
+- `name`, `speciality.name`, and `about` follow the stored-text rule above.
+- A visible professional costs two statements: the profile with only its
+  published columns, and the review aggregate. Availability is not returned;
+  it is served by #145.
+- No mutation and no nested resource (`/reviews`, `/availabilities`) exists
+  under the public route.
+
 ## Deferred to later issues
 
 - Rate controls and indexes for the public surface are delivered and verified
@@ -266,11 +331,13 @@ npx jest src/modules/public-discovery src/modules/speciality \
 npx jest --config ./test/jest-e2e.json --runInBand \
   test/public-discovery-boundary.e2e-spec.ts \
   test/public-speciality-catalogue.e2e-spec.ts \
-  test/public-professional-directory.e2e-spec.ts
+  test/public-professional-directory.e2e-spec.ts \
+  test/public-professional-details.e2e-spec.ts
 PG_INTEGRATION_URL=postgres://postgres:postgres@localhost:5432/ohealth_ci \
   npx jest --runInBand \
   src/database/tests/public-discovery-visibility.integration.spec.ts \
   src/database/tests/public-speciality-catalogue.integration.spec.ts \
-  src/database/tests/public-professional-directory.integration.spec.ts
+  src/database/tests/public-professional-directory.integration.spec.ts \
+  src/database/tests/public-professional-details.integration.spec.ts
 npm run contract:check && npm run api-client:test
 ```

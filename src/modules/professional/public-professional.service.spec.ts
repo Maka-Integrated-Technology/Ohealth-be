@@ -6,9 +6,11 @@ import {
   PublicProfessionalSortField,
   PublicSortOrder,
 } from '../public-discovery/public-discovery.constants';
+import { PublicResourceNotFoundException } from '../public-discovery/public-discovery.errors';
 import { Speciality } from '../speciality/entities/speciality.entity';
 import { User } from '../user/entities/user.entity';
 
+import { ProfessionalReview } from './entities/professional-review.entity';
 import {
   ConsultationType,
   Professional,
@@ -27,8 +29,18 @@ type QueryBuilderMock = jest.Mocked<
     | 'offset'
     | 'limit'
     | 'getManyAndCount'
+    | 'getOne'
   >
 >;
+
+type ReviewQueryBuilderMock = jest.Mocked<
+  Pick<
+    SelectQueryBuilder<ProfessionalReview>,
+    'select' | 'addSelect' | 'where' | 'getRawOne'
+  >
+>;
+
+const PROFESSIONAL_ID = '33333333-3333-4333-8333-333333333333';
 
 function createQuery(
   overrides: Partial<PublicProfessionalDirectoryQueryDto> = {},
@@ -60,7 +72,9 @@ function createStoredProfessional(): Professional {
 
 describe('PublicProfessionalService', () => {
   let queryBuilder: QueryBuilderMock;
+  let reviewQueryBuilder: ReviewQueryBuilderMock;
   let repository: { createQueryBuilder: jest.Mock };
+  let reviewRepository: { createQueryBuilder: jest.Mock };
   let service: PublicProfessionalService;
 
   const predicates = () =>
@@ -80,12 +94,25 @@ describe('PublicProfessionalService', () => {
       offset: jest.fn().mockReturnThis(),
       limit: jest.fn().mockReturnThis(),
       getManyAndCount: jest.fn().mockResolvedValue([[], 0]),
+      getOne: jest.fn().mockResolvedValue(null),
+    };
+    reviewQueryBuilder = {
+      select: jest.fn().mockReturnThis(),
+      addSelect: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      getRawOne: jest
+        .fn()
+        .mockResolvedValue({ rating: null, total_reviews: '0' }),
     };
     repository = {
       createQueryBuilder: jest.fn().mockReturnValue(queryBuilder),
     };
+    reviewRepository = {
+      createQueryBuilder: jest.fn().mockReturnValue(reviewQueryBuilder),
+    };
     service = new PublicProfessionalService(
       repository as unknown as Repository<Professional>,
+      reviewRepository as unknown as Repository<ProfessionalReview>,
       new PublicDiscoveryVisibilityPolicy(),
     );
   });
@@ -305,6 +332,160 @@ describe('PublicProfessionalService', () => {
         has_next: false,
         has_previous: true,
       },
+    });
+  });
+
+  describe('findOne', () => {
+    const storedDetail = () =>
+      Object.assign(createStoredProfessional(), {
+        image: 'https://cdn.example.com/ada.png',
+        about: 'Consultant cardiologist',
+      });
+
+    it('reads one professional through the centralized visibility rule', async () => {
+      queryBuilder.getOne.mockResolvedValue(storedDetail());
+
+      await service.findOne(PROFESSIONAL_ID);
+
+      expect(queryBuilder.andWhere.mock.calls).toEqual([
+        [
+          'professional.is_active = :publicProfessionalActive',
+          { publicProfessionalActive: true },
+        ],
+        [
+          'professional.verification_status = :publicProfessionalStatus',
+          {
+            publicProfessionalStatus: ProfessionalVerificationStatus.VERIFIED,
+          },
+        ],
+        [
+          'account.account_status = :publicAccountStatus',
+          { publicAccountStatus: 'active' },
+        ],
+        ['account.email_verified_at IS NOT NULL'],
+        [
+          'speciality.is_active = :publicSpecialityActive',
+          { publicSpecialityActive: true },
+        ],
+        [
+          'professional.id = :publicProfessionalId',
+          { publicProfessionalId: PROFESSIONAL_ID },
+        ],
+      ]);
+    });
+
+    it('selects the biography and not the stored review summary', async () => {
+      queryBuilder.getOne.mockResolvedValue(storedDetail());
+
+      await service.findOne(PROFESSIONAL_ID);
+
+      const [columns] = queryBuilder.select.mock.calls[0] as [string[]];
+      expect([...columns].sort()).toEqual([
+        'account.first_name',
+        'account.id',
+        'account.last_name',
+        'professional.about',
+        'professional.consultation_fee',
+        'professional.consultation_type',
+        'professional.id',
+        'professional.image',
+        'professional.is_available',
+        'professional.years_of_experience',
+        'speciality.id',
+        'speciality.name',
+      ]);
+    });
+
+    it('aggregates the review records of that professional only', async () => {
+      queryBuilder.getOne.mockResolvedValue(storedDetail());
+
+      await service.findOne(PROFESSIONAL_ID);
+
+      expect(reviewRepository.createQueryBuilder).toHaveBeenCalledWith(
+        'review',
+      );
+      expect(reviewQueryBuilder.select).toHaveBeenCalledWith(
+        'ROUND(AVG(review.rating), 2)',
+        'rating',
+      );
+      expect(reviewQueryBuilder.addSelect).toHaveBeenCalledWith(
+        'COUNT(*)',
+        'total_reviews',
+      );
+      expect(reviewQueryBuilder.where).toHaveBeenCalledWith(
+        'review.professional_id = :publicProfessionalId',
+        { publicProfessionalId: PROFESSIONAL_ID },
+      );
+    });
+
+    it('publishes the profile with the aggregate of the review records', async () => {
+      queryBuilder.getOne.mockResolvedValue(storedDetail());
+      reviewQueryBuilder.getRawOne.mockResolvedValue({
+        rating: '4.67',
+        total_reviews: '3',
+      });
+
+      await expect(service.findOne(PROFESSIONAL_ID)).resolves.toEqual({
+        id: PROFESSIONAL_ID,
+        name: 'Ada Obi',
+        image: 'https://cdn.example.com/ada.png',
+        speciality: {
+          id: '11111111-1111-4111-8111-111111111111',
+          name: 'Cardiology',
+        },
+        rating: 4.67,
+        total_reviews: 3,
+        consultation_fee: 5000,
+        years_of_experience: 8,
+        consultation_type: ConsultationType.BOTH,
+        is_available: false,
+        about: 'Consultant cardiologist',
+      });
+    });
+
+    it('ignores a stored review summary on the loaded row', async () => {
+      queryBuilder.getOne.mockResolvedValue(
+        Object.assign(storedDetail(), { rating: '4.90', total_reviews: 120 }),
+      );
+      reviewQueryBuilder.getRawOne.mockResolvedValue({
+        rating: '3.50',
+        total_reviews: '2',
+      });
+
+      await expect(service.findOne(PROFESSIONAL_ID)).resolves.toMatchObject({
+        rating: 3.5,
+        total_reviews: 2,
+      });
+    });
+
+    it.each([[{ rating: null, total_reviews: '0' }], [undefined]])(
+      'reports no rating when the aggregate is %p',
+      async (aggregate) => {
+        queryBuilder.getOne.mockResolvedValue(storedDetail());
+        reviewQueryBuilder.getRawOne.mockResolvedValue(aggregate);
+
+        await expect(service.findOne(PROFESSIONAL_ID)).resolves.toMatchObject({
+          rating: 0,
+          total_reviews: 0,
+        });
+      },
+    );
+
+    it('withholds a biography that is not plain text', async () => {
+      queryBuilder.getOne.mockResolvedValue(
+        Object.assign(storedDetail(), { about: '<script>alert(1)</script>' }),
+      );
+
+      await expect(service.findOne(PROFESSIONAL_ID)).resolves.toMatchObject({
+        about: null,
+      });
+    });
+
+    it('reports a professional the query does not return as not found', async () => {
+      await expect(service.findOne(PROFESSIONAL_ID)).rejects.toThrow(
+        PublicResourceNotFoundException,
+      );
+      expect(reviewRepository.createQueryBuilder).not.toHaveBeenCalled();
     });
   });
 });

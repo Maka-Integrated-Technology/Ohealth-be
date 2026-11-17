@@ -1446,6 +1446,18 @@ export type PublicDiscoveryController_getContractResponse =
 export type PublicDiscoveryController_getContractError =
   operations['PublicDiscoveryController_getContract']['responses'][500]['content']['application/json'];
 
+export type PublicProfessionalController_findOneRequest = Readonly<{
+  readonly path: NonNullable<
+    operations['PublicProfessionalController_findOne']['parameters']['path']
+  >;
+  readonly headers?: ApiHeaders;
+}>;
+export type PublicProfessionalController_findOneResponse =
+  operations['PublicProfessionalController_findOne']['responses'][200]['content']['application/json'];
+export type PublicProfessionalController_findOneError =
+  | operations['PublicProfessionalController_findOne']['responses'][404]['content']['application/json']
+  | operations['PublicProfessionalController_findOne']['responses'][500]['content']['application/json'];
+
 export type PublicProfessionalController_listRequest = Readonly<{
   readonly query?: NonNullable<
     operations['PublicProfessionalController_list']['parameters']['query']
@@ -1901,6 +1913,9 @@ export interface ApiClient {
   readonly PublicDiscoveryController_getContract: (
     request?: PublicDiscoveryController_getContractRequest,
   ) => Promise<PublicDiscoveryController_getContractResponse>;
+  readonly PublicProfessionalController_findOne: (
+    request: PublicProfessionalController_findOneRequest,
+  ) => Promise<PublicProfessionalController_findOneResponse>;
   readonly PublicProfessionalController_list: (
     request?: PublicProfessionalController_listRequest,
   ) => Promise<PublicProfessionalController_listResponse>;
@@ -3241,6 +3256,18 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
           operationId: 'PublicDiscoveryController_getContract',
           method: 'GET',
           path: '/api/public/discovery/contract',
+        },
+        request,
+      ),
+    PublicProfessionalController_findOne: (request) =>
+      core.request<
+        PublicProfessionalController_findOneResponse,
+        PublicProfessionalController_findOneError
+      >(
+        {
+          operationId: 'PublicProfessionalController_findOne',
+          method: 'GET',
+          path: '/api/public/professionals/{id}',
         },
         request,
       ),
