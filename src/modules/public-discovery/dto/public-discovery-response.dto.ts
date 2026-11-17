@@ -3,6 +3,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { ConsultationType } from '../../professional/entities/professional.entity';
 import {
   PUBLIC_DISCOVERY_ICON,
+  PUBLIC_DISCOVERY_TEXT,
   PublicProfessionalSortField,
   PublicSortOrder,
 } from '../public-discovery.constants';
@@ -16,10 +17,20 @@ export class PublicSpecialityDto {
   @ApiProperty({ format: 'uuid' })
   id: string;
 
-  @ApiProperty({ example: 'Cardiology' })
+  @ApiProperty({
+    example: 'Cardiology',
+    maxLength: PUBLIC_DISCOVERY_TEXT.labelMaxLength,
+    description: 'Plain text on one line; never HTML',
+  })
   name: string;
 
-  @ApiProperty({ type: String, nullable: true })
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    maxLength: PUBLIC_DISCOVERY_TEXT.proseMaxLength,
+    description:
+      'Plain text; never HTML. Null when the stored text is absent, too long, or contains markup.',
+  })
   description: string | null;
 
   @ApiProperty({
@@ -38,7 +49,11 @@ export class PublicProfessionalSpecialityDto {
   @ApiProperty({ format: 'uuid' })
   id: string;
 
-  @ApiProperty({ example: 'Cardiology' })
+  @ApiProperty({
+    example: 'Cardiology',
+    maxLength: PUBLIC_DISCOVERY_TEXT.labelMaxLength,
+    description: 'Plain text on one line; never HTML',
+  })
   name: string;
 }
 
@@ -46,7 +61,11 @@ export class PublicProfessionalSummaryDto {
   @ApiProperty({ format: 'uuid' })
   id: string;
 
-  @ApiProperty({ example: 'Ada Obi' })
+  @ApiProperty({
+    example: 'Ada Obi',
+    maxLength: PUBLIC_DISCOVERY_TEXT.labelMaxLength,
+    description: 'Display name as plain text on one line; never HTML',
+  })
   name: string;
 
   @ApiProperty({
@@ -60,10 +79,18 @@ export class PublicProfessionalSummaryDto {
   @ApiProperty({ type: PublicProfessionalSpecialityDto })
   speciality: PublicProfessionalSpecialityDto;
 
-  @ApiProperty({ example: 4.5 })
+  @ApiProperty({
+    example: 4.5,
+    description:
+      'Average of the review ratings, rounded to two decimal places; 0 when there are no reviews',
+  })
   rating: number;
 
-  @ApiProperty({ type: 'integer', example: 12 })
+  @ApiProperty({
+    type: 'integer',
+    example: 12,
+    description: 'Number of reviews the rating is the average of',
+  })
   total_reviews: number;
 
   @ApiProperty({ example: 5000 })
@@ -80,7 +107,14 @@ export class PublicProfessionalSummaryDto {
 }
 
 export class PublicProfessionalDetailDto extends PublicProfessionalSummaryDto {
-  @ApiProperty({ type: String, nullable: true })
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    maxLength: PUBLIC_DISCOVERY_TEXT.proseMaxLength,
+    example: 'Consultant cardiologist with ten years of clinical practice.',
+    description:
+      'Biography as plain text; never HTML, so render it as text. Published as written, or null when the stored text is absent, too long, or contains markup.',
+  })
   about: string | null;
 }
 

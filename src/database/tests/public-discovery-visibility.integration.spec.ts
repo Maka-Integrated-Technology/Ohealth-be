@@ -265,7 +265,10 @@ integration('Public discovery visibility on real PostgreSQL', () => {
       })
       .getOneOrFail();
     const serialized = JSON.stringify([
-      toPublicProfessionalDetail(professional),
+      toPublicProfessionalDetail(professional, {
+        rating: 0,
+        total_reviews: 0,
+      }),
       toPublicSpeciality(professional.speciality),
     ]);
 

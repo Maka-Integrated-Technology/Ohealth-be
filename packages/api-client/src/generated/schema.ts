@@ -3254,6 +3254,10 @@ export interface components {
       readonly total_pages: number;
     };
     readonly PublicProfessionalDetailDto: {
+      /**
+       * @description Biography as plain text; never HTML, so render it as text. Published as written, or null when the stored text is absent, too long, or contains markup.
+       * @example Consultant cardiologist with ten years of clinical practice.
+       */
       readonly about: string | null;
       /** @example 5000 */
       readonly consultation_fee: number;
@@ -3267,12 +3271,21 @@ export interface components {
        */
       readonly image: string | null;
       readonly is_available: boolean;
-      /** @example Ada Obi */
+      /**
+       * @description Display name as plain text on one line; never HTML
+       * @example Ada Obi
+       */
       readonly name: string;
-      /** @example 4.5 */
+      /**
+       * @description Average of the review ratings, rounded to two decimal places; 0 when there are no reviews
+       * @example 4.5
+       */
       readonly rating: number;
       readonly speciality: components['schemas']['PublicProfessionalSpecialityDto'];
-      /** @example 12 */
+      /**
+       * @description Number of reviews the rating is the average of
+       * @example 12
+       */
       readonly total_reviews: number;
       /** @example 8 */
       readonly years_of_experience: number;
@@ -3286,7 +3299,10 @@ export interface components {
     readonly PublicProfessionalSpecialityDto: {
       /** Format: uuid */
       readonly id: string;
-      /** @example Cardiology */
+      /**
+       * @description Plain text on one line; never HTML
+       * @example Cardiology
+       */
       readonly name: string;
     };
     readonly PublicProfessionalSummaryDto: {
@@ -3302,12 +3318,21 @@ export interface components {
        */
       readonly image: string | null;
       readonly is_available: boolean;
-      /** @example Ada Obi */
+      /**
+       * @description Display name as plain text on one line; never HTML
+       * @example Ada Obi
+       */
       readonly name: string;
-      /** @example 4.5 */
+      /**
+       * @description Average of the review ratings, rounded to two decimal places; 0 when there are no reviews
+       * @example 4.5
+       */
       readonly rating: number;
       readonly speciality: components['schemas']['PublicProfessionalSpecialityDto'];
-      /** @example 12 */
+      /**
+       * @description Number of reviews the rating is the average of
+       * @example 12
+       */
       readonly total_reviews: number;
       /** @example 8 */
       readonly years_of_experience: number;
@@ -3319,6 +3344,7 @@ export interface components {
       readonly meta: components['schemas']['PublicPaginationMetaDto'];
     };
     readonly PublicSpecialityDto: {
+      /** @description Plain text; never HTML. Null when the stored text is absent, too long, or contains markup. */
       readonly description: string | null;
       /**
        * @description Asset identifier the consumer maps to an icon it bundles. Never an address, file path, or storage key; a stored value outside this format is returned as null.
@@ -3327,7 +3353,10 @@ export interface components {
       readonly icon: string | null;
       /** Format: uuid */
       readonly id: string;
-      /** @example Cardiology */
+      /**
+       * @description Plain text on one line; never HTML
+       * @example Cardiology
+       */
       readonly name: string;
     };
     readonly RefreshTokenDto: {

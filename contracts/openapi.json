@@ -4515,6 +4515,9 @@
       "PublicProfessionalDetailDto": {
         "properties": {
           "about": {
+            "description": "Biography as plain text; never HTML, so render it as text. Published as written, or null when the stored text is absent, too long, or contains markup.",
+            "example": "Consultant cardiologist with ten years of clinical practice.",
+            "maxLength": 4000,
             "nullable": true,
             "type": "string"
           },
@@ -4544,10 +4547,13 @@
             "type": "boolean"
           },
           "name": {
+            "description": "Display name as plain text on one line; never HTML",
             "example": "Ada Obi",
+            "maxLength": 200,
             "type": "string"
           },
           "rating": {
+            "description": "Average of the review ratings, rounded to two decimal places; 0 when there are no reviews",
             "example": 4.5,
             "type": "number"
           },
@@ -4555,6 +4561,7 @@
             "$ref": "#/components/schemas/PublicProfessionalSpecialityDto"
           },
           "total_reviews": {
+            "description": "Number of reviews the rating is the average of",
             "example": 12,
             "type": "integer"
           },
@@ -4612,7 +4619,9 @@
             "type": "string"
           },
           "name": {
+            "description": "Plain text on one line; never HTML",
             "example": "Cardiology",
+            "maxLength": 200,
             "type": "string"
           }
         },
@@ -4650,10 +4659,13 @@
             "type": "boolean"
           },
           "name": {
+            "description": "Display name as plain text on one line; never HTML",
             "example": "Ada Obi",
+            "maxLength": 200,
             "type": "string"
           },
           "rating": {
+            "description": "Average of the review ratings, rounded to two decimal places; 0 when there are no reviews",
             "example": 4.5,
             "type": "number"
           },
@@ -4661,6 +4673,7 @@
             "$ref": "#/components/schemas/PublicProfessionalSpecialityDto"
           },
           "total_reviews": {
+            "description": "Number of reviews the rating is the average of",
             "example": 12,
             "type": "integer"
           },
@@ -4711,6 +4724,8 @@
       "PublicSpecialityDto": {
         "properties": {
           "description": {
+            "description": "Plain text; never HTML. Null when the stored text is absent, too long, or contains markup.",
+            "maxLength": 4000,
             "nullable": true,
             "type": "string"
           },
@@ -4727,7 +4742,9 @@
             "type": "string"
           },
           "name": {
+            "description": "Plain text on one line; never HTML",
             "example": "Cardiology",
+            "maxLength": 200,
             "type": "string"
           }
         },
