@@ -67,6 +67,7 @@ describe('RegistrationService', () => {
   } as unknown as AuthChallengeDeliveryService;
   const audit = {
     recordInTransaction: jest.fn().mockResolvedValue(undefined),
+    recordAttempt: jest.fn().mockResolvedValue(undefined),
   } as unknown as AuthSecurityAuditService;
   const service = new RegistrationService(
     dataSource,

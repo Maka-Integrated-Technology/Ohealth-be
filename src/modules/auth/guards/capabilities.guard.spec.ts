@@ -12,6 +12,7 @@ import { CapabilitiesGuard } from './capabilities.guard';
 describe('CapabilitiesGuard', () => {
   const reflector = { getAllAndOverride: jest.fn() };
   const contexts = { assertCapabilities: jest.fn() };
+  const audit = { recordAttempt: jest.fn().mockResolvedValue(undefined) };
 
   const executionContext = (request: Record<string, unknown>) =>
     ({
@@ -24,7 +25,11 @@ describe('CapabilitiesGuard', () => {
 
   it('allows routes without capability metadata', async () => {
     reflector.getAllAndOverride.mockReturnValue(undefined);
-    const guard = new CapabilitiesGuard(reflector as never, contexts as never);
+    const guard = new CapabilitiesGuard(
+      reflector as never,
+      contexts as never,
+      audit as never,
+    );
 
     await expect(guard.canActivate(executionContext({}))).resolves.toBe(true);
     expect(contexts.assertCapabilities).not.toHaveBeenCalled();
@@ -39,7 +44,11 @@ describe('CapabilitiesGuard', () => {
     reflector.getAllAndOverride.mockReturnValue([
       AuthCapability.PATIENT_BOOKINGS,
     ]);
-    const guard = new CapabilitiesGuard(reflector as never, contexts as never);
+    const guard = new CapabilitiesGuard(
+      reflector as never,
+      contexts as never,
+      audit as never,
+    );
 
     await expect(
       guard.canActivate(executionContext({ user, headers: {} })),
@@ -50,7 +59,11 @@ describe('CapabilitiesGuard', () => {
     reflector.getAllAndOverride.mockReturnValue([
       AuthCapability.PATIENT_BOOKINGS,
     ]);
-    const guard = new CapabilitiesGuard(reflector as unknown as Reflector);
+    const guard = new CapabilitiesGuard(
+      reflector as unknown as Reflector,
+      undefined,
+      audit as never,
+    );
 
     await expect(
       guard.canActivate(
@@ -68,7 +81,11 @@ describe('CapabilitiesGuard', () => {
     ]);
     const resolved = { active_organization_id: 'organization-a' };
     contexts.assertCapabilities.mockResolvedValue(resolved);
-    const guard = new CapabilitiesGuard(reflector as never, contexts as never);
+    const guard = new CapabilitiesGuard(
+      reflector as never,
+      contexts as never,
+      audit as never,
+    );
     const request = {
       user: { id: 'user-id', sessionId: 'session-id' },
       headers: { ['x-organization-id']: 'organization-a' },
@@ -90,7 +107,11 @@ describe('CapabilitiesGuard', () => {
     reflector.getAllAndOverride.mockReturnValue([
       AuthCapability.ORGANIZATION_OPERATIONAL,
     ]);
-    const guard = new CapabilitiesGuard(reflector as never, contexts as never);
+    const guard = new CapabilitiesGuard(
+      reflector as never,
+      contexts as never,
+      audit as never,
+    );
 
     await expect(
       guard.canActivate(
@@ -108,7 +129,11 @@ describe('CapabilitiesGuard', () => {
       AuthCapability.PROFESSIONAL_OPERATIONAL,
     ]);
     contexts.assertCapabilities.mockRejectedValue(new ForbiddenException());
-    const guard = new CapabilitiesGuard(reflector as never, contexts as never);
+    const guard = new CapabilitiesGuard(
+      reflector as never,
+      contexts as never,
+      audit as never,
+    );
     const request = {
       user: { id: 'patient-id', sessionId: 'session-id' },
       headers: {},
@@ -118,5 +143,12 @@ describe('CapabilitiesGuard', () => {
       guard.canActivate(executionContext(request)),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(request).not.toHaveProperty('authContext');
+    expect(audit.recordAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_type: 'authorization_denial',
+        outcome: 'denied',
+        actor_user_id: 'patient-id',
+      }),
+    );
   });
 });

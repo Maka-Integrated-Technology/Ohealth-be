@@ -118,7 +118,10 @@ export class OAuthService {
       const eventType =
         safeError.errorCode === 'OAUTH_IDENTITY_CONFLICT'
           ? AuthSecurityEventType.OAUTH_CONFLICT
-          : AuthSecurityEventType.OAUTH_DENIAL;
+          : safeError.errorCode === 'OAUTH_ACCOUNT_LINK_REQUIRED' ||
+              safeError.errorCode === 'OAUTH_SIGNUP_REQUIRED'
+            ? AuthSecurityEventType.OAUTH_SIGN_IN
+            : AuthSecurityEventType.OAUTH_DENIAL;
       await this.audit.recordAttempt({
         event_type: eventType,
         outcome: AuthSecurityEventOutcome.DENIED,
@@ -282,10 +285,6 @@ export class OAuthService {
         .createQueryBuilder(User, 'user')
         .where('lower(btrim(user.email)) = :email', { email: proof.email })
         .getOne();
-      await this.audit.recordInTransaction(manager, {
-        event_type: AuthSecurityEventType.OAUTH_SIGN_IN,
-        outcome: AuthSecurityEventOutcome.DENIED,
-      });
       throw new OAuthException(
         emailOwner ? 'OAUTH_ACCOUNT_LINK_REQUIRED' : 'OAUTH_SIGNUP_REQUIRED',
       );

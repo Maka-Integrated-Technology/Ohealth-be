@@ -24,11 +24,10 @@ own producer calls and regression tests.
   database objects; this is an integrity guard, not tamper-proof storage.
   Formal retention and administrative deletion need a separately approved
   policy and migration; **do not turn off audit writes silently**.
-- This foundation has no runtime producers, so the production table remains
-  empty after migration. Enabling the first producer is blocked until the
-  approved retention period, archival requirements and privileged deletion
-  procedure are documented and implemented. Non-production test records are
-  retained until their isolated environment or schema is destroyed.
+- Runtime producers added by later auth work now exist. Their production
+  activation is blocked by the approved retention policy and implementation
+  gate in `auth-security-retention.md`. Non-production test records are retained
+  until their isolated environment or schema is destroyed.
 
 ## Transaction boundary
 
@@ -73,6 +72,6 @@ auth endpoint-to-database E2E tests.
 
 Run the additive migration on a backed-up staging copy first. This migration
 deliberately refuses automatic rollback because that would erase security
-evidence. Operators must approve a retention and archival policy before any
-runtime producer is enabled. No controller, public route, API contract or
-client change is added by this foundation.
+evidence. Production producers remain disabled until the approved policy in
+`auth-security-retention.md` is implemented and tested. No controller, public
+route, API contract or client change was added by this foundation.

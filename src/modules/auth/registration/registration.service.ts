@@ -111,6 +111,10 @@ export class RegistrationService {
     try {
       await this.delivery.assertLiveFlowReady();
     } catch (error) {
+      await this.audit.recordAttempt({
+        event_type: AuthSecurityEventType.REGISTRATION,
+        outcome: AuthSecurityEventOutcome.FAILED,
+      });
       if (error instanceof HttpException) throw error;
       throw new AuthChallengeException(
         AuthChallengeErrorCode.SERVICE_TEMPORARILY_UNAVAILABLE,
@@ -279,6 +283,13 @@ export class RegistrationService {
         };
       });
     } catch (error: unknown) {
+      await this.audit.recordAttempt({
+        event_type: AuthSecurityEventType.REGISTRATION,
+        outcome:
+          error instanceof HttpException && error.getStatus() < 500
+            ? AuthSecurityEventOutcome.DENIED
+            : AuthSecurityEventOutcome.FAILED,
+      });
       if ((error as { code?: string })?.code === '23505') {
         throw new ConflictException('Registration already exists.');
       }

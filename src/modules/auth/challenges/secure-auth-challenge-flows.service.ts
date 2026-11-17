@@ -304,44 +304,55 @@ export class SecureAuthChallengeFlowsService {
     challengeId: string,
     code: string,
   ): Promise<{ user: User; session: IIssuedSession }> {
-    return this.challenges.consumeWithMutation(
-      challengeId,
-      AuthChallengePurpose.CONTACT_VERIFICATION,
-      code,
-      async (manager, userId) => {
-        const user = await manager.findOne(User, {
-          where: { id: userId },
-          lock: { mode: 'pessimistic_write' },
-        });
-        if (!user) throw new Error('Challenge subject missing.');
-        this.policy.assertCanVerifyContact(user);
-        const now = new Date();
-        user.account_status = AccountStatus.ACTIVE;
-        user.email_verified_at = now;
-        user.is_active = true;
-        user.is_verified = true;
-        user.verification_code = null;
-        user.verification_code_expires_at = null;
-        const saved = await manager.save(User, user);
-        await manager.insert(UserAccountStatusHistory, {
-          user_id: user.id,
-          previous_status: AccountStatus.PENDING_VERIFICATION,
-          new_status: AccountStatus.ACTIVE,
-          changed_by_user_id: null,
-          reason: 'verified_contact_challenge',
-        });
-        await this.audit.recordInTransaction(manager, {
-          event_type: AuthSecurityEventType.CONTACT_VERIFICATION,
-          outcome: AuthSecurityEventOutcome.SUCCEEDED,
-          subject_user_id: user.id,
-        });
-        const session = await this.sessions.issueInTransaction(
-          manager,
-          user.id,
-        );
-        return { user: saved, session };
-      },
-    );
+    try {
+      return await this.challenges.consumeWithMutation(
+        challengeId,
+        AuthChallengePurpose.CONTACT_VERIFICATION,
+        code,
+        async (manager, userId) => {
+          const user = await manager.findOne(User, {
+            where: { id: userId },
+            lock: { mode: 'pessimistic_write' },
+          });
+          if (!user) throw new Error('Challenge subject missing.');
+          this.policy.assertCanVerifyContact(user);
+          const now = new Date();
+          user.account_status = AccountStatus.ACTIVE;
+          user.email_verified_at = now;
+          user.is_active = true;
+          user.is_verified = true;
+          user.verification_code = null;
+          user.verification_code_expires_at = null;
+          const saved = await manager.save(User, user);
+          await manager.insert(UserAccountStatusHistory, {
+            user_id: user.id,
+            previous_status: AccountStatus.PENDING_VERIFICATION,
+            new_status: AccountStatus.ACTIVE,
+            changed_by_user_id: null,
+            reason: 'verified_contact_challenge',
+          });
+          await this.audit.recordInTransaction(manager, {
+            event_type: AuthSecurityEventType.CONTACT_VERIFICATION,
+            outcome: AuthSecurityEventOutcome.SUCCEEDED,
+            subject_user_id: user.id,
+          });
+          const session = await this.sessions.issueInTransaction(
+            manager,
+            user.id,
+          );
+          return { user: saved, session };
+        },
+      );
+    } catch (error) {
+      await this.audit.recordAttempt({
+        event_type: AuthSecurityEventType.CONTACT_VERIFICATION,
+        outcome:
+          error instanceof HttpException && error.getStatus() < 500
+            ? AuthSecurityEventOutcome.DENIED
+            : AuthSecurityEventOutcome.FAILED,
+      });
+      throw error;
+    }
   }
 
   async completeRecovery(
@@ -349,45 +360,56 @@ export class SecureAuthChallengeFlowsService {
     code: string,
     newPasswordHash: string,
   ): Promise<void> {
-    await this.challenges.consumeWithMutation(
-      challengeId,
-      AuthChallengePurpose.PASSWORD_RECOVERY,
-      code,
-      async (manager, userId) => {
-        const user = await manager.findOne(User, {
-          where: { id: userId },
-          lock: { mode: 'pessimistic_write' },
-        });
-        if (!user) throw new Error('Recovery challenge subject missing.');
-        // Account may have been suspended since recovery was issued.
-        this.policy.assertCanAuthenticate(user);
-        await manager.update(User, user.id, {
-          password: newPasswordHash,
-          password_authentication_enabled: true,
-          reset_token: null,
-          reset_token_expiry: null,
-        });
-        await manager.query(
-          'UPDATE auth_challenges SET consumed_at = now(), terminal_reason = $3 ' +
-            'WHERE subject_user_id = $1 AND purpose = $2 AND terminal_reason IS NULL',
-          [
-            user.id,
-            AuthChallengePurpose.LOGIN_VERIFICATION,
-            'administratively_revoked',
-          ],
-        );
-        await manager.update(
-          AuthSession,
-          { user_id: user.id, revoked_at: IsNull() },
-          { revoked_at: new Date() },
-        );
-        await this.audit.recordInTransaction(manager, {
-          event_type: AuthSecurityEventType.PASSWORD_RECOVERY,
-          outcome: AuthSecurityEventOutcome.SUCCEEDED,
-          subject_user_id: user.id,
-        });
-      },
-    );
+    try {
+      await this.challenges.consumeWithMutation(
+        challengeId,
+        AuthChallengePurpose.PASSWORD_RECOVERY,
+        code,
+        async (manager, userId) => {
+          const user = await manager.findOne(User, {
+            where: { id: userId },
+            lock: { mode: 'pessimistic_write' },
+          });
+          if (!user) throw new Error('Recovery challenge subject missing.');
+          // Account may have been suspended since recovery was issued.
+          this.policy.assertCanAuthenticate(user);
+          await manager.update(User, user.id, {
+            password: newPasswordHash,
+            password_authentication_enabled: true,
+            reset_token: null,
+            reset_token_expiry: null,
+          });
+          await manager.query(
+            'UPDATE auth_challenges SET consumed_at = now(), terminal_reason = $3 ' +
+              'WHERE subject_user_id = $1 AND purpose = $2 AND terminal_reason IS NULL',
+            [
+              user.id,
+              AuthChallengePurpose.LOGIN_VERIFICATION,
+              'administratively_revoked',
+            ],
+          );
+          await manager.update(
+            AuthSession,
+            { user_id: user.id, revoked_at: IsNull() },
+            { revoked_at: new Date() },
+          );
+          await this.audit.recordInTransaction(manager, {
+            event_type: AuthSecurityEventType.PASSWORD_RECOVERY,
+            outcome: AuthSecurityEventOutcome.SUCCEEDED,
+            subject_user_id: user.id,
+          });
+        },
+      );
+    } catch (error) {
+      await this.audit.recordAttempt({
+        event_type: AuthSecurityEventType.PASSWORD_RECOVERY,
+        outcome:
+          error instanceof HttpException && error.getStatus() < 500
+            ? AuthSecurityEventOutcome.DENIED
+            : AuthSecurityEventOutcome.FAILED,
+      });
+      throw error;
+    }
   }
 
   private async queueForEligibleAccount(

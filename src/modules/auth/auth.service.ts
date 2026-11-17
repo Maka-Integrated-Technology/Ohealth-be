@@ -47,6 +47,11 @@ import { PasswordCredentialsService } from './password-policy/password-credentia
 import { isLoginPasswordWithinLimit } from './password-policy/password-policy';
 import { presentLegacyAuthResponse } from './presentation/legacy-auth-response.presenter';
 import { RegistrationService } from './registration/registration.service';
+import { AuthSecurityAuditService } from './security-audit/auth-security-audit.service';
+import {
+  AuthSecurityEventOutcome,
+  AuthSecurityEventType,
+} from './security-audit/auth-security-event.enum';
 import { RefreshSessionService } from './sessions/refresh-session.service';
 
 @Injectable()
@@ -64,6 +69,7 @@ export class AuthService {
     private readonly challengeDelivery: AuthChallengeDeliveryService,
     private readonly sessions: RefreshSessionService,
     private readonly registration: RegistrationService,
+    private readonly audit: AuthSecurityAuditService,
     @Inject(WINSTON_MODULE_PROVIDER) logger: Logger,
   ) {
     this.logger = logger.child({ context: AuthService.name });
@@ -281,10 +287,28 @@ export class AuthService {
       throw new UnauthorizedException(sysMsg.USER_NOT_FOUND);
     }
 
-    const accountContext = await this.authContext.resolve(
-      user.id,
-      req.user.sessionId,
-    );
+    let accountContext;
+    try {
+      accountContext = await this.authContext.resolve(
+        user.id,
+        req.user.sessionId,
+      );
+    } catch (error) {
+      await this.audit.recordAttempt({
+        event_type: AuthSecurityEventType.CONTEXT_RESTORATION,
+        outcome: AuthSecurityEventOutcome.DENIED,
+        subject_user_id: user.id,
+        session_id: req.user.sessionId,
+      });
+      throw error;
+    }
+    await this.audit.recordAttempt({
+      event_type: AuthSecurityEventType.CONTEXT_RESTORATION,
+      outcome: AuthSecurityEventOutcome.SUCCEEDED,
+      actor_user_id: user.id,
+      subject_user_id: user.id,
+      session_id: req.user.sessionId,
+    });
     return {
       id: user.id,
       email: user.email,

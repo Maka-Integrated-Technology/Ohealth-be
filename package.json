@@ -45,7 +45,9 @@
     "registration-retries:prune": "ts-node -r tsconfig-paths/register scripts/maintenance/prune-registration-retries.ts",
     "oauth-transactions:prune": "ts-node -r tsconfig-paths/register scripts/maintenance/prune-oauth-transactions.ts",
     "oauth-security-notifications:dispatch": "ts-node -r tsconfig-paths/register src/workers/oauth-security-notifications.ts",
-    "oauth-security-notifications:dispatch:prod": "node dist/workers/oauth-security-notifications.js"
+    "oauth-security-notifications:dispatch:prod": "node dist/workers/oauth-security-notifications.js",
+    "auth-audit-retention:run": "ts-node -r tsconfig-paths/register src/workers/auth-security-retention.ts",
+    "auth-audit-retention:run:prod": "node dist/workers/auth-security-retention.js"
   },
   "lint-staged": {
     "src/**/*.ts": [

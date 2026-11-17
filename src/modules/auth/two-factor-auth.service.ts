@@ -3,6 +3,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import {
   BadRequestException,
   ForbiddenException,
+  HttpException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -46,26 +47,36 @@ export class TwoFactorAuthService {
       issuer: 'OHealth',
       length: 32,
     });
-    await this.db.transaction(async (manager) => {
-      await this.assertPassword(manager, userId, password);
-      const factor = await this.lockFactor(manager, userId);
-      if (
-        factor?.twoFaEnabled &&
-        !(await this.verifyFactor(manager, factor, currentCode ?? '', false))
-      ) {
-        throw new UnauthorizedException('Current MFA proof required.');
-      }
-      const record =
-        factor ?? manager.create(User2fa, { userId, twoFaEnabled: false });
-      record.pendingSecret = this.box.encrypt(secret.base32);
-      record.pendingExpiresAt = new Date(Date.now() + 600_000);
-      await manager.save(record);
-      await this.auditSuccess(
-        manager,
-        userId,
-        AuthSecurityEventType.MFA_ENROLLMENT_STARTED,
-      );
-    });
+    await this.auditFailures(
+      userId,
+      AuthSecurityEventType.MFA_ENROLLMENT_STARTED,
+      () =>
+        this.db.transaction(async (manager) => {
+          await this.assertPassword(manager, userId, password);
+          const factor = await this.lockFactor(manager, userId);
+          if (
+            factor?.twoFaEnabled &&
+            !(await this.verifyFactor(
+              manager,
+              factor,
+              currentCode ?? '',
+              false,
+            ))
+          ) {
+            throw new UnauthorizedException('Current MFA proof required.');
+          }
+          const record =
+            factor ?? manager.create(User2fa, { userId, twoFaEnabled: false });
+          record.pendingSecret = this.box.encrypt(secret.base32);
+          record.pendingExpiresAt = new Date(Date.now() + 600_000);
+          await manager.save(record);
+          await this.auditSuccess(
+            manager,
+            userId,
+            AuthSecurityEventType.MFA_ENROLLMENT_STARTED,
+          );
+        }),
+    );
     return {
       message: 'MFA setup pending confirmation.',
       secret: secret.base32,
@@ -75,102 +86,138 @@ export class TwoFactorAuthService {
   }
 
   async confirm2fa(userId: string, code: string) {
-    return this.db.transaction(async (manager) => {
-      const factor = await this.lockFactor(manager, userId);
-      if (
-        !factor?.pendingSecret ||
-        !factor.pendingExpiresAt ||
-        factor.pendingExpiresAt <= new Date()
-      ) {
-        throw new BadRequestException('MFA setup expired.');
-      }
-      const step = this.totpStep(this.box.decrypt(factor.pendingSecret), code);
-      if (step === null) throw new UnauthorizedException('Invalid MFA code.');
-      factor.encryptedSecret = factor.pendingSecret;
-      factor.pendingSecret = null;
-      factor.pendingExpiresAt = null;
-      factor.twoFaEnabled = true;
-      factor.lastUsedStep = String(step);
-      await manager.save(factor);
-      const codes = await this.replaceCodes(manager, userId);
-      await manager.query(
-        'UPDATE auth_sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL',
-        [userId],
-      );
-      await this.auditSuccess(
-        manager,
-        userId,
-        AuthSecurityEventType.MFA_ACTIVATED,
-      );
-      return { message: 'MFA enabled.', recovery_codes: codes };
-    });
+    return this.auditFailures(userId, AuthSecurityEventType.MFA_ACTIVATED, () =>
+      this.db.transaction(async (manager) => {
+        const factor = await this.lockFactor(manager, userId);
+        if (
+          !factor?.pendingSecret ||
+          !factor.pendingExpiresAt ||
+          factor.pendingExpiresAt <= new Date()
+        ) {
+          throw new BadRequestException('MFA setup expired.');
+        }
+        const step = this.totpStep(
+          this.box.decrypt(factor.pendingSecret),
+          code,
+        );
+        if (step === null) throw new UnauthorizedException('Invalid MFA code.');
+        factor.encryptedSecret = factor.pendingSecret;
+        factor.pendingSecret = null;
+        factor.pendingExpiresAt = null;
+        factor.twoFaEnabled = true;
+        factor.lastUsedStep = String(step);
+        await manager.save(factor);
+        const codes = await this.replaceCodes(manager, userId);
+        await manager.query(
+          'UPDATE auth_sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL',
+          [userId],
+        );
+        await this.auditSuccess(
+          manager,
+          userId,
+          AuthSecurityEventType.MFA_ACTIVATED,
+        );
+        return { message: 'MFA enabled.', recovery_codes: codes };
+      }),
+    );
   }
 
   async regenerateCodes(userId: string, password: string, code: string) {
-    return this.db.transaction(async (manager) => {
-      await this.assertPassword(manager, userId, password);
-      const factor = await this.lockFactor(manager, userId);
-      if (
-        !factor?.twoFaEnabled ||
-        !(await this.verifyFactor(manager, factor, code, false))
-      ) {
-        throw new UnauthorizedException('Current MFA proof required.');
-      }
-      const codes = await this.replaceCodes(manager, userId);
-      await manager.query(
-        'UPDATE auth_sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL',
-        [userId],
-      );
-      await this.auditSuccess(
-        manager,
-        userId,
-        AuthSecurityEventType.MFA_RECOVERY_CODES_REGENERATED,
-      );
-      return { message: 'Recovery codes regenerated.', recovery_codes: codes };
-    });
+    return this.auditFailures(
+      userId,
+      AuthSecurityEventType.MFA_RECOVERY_CODES_REGENERATED,
+      () =>
+        this.db.transaction(async (manager) => {
+          await this.assertPassword(manager, userId, password);
+          const factor = await this.lockFactor(manager, userId);
+          if (
+            !factor?.twoFaEnabled ||
+            !(await this.verifyFactor(manager, factor, code, false))
+          ) {
+            throw new UnauthorizedException('Current MFA proof required.');
+          }
+          const codes = await this.replaceCodes(manager, userId);
+          await manager.query(
+            'UPDATE auth_sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL',
+            [userId],
+          );
+          await this.auditSuccess(
+            manager,
+            userId,
+            AuthSecurityEventType.MFA_RECOVERY_CODES_REGENERATED,
+          );
+          return {
+            message: 'Recovery codes regenerated.',
+            recovery_codes: codes,
+          };
+        }),
+    );
   }
 
   async disable2fa(userId: string, password: string, code: string) {
-    await this.db.transaction(async (manager) => {
-      await this.assertPassword(manager, userId, password);
-      const factor = await this.lockFactor(manager, userId);
-      if (
-        !factor?.twoFaEnabled ||
-        !(await this.verifyFactor(manager, factor, code, false))
-      ) {
-        throw new UnauthorizedException('Current MFA proof required.');
-      }
-      const categories = mfaRequiredCategories(this.config);
-      const privileged: Array<{ category: string }> = await manager.query(
-        "SELECT 'platform_admin' AS category FROM platform_privileges WHERE user_id = $1 UNION ALL SELECT CASE WHEN role = 'owner' THEN 'organization_owner' ELSE 'organization_admin' END FROM organization_memberships WHERE user_id = $1 AND status = 'active' AND role IN ('owner', 'admin')",
-        [userId],
-      );
-      if (privileged.some((item) => categories.has(item.category as never))) {
-        throw new ForbiddenException('MFA is required for this account.');
-      }
-      factor.twoFaEnabled = false;
-      factor.encryptedSecret = null;
-      factor.pendingSecret = null;
-      factor.pendingExpiresAt = null;
-      factor.lastUsedStep = null;
-      await manager.save(factor);
-      await manager.delete(MfaRecoveryCode, { userId });
-      await manager.query(
-        'UPDATE auth_sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL',
-        [userId],
-      );
-      await this.auditSuccess(
-        manager,
-        userId,
-        AuthSecurityEventType.MFA_DISABLED,
-      );
-    });
+    await this.auditFailures(userId, AuthSecurityEventType.MFA_DISABLED, () =>
+      this.db.transaction(async (manager) => {
+        await this.assertPassword(manager, userId, password);
+        const factor = await this.lockFactor(manager, userId);
+        if (
+          !factor?.twoFaEnabled ||
+          !(await this.verifyFactor(manager, factor, code, false))
+        ) {
+          throw new UnauthorizedException('Current MFA proof required.');
+        }
+        const categories = mfaRequiredCategories(this.config);
+        const privileged: Array<{ category: string }> = await manager.query(
+          "SELECT 'platform_admin' AS category FROM platform_privileges WHERE user_id = $1 UNION ALL SELECT CASE WHEN role = 'owner' THEN 'organization_owner' ELSE 'organization_admin' END FROM organization_memberships WHERE user_id = $1 AND status = 'active' AND role IN ('owner', 'admin')",
+          [userId],
+        );
+        if (privileged.some((item) => categories.has(item.category as never))) {
+          throw new ForbiddenException('MFA is required for this account.');
+        }
+        factor.twoFaEnabled = false;
+        factor.encryptedSecret = null;
+        factor.pendingSecret = null;
+        factor.pendingExpiresAt = null;
+        factor.lastUsedStep = null;
+        await manager.save(factor);
+        await manager.delete(MfaRecoveryCode, { userId });
+        await manager.query(
+          'UPDATE auth_sessions SET revoked_at = now() WHERE user_id = $1 AND revoked_at IS NULL',
+          [userId],
+        );
+        await this.auditSuccess(
+          manager,
+          userId,
+          AuthSecurityEventType.MFA_DISABLED,
+        );
+      }),
+    );
     return { message: 'MFA disabled.' };
   }
 
   async isEnabled(manager: EntityManager, userId: string): Promise<boolean> {
     const factor = await manager.findOne(User2fa, { where: { userId } });
     return Boolean(factor?.twoFaEnabled && factor.encryptedSecret);
+  }
+
+  private async auditFailures<T>(
+    userId: string,
+    eventType: AuthSecurityEventType,
+    operation: () => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      await this.audit.recordAttempt({
+        event_type: eventType,
+        outcome:
+          error instanceof HttpException && error.getStatus() < 500
+            ? AuthSecurityEventOutcome.DENIED
+            : AuthSecurityEventOutcome.FAILED,
+        actor_user_id: userId,
+        subject_user_id: userId,
+      });
+      throw error;
+    }
   }
 
   async verifyForLogin(

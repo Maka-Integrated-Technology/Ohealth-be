@@ -348,6 +348,12 @@ describe('OAuthService', () => {
       expect.anything(),
     );
     expect(sessions.issueInTransaction).not.toHaveBeenCalled();
+    expect(audit.recordAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_type: 'oauth_sign_in',
+        outcome: 'denied',
+      }),
+    );
   });
 
   it('returns signup-required for an unknown subject and email', async () => {
