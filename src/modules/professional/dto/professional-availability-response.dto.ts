@@ -16,6 +16,13 @@ export class ProfessionalAvailabilityResponseDto {
   @ApiProperty({ example: '09:30' })
   end_time: string;
 
+  @ApiProperty({
+    example: 'Africa/Lagos',
+    description:
+      'IANA time zone the date and times of the slot are local to. Slots are recorded in the platform scheduling time zone.',
+  })
+  time_zone: string;
+
   @ApiProperty({ example: true })
   is_available: boolean;
 

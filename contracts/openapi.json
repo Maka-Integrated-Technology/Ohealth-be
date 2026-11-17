@@ -3167,6 +3167,11 @@
             "example": "09:00",
             "type": "string"
           },
+          "time_zone": {
+            "description": "IANA time zone the date and times of the slot are local to. Slots are recorded in the platform scheduling time zone.",
+            "example": "Africa/Lagos",
+            "type": "string"
+          },
           "updated_at": {
             "example": "2026-01-15T10:30:00.000Z",
             "format": "date-time",
@@ -3179,6 +3184,7 @@
           "date",
           "start_time",
           "end_time",
+          "time_zone",
           "is_available",
           "created_at",
           "updated_at"

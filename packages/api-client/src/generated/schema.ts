@@ -2902,6 +2902,11 @@ export interface components {
       /** @example 09:00 */
       readonly start_time: string;
       /**
+       * @description IANA time zone the date and times of the slot are local to. Slots are recorded in the platform scheduling time zone.
+       * @example Africa/Lagos
+       */
+      readonly time_zone: string;
+      /**
        * Format: date-time
        * @example 2026-01-15T10:30:00.000Z
        */
