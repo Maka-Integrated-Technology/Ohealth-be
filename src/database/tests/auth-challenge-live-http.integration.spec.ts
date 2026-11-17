@@ -1237,6 +1237,35 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
   it('rotates over HTTP, lists safe metadata and enforces logout on access and refresh', async () => {
     const user = await createUser('session-http', 'active');
     const issued = await app.get(RefreshSessionService).issue(user.id);
+    const otherUser = await createUser('other-session-http', 'active');
+    const otherSession = await app
+      .get(RefreshSessionService)
+      .issue(otherUser.id);
+    const deniedBefore: Array<{ count: number }> = await database.query(
+      `SELECT count(*)::int AS count FROM auth_security_events
+       WHERE event_type = 'logout' AND outcome = 'denied'
+         AND actor_user_id = $1 AND subject_user_id = $1 AND session_id = $2`,
+      [user.id, issued.session_id],
+    );
+    await request(app.getHttpServer())
+      .post('/api/auth/logout')
+      .set('Authorization', `Bearer ${issued.access_token}`)
+      .send({ session_id: otherSession.session_id })
+      .expect(401);
+    const deniedAfter: Array<{ count: number }> = await database.query(
+      `SELECT count(*)::int AS count FROM auth_security_events
+       WHERE event_type = 'logout' AND outcome = 'denied'
+         AND actor_user_id = $1 AND subject_user_id = $1 AND session_id = $2`,
+      [user.id, issued.session_id],
+    );
+    expect(deniedAfter[0].count).toBe(deniedBefore[0].count + 1);
+    expect(
+      (
+        await database.getRepository(AuthSession).findOneByOrFail({
+          session_id: otherSession.session_id,
+        })
+      ).revoked_at,
+    ).toBeNull();
     const listed = await request(app.getHttpServer())
       .get('/api/auth/sessions')
       .set('Authorization', `Bearer ${issued.access_token}`)
@@ -1965,6 +1994,10 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
 
   it('serializes concurrent duplicate and idempotent registration attempts', async () => {
     const suffix = randomUUID();
+    const deniedBefore: Array<{ count: number }> = await database.query(
+      `SELECT count(*)::int AS count FROM auth_security_events
+       WHERE event_type = 'registration' AND outcome = 'denied'`,
+    );
     const payload = {
       first_name: 'Ada',
       last_name: 'Retry',
@@ -1982,6 +2015,11 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       ),
     );
     expect(duplicate.map((reply) => reply.status).sort()).toEqual([201, 409]);
+    const deniedAfter: Array<{ count: number }> = await database.query(
+      `SELECT count(*)::int AS count FROM auth_security_events
+       WHERE event_type = 'registration' AND outcome = 'denied'`,
+    );
+    expect(deniedAfter[0].count).toBe(deniedBefore[0].count + 1);
     const secondPayload = {
       ...payload,
       email: `idempotent+${suffix}@example.test`,

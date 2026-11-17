@@ -653,6 +653,24 @@ describe('AuthService', () => {
   });
 
   describe('logout', () => {
+    it('audits a rejected session selector using the authenticated session', async () => {
+      await expect(
+        service.logout(
+          'caller-user-id',
+          { session_id: 'other-session-id' },
+          'authenticated-session-id',
+        ),
+      ).rejects.toThrow(UnauthorizedException);
+      expect(mockSessions.revoke).not.toHaveBeenCalled();
+      expect(audit.recordAttempt).toHaveBeenCalledWith({
+        event_type: 'logout',
+        outcome: 'denied',
+        actor_user_id: 'caller-user-id',
+        subject_user_id: 'caller-user-id',
+        session_id: 'authenticated-session-id',
+      });
+    });
+
     it('revokes a browser session by its canonical refresh credential', async () => {
       const result = await service.logoutByRefreshCredential('r'.repeat(43));
 

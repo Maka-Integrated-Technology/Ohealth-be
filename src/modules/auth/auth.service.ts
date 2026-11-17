@@ -410,6 +410,13 @@ export class AuthService {
     currentSessionId?: string,
   ) {
     if (currentSessionId && logoutPayload.session_id !== currentSessionId) {
+      await this.audit.recordAttempt({
+        event_type: AuthSecurityEventType.LOGOUT,
+        outcome: AuthSecurityEventOutcome.DENIED,
+        actor_user_id: userId,
+        subject_user_id: userId,
+        session_id: currentSessionId,
+      });
       throw new UnauthorizedException(sysMsg.TOKEN_INVALID);
     }
     await this.sessions.revoke(userId, logoutPayload.session_id);

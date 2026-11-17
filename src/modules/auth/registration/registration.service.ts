@@ -283,14 +283,16 @@ export class RegistrationService {
         };
       });
     } catch (error: unknown) {
+      const duplicate = (error as { code?: string })?.code === '23505';
       await this.audit.recordAttempt({
         event_type: AuthSecurityEventType.REGISTRATION,
         outcome:
-          error instanceof HttpException && error.getStatus() < 500
+          duplicate ||
+          (error instanceof HttpException && error.getStatus() < 500)
             ? AuthSecurityEventOutcome.DENIED
             : AuthSecurityEventOutcome.FAILED,
       });
-      if ((error as { code?: string })?.code === '23505') {
+      if (duplicate) {
         throw new ConflictException('Registration already exists.');
       }
       throw error;

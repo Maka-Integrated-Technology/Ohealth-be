@@ -319,6 +319,12 @@ describe('RegistrationService', () => {
     await expect(service.register(base(SignupIntent.PATIENT))).rejects.toThrow(
       ConflictException,
     );
+    expect(audit.recordAttempt).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_type: 'registration',
+        outcome: 'denied',
+      }),
+    );
   });
 
   it('fails closed when legal versions or the independent pepper are unsafe', () => {
