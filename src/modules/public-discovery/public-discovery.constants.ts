@@ -28,6 +28,16 @@ export const PUBLIC_DISCOVERY_ICON = {
 } as const;
 
 /**
+ * Bounds of stored text published as plain text, in characters. A label is a
+ * required single-line value such as a name; prose is an optional multi-line
+ * value such as a biography.
+ */
+export const PUBLIC_DISCOVERY_TEXT = {
+  labelMaxLength: 200,
+  proseMaxLength: 4000,
+} as const;
+
+/**
  * Bounds of a consultation-fee filter. The maximum is the largest amount the
  * `professionals.consultation_fee` column can store.
  */
