@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class ProfessionalAvailabilityTimeZone1794100000000 implements MigrationInterface {
-  name = 'ProfessionalAvailabilityTimeZone1794100000000';
+export class ProfessionalAvailabilityTimeZone1794200000000 implements MigrationInterface {
+  name = 'ProfessionalAvailabilityTimeZone1794200000000';
 
   async up(queryRunner: QueryRunner): Promise<void> {
     // A slot stores a calendar date and wall-clock times, and until now

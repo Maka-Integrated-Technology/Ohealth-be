@@ -4,12 +4,12 @@ import { env } from 'node:process';
 import { DataSource, QueryRunner } from 'typeorm';
 
 import { PLATFORM_SCHEDULING_TIME_ZONE } from '../../modules/professional/professional-availability.constants';
-import { ProfessionalAvailabilityTimeZone1794100000000 } from '../migrations/1794100000000-ProfessionalAvailabilityTimeZone';
+import { ProfessionalAvailabilityTimeZone1794200000000 } from '../migrations/1794200000000-ProfessionalAvailabilityTimeZone';
 
 const integration = env.PG_INTEGRATION_URL ? describe : describe.skip;
 
 integration('Professional availability time zone migration', () => {
-  const migration = new ProfessionalAvailabilityTimeZone1794100000000();
+  const migration = new ProfessionalAvailabilityTimeZone1794200000000();
   let dataSource: DataSource;
   let runner: QueryRunner;
   let schemaName: string;

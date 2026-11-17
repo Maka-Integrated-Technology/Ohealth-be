@@ -371,7 +371,7 @@ changes no slot, booking, or professional.
 A slot stores a calendar date and wall-clock start and end times. Before this
 issue nothing stored which time zone they are local to, so the instant a slot
 starts could only be guessed from the server. Migration
-`1794100000000-ProfessionalAvailabilityTimeZone` adds
+`1794200000000-ProfessionalAvailabilityTimeZone` adds
 `professional_availabilities.time_zone`:
 
 - It is `NOT NULL`, so a slot can never have an unknown zone.
