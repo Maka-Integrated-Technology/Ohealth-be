@@ -154,6 +154,7 @@ describe('Public discovery boundary (#141)', () => {
           },
           consultation_types: ['chat', 'video', 'both'],
           max_availability_range_days: 31,
+          max_availability_slots: 500,
         },
       });
       expect(result.headers['cache-control']).toBe('public, max-age=300');

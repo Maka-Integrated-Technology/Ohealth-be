@@ -4347,11 +4347,13 @@
       "PublicAvailabilityDayDto": {
         "properties": {
           "date": {
+            "description": "Calendar date the slots start on, local to the `time_zone` of each slot",
             "example": "2026-01-15",
             "format": "date",
             "type": "string"
           },
           "slots": {
+            "description": "Slots of the day, earliest first",
             "items": {
               "$ref": "#/components/schemas/PublicAvailabilitySlotDto"
             },
@@ -4365,24 +4367,50 @@
         "type": "object"
       },
       "PublicAvailabilitySlotDto": {
+        "description": "One period a professional offers. `date`, `start_time`, and `end_time` are local to `time_zone`; `starts_at` and `ends_at` are the same period as instants.",
         "properties": {
           "end_time": {
+            "description": "Local end time in `time_zone`. A value that is not after `start_time` falls on the following day.",
             "example": "09:30:00",
+            "pattern": "^\\d{2}:\\d{2}:\\d{2}$",
+            "type": "string"
+          },
+          "ends_at": {
+            "description": "Instant the slot ends, in UTC",
+            "example": "2026-01-15T08:30:00.000Z",
+            "format": "date-time",
             "type": "string"
           },
           "id": {
+            "description": "Identifier of the slot. Knowing it reserves nothing; booking creation checks the slot again.",
             "format": "uuid",
             "type": "string"
           },
           "start_time": {
+            "description": "Local start time on the day, in `time_zone`",
             "example": "09:00:00",
+            "pattern": "^\\d{2}:\\d{2}:\\d{2}$",
+            "type": "string"
+          },
+          "starts_at": {
+            "description": "Instant the slot starts, in UTC",
+            "example": "2026-01-15T08:00:00.000Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "time_zone": {
+            "description": "IANA time zone name that `date`, `start_time`, and `end_time` are local to. It is stored with the slot and never taken from the server.",
+            "example": "Africa/Lagos",
             "type": "string"
           }
         },
         "required": [
           "id",
           "start_time",
-          "end_time"
+          "end_time",
+          "time_zone",
+          "starts_at",
+          "ends_at"
         ],
         "type": "object"
       },
@@ -4395,6 +4423,9 @@
             "type": "array"
           },
           "max_availability_range_days": {
+            "type": "integer"
+          },
+          "max_availability_slots": {
             "type": "integer"
           },
           "pagination": {
@@ -4412,7 +4443,8 @@
           "search",
           "professional_sort",
           "consultation_types",
-          "max_availability_range_days"
+          "max_availability_range_days",
+          "max_availability_slots"
         ],
         "type": "object"
       },

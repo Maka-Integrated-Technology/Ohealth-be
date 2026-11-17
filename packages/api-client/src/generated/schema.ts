@@ -3235,22 +3235,52 @@ export interface components {
     readonly PublicAvailabilityDayDto: {
       /**
        * Format: date
+       * @description Calendar date the slots start on, local to the `time_zone` of each slot
        * @example 2026-01-15
        */
       readonly date: string;
+      /** @description Slots of the day, earliest first */
       readonly slots: readonly components['schemas']['PublicAvailabilitySlotDto'][];
     };
+    /** @description One period a professional offers. `date`, `start_time`, and `end_time` are local to `time_zone`; `starts_at` and `ends_at` are the same period as instants. */
     readonly PublicAvailabilitySlotDto: {
-      /** @example 09:30:00 */
+      /**
+       * @description Local end time in `time_zone`. A value that is not after `start_time` falls on the following day.
+       * @example 09:30:00
+       */
       readonly end_time: string;
-      /** Format: uuid */
+      /**
+       * Format: date-time
+       * @description Instant the slot ends, in UTC
+       * @example 2026-01-15T08:30:00.000Z
+       */
+      readonly ends_at: string;
+      /**
+       * Format: uuid
+       * @description Identifier of the slot. Knowing it reserves nothing; booking creation checks the slot again.
+       */
       readonly id: string;
-      /** @example 09:00:00 */
+      /**
+       * @description Local start time on the day, in `time_zone`
+       * @example 09:00:00
+       */
       readonly start_time: string;
+      /**
+       * Format: date-time
+       * @description Instant the slot starts, in UTC
+       * @example 2026-01-15T08:00:00.000Z
+       */
+      readonly starts_at: string;
+      /**
+       * @description IANA time zone name that `date`, `start_time`, and `end_time` are local to. It is stored with the slot and never taken from the server.
+       * @example Africa/Lagos
+       */
+      readonly time_zone: string;
     };
     readonly PublicDiscoveryContractDto: {
       readonly consultation_types: readonly components['schemas']['ConsultationType'][];
       readonly max_availability_range_days: number;
+      readonly max_availability_slots: number;
       readonly pagination: components['schemas']['PublicDiscoveryPaginationContractDto'];
       readonly professional_sort: components['schemas']['PublicDiscoveryProfessionalSortContractDto'];
       readonly search: components['schemas']['PublicDiscoverySearchContractDto'];
