@@ -96,6 +96,10 @@ import { TwoFactorAuthController } from './two-factor-auth.controller';
     JwtAuthGuard,
     RolesGuard,
     AuthContextService,
+    // Modules that guard routes with CapabilitiesGuard resolve its
+    // authorization audit through this export; without it the guard fails
+    // closed on every capability-protected route outside this module.
+    AuthSecurityAuditModule,
     CapabilitiesGuard,
   ],
 })

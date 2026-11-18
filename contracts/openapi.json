@@ -3167,6 +3167,11 @@
             "example": "09:00",
             "type": "string"
           },
+          "time_zone": {
+            "description": "IANA time zone the date and times of the slot are local to. Slots are recorded in the platform scheduling time zone.",
+            "example": "Africa/Lagos",
+            "type": "string"
+          },
           "updated_at": {
             "example": "2026-01-15T10:30:00.000Z",
             "format": "date-time",
@@ -3179,6 +3184,7 @@
           "date",
           "start_time",
           "end_time",
+          "time_zone",
           "is_available",
           "created_at",
           "updated_at"
@@ -4341,11 +4347,13 @@
       "PublicAvailabilityDayDto": {
         "properties": {
           "date": {
+            "description": "Calendar date the slots start on, local to the `time_zone` of each slot",
             "example": "2026-01-15",
             "format": "date",
             "type": "string"
           },
           "slots": {
+            "description": "Slots of the day, earliest first",
             "items": {
               "$ref": "#/components/schemas/PublicAvailabilitySlotDto"
             },
@@ -4359,24 +4367,50 @@
         "type": "object"
       },
       "PublicAvailabilitySlotDto": {
+        "description": "One period a professional offers. `date`, `start_time`, and `end_time` are local to `time_zone`; `starts_at` and `ends_at` are the same period as instants.",
         "properties": {
           "end_time": {
+            "description": "Local end time in `time_zone`. A value that is not after `start_time` falls on the following day.",
             "example": "09:30:00",
+            "pattern": "^\\d{2}:\\d{2}:\\d{2}$",
+            "type": "string"
+          },
+          "ends_at": {
+            "description": "Instant the slot ends, in UTC",
+            "example": "2026-01-15T08:30:00.000Z",
+            "format": "date-time",
             "type": "string"
           },
           "id": {
+            "description": "Identifier of the slot. Knowing it reserves nothing; booking creation checks the slot again.",
             "format": "uuid",
             "type": "string"
           },
           "start_time": {
+            "description": "Local start time on the day, in `time_zone`",
             "example": "09:00:00",
+            "pattern": "^\\d{2}:\\d{2}:\\d{2}$",
+            "type": "string"
+          },
+          "starts_at": {
+            "description": "Instant the slot starts, in UTC",
+            "example": "2026-01-15T08:00:00.000Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "time_zone": {
+            "description": "IANA time zone name that `date`, `start_time`, and `end_time` are local to. It is stored with the slot and never taken from the server.",
+            "example": "Africa/Lagos",
             "type": "string"
           }
         },
         "required": [
           "id",
           "start_time",
-          "end_time"
+          "end_time",
+          "time_zone",
+          "starts_at",
+          "ends_at"
         ],
         "type": "object"
       },
@@ -4389,6 +4423,9 @@
             "type": "array"
           },
           "max_availability_range_days": {
+            "type": "integer"
+          },
+          "max_availability_slots": {
             "type": "integer"
           },
           "pagination": {
@@ -4406,7 +4443,8 @@
           "search",
           "professional_sort",
           "consultation_types",
-          "max_availability_range_days"
+          "max_availability_range_days",
+          "max_availability_slots"
         ],
         "type": "object"
       },
@@ -4509,6 +4547,55 @@
           "total_pages",
           "has_next",
           "has_previous"
+        ],
+        "type": "object"
+      },
+      "PublicProfessionalAvailabilityDto": {
+        "description": "One page of the slots one professional offered when the response was produced. It is information, not a reservation: a slot can be taken at any moment after `as_of`, and booking creation revalidates and reserves a slot atomically and can still refuse it.",
+        "properties": {
+          "as_of": {
+            "description": "Instant the slots were read, in UTC. Every returned slot started after it and was neither withdrawn nor occupied by a booking at that instant.",
+            "example": "2026-01-14T10:30:00.000Z",
+            "format": "date-time",
+            "type": "string"
+          },
+          "days": {
+            "description": "Days of this page that have at least one slot, ordered by date. Slots within a day are ordered by starts_at. A day without slots is absent.",
+            "items": {
+              "$ref": "#/components/schemas/PublicAvailabilityDayDto"
+            },
+            "type": "array"
+          },
+          "from": {
+            "description": "First calendar date of the range that was read",
+            "example": "2026-01-15",
+            "format": "date",
+            "type": "string"
+          },
+          "has_more": {
+            "description": "True when the range holds slots after this page. Equivalent to next_cursor not being null.",
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "description": "Opaque value to send as cursor, with the same from and to, to read the slots after this page; null on the last page. Pages follow the order of starts_at and then id, so every slot of the range is returned exactly once across pages.",
+            "example": null,
+            "nullable": true,
+            "type": "string"
+          },
+          "to": {
+            "description": "Last calendar date of the range that was read",
+            "example": "2026-01-21",
+            "format": "date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "as_of",
+          "days",
+          "has_more",
+          "next_cursor"
         ],
         "type": "object"
       },
@@ -15506,6 +15593,117 @@
           }
         },
         "summary": "Get the public profile of one approved professional",
+        "tags": [
+          "Public Discovery"
+        ]
+      }
+    },
+    "/api/public/professionals/{id}/availability": {
+      "get": {
+        "description": "Returns the slots inside the requested dates that start after the response is produced, are still offered, and are not occupied by a booking, in pages of at most 500 ordered by start instant; send next_cursor as cursor, with the same dates, to read the next page. Every slot declares the IANA time zone its date and times are local to and its start and end as UTC instants; no time is local to the server. Availability is information, not a reservation: a returned slot can be taken at any moment, and booking creation revalidates and reserves the slot atomically and can still refuse it.",
+        "operationId": "PublicProfessionalController_findAvailability",
+        "parameters": [
+          {
+            "description": "Professional identifier from the public directory",
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "First calendar date to read, as YYYY-MM-DD. Dates are local to the time zone of each slot, not to the server or the caller.",
+            "in": "query",
+            "name": "from",
+            "required": true,
+            "schema": {
+              "example": "2026-01-15",
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Last calendar date to read, as YYYY-MM-DD. On or after from; the inclusive range covers at most 31 days and must not have ended in every time zone",
+            "in": "query",
+            "name": "to",
+            "required": true,
+            "schema": {
+              "example": "2026-01-21",
+              "format": "date",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Opaque next_cursor from the previous response for the same range. Returns the slots that come after it; omit it to start from the beginning.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "maxLength": 128,
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/PublicProfessionalAvailabilityDto"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "A query parameter failed validation"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Resource not found. Returned identically for missing, malformed, and non-public resources."
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "summary": "Get the open future slots of one approved professional",
         "tags": [
           "Public Discovery"
         ]

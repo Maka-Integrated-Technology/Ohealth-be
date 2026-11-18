@@ -1,16 +1,21 @@
-import { ProfessionalAvailability } from '../professional/entities/professional-availability.entity';
 import { Professional } from '../professional/entities/professional.entity';
 import { Speciality } from '../speciality/entities/speciality.entity';
 import { User } from '../user/entities/user.entity';
 
+import { PublicDateRangeQueryDto } from './dto/public-discovery-query.dto';
 import {
   PublicAvailabilityDayDto,
   PublicPaginationMetaDto,
+  PublicProfessionalAvailabilityDto,
   PublicProfessionalDetailDto,
   PublicProfessionalSummaryDto,
   PublicSpecialityDto,
 } from './dto/public-discovery-response.dto';
-import { PUBLIC_DISCOVERY_ICON } from './public-discovery.constants';
+import {
+  PUBLIC_DISCOVERY_ICON,
+  PUBLIC_DISCOVERY_MAX_AVAILABILITY_SLOTS,
+} from './public-discovery.constants';
+import { encodePublicAvailabilityCursor } from './public-discovery.cursor';
 import { toPublicLabel, toPublicProse } from './public-discovery.text';
 
 export type PublicSpecialitySource = Pick<
@@ -45,10 +50,20 @@ export interface IPublicReviewAggregate {
   total_reviews: number;
 }
 
-export type PublicAvailabilitySource = Pick<
-  ProfessionalAvailability,
-  'id' | 'date' | 'start_time' | 'end_time'
->;
+/**
+ * A slot as the availability query reads it: its local date and times as
+ * text, the zone they are local to, and the instants that zone resolves them
+ * to. Whose slot it is and whether it is flagged available are not part of it.
+ */
+export interface IPublicAvailabilitySlotSource {
+  id: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  time_zone: string;
+  starts_at: Date;
+  ends_at: Date;
+}
 
 /**
  * Only absolute HTTPS addresses are published. Storage keys, relative paths,
@@ -143,27 +158,75 @@ export function toPublicProfessionalDetail(
   };
 }
 
-/** Groups slots by day, ordered by date and then start time. */
+/** Earliest start first; the identifier makes the order total. */
+function orderPublicAvailabilitySlots(
+  slots: readonly IPublicAvailabilitySlotSource[],
+): IPublicAvailabilitySlotSource[] {
+  return [...slots].sort(
+    (a, b) =>
+      a.starts_at.getTime() - b.starts_at.getTime() || a.id.localeCompare(b.id),
+  );
+}
+
+/**
+ * Groups slots under the local date they start on. Days are ordered by that
+ * date and slots within a day by the instant they start, so the result does
+ * not depend on the order of the rows. Ordering days by date matters when
+ * slots of different zones interleave: a slot can start earlier as an
+ * instant yet fall on a later local date.
+ */
 export function toPublicAvailabilityDays(
-  slots: readonly PublicAvailabilitySource[],
+  slots: readonly IPublicAvailabilitySlotSource[],
 ): PublicAvailabilityDayDto[] {
   const days = new Map<string, PublicAvailabilityDayDto>();
-  const ordered = [...slots].sort(
-    (a, b) =>
-      a.date.localeCompare(b.date) || a.start_time.localeCompare(b.start_time),
-  );
 
-  for (const slot of ordered) {
+  for (const slot of orderPublicAvailabilitySlots(slots)) {
     const day = days.get(slot.date) ?? { date: slot.date, slots: [] };
     day.slots.push({
       id: slot.id,
       start_time: slot.start_time,
       end_time: slot.end_time,
+      time_zone: slot.time_zone,
+      starts_at: slot.starts_at.toISOString(),
+      ends_at: slot.ends_at.toISOString(),
     });
     days.set(slot.date, day);
   }
 
-  return [...days.values()];
+  return [...days.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * One page of the availability of one professional over a range, read at
+ * `asOf`. `slots` are the open slots after the requested cursor, with at
+ * most one row beyond the page. The first `maxSlots` in order are published;
+ * when a further row exists, `next_cursor` names the last published slot so
+ * the next page starts right after it.
+ */
+export function toPublicProfessionalAvailability(
+  range: Pick<PublicDateRangeQueryDto, 'from' | 'to'>,
+  asOf: Date,
+  slots: readonly IPublicAvailabilitySlotSource[],
+  maxSlots: number = PUBLIC_DISCOVERY_MAX_AVAILABILITY_SLOTS,
+): PublicProfessionalAvailabilityDto {
+  const page = orderPublicAvailabilitySlots(slots).slice(0, maxSlots);
+  const last = page[page.length - 1];
+  const nextCursor =
+    slots.length > maxSlots && last
+      ? encodePublicAvailabilityCursor({
+          startsAt: last.starts_at,
+          id: last.id,
+        })
+      : null;
+
+  return {
+    from: range.from,
+    to: range.to,
+    as_of: asOf.toISOString(),
+    days: toPublicAvailabilityDays(page),
+    has_more: nextCursor !== null,
+    next_cursor: nextCursor,
+  };
 }
 
 export function toPublicPaginationMeta(

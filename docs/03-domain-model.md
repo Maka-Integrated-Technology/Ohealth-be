@@ -46,6 +46,14 @@ The current professional table has one speciality reference. The target model
 may introduce a professional-speciality junction when multiple verified
 specialities are required.
 
+An availability slot is a calendar date with a start and an end time, local to
+the IANA time zone stored on the slot (`professional_availabilities.time_zone`).
+The instant a slot starts is always derived from that stored zone, never from
+the zone of the server or the database session. The slot write contract carries
+no zone, so every slot is recorded in the platform scheduling time zone,
+`Africa/Lagos`; accepting another zone is a change to that write contract. See
+`docs/public-discovery-contract.md` for how slots are published.
+
 ## Patient
 
 Patient profile data is separate from identity. Clinical information is subject
