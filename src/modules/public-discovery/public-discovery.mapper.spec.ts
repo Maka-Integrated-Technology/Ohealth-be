@@ -1,4 +1,3 @@
-import { ProfessionalAvailability } from '../professional/entities/professional-availability.entity';
 import {
   ConsultationType,
   Professional,
@@ -9,11 +8,14 @@ import { User } from '../user/entities/user.entity';
 import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserRole } from '../user/enums/user-role.enum';
 
+import { encodePublicAvailabilityCursor } from './public-discovery.cursor';
 import {
+  IPublicAvailabilitySlotSource,
   toPublicAvailabilityDays,
   toPublicIconIdentifier,
   toPublicImageUrl,
   toPublicPaginationMeta,
+  toPublicProfessionalAvailability,
   toPublicProfessionalDetail,
   toPublicProfessionalSummary,
   toPublicSpeciality,
@@ -278,41 +280,224 @@ describe('public discovery mapper', () => {
     expect(toPublicImageUrl(value)).toBeNull();
   });
 
-  it('groups availability by day in date and start-time order', () => {
+  describe('availability', () => {
+    // A row as the availability query returns it, with extra columns a
+    // careless query could add, to prove the response is an allowlist.
     const slot = (
       id: string,
       date: string,
       start: string,
-      end: string,
-    ): ProfessionalAvailability =>
-      Object.assign(new ProfessionalAvailability(), {
+      startsAt: string,
+      zone = 'Africa/Lagos',
+    ): IPublicAvailabilitySlotSource =>
+      ({
         id,
-        professional_id: 'internal-professional-id',
         date,
         start_time: start,
-        end_time: end,
+        end_time: '23:59:00',
+        time_zone: zone,
+        starts_at: new Date(startsAt),
+        ends_at: new Date(new Date(startsAt).getTime() + 30 * 60_000),
+        professional_id: 'internal-professional-id',
         is_available: true,
-      });
+        booking_id: 'internal-booking-id',
+        patient_id: 'internal-patient-id',
+        created_at: new Date('2026-01-01T00:00:00.000Z'),
+      }) as IPublicAvailabilitySlotSource;
 
-    expect(
-      toPublicAvailabilityDays([
-        slot('c', '2026-01-16', '09:00:00', '09:30:00'),
-        slot('b', '2026-01-15', '10:00:00', '10:30:00'),
-        slot('a', '2026-01-15', '09:00:00', '09:30:00'),
-      ]),
-    ).toEqual([
-      {
-        date: '2026-01-15',
-        slots: [
-          { id: 'a', start_time: '09:00:00', end_time: '09:30:00' },
-          { id: 'b', start_time: '10:00:00', end_time: '10:30:00' },
-        ],
-      },
-      {
-        date: '2026-01-16',
-        slots: [{ id: 'c', start_time: '09:00:00', end_time: '09:30:00' }],
-      },
-    ]);
+    const rows = [
+      slot('c', '2026-01-16', '09:00:00', '2026-01-16T08:00:00.000Z'),
+      slot('b', '2026-01-15', '10:00:00', '2026-01-15T09:00:00.000Z'),
+      slot('a', '2026-01-15', '09:00:00', '2026-01-15T08:00:00.000Z'),
+    ];
+
+    it('groups slots by local date in chronological order', () => {
+      expect(toPublicAvailabilityDays(rows)).toEqual([
+        {
+          date: '2026-01-15',
+          slots: [
+            {
+              id: 'a',
+              start_time: '09:00:00',
+              end_time: '23:59:00',
+              time_zone: 'Africa/Lagos',
+              starts_at: '2026-01-15T08:00:00.000Z',
+              ends_at: '2026-01-15T08:30:00.000Z',
+            },
+            {
+              id: 'b',
+              start_time: '10:00:00',
+              end_time: '23:59:00',
+              time_zone: 'Africa/Lagos',
+              starts_at: '2026-01-15T09:00:00.000Z',
+              ends_at: '2026-01-15T09:30:00.000Z',
+            },
+          ],
+        },
+        {
+          date: '2026-01-16',
+          slots: [
+            {
+              id: 'c',
+              start_time: '09:00:00',
+              end_time: '23:59:00',
+              time_zone: 'Africa/Lagos',
+              starts_at: '2026-01-16T08:00:00.000Z',
+              ends_at: '2026-01-16T08:30:00.000Z',
+            },
+          ],
+        },
+      ]);
+    });
+
+    it('produces the same result whatever order the rows arrive in', () => {
+      expect(toPublicAvailabilityDays([...rows].reverse())).toEqual(
+        toPublicAvailabilityDays(rows),
+      );
+    });
+
+    it('orders slots by the instant they start, not by their local time', () => {
+      const [day] = toPublicAvailabilityDays([
+        // 09:00 in New York is later than 12:00 in Lagos on the same date.
+        slot(
+          'new-york',
+          '2026-01-15',
+          '09:00:00',
+          '2026-01-15T14:00:00.000Z',
+          'America/New_York',
+        ),
+        slot('lagos', '2026-01-15', '12:00:00', '2026-01-15T11:00:00.000Z'),
+      ]);
+
+      expect(
+        day.slots.map((published) => [published.id, published.time_zone]),
+      ).toEqual([
+        ['lagos', 'Africa/Lagos'],
+        ['new-york', 'America/New_York'],
+      ]);
+    });
+
+    it('orders days by local date when zones interleave', () => {
+      // 00:30 on the 20th in Kiritimati starts before 23:00 on the 19th
+      // twelve hours behind UTC, yet its local date is later.
+      const days = toPublicAvailabilityDays([
+        slot(
+          'kiritimati',
+          '2031-05-20',
+          '00:30:00',
+          '2031-05-19T10:30:00.000Z',
+          'Pacific/Kiritimati',
+        ),
+        slot(
+          'behind',
+          '2031-05-19',
+          '23:00:00',
+          '2031-05-20T11:00:00.000Z',
+          'Etc/GMT+12',
+        ),
+      ]);
+
+      expect(
+        days.map((day) => [day.date, day.slots.map(({ id }) => id)]),
+      ).toEqual([
+        ['2031-05-19', ['behind']],
+        ['2031-05-20', ['kiritimati']],
+      ]);
+    });
+
+    it('breaks a tie between simultaneous slots by identifier', () => {
+      const instant = '2026-01-15T08:00:00.000Z';
+      const [day] = toPublicAvailabilityDays([
+        slot('b', '2026-01-15', '09:00:00', instant),
+        slot('a', '2026-01-15', '09:00:00', instant),
+      ]);
+
+      expect(day.slots.map(({ id }) => id)).toEqual(['a', 'b']);
+    });
+
+    it('publishes only the allowlisted slot fields', () => {
+      const days = toPublicAvailabilityDays(rows);
+      const serialized = JSON.stringify(days);
+
+      days.forEach((day) => {
+        expect(Object.keys(day).sort()).toEqual(['date', 'slots']);
+        day.slots.forEach((published) =>
+          expect(Object.keys(published).sort()).toEqual([
+            'end_time',
+            'ends_at',
+            'id',
+            'start_time',
+            'starts_at',
+            'time_zone',
+          ]),
+        );
+      });
+      ['internal-', 'is_available', 'professional_id', 'created_at'].forEach(
+        (value) => expect(serialized).not.toContain(value),
+      );
+    });
+
+    it('describes the range, the instant it was read, and its days', () => {
+      const asOf = new Date('2026-01-14T10:30:00.000Z');
+
+      expect(
+        toPublicProfessionalAvailability(
+          { from: '2026-01-15', to: '2026-01-21' },
+          asOf,
+          rows,
+        ),
+      ).toEqual({
+        from: '2026-01-15',
+        to: '2026-01-21',
+        as_of: '2026-01-14T10:30:00.000Z',
+        days: toPublicAvailabilityDays(rows),
+        has_more: false,
+        next_cursor: null,
+      });
+    });
+
+    it('reports an empty range without days', () => {
+      expect(
+        toPublicProfessionalAvailability(
+          { from: '2026-01-15', to: '2026-01-15' },
+          new Date('2026-01-14T10:30:00.000Z'),
+          [],
+        ),
+      ).toMatchObject({ days: [], has_more: false, next_cursor: null });
+    });
+
+    it('keeps the earliest slots and reports that later ones were left out', () => {
+      const availability = toPublicProfessionalAvailability(
+        { from: '2026-01-15', to: '2026-01-16' },
+        new Date('2026-01-14T10:30:00.000Z'),
+        rows,
+        2,
+      );
+
+      expect(availability.has_more).toBe(true);
+      expect(
+        availability.days.flatMap((day) => day.slots.map(({ id }) => id)),
+      ).toEqual(['a', 'b']);
+      // The cursor names the last published slot, so the next page starts
+      // right after it.
+      expect(availability.next_cursor).toBe(
+        encodePublicAvailabilityCursor({
+          startsAt: new Date('2026-01-15T09:00:00.000Z'),
+          id: 'b',
+        }),
+      );
+    });
+
+    it('reports nothing left out when the slots exactly fill the bound', () => {
+      expect(
+        toPublicProfessionalAvailability(
+          { from: '2026-01-15', to: '2026-01-16' },
+          new Date('2026-01-14T10:30:00.000Z'),
+          rows,
+          3,
+        ),
+      ).toMatchObject({ has_more: false, next_cursor: null });
+    });
   });
 
   it.each([

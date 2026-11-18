@@ -1446,6 +1446,22 @@ export type PublicDiscoveryController_getContractResponse =
 export type PublicDiscoveryController_getContractError =
   operations['PublicDiscoveryController_getContract']['responses'][500]['content']['application/json'];
 
+export type PublicProfessionalController_findAvailabilityRequest = Readonly<{
+  readonly path: NonNullable<
+    operations['PublicProfessionalController_findAvailability']['parameters']['path']
+  >;
+  readonly query: NonNullable<
+    operations['PublicProfessionalController_findAvailability']['parameters']['query']
+  >;
+  readonly headers?: ApiHeaders;
+}>;
+export type PublicProfessionalController_findAvailabilityResponse =
+  operations['PublicProfessionalController_findAvailability']['responses'][200]['content']['application/json'];
+export type PublicProfessionalController_findAvailabilityError =
+  | operations['PublicProfessionalController_findAvailability']['responses'][400]['content']['application/json']
+  | operations['PublicProfessionalController_findAvailability']['responses'][404]['content']['application/json']
+  | operations['PublicProfessionalController_findAvailability']['responses'][500]['content']['application/json'];
+
 export type PublicProfessionalController_findOneRequest = Readonly<{
   readonly path: NonNullable<
     operations['PublicProfessionalController_findOne']['parameters']['path']
@@ -1913,6 +1929,9 @@ export interface ApiClient {
   readonly PublicDiscoveryController_getContract: (
     request?: PublicDiscoveryController_getContractRequest,
   ) => Promise<PublicDiscoveryController_getContractResponse>;
+  readonly PublicProfessionalController_findAvailability: (
+    request: PublicProfessionalController_findAvailabilityRequest,
+  ) => Promise<PublicProfessionalController_findAvailabilityResponse>;
   readonly PublicProfessionalController_findOne: (
     request: PublicProfessionalController_findOneRequest,
   ) => Promise<PublicProfessionalController_findOneResponse>;
@@ -3256,6 +3275,18 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
           operationId: 'PublicDiscoveryController_getContract',
           method: 'GET',
           path: '/api/public/discovery/contract',
+        },
+        request,
+      ),
+    PublicProfessionalController_findAvailability: (request) =>
+      core.request<
+        PublicProfessionalController_findAvailabilityResponse,
+        PublicProfessionalController_findAvailabilityError
+      >(
+        {
+          operationId: 'PublicProfessionalController_findAvailability',
+          method: 'GET',
+          path: '/api/public/professionals/{id}/availability',
         },
         request,
       ),

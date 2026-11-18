@@ -56,6 +56,7 @@ const PUBLIC_OPERATION_IDS = new Set([
   'LaboratoryPostApprovalController_acceptStaffInvitation',
   'PharmacyController_register',
   'PublicDiscoveryController_getContract',
+  'PublicProfessionalController_findAvailability',
   'PublicProfessionalController_findOne',
   'PublicProfessionalController_list',
   'PublicSpecialityController_findOne',
@@ -65,6 +66,10 @@ const PUBLIC_OPERATION_IDS = new Set([
 ]);
 
 const PUBLIC_DISCOVERY_PATH_PREFIX = `/${OPENAPI_API_PREFIX}/${PUBLIC_DISCOVERY_ROUTE_NAMESPACE}/`;
+const PUBLIC_SCHEMA_PREFIX = 'Public';
+const PUBLIC_DATE_RANGE_PARAMETERS = ['from', 'to'];
+const PUBLIC_LOCAL_TIME_PROPERTIES = ['start_time', 'end_time'];
+const PUBLIC_INSTANT_PROPERTIES = ['starts_at', 'ends_at'];
 
 const AUTH_CHALLENGE_ERROR_RESPONSES = new Map<string, readonly string[]>([
   ['BrowserSessionController_verifyLogin', ['400']],
@@ -217,6 +222,87 @@ function validatePublicDiscoveryBoundary(
   }
 }
 
+/**
+ * A date range in the public namespace is a pair of required calendar dates.
+ * An optional or untyped bound would leave the range to a server default.
+ */
+function validatePublicDateRange(
+  label: string,
+  path: string,
+  operation: OperationObject,
+  errors: string[],
+): void {
+  if (!path.startsWith(PUBLIC_DISCOVERY_PATH_PREFIX)) return;
+
+  for (const parameter of operation.parameters ?? []) {
+    if (isReferenceObject(parameter) || parameter.in !== 'query') continue;
+    if (!PUBLIC_DATE_RANGE_PARAMETERS.includes(parameter.name)) continue;
+
+    const schema = parameter.schema;
+    if (
+      !parameter.required ||
+      !schema ||
+      isReferenceObject(schema) ||
+      schema.type !== 'string' ||
+      schema.format !== 'date'
+    ) {
+      errors.push(
+        `${label} public date range parameter ${parameter.name} must be a required calendar date`,
+      );
+    }
+  }
+}
+
+/**
+ * A public model that publishes a local wall-clock time must also name the
+ * IANA time zone it is local to and give the same moment as an instant. A
+ * local time on its own would be read in the zone of the server or the reader.
+ */
+function validatePublicLocalTimes(
+  document: OpenAPIObject,
+  errors: string[],
+): void {
+  Object.entries(document.components.schemas ?? {}).forEach(
+    ([name, schema]) => {
+      if (!name.startsWith(PUBLIC_SCHEMA_PREFIX) || isReferenceObject(schema)) {
+        return;
+      }
+      const properties = schema.properties ?? {};
+      if (!PUBLIC_LOCAL_TIME_PROPERTIES.some((key) => key in properties)) {
+        return;
+      }
+
+      const required = new Set(schema.required ?? []);
+      const zone = properties.time_zone;
+      if (
+        !zone ||
+        isReferenceObject(zone) ||
+        zone.type !== 'string' ||
+        !required.has('time_zone') ||
+        !zone.description?.includes('IANA')
+      ) {
+        errors.push(
+          `${name} publishes a local time and must require an IANA time_zone`,
+        );
+      }
+
+      PUBLIC_INSTANT_PROPERTIES.forEach((key) => {
+        const instant = properties[key];
+        if (
+          !instant ||
+          isReferenceObject(instant) ||
+          instant.format !== 'date-time' ||
+          !required.has(key)
+        ) {
+          errors.push(
+            `${name} publishes a local time and must require ${key} as a date-time instant`,
+          );
+        }
+      });
+    },
+  );
+}
+
 function validateSecurity(
   label: string,
   operation: OperationObject,
@@ -332,6 +418,7 @@ function validateOperation(
 
   validateSecurity(label, operation, errors);
   validatePublicDiscoveryBoundary(label, path, method, operation, errors);
+  validatePublicDateRange(label, path, operation, errors);
   validateResponses(document, label, operation, errors);
 
   const parameterKeys = new Set<string>();
@@ -427,6 +514,7 @@ export function assertOpenApiDocumentComplete(document: OpenAPIObject): void {
     });
   });
 
+  validatePublicLocalTimes(document, errors);
   validateSyntheticExamples(document, errors);
 
   if (errors.length > 0) {

@@ -23,6 +23,7 @@ import { ProfessionalService } from '../../modules/professional/professional.ser
 import { PublicProfessionalService } from '../../modules/professional/public-professional.service';
 import { PublicProfessionalDirectoryQueryDto } from '../../modules/public-discovery/dto/public-discovery-query.dto';
 import { PublicDiscoveryVisibilityPolicy } from '../../modules/public-discovery/public-discovery-visibility.policy';
+import { PublicDiscoveryClock } from '../../modules/public-discovery/public-discovery.clock';
 import { PublicResourceNotFoundException } from '../../modules/public-discovery/public-discovery.errors';
 import { Speciality } from '../../modules/speciality/entities/speciality.entity';
 import { SpecialityService } from '../../modules/speciality/speciality.service';
@@ -261,7 +262,13 @@ integration('Public professional details on real PostgreSQL', () => {
     bookings = database.getRepository(Booking);
     users = database.getRepository(User);
     const specialities = database.getRepository(Speciality);
-    service = new PublicProfessionalService(professionals, reviews, policy);
+    service = new PublicProfessionalService(
+      professionals,
+      reviews,
+      database.getRepository(ProfessionalAvailability),
+      policy,
+      new PublicDiscoveryClock(),
+    );
 
     const logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn() };
     reviewWriter = new ProfessionalService(

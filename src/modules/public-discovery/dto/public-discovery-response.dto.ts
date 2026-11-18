@@ -1,8 +1,9 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiSchema } from '@nestjs/swagger';
 
 import { ConsultationType } from '../../professional/entities/professional.entity';
 import {
   PUBLIC_DISCOVERY_ICON,
+  PUBLIC_DISCOVERY_LOCAL_TIME_PATTERN,
   PUBLIC_DISCOVERY_TEXT,
   PublicProfessionalSortField,
   PublicSortOrder,
@@ -118,23 +119,119 @@ export class PublicProfessionalDetailDto extends PublicProfessionalSummaryDto {
   about: string | null;
 }
 
+@ApiSchema({
+  description:
+    'One period a professional offers. `date`, `start_time`, and `end_time` are local to `time_zone`; `starts_at` and `ends_at` are the same period as instants.',
+})
 export class PublicAvailabilitySlotDto {
-  @ApiProperty({ format: 'uuid' })
+  @ApiProperty({
+    format: 'uuid',
+    description:
+      'Identifier of the slot. Knowing it reserves nothing; booking creation checks the slot again.',
+  })
   id: string;
 
-  @ApiProperty({ example: '09:00:00' })
+  @ApiProperty({
+    example: '09:00:00',
+    pattern: PUBLIC_DISCOVERY_LOCAL_TIME_PATTERN,
+    description: 'Local start time on the day, in `time_zone`',
+  })
   start_time: string;
 
-  @ApiProperty({ example: '09:30:00' })
+  @ApiProperty({
+    example: '09:30:00',
+    pattern: PUBLIC_DISCOVERY_LOCAL_TIME_PATTERN,
+    description:
+      'Local end time in `time_zone`. A value that is not after `start_time` falls on the following day.',
+  })
   end_time: string;
+
+  @ApiProperty({
+    example: 'Africa/Lagos',
+    description:
+      'IANA time zone name that `date`, `start_time`, and `end_time` are local to. It is stored with the slot and never taken from the server.',
+  })
+  time_zone: string;
+
+  @ApiProperty({
+    format: 'date-time',
+    example: '2026-01-15T08:00:00.000Z',
+    description: 'Instant the slot starts, in UTC',
+  })
+  starts_at: string;
+
+  @ApiProperty({
+    format: 'date-time',
+    example: '2026-01-15T08:30:00.000Z',
+    description: 'Instant the slot ends, in UTC',
+  })
+  ends_at: string;
 }
 
 export class PublicAvailabilityDayDto {
-  @ApiProperty({ format: 'date', example: '2026-01-15' })
+  @ApiProperty({
+    format: 'date',
+    example: '2026-01-15',
+    description:
+      'Calendar date the slots start on, local to the `time_zone` of each slot',
+  })
   date: string;
 
-  @ApiProperty({ type: [PublicAvailabilitySlotDto] })
+  @ApiProperty({
+    type: [PublicAvailabilitySlotDto],
+    description: 'Slots of the day, earliest first',
+  })
   slots: PublicAvailabilitySlotDto[];
+}
+
+@ApiSchema({
+  description:
+    'One page of the slots one professional offered when the response was produced. It is information, not a reservation: a slot can be taken at any moment after `as_of`, and booking creation revalidates and reserves a slot atomically and can still refuse it.',
+})
+export class PublicProfessionalAvailabilityDto {
+  @ApiProperty({
+    format: 'date',
+    example: '2026-01-15',
+    description: 'First calendar date of the range that was read',
+  })
+  from: string;
+
+  @ApiProperty({
+    format: 'date',
+    example: '2026-01-21',
+    description: 'Last calendar date of the range that was read',
+  })
+  to: string;
+
+  @ApiProperty({
+    format: 'date-time',
+    example: '2026-01-14T10:30:00.000Z',
+    description:
+      'Instant the slots were read, in UTC. Every returned slot started after it and was neither withdrawn nor occupied by a booking at that instant.',
+  })
+  as_of: string;
+
+  @ApiProperty({
+    type: [PublicAvailabilityDayDto],
+    description:
+      'Days of this page that have at least one slot, ordered by date. Slots within a day are ordered by starts_at. A day without slots is absent.',
+  })
+  days: PublicAvailabilityDayDto[];
+
+  @ApiProperty({
+    description:
+      'True when the range holds slots after this page. Equivalent to next_cursor not being null.',
+  })
+  has_more: boolean;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: null,
+    description:
+      'Opaque value to send as cursor, with the same from and to, to read the slots after this page; null on the last page. Pages follow the order of starts_at and then id, so every slot of the range is returned exactly once across pages.',
+  })
+  next_cursor: string | null;
 }
 
 export class PublicPaginationMetaDto {
@@ -236,4 +333,7 @@ export class PublicDiscoveryContractDto {
 
   @ApiProperty({ type: 'integer' })
   max_availability_range_days: number;
+
+  @ApiProperty({ type: 'integer' })
+  max_availability_slots: number;
 }

@@ -19,12 +19,18 @@ import {
   PublicProfessionalSortField,
   PublicSortOrder,
 } from '../public-discovery.constants';
+import {
+  decodePublicAvailabilityCursor,
+  PUBLIC_AVAILABILITY_CURSOR_MAX_LENGTH,
+} from '../public-discovery.cursor';
 
 const CALENDAR_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const FEE_AMOUNT_PATTERN = new RegExp(
   `^\\d{1,8}(?:\\.\\d{1,${PUBLIC_DISCOVERY_FEE.maxDecimalPlaces}})?$`,
 );
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+// No time zone is further behind UTC than this many hours.
+const MAX_HOURS_BEHIND_UTC = 12;
 
 /**
  * Canonical form of a public search term: Unicode-normalized, trimmed, and
@@ -51,6 +57,22 @@ export function parsePublicCalendarDate(value: unknown): number | null {
     date.getUTCDate() === day;
 
   return isRealDate ? timestamp / MILLISECONDS_PER_DAY : null;
+}
+
+/**
+ * Whether a calendar date has ended in every time zone at `now`. A date range
+ * that ends on such a day cannot contain a future slot wherever the slot is.
+ * The comparison is between instants and never reads the server's own zone.
+ */
+export function isPublicCalendarDateOver(value: unknown, now: Date): boolean {
+  const day = parsePublicCalendarDate(value);
+  if (day === null) return false;
+
+  const earliestCurrentDay = Math.floor(
+    (now.getTime() - MAX_HOURS_BEHIND_UTC * 60 * 60 * 1000) /
+      MILLISECONDS_PER_DAY,
+  );
+  return day < earliestCurrentDay;
 }
 
 /**
@@ -200,6 +222,23 @@ const IsBoundedPublicDateRange =
     });
   };
 
+const IsPublicAvailabilityCursor =
+  (options?: ValidationOptions): PropertyDecorator =>
+  (target: object, propertyName: string | symbol) => {
+    registerDecorator({
+      name: 'isPublicAvailabilityCursor',
+      target: target.constructor,
+      propertyName: String(propertyName),
+      options,
+      validator: {
+        validate: (value: unknown) =>
+          decodePublicAvailabilityCursor(value) !== null,
+        defaultMessage: (args: ValidationArguments) =>
+          `${args.property} must be a next_cursor value returned by this endpoint`,
+      },
+    });
+  };
+
 export class PublicPaginationQueryDto {
   @ApiPropertyOptional({
     type: 'integer',
@@ -309,16 +348,32 @@ export class PublicProfessionalDirectoryQueryDto extends PublicSearchQueryDto {
 }
 
 export class PublicDateRangeQueryDto {
-  @ApiProperty({ format: 'date', example: '2026-01-15' })
+  @ApiProperty({
+    format: 'date',
+    example: '2026-01-15',
+    description:
+      'First calendar date to read, as YYYY-MM-DD. Dates are local to the time zone of each slot, not to the server or the caller.',
+  })
   @IsPublicCalendarDate()
   from: string;
 
   @ApiProperty({
     format: 'date',
     example: '2026-01-21',
-    description: `On or after from; the inclusive range covers at most ${PUBLIC_DISCOVERY_MAX_DATE_RANGE_DAYS} days`,
+    description: `Last calendar date to read, as YYYY-MM-DD. On or after from; the inclusive range covers at most ${PUBLIC_DISCOVERY_MAX_DATE_RANGE_DAYS} days and must not have ended in every time zone`,
   })
   @IsPublicCalendarDate()
   @IsBoundedPublicDateRange('from')
   to: string;
+}
+
+export class PublicAvailabilityQueryDto extends PublicDateRangeQueryDto {
+  @ApiPropertyOptional({
+    maxLength: PUBLIC_AVAILABILITY_CURSOR_MAX_LENGTH,
+    description:
+      'Opaque next_cursor from the previous response for the same range. Returns the slots that come after it; omit it to start from the beginning.',
+  })
+  @IsOptional()
+  @IsPublicAvailabilityCursor()
+  cursor?: string;
 }

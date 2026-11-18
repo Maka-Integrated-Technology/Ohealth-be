@@ -1707,6 +1707,26 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
+  readonly '/api/public/professionals/{id}/availability': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /**
+     * Get the open future slots of one approved professional
+     * @description Returns the slots inside the requested dates that start after the response is produced, are still offered, and are not occupied by a booking, in pages of at most 500 ordered by start instant; send next_cursor as cursor, with the same dates, to read the next page. Every slot declares the IANA time zone its date and times are local to and its start and end as UTC instants; no time is local to the server. Availability is information, not a reservation: a returned slot can be taken at any moment, and booking creation revalidates and reserves the slot atomically and can still refuse it.
+     */
+    readonly get: operations['PublicProfessionalController_findAvailability'];
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly '/api/public/specialities': {
     readonly parameters: {
       readonly query?: never;
@@ -2902,6 +2922,11 @@ export interface components {
       /** @example 09:00 */
       readonly start_time: string;
       /**
+       * @description IANA time zone the date and times of the slot are local to. Slots are recorded in the platform scheduling time zone.
+       * @example Africa/Lagos
+       */
+      readonly time_zone: string;
+      /**
        * Format: date-time
        * @example 2026-01-15T10:30:00.000Z
        */
@@ -3230,22 +3255,52 @@ export interface components {
     readonly PublicAvailabilityDayDto: {
       /**
        * Format: date
+       * @description Calendar date the slots start on, local to the `time_zone` of each slot
        * @example 2026-01-15
        */
       readonly date: string;
+      /** @description Slots of the day, earliest first */
       readonly slots: readonly components['schemas']['PublicAvailabilitySlotDto'][];
     };
+    /** @description One period a professional offers. `date`, `start_time`, and `end_time` are local to `time_zone`; `starts_at` and `ends_at` are the same period as instants. */
     readonly PublicAvailabilitySlotDto: {
-      /** @example 09:30:00 */
+      /**
+       * @description Local end time in `time_zone`. A value that is not after `start_time` falls on the following day.
+       * @example 09:30:00
+       */
       readonly end_time: string;
-      /** Format: uuid */
+      /**
+       * Format: date-time
+       * @description Instant the slot ends, in UTC
+       * @example 2026-01-15T08:30:00.000Z
+       */
+      readonly ends_at: string;
+      /**
+       * Format: uuid
+       * @description Identifier of the slot. Knowing it reserves nothing; booking creation checks the slot again.
+       */
       readonly id: string;
-      /** @example 09:00:00 */
+      /**
+       * @description Local start time on the day, in `time_zone`
+       * @example 09:00:00
+       */
       readonly start_time: string;
+      /**
+       * Format: date-time
+       * @description Instant the slot starts, in UTC
+       * @example 2026-01-15T08:00:00.000Z
+       */
+      readonly starts_at: string;
+      /**
+       * @description IANA time zone name that `date`, `start_time`, and `end_time` are local to. It is stored with the slot and never taken from the server.
+       * @example Africa/Lagos
+       */
+      readonly time_zone: string;
     };
     readonly PublicDiscoveryContractDto: {
       readonly consultation_types: readonly components['schemas']['ConsultationType'][];
       readonly max_availability_range_days: number;
+      readonly max_availability_slots: number;
       readonly pagination: components['schemas']['PublicDiscoveryPaginationContractDto'];
       readonly professional_sort: components['schemas']['PublicDiscoveryProfessionalSortContractDto'];
       readonly search: components['schemas']['PublicDiscoverySearchContractDto'];
@@ -3272,6 +3327,36 @@ export interface components {
       readonly page: number;
       readonly total: number;
       readonly total_pages: number;
+    };
+    /** @description One page of the slots one professional offered when the response was produced. It is information, not a reservation: a slot can be taken at any moment after `as_of`, and booking creation revalidates and reserves a slot atomically and can still refuse it. */
+    readonly PublicProfessionalAvailabilityDto: {
+      /**
+       * Format: date-time
+       * @description Instant the slots were read, in UTC. Every returned slot started after it and was neither withdrawn nor occupied by a booking at that instant.
+       * @example 2026-01-14T10:30:00.000Z
+       */
+      readonly as_of: string;
+      /** @description Days of this page that have at least one slot, ordered by date. Slots within a day are ordered by starts_at. A day without slots is absent. */
+      readonly days: readonly components['schemas']['PublicAvailabilityDayDto'][];
+      /**
+       * Format: date
+       * @description First calendar date of the range that was read
+       * @example 2026-01-15
+       */
+      readonly from: string;
+      /** @description True when the range holds slots after this page. Equivalent to next_cursor not being null. */
+      readonly has_more: boolean;
+      /**
+       * @description Opaque value to send as cursor, with the same from and to, to read the slots after this page; null on the last page. Pages follow the order of starts_at and then id, so every slot of the range is returned exactly once across pages.
+       * @example null
+       */
+      readonly next_cursor: string | null;
+      /**
+       * Format: date
+       * @description Last calendar date of the range that was read
+       * @example 2026-01-21
+       */
+      readonly to: string;
     };
     readonly PublicProfessionalDetailDto: {
       /**
@@ -9686,6 +9771,64 @@ export interface operations {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
             readonly data: components['schemas']['PublicProfessionalDetailDto'];
           };
+        };
+      };
+      /** @description Resource not found. Returned identically for missing, malformed, and non-public resources. */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly PublicProfessionalController_findAvailability: {
+    readonly parameters: {
+      readonly query: {
+        /** @description Opaque next_cursor from the previous response for the same range. Returns the slots that come after it; omit it to start from the beginning. */
+        readonly cursor?: string;
+        /** @description First calendar date to read, as YYYY-MM-DD. Dates are local to the time zone of each slot, not to the server or the caller. */
+        readonly from: string;
+        /** @description Last calendar date to read, as YYYY-MM-DD. On or after from; the inclusive range covers at most 31 days and must not have ended in every time zone */
+        readonly to: string;
+      };
+      readonly header?: never;
+      readonly path: {
+        /** @description Professional identifier from the public directory */
+        readonly id: string;
+      };
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['PublicProfessionalAvailabilityDto'];
+          };
+        };
+      };
+      /** @description A query parameter failed validation */
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
         };
       };
       /** @description Resource not found. Returned identically for missing, malformed, and non-public resources. */

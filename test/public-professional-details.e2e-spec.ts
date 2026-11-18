@@ -15,6 +15,7 @@ import { JwtAuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../src/modules/auth/guards/roles.guard';
 import { RefreshSessionService } from '../src/modules/auth/sessions/refresh-session.service';
 import { JwtStrategy } from '../src/modules/auth/strategies/jwt.strategy';
+import { ProfessionalAvailability } from '../src/modules/professional/entities/professional-availability.entity';
 import { ProfessionalReview } from '../src/modules/professional/entities/professional-review.entity';
 import {
   ConsultationType,
@@ -25,6 +26,7 @@ import { ProfessionalService } from '../src/modules/professional/professional.se
 import { PublicProfessionalController } from '../src/modules/professional/public-professional.controller';
 import { PublicProfessionalService } from '../src/modules/professional/public-professional.service';
 import { PublicDiscoveryVisibilityPolicy } from '../src/modules/public-discovery/public-discovery-visibility.policy';
+import { PublicDiscoveryClock } from '../src/modules/public-discovery/public-discovery.clock';
 import { PublicResourceIdPipe } from '../src/modules/public-discovery/public-resource-id.pipe';
 import { Speciality } from '../src/modules/speciality/entities/speciality.entity';
 import { User } from '../src/modules/user/entities/user.entity';
@@ -123,6 +125,7 @@ describe('Public professional details (#144)', () => {
       controllers: [PublicProfessionalController, ProfessionalController],
       providers: [
         PublicProfessionalService,
+        PublicDiscoveryClock,
         PublicDiscoveryVisibilityPolicy,
         PublicResourceIdPipe,
         JwtStrategy,
@@ -131,6 +134,10 @@ describe('Public professional details (#144)', () => {
         {
           provide: getRepositoryToken(ProfessionalReview),
           useValue: reviewRepository,
+        },
+        {
+          provide: getRepositoryToken(ProfessionalAvailability),
+          useValue: {},
         },
         { provide: ProfessionalService, useValue: professionalService },
         {

@@ -50,6 +50,12 @@ export const PUBLIC_DISCOVERY_FEE = {
 /** Inclusive number of calendar days one availability query may cover. */
 export const PUBLIC_DISCOVERY_MAX_DATE_RANGE_DAYS = 31;
 
+/** Largest number of slots one availability response returns. */
+export const PUBLIC_DISCOVERY_MAX_AVAILABILITY_SLOTS = 500;
+
+/** Local wall-clock time of a slot as published, for example `09:00:00`. */
+export const PUBLIC_DISCOVERY_LOCAL_TIME_PATTERN = '^\\d{2}:\\d{2}:\\d{2}$';
+
 export enum PublicProfessionalSortField {
   RATING = 'rating',
   EXPERIENCE = 'experience',

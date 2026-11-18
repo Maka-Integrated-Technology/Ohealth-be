@@ -63,6 +63,7 @@ import {
   Professional,
   ProfessionalVerificationStatus,
 } from './entities/professional.entity';
+import { PLATFORM_SCHEDULING_TIME_ZONE } from './professional-availability.constants';
 
 @Injectable()
 export class ProfessionalService {
@@ -705,6 +706,7 @@ export class ProfessionalService {
           date: slot.date,
           start_time: slot.start_time,
           end_time: slot.end_time,
+          time_zone: PLATFORM_SCHEDULING_TIME_ZONE,
           is_available: true,
         }),
       );

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { PublicDiscoveryVisibilityPolicy } from './public-discovery-visibility.policy';
+import { PublicDiscoveryClock } from './public-discovery.clock';
 import { PublicDiscoveryController } from './public-discovery.controller';
 import { PublicDiscoveryService } from './public-discovery.service';
 import { PublicResourceIdPipe } from './public-resource-id.pipe';
@@ -13,10 +14,15 @@ import { PublicResourceIdPipe } from './public-resource-id.pipe';
 @Module({
   controllers: [PublicDiscoveryController],
   providers: [
+    PublicDiscoveryClock,
     PublicDiscoveryService,
     PublicDiscoveryVisibilityPolicy,
     PublicResourceIdPipe,
   ],
-  exports: [PublicDiscoveryVisibilityPolicy, PublicResourceIdPipe],
+  exports: [
+    PublicDiscoveryClock,
+    PublicDiscoveryVisibilityPolicy,
+    PublicResourceIdPipe,
+  ],
 })
 export class PublicDiscoveryModule {}
