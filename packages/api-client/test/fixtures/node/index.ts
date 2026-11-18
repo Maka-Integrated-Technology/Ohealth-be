@@ -49,8 +49,16 @@ void client
       data.as_of,
     ];
     const hasMore: boolean = data.has_more;
-    return [zone, instants, hasMore];
+    const nextCursor: string | null = data.next_cursor;
+    return [zone, instants, hasMore, nextCursor];
   });
+
+// The next page repeats the range and passes the returned cursor.
+const nextPage: PublicProfessionalController_findAvailabilityRequest = {
+  path: { id: '3f2504e0-4f89-41d3-9a0c-0305e82c3301' },
+  query: { from: '2026-01-15', to: '2026-01-21', cursor: 'opaque-cursor' },
+};
+void nextPage;
 
 const incompleteRange: PublicProfessionalController_findAvailabilityRequest = {
   path: { id: '3f2504e0-4f89-41d3-9a0c-0305e82c3301' },

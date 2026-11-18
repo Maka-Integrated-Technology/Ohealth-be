@@ -120,12 +120,16 @@ test('describes every public slot by its time zone and instants', async () => {
       .map((parameter) => [parameter.name, parameter]),
   );
 
-  // The range is two required calendar dates and nothing else.
-  assert.deepEqual(Object.keys(range).sort(), ['from', 'to']);
-  for (const bound of Object.values(range)) {
+  // The range is two required calendar dates; an optional opaque cursor
+  // continues it, and the response says where the next page starts.
+  assert.deepEqual(Object.keys(range).sort(), ['cursor', 'from', 'to']);
+  for (const bound of [range.from, range.to]) {
     assert.equal(bound.required, true);
     assert.equal(bound.schema.format, 'date');
   }
+  assert.equal(range.cursor.required, false);
+  assert.ok(availability.required.includes('next_cursor'));
+  assert.equal(availability.properties.next_cursor.nullable, true);
 
   // A local time is never published without the zone it is local to and the
   // instant it resolves to.

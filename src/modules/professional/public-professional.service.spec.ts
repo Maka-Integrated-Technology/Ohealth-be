@@ -12,6 +12,7 @@ import {
   PublicProfessionalSortField,
   PublicSortOrder,
 } from '../public-discovery/public-discovery.constants';
+import { encodePublicAvailabilityCursor } from '../public-discovery/public-discovery.cursor';
 import {
   PublicQueryRejectedException,
   PublicResourceNotFoundException,
@@ -814,6 +815,7 @@ describe('PublicProfessionalService', () => {
           },
         ],
         has_more: false,
+        next_cursor: null,
       });
     });
 
@@ -839,6 +841,45 @@ describe('PublicProfessionalService', () => {
       expect(availability.has_more).toBe(true);
       expect(published).toHaveLength(PUBLIC_DISCOVERY_MAX_AVAILABILITY_SLOTS);
       expect(published[published.length - 1].id).toBe('0499');
+      expect(availability.next_cursor).toBe(
+        encodePublicAvailabilityCursor({
+          startsAt: new Date(published[published.length - 1].starts_at),
+          id: '0499',
+        }),
+      );
+    });
+
+    it('continues strictly after the cursor in the full order key', async () => {
+      visible();
+      const after = {
+        startsAt: new Date('2031-03-11T08:00:00.000Z'),
+        id: '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
+      };
+
+      await service.findAvailability(
+        PROFESSIONAL_ID,
+        Object.assign(range(), {
+          cursor: encodePublicAvailabilityCursor(after),
+        }),
+      );
+
+      expect(slotQueryBuilder.andWhere).toHaveBeenCalledWith(
+        `(${STARTS_AT}, availability.id) > (CAST(:publicAfterStartsAt AS timestamptz), CAST(:publicAfterId AS uuid))`,
+        {
+          publicAfterStartsAt: '2031-03-11T08:00:00.000Z',
+          publicAfterId: after.id,
+        },
+      );
+    });
+
+    it('starts from the beginning without a cursor', async () => {
+      visible();
+
+      await service.findAvailability(PROFESSIONAL_ID, range());
+
+      expect(slotPredicates().some((sql) => sql.includes('publicAfter'))).toBe(
+        false,
+      );
     });
   });
 });

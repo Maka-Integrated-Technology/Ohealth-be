@@ -24,6 +24,7 @@ import { PublicProfessionalController } from '../src/modules/professional/public
 import { PublicProfessionalService } from '../src/modules/professional/public-professional.service';
 import { PublicDiscoveryVisibilityPolicy } from '../src/modules/public-discovery/public-discovery-visibility.policy';
 import { PublicDiscoveryClock } from '../src/modules/public-discovery/public-discovery.clock';
+import { encodePublicAvailabilityCursor } from '../src/modules/public-discovery/public-discovery.cursor';
 import { PublicResourceIdPipe } from '../src/modules/public-discovery/public-resource-id.pipe';
 
 const VISIBLE_ID = '3f2504e0-4f89-41d3-9a0c-0305e82c3301';
@@ -312,6 +313,7 @@ describe('Public professional availability (#145)', () => {
             },
           ],
           has_more: false,
+          next_cursor: null,
         },
       });
     });
@@ -327,6 +329,7 @@ describe('Public professional availability (#145)', () => {
         as_of: '2031-03-10T12:00:00.000Z',
         days: [],
         has_more: false,
+        next_cursor: null,
       });
     });
 
@@ -413,6 +416,26 @@ describe('Public professional availability (#145)', () => {
       expect(result.body.data.has_more).toBe(true);
       expect(result.body.data.days[0].slots).toHaveLength(500);
       expect(slotQueryBuilder.limit).toHaveBeenCalledWith(501);
+      expect(result.body.data.next_cursor).toMatch(/^[A-Za-z0-9_-]+$/);
+    });
+
+    it('continues after the cursor a previous response returned', async () => {
+      visible();
+      const lastId = '00000000-0000-4000-8000-000000000499';
+      const cursor = encodePublicAvailabilityCursor({
+        startsAt: new Date('2031-03-11T08:00:00.000Z'),
+        id: lastId,
+      });
+
+      await availability(VISIBLE_ID, { ...RANGE, cursor }).expect(200);
+
+      expect(slotQueryBuilder.andWhere).toHaveBeenCalledWith(
+        '((availability.date + availability.start_time) AT TIME ZONE availability.time_zone, availability.id) > (CAST(:publicAfterStartsAt AS timestamptz), CAST(:publicAfterId AS uuid))',
+        {
+          publicAfterStartsAt: '2031-03-11T08:00:00.000Z',
+          publicAfterId: lastId,
+        },
+      );
     });
 
     it('applies the visibility rule and binds the identifier, the range, and the instant', async () => {
@@ -537,6 +560,16 @@ describe('Public professional availability (#145)', () => {
         'a booking state parameter',
         { ...RANGE, is_available: 'false' },
         ['property is_available should not exist'],
+      ],
+      [
+        'a cursor this endpoint did not issue',
+        { ...RANGE, cursor: 'djEuMTIzLm5vdC1hLXV1aWQ' },
+        ['cursor must be a next_cursor value returned by this endpoint'],
+      ],
+      [
+        'a cursor that is not base64url',
+        { ...RANGE, cursor: '<script>' },
+        ['cursor must be a next_cursor value returned by this endpoint'],
       ],
     ])('rejects %s before reading', async (_label, query, messages) => {
       visible();

@@ -8,6 +8,7 @@ import { User } from '../user/entities/user.entity';
 import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserRole } from '../user/enums/user-role.enum';
 
+import { encodePublicAvailabilityCursor } from './public-discovery.cursor';
 import {
   IPublicAvailabilitySlotSource,
   toPublicAvailabilityDays,
@@ -376,6 +377,34 @@ describe('public discovery mapper', () => {
       ]);
     });
 
+    it('orders days by local date when zones interleave', () => {
+      // 00:30 on the 20th in Kiritimati starts before 23:00 on the 19th
+      // twelve hours behind UTC, yet its local date is later.
+      const days = toPublicAvailabilityDays([
+        slot(
+          'kiritimati',
+          '2031-05-20',
+          '00:30:00',
+          '2031-05-19T10:30:00.000Z',
+          'Pacific/Kiritimati',
+        ),
+        slot(
+          'behind',
+          '2031-05-19',
+          '23:00:00',
+          '2031-05-20T11:00:00.000Z',
+          'Etc/GMT+12',
+        ),
+      ]);
+
+      expect(
+        days.map((day) => [day.date, day.slots.map(({ id }) => id)]),
+      ).toEqual([
+        ['2031-05-19', ['behind']],
+        ['2031-05-20', ['kiritimati']],
+      ]);
+    });
+
     it('breaks a tie between simultaneous slots by identifier', () => {
       const instant = '2026-01-15T08:00:00.000Z';
       const [day] = toPublicAvailabilityDays([
@@ -423,6 +452,7 @@ describe('public discovery mapper', () => {
         as_of: '2026-01-14T10:30:00.000Z',
         days: toPublicAvailabilityDays(rows),
         has_more: false,
+        next_cursor: null,
       });
     });
 
@@ -433,7 +463,7 @@ describe('public discovery mapper', () => {
           new Date('2026-01-14T10:30:00.000Z'),
           [],
         ),
-      ).toMatchObject({ days: [], has_more: false });
+      ).toMatchObject({ days: [], has_more: false, next_cursor: null });
     });
 
     it('keeps the earliest slots and reports that later ones were left out', () => {
@@ -448,6 +478,14 @@ describe('public discovery mapper', () => {
       expect(
         availability.days.flatMap((day) => day.slots.map(({ id }) => id)),
       ).toEqual(['a', 'b']);
+      // The cursor names the last published slot, so the next page starts
+      // right after it.
+      expect(availability.next_cursor).toBe(
+        encodePublicAvailabilityCursor({
+          startsAt: new Date('2026-01-15T09:00:00.000Z'),
+          id: 'b',
+        }),
+      );
     });
 
     it('reports nothing left out when the slots exactly fill the bound', () => {
@@ -458,7 +496,7 @@ describe('public discovery mapper', () => {
           rows,
           3,
         ),
-      ).toMatchObject({ has_more: false });
+      ).toMatchObject({ has_more: false, next_cursor: null });
     });
   });
 

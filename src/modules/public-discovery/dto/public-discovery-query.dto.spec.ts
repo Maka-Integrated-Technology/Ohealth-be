@@ -3,12 +3,14 @@ import { env } from 'node:process';
 import { ValidationPipe } from '@nestjs/common';
 
 import { ConsultationType } from '../../professional/entities/professional.entity';
+import { encodePublicAvailabilityCursor } from '../public-discovery.cursor';
 
 import {
   isPublicCalendarDateOver,
   normalizePublicSearchTerm,
   parsePublicCalendarDate,
   parsePublicFeeAmount,
+  PublicAvailabilityQueryDto,
   PublicDateRangeQueryDto,
   PublicPaginationQueryDto,
   PublicProfessionalDirectoryQueryDto,
@@ -343,5 +345,33 @@ describe('public discovery query DTOs', () => {
         [false, true],
       ]);
     });
+  });
+
+  describe('availability cursor', () => {
+    const range = { from: '2031-03-10', to: '2031-03-16' };
+    const cursor = encodePublicAvailabilityCursor({
+      startsAt: new Date('2031-03-11T08:00:00.000Z'),
+      id: '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
+    });
+
+    it('accepts a range without a cursor and with an issued cursor', async () => {
+      await expect(parse(PublicAvailabilityQueryDto, range)).resolves.toEqual(
+        range,
+      );
+      await expect(
+        parse(PublicAvailabilityQueryDto, { ...range, cursor }),
+      ).resolves.toEqual({ ...range, cursor });
+    });
+
+    it.each([['garbage'], [''], [cursor + 'A'], [[cursor, cursor]]])(
+      'rejects the cursor %p with one message',
+      async (value) => {
+        await expect(
+          messages(PublicAvailabilityQueryDto, { ...range, cursor: value }),
+        ).resolves.toEqual([
+          'cursor must be a next_cursor value returned by this endpoint',
+        ]);
+      },
+    );
   });
 });

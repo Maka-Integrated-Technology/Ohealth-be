@@ -27,7 +27,10 @@ import {
   PUBLIC_AVAILABILITY_RANGE_OVER_MESSAGE,
   PublicProfessionalService,
 } from '../../modules/professional/public-professional.service';
-import { PublicDateRangeQueryDto } from '../../modules/public-discovery/dto/public-discovery-query.dto';
+import {
+  PublicAvailabilityQueryDto,
+  PublicDateRangeQueryDto,
+} from '../../modules/public-discovery/dto/public-discovery-query.dto';
 import { PublicProfessionalAvailabilityDto } from '../../modules/public-discovery/dto/public-discovery-response.dto';
 import { PublicDiscoveryVisibilityPolicy } from '../../modules/public-discovery/public-discovery-visibility.policy';
 import { PublicDiscoveryClock } from '../../modules/public-discovery/public-discovery.clock';
@@ -59,6 +62,7 @@ const SEEDS: ISeed[] = [
   { key: 'zones', visible: true },
   { key: 'busy', visible: true },
   { key: 'contested', visible: true },
+  { key: 'crowded', visible: true },
   // Not taking consultations, but still discoverable.
   { key: 'paused', visible: true, professional: { is_available: false } },
   {
@@ -175,8 +179,28 @@ integration('Public professional availability on real PostgreSQL', () => {
     from: string,
     to: string = from,
     reader: PublicProfessionalService = service,
+    cursor?: string,
   ): Promise<PublicProfessionalAvailabilityDto> =>
-    reader.findAvailability(idOf(key), range(from, to));
+    reader.findAvailability(
+      idOf(key),
+      Object.assign(new PublicAvailabilityQueryDto(), {
+        ...range(from, to),
+        ...(cursor ? { cursor } : {}),
+      }),
+    );
+
+  /** Every page of a range, following next_cursor to the end. */
+  const readAllPages = async (key: string, from: string, to: string) => {
+    const pages: PublicProfessionalAvailabilityDto[] = [];
+    let cursor: string | undefined;
+    do {
+      const page = await read(key, from, to, service, cursor);
+      pages.push(page);
+      cursor = page.next_cursor ?? undefined;
+      expect(page.has_more).toBe(page.next_cursor !== null);
+    } while (cursor && pages.length < 20);
+    return pages;
+  };
 
   const flatten = (availability: PublicProfessionalAvailabilityDto) =>
     availability.days.flatMap((published) =>
@@ -561,6 +585,7 @@ integration('Public professional availability on real PostgreSQL', () => {
           },
         ],
         has_more: false,
+        next_cursor: null,
       });
     });
 
@@ -601,6 +626,7 @@ integration('Public professional availability on real PostgreSQL', () => {
         'days',
         'from',
         'has_more',
+        'next_cursor',
         'to',
       ]);
       availability.days.forEach((published) => {
@@ -1001,6 +1027,29 @@ integration('Public professional availability on real PostgreSQL', () => {
       ]);
     });
 
+    it('orders the days of a response by local date when zones interleave', async () => {
+      // The Kiritimati slot starts first as an instant but on a later date.
+      const ahead = await store('zones', '2031-05-27', '00:30', '01:00', {
+        time_zone: 'Pacific/Kiritimati',
+      });
+      const behind = await store('zones', '2031-05-26', '23:00', '23:30', {
+        time_zone: 'Etc/GMT+12',
+      });
+      at('2031-05-01T00:00:00.000Z');
+
+      const availability = await read('zones', '2031-05-26', '2031-05-27');
+
+      expect(
+        availability.days.map((day) => [
+          day.date,
+          day.slots.map((slot) => slot.id),
+        ]),
+      ).toEqual([
+        ['2031-05-26', [behind]],
+        ['2031-05-27', [ahead]],
+      ]);
+    });
+
     it('reads a range whose last day is still current somewhere, and refuses it once it is over everywhere', async () => {
       const slot = await store('zones', '2031-09-10', '23:00', '23:30', {
         time_zone: 'Etc/GMT+12',
@@ -1158,17 +1207,16 @@ integration('Public professional availability on real PostgreSQL', () => {
       );
     });
 
-    it('reads the rest from a range that starts on the last returned date', async () => {
+    it('reads the rest of the range by following next_cursor', async () => {
       at('2031-11-01T00:00:00.000Z');
-      const head = await read('busy', '2031-12-01', '2031-12-05');
-      const lastDate = head.days[head.days.length - 1].date;
 
-      const tail = await read('busy', lastDate, '2031-12-05');
+      const pages = await readAllPages('busy', '2031-12-01', '2031-12-05');
+      const ids = pages.flatMap(slotIds);
 
-      expect(tail.has_more).toBe(false);
-      expect(new Set([...slotIds(head), ...slotIds(tail)]).size).toBe(
-        BUSY_DAYS * SLOTS_PER_DAY,
-      );
+      expect(pages.map((page) => slotIds(page).length)).toEqual([500, 5]);
+      expect(pages[1].next_cursor).toBeNull();
+      expect(new Set(ids).size).toBe(BUSY_DAYS * SLOTS_PER_DAY);
+      expect(ids).toHaveLength(BUSY_DAYS * SLOTS_PER_DAY);
     });
 
     it('reports nothing left out when the slots exactly fill the bound', async () => {
@@ -1181,6 +1229,80 @@ integration('Public professional availability on real PostgreSQL', () => {
         PUBLIC_DISCOVERY_MAX_AVAILABILITY_SLOTS,
       );
       expect(availability.has_more).toBe(false);
+    });
+
+    it('pages through more than one response of slots on a single date', async () => {
+      // 1,203 slots on one date: 1,200 one-minute slots in Lagos, and three in
+      // other zones starting at the same instants as Lagos slots, so pages
+      // split inside one date and between equal instants.
+      await database.query(
+        `INSERT INTO professional_availabilities
+           (professional_id, date, start_time, end_time)
+         SELECT $1, '2031-12-20', time '01:00' + n * interval '1 minute',
+                time '01:01' + n * interval '1 minute'
+         FROM generate_series(0, 1199) AS n
+         ORDER BY random()`,
+        [idOf('crowded')],
+      );
+      // Cairo is one hour and Moscow two hours ahead of Lagos in December, so
+      // these start at the same instants as the Lagos 20:00, 20:30, and 20:59
+      // slots, at wall-clock times no Lagos slot uses.
+      await database.query(
+        `INSERT INTO professional_availabilities
+           (professional_id, date, start_time, end_time, time_zone)
+         VALUES ($1, '2031-12-20', '21:00', '21:01', 'Africa/Cairo'),
+                ($1, '2031-12-20', '22:30', '22:31', 'Europe/Moscow'),
+                ($1, '2031-12-20', '21:59', '22:00', 'Africa/Cairo')`,
+        [idOf('crowded')],
+      );
+      at('2031-12-01T00:00:00.000Z');
+      const stored: Array<{ id: string }> = await database.query(
+        `SELECT id FROM professional_availabilities
+         WHERE professional_id = $1 AND date = '2031-12-20'
+         ORDER BY ("date" + start_time) AT TIME ZONE time_zone, id`,
+        [idOf('crowded')],
+      );
+
+      const pages = await readAllPages('crowded', '2031-12-20', '2031-12-20');
+
+      expect(stored).toHaveLength(1203);
+      expect(pages.map((page) => slotIds(page).length)).toEqual([
+        500, 500, 203,
+      ]);
+      pages.forEach((page) =>
+        expect(page.days.map((day) => day.date)).toEqual(['2031-12-20']),
+      );
+      expect(pages.flatMap(slotIds)).toEqual(stored.map((slot) => slot.id));
+    });
+
+    it('repeats nothing and skips nothing when the range changes between pages', async () => {
+      at('2031-12-01T00:00:00.000Z');
+      const first = await read('crowded', '2031-12-20', '2031-12-20');
+      const [taken] = slotIds(
+        await read(
+          'crowded',
+          '2031-12-20',
+          '2031-12-20',
+          service,
+          first.next_cursor as string,
+        ),
+      );
+      // A slot of the next page is withdrawn before it is read.
+      await slots.update(taken, { is_available: false });
+
+      const second = await read(
+        'crowded',
+        '2031-12-20',
+        '2031-12-20',
+        service,
+        first.next_cursor as string,
+      );
+
+      expect(slotIds(second)).not.toContain(taken);
+      expect(
+        slotIds(second).filter((id) => slotIds(first).includes(id)),
+      ).toEqual([]);
+      await slots.update(taken, { is_available: true });
     });
 
     it('costs two statements however many slots and bookings exist', async () => {
