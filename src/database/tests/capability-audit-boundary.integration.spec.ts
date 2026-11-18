@@ -66,6 +66,7 @@ integration('Capability guards across module boundaries', () => {
   let patientSessionId: string;
   let patientToken: string;
   let professionalId: string;
+  let professionalToken: string;
   let slotDate: string;
 
   const server = () => request(app.getHttpServer());
@@ -110,6 +111,11 @@ integration('Capability guards across module boundaries', () => {
        VALUES ('professional@private.example.com', 'stored-password-hash',
          'Obi', 'Professional', 'active', true, true, now()) RETURNING id`,
     );
+    await database.query(
+      `INSERT INTO user_personas (user_id, persona_type)
+       VALUES ($1, 'healthcare_professional')`,
+      [ownerId],
+    );
     const [{ id: specialityId }] = await database.query(
       `INSERT INTO specialities (name) VALUES ('Capability audit') RETURNING id`,
     );
@@ -152,6 +158,8 @@ integration('Capability guards across module boundaries', () => {
     const session = await app.get(RefreshSessionService).issue(patientId);
     patientToken = session.access_token;
     patientSessionId = session.session_id;
+    professionalToken = (await app.get(RefreshSessionService).issue(ownerId))
+      .access_token;
   }, 120_000);
 
   afterAll(async () => {
@@ -181,29 +189,52 @@ integration('Capability guards across module boundaries', () => {
     expect(result.text).not.toContain('authorization audit is unavailable');
   });
 
-  it('lets that patient create a booking through the booking service', async () => {
-    const result = await server()
-      .post('/api/bookings')
-      .set('Authorization', `Bearer ${patientToken}`)
-      .send({
-        professional_id: professionalId,
-        booking_date: slotDate,
-        booking_time: '09:00',
-        consultation_type: 'video',
-        notes: 'Private appointment note',
-      })
-      .expect(201);
+  it('rebooks through authenticated HTTP after cancellation and rejection', async () => {
+    const createBooking = () =>
+      server()
+        .post('/api/bookings')
+        .set('Authorization', `Bearer ${patientToken}`)
+        .send({
+          professional_id: professionalId,
+          booking_date: slotDate,
+          booking_time: '09:00',
+          consultation_type: 'video',
+          notes: 'Private appointment note',
+        });
 
-    expect(result.body.data).toMatchObject({
+    const first = await createBooking().expect(201);
+    expect(first.body.data).toMatchObject({
       patient_id: patientId,
       professional_id: professionalId,
       status: 'pending',
     });
-    const [{ total }] = await database.query(
-      'SELECT COUNT(*)::int AS total FROM bookings WHERE patient_id = $1',
+    await server()
+      .patch(`/api/bookings/${first.body.data.id}/cancel`)
+      .set('Authorization', `Bearer ${patientToken}`)
+      .expect(200);
+
+    const second = await createBooking().expect(201);
+    await server()
+      .patch(`/api/professionals/me/bookings/${second.body.data.id}/reject`)
+      .set('Authorization', `Bearer ${professionalToken}`)
+      .expect(200);
+
+    const third = await createBooking().expect(201);
+    expect(third.body.data).toMatchObject({
+      patient_id: patientId,
+      professional_id: professionalId,
+      status: 'pending',
+    });
+    const rows: Array<{ status: string }> = await database.query(
+      `SELECT status FROM bookings
+       WHERE patient_id = $1 ORDER BY created_at, id`,
       [patientId],
     );
-    expect(total).toBe(1);
+    expect(rows.map(({ status }) => status).sort()).toEqual([
+      'cancelled',
+      'cancelled',
+      'pending',
+    ]);
   });
 
   it('still refuses a capability the patient lacks and records the denial', async () => {
