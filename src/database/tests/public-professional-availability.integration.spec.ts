@@ -1350,7 +1350,7 @@ integration('Public professional availability on real PostgreSQL', () => {
     const indexesOn = async (table: string, columns: string) => {
       const rows: Array<{ indexname: string }> = await database.query(
         `SELECT indexname FROM pg_indexes
-         WHERE tablename = $1 AND indexdef LIKE '%(' || $2 || ')'`,
+         WHERE tablename = $1 AND indexdef LIKE '%(' || $2 || ')%'`,
         [table, columns],
       );
       return rows.map((row) => row.indexname);
