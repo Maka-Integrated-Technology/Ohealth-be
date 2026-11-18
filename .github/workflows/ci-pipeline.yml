@@ -256,6 +256,11 @@ jobs:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
         run: npx jest --runInBand src/database/tests/auth-challenge.integration.spec.ts
 
+      - name: Verify capability guards across module boundaries on PostgreSQL
+        env:
+          PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
+        run: npx jest --runInBand src/database/tests/capability-audit-boundary.integration.spec.ts
+
       - name: Verify live challenge HTTP and PostgreSQL acceptance
         env:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
