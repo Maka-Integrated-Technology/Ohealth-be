@@ -294,6 +294,11 @@ jobs:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
         run: npx jest --runInBand src/database/tests/public-professional-details.integration.spec.ts
 
+      - name: Verify booking a freed slot again on real PostgreSQL
+        env:
+          PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
+        run: npx jest --runInBand src/database/tests/booking-slot-rebooking.integration.spec.ts
+
       - name: Verify availability time zone migration on real PostgreSQL
         env:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci

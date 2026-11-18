@@ -18,6 +18,16 @@ import { BookingResponseDto } from './dto/booking-response.dto';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { Booking, BookingStatus } from './entities/booking.entity';
 
+const ACTIVE_SLOT_BOOKING_CONSTRAINT = 'UQ_bookings_active_availability';
+
+function isActiveSlotBookingConflict(error: unknown): boolean {
+  const failure = error as { code?: string; constraint?: string } | null;
+  return (
+    failure?.code === '23505' &&
+    failure.constraint === ACTIVE_SLOT_BOOKING_CONSTRAINT
+  );
+}
+
 @Injectable()
 export class BookingService {
   private readonly logger: Logger;
@@ -125,34 +135,43 @@ export class BookingService {
     }
 
     // ── 7. Create booking + mark slot unavailable in one transaction ───
-    const savedBooking = await this.dataSource.transaction(async (manager) => {
-      // Re-read with pessimistic write lock to handle concurrent requests
-      const slot = await manager.findOne(ProfessionalAvailability, {
-        where: { id: availability.id },
-        lock: { mode: 'pessimistic_write' },
+    const savedBooking = await this.dataSource
+      .transaction(async (manager) => {
+        // Re-read with pessimistic write lock to handle concurrent requests
+        const slot = await manager.findOne(ProfessionalAvailability, {
+          where: { id: availability.id },
+          lock: { mode: 'pessimistic_write' },
+        });
+
+        if (!slot || !slot.is_available) {
+          throw new ConflictException(sysMsg.TIME_SLOT_ALREADY_BOOKED);
+        }
+
+        slot.is_available = false;
+        await manager.save(ProfessionalAvailability, slot);
+
+        const booking = manager.create(Booking, {
+          patient_id: patientId,
+          professional_id,
+          booking_date,
+          booking_time,
+          consultation_type,
+          amount: professional.consultation_fee,
+          availability_id: slot.id,
+          notes,
+          status: BookingStatus.PENDING,
+        });
+
+        return manager.save(Booking, booking);
+      })
+      .catch((error: unknown) => {
+        // The database allows one active booking per slot; a request that
+        // loses that race is told the slot is taken, not a server error.
+        if (isActiveSlotBookingConflict(error)) {
+          throw new ConflictException(sysMsg.TIME_SLOT_ALREADY_BOOKED);
+        }
+        throw error;
       });
-
-      if (!slot || !slot.is_available) {
-        throw new ConflictException(sysMsg.TIME_SLOT_ALREADY_BOOKED);
-      }
-
-      slot.is_available = false;
-      await manager.save(ProfessionalAvailability, slot);
-
-      const booking = manager.create(Booking, {
-        patient_id: patientId,
-        professional_id,
-        booking_date,
-        booking_time,
-        consultation_type,
-        amount: professional.consultation_fee,
-        availability_id: slot.id,
-        notes,
-        status: BookingStatus.PENDING,
-      });
-
-      return manager.save(Booking, booking);
-    });
 
     this.logger.info(
       `Booking created: ${savedBooking.id} for patient ${patientId}`,

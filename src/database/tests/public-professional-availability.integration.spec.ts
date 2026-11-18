@@ -1350,7 +1350,7 @@ integration('Public professional availability on real PostgreSQL', () => {
     const indexesOn = async (table: string, columns: string) => {
       const rows: Array<{ indexname: string }> = await database.query(
         `SELECT indexname FROM pg_indexes
-         WHERE tablename = $1 AND indexdef LIKE '%(' || $2 || ')'`,
+         WHERE tablename = $1 AND indexdef LIKE '%(' || $2 || ')%'`,
         [table, columns],
       );
       return rows.map((row) => row.indexname);
@@ -1436,14 +1436,26 @@ integration('Public professional availability on real PostgreSQL', () => {
           'professional_id, date, start_time',
         ),
       ).toEqual(expect.arrayContaining([used[0]]));
-      expect(used).toEqual(
+      const availabilityIndexes = await indexesOn(
+        'bookings',
+        'availability_id',
+      );
+      expect(availabilityIndexes).toEqual(
         expect.arrayContaining([
-          ...(await indexesOn('bookings', 'availability_id')),
-          ...(await indexesOn(
+          'IDX_bookings_availability_id',
+          'UQ_bookings_active_availability',
+        ]),
+      );
+      expect(
+        used.some((index) => availabilityIndexes.includes(String(index))),
+      ).toBe(true);
+      expect(used).toEqual(
+        expect.arrayContaining(
+          await indexesOn(
             'bookings',
             'professional_id, booking_date, booking_time',
-          )),
-        ]),
+          ),
+        ),
       );
     });
   });
