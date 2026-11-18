@@ -148,7 +148,7 @@ Public responses are explicit allowlists in
 | `PublicSpecialityDto`               | `id`, `name`, `description`, `icon`                                                                                                                         |
 | `PublicProfessionalSummaryDto`      | `id`, `name`, `image`, `speciality { id, name }`, `rating`, `total_reviews`, `consultation_fee`, `years_of_experience`, `consultation_type`, `is_available` |
 | `PublicProfessionalDetailDto`       | Summary fields plus `about`                                                                                                                                 |
-| `PublicProfessionalAvailabilityDto` | `from`, `to`, `as_of`, `days [PublicAvailabilityDayDto]`, `has_more`                                                                                        |
+| `PublicProfessionalAvailabilityDto` | `from`, `to`, `as_of`, `days [PublicAvailabilityDayDto]`, `has_more`, `next_cursor`                                                                         |
 | `PublicAvailabilityDayDto`          | `date`, `slots [{ id, start_time, end_time, time_zone, starts_at, ends_at }]`                                                                               |
 | `PublicPaginationMetaDto`           | `page`, `limit`, `total`, `total_pages`, `has_next`, `has_previous`                                                                                         |
 
@@ -327,9 +327,9 @@ and `ProfessionalController` keeps its guards and behaviour.
 professional through `PublicProfessionalService.findAvailability`.
 `ProfessionalController` and the booking flow keep their guards and behaviour.
 
-| Operation                                        | Query        | Response                                                        |
-| ------------------------------------------------ | ------------ | --------------------------------------------------------------- |
-| `GET /api/public/professionals/:id/availability` | `from`, `to` | `PublicProfessionalAvailabilityDto`, or the non-enumerating 404 |
+| Operation                                        | Query                  | Response                                                        |
+| ------------------------------------------------ | ---------------------- | --------------------------------------------------------------- |
+| `GET /api/public/professionals/:id/availability` | `from`, `to`, `cursor` | `PublicProfessionalAvailabilityDto`, or the non-enumerating 404 |
 
 ```json
 {
@@ -351,7 +351,8 @@ professional through `PublicProfessionalService.findAvailability`.
       ]
     }
   ],
-  "has_more": false
+  "has_more": false,
+  "next_cursor": null
 }
 ```
 
@@ -434,14 +435,29 @@ not hide slots, because booking creation does not read it either.
   returns only its future slots.
 - The past-range rule runs before the professional is read, so its outcome is
   the same for a visible, hidden, or missing professional.
-- Slots are ordered by `starts_at` and then by `id`, grouped under their local
-  `date`. A day without open slots is absent. The same request at the same
-  instant over the same stored rows returns the same response.
+- Slots are paged in the order of `starts_at` and then `id`. Within one
+  response they are grouped under their local `date`; days are ordered by
+  that date and slots within a day by `starts_at`. A day without open slots
+  is absent. The same request at the same instant over the same stored rows
+  returns the same response.
+- Ordering days by local date matters when zones interleave: a slot in a zone
+  far ahead of UTC can start earlier as an instant yet fall on a later date.
+  Because pages follow the instant order, such a slot can also place a date
+  on a later page than a slot of a later date.
 - One response returns at most 500 slots. When the range holds more,
-  `has_more` is true and the earliest 500 are returned; requesting a range
-  that starts on the last returned `date` reads the rest.
+  `has_more` is true and `next_cursor` is an opaque value; sending it as
+  `cursor` with the same `from` and `to` returns the slots strictly after the
+  last one returned, in the full `(starts_at, id)` order. Every slot of the
+  range is therefore returned exactly once across pages, however many share a
+  date or an instant. `next_cursor` is `null` on the last page.
+- A cursor is not a reservation and carries no identity or state; it encodes
+  only a position. A value this endpoint did not issue is rejected with a 400.
+  A cursor reused with another range returns the slots of that range after
+  the same position. Slots withdrawn or booked between pages are simply
+  absent from later pages.
 - Unknown parameters, including `time_zone`, `limit`, and `is_available`, are
-  rejected with a 400.
+  rejected with a 400. The accepted parameters are `from`, `to`, and
+  `cursor`.
 
 ### Non-enumeration
 
