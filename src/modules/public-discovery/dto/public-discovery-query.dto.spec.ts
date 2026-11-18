@@ -1,11 +1,16 @@
+import { env } from 'node:process';
+
 import { ValidationPipe } from '@nestjs/common';
 
 import { ConsultationType } from '../../professional/entities/professional.entity';
+import { encodePublicAvailabilityCursor } from '../public-discovery.cursor';
 
 import {
+  isPublicCalendarDateOver,
   normalizePublicSearchTerm,
   parsePublicCalendarDate,
   parsePublicFeeAmount,
+  PublicAvailabilityQueryDto,
   PublicDateRangeQueryDto,
   PublicPaginationQueryDto,
   PublicProfessionalDirectoryQueryDto,
@@ -287,5 +292,86 @@ describe('public discovery query DTOs', () => {
       expect(parsePublicCalendarDate('2028-02-29')).not.toBeNull();
       expect(parsePublicCalendarDate('2026-02-29')).toBeNull();
     });
+  });
+
+  describe('a date that is over everywhere', () => {
+    // 2026-01-15 ends last in the zone twelve hours behind UTC, at
+    // 2026-01-16T12:00:00Z.
+    it.each([
+      ['2026-01-15', '2026-01-15T00:00:00.000Z', false],
+      ['2026-01-15', '2026-01-16T11:59:59.999Z', false],
+      ['2026-01-15', '2026-01-16T12:00:00.000Z', true],
+      ['2026-01-15', '2026-01-17T00:00:00.000Z', true],
+      // Still to come, including in the zone furthest ahead of UTC.
+      ['2026-01-16', '2026-01-15T09:59:59.999Z', false],
+      ['2027-01-15', '2026-01-16T12:00:00.000Z', false],
+      ['2025-12-31', '2026-01-01T12:00:00.000Z', true],
+    ])('reports whether %s is over at %s', (date, now, expected) => {
+      expect(isPublicCalendarDateOver(date, new Date(now))).toBe(expected);
+    });
+
+    it.each([['15/01/2026'], ['2026-02-30'], [undefined], [20260115]])(
+      'does not call the invalid date %p over',
+      (value) => {
+        expect(
+          isPublicCalendarDateOver(value, new Date('2030-01-01T00:00:00Z')),
+        ).toBe(false);
+      },
+    );
+
+    it('gives the same answer in every server time zone', () => {
+      const original = env.TZ;
+      const answers = ['Pacific/Kiritimati', 'Etc/GMT+12', 'UTC'].map(
+        (zone) => {
+          env.TZ = zone;
+          return [
+            isPublicCalendarDateOver(
+              '2026-01-15',
+              new Date('2026-01-16T11:59:59.999Z'),
+            ),
+            isPublicCalendarDateOver(
+              '2026-01-15',
+              new Date('2026-01-16T12:00:00.000Z'),
+            ),
+          ];
+        },
+      );
+      if (original === undefined) delete env.TZ;
+      else env.TZ = original;
+
+      expect(answers).toEqual([
+        [false, true],
+        [false, true],
+        [false, true],
+      ]);
+    });
+  });
+
+  describe('availability cursor', () => {
+    const range = { from: '2031-03-10', to: '2031-03-16' };
+    const cursor = encodePublicAvailabilityCursor({
+      startsAt: new Date('2031-03-11T08:00:00.000Z'),
+      id: '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
+    });
+
+    it('accepts a range without a cursor and with an issued cursor', async () => {
+      await expect(parse(PublicAvailabilityQueryDto, range)).resolves.toEqual(
+        range,
+      );
+      await expect(
+        parse(PublicAvailabilityQueryDto, { ...range, cursor }),
+      ).resolves.toEqual({ ...range, cursor });
+    });
+
+    it.each([['garbage'], [''], [cursor + 'A'], [[cursor, cursor]]])(
+      'rejects the cursor %p with one message',
+      async (value) => {
+        await expect(
+          messages(PublicAvailabilityQueryDto, { ...range, cursor: value }),
+        ).resolves.toEqual([
+          'cursor must be a next_cursor value returned by this endpoint',
+        ]);
+      },
+    );
   });
 });

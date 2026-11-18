@@ -50,7 +50,7 @@ test('exposes every canonical operationId exactly once', async () => {
     transport: async () => ({ status: 200, data: {} }),
   });
 
-  assert.equal(operationIds.length, 116);
+  assert.equal(operationIds.length, 117);
   assert.deepEqual(Object.keys(client).sort(), operationIds);
 });
 
@@ -74,6 +74,84 @@ test('exports the public discovery enums under their contract names', async () =
     Object.keys(exported).filter((name) => name.startsWith('PathsApiPublic')),
     [],
   );
+});
+
+test('requests public availability for one professional over a calendar date range', async () => {
+  const requests = [];
+  const client = createApiClient({
+    baseUrl: 'https://api.ohealth.example',
+    transport: async (request) => {
+      requests.push(request);
+      return { status: 200, data: {} };
+    },
+  });
+
+  await client.PublicProfessionalController_findAvailability({
+    path: { id: '3f2504e0-4f89-41d3-9a0c-0305e82c3301' },
+    query: { from: '2026-01-15', to: '2026-01-21' },
+  });
+
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].method, 'GET');
+  assert.equal(
+    requests[0].url,
+    'https://api.ohealth.example/api/public/professionals/3f2504e0-4f89-41d3-9a0c-0305e82c3301/availability',
+  );
+  assert.deepEqual(requests[0].query, { from: '2026-01-15', to: '2026-01-21' });
+  assert.equal(requests[0].body, undefined);
+});
+
+test('describes every public slot by its time zone and instants', async () => {
+  const contract = JSON.parse(
+    await readFile(
+      new URL('../../../../contracts/openapi.json', import.meta.url),
+      'utf8',
+    ),
+  );
+  const operation =
+    contract.paths['/api/public/professionals/{id}/availability'].get;
+  const slot = contract.components.schemas.PublicAvailabilitySlotDto;
+  const day = contract.components.schemas.PublicAvailabilityDayDto;
+  const availability =
+    contract.components.schemas.PublicProfessionalAvailabilityDto;
+  const range = Object.fromEntries(
+    operation.parameters
+      .filter((parameter) => parameter.in === 'query')
+      .map((parameter) => [parameter.name, parameter]),
+  );
+
+  // The range is two required calendar dates; an optional opaque cursor
+  // continues it, and the response says where the next page starts.
+  assert.deepEqual(Object.keys(range).sort(), ['cursor', 'from', 'to']);
+  for (const bound of [range.from, range.to]) {
+    assert.equal(bound.required, true);
+    assert.equal(bound.schema.format, 'date');
+  }
+  assert.equal(range.cursor.required, false);
+  assert.ok(availability.required.includes('next_cursor'));
+  assert.equal(availability.properties.next_cursor.nullable, true);
+
+  // A local time is never published without the zone it is local to and the
+  // instant it resolves to.
+  assert.deepEqual([...slot.required].sort(), [
+    'end_time',
+    'ends_at',
+    'id',
+    'start_time',
+    'starts_at',
+    'time_zone',
+  ]);
+  assert.match(slot.properties.time_zone.description, /IANA time zone/);
+  assert.equal(slot.properties.starts_at.format, 'date-time');
+  assert.equal(slot.properties.ends_at.format, 'date-time');
+  assert.equal(day.properties.date.format, 'date');
+  assert.equal(availability.properties.as_of.format, 'date-time');
+
+  // The contract says a listed slot is not a reservation.
+  for (const text of [operation.description, availability.description]) {
+    assert.match(text, /booking creation revalidates/);
+    assert.match(text, /not a reservation/);
+  }
 });
 
 test('uses injected transport and resolves current authorization headers', async () => {

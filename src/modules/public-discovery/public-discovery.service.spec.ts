@@ -13,6 +13,7 @@ describe('PublicDiscoveryService', () => {
       },
       consultation_types: ['chat', 'video', 'both'],
       max_availability_range_days: 31,
+      max_availability_slots: 500,
     });
   });
 });

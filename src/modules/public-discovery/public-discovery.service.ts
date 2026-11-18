@@ -5,6 +5,7 @@ import { ConsultationType } from '../professional/entities/professional.entity';
 import { PublicDiscoveryContractDto } from './dto/public-discovery-response.dto';
 import {
   PUBLIC_DISCOVERY_DEFAULT_SORT,
+  PUBLIC_DISCOVERY_MAX_AVAILABILITY_SLOTS,
   PUBLIC_DISCOVERY_MAX_DATE_RANGE_DAYS,
   PUBLIC_DISCOVERY_PAGINATION,
   PUBLIC_DISCOVERY_SEARCH,
@@ -34,6 +35,7 @@ export class PublicDiscoveryService {
       },
       consultation_types: Object.values(ConsultationType),
       max_availability_range_days: PUBLIC_DISCOVERY_MAX_DATE_RANGE_DAYS,
+      max_availability_slots: PUBLIC_DISCOVERY_MAX_AVAILABILITY_SLOTS,
     };
   }
 }

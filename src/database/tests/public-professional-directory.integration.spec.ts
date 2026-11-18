@@ -3,6 +3,7 @@ import { env } from 'node:process';
 
 import { DataSource, Logger, Repository } from 'typeorm';
 
+import { ProfessionalAvailability } from '../../modules/professional/entities/professional-availability.entity';
 import { ProfessionalReview } from '../../modules/professional/entities/professional-review.entity';
 import {
   ConsultationType,
@@ -12,6 +13,7 @@ import {
 import { PublicProfessionalService } from '../../modules/professional/public-professional.service';
 import { PublicProfessionalDirectoryQueryDto } from '../../modules/public-discovery/dto/public-discovery-query.dto';
 import { PublicDiscoveryVisibilityPolicy } from '../../modules/public-discovery/public-discovery-visibility.policy';
+import { PublicDiscoveryClock } from '../../modules/public-discovery/public-discovery.clock';
 import {
   PublicProfessionalSortField,
   PublicSortOrder,
@@ -233,7 +235,9 @@ integration('Public professional directory on real PostgreSQL', () => {
     service = new PublicProfessionalService(
       professionals,
       database.getRepository(ProfessionalReview),
+      database.getRepository(ProfessionalAvailability),
       policy,
+      new PublicDiscoveryClock(),
     );
     const specialities = database.getRepository(Speciality);
     const users = database.getRepository(User);

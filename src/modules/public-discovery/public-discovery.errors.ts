@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 
 import {
   PUBLIC_RESOURCE_NOT_FOUND_MESSAGE,
@@ -17,5 +17,17 @@ export class PublicResourceNotFoundException extends NotFoundException {
       error: 'Not Found',
       error_code: PublicDiscoveryErrorCode.RESOURCE_NOT_FOUND,
     });
+  }
+}
+
+/**
+ * A well-formed query refused by a rule that depends on the current instant,
+ * which request validation cannot know. It has the shape of a validation
+ * failure: one message per parameter. Public handlers raise it before they
+ * read the resource, so it never depends on whether that resource exists.
+ */
+export class PublicQueryRejectedException extends BadRequestException {
+  constructor(message: string) {
+    super([message]);
   }
 }
