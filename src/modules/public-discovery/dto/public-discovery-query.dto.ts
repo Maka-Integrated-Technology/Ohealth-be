@@ -19,6 +19,10 @@ import {
   PublicProfessionalSortField,
   PublicSortOrder,
 } from '../public-discovery.constants';
+import {
+  decodePublicAvailabilityCursor,
+  PUBLIC_AVAILABILITY_CURSOR_MAX_LENGTH,
+} from '../public-discovery.cursor';
 
 const CALENDAR_DATE_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const FEE_AMOUNT_PATTERN = new RegExp(
@@ -218,6 +222,23 @@ const IsBoundedPublicDateRange =
     });
   };
 
+const IsPublicAvailabilityCursor =
+  (options?: ValidationOptions): PropertyDecorator =>
+  (target: object, propertyName: string | symbol) => {
+    registerDecorator({
+      name: 'isPublicAvailabilityCursor',
+      target: target.constructor,
+      propertyName: String(propertyName),
+      options,
+      validator: {
+        validate: (value: unknown) =>
+          decodePublicAvailabilityCursor(value) !== null,
+        defaultMessage: (args: ValidationArguments) =>
+          `${args.property} must be a next_cursor value returned by this endpoint`,
+      },
+    });
+  };
+
 export class PublicPaginationQueryDto {
   @ApiPropertyOptional({
     type: 'integer',
@@ -344,4 +365,15 @@ export class PublicDateRangeQueryDto {
   @IsPublicCalendarDate()
   @IsBoundedPublicDateRange('from')
   to: string;
+}
+
+export class PublicAvailabilityQueryDto extends PublicDateRangeQueryDto {
+  @ApiPropertyOptional({
+    maxLength: PUBLIC_AVAILABILITY_CURSOR_MAX_LENGTH,
+    description:
+      'Opaque next_cursor from the previous response for the same range. Returns the slots that come after it; omit it to start from the beginning.',
+  })
+  @IsOptional()
+  @IsPublicAvailabilityCursor()
+  cursor?: string;
 }

@@ -1716,7 +1716,7 @@ export interface paths {
     };
     /**
      * Get the open future slots of one approved professional
-     * @description Returns the slots inside the requested dates that start after the response is produced, are still offered, and are not occupied by a booking, earliest first. Every slot declares the IANA time zone its date and times are local to and its start and end as UTC instants; no time is local to the server. Availability is information, not a reservation: a returned slot can be taken at any moment, and booking creation revalidates and reserves the slot atomically and can still refuse it.
+     * @description Returns the slots inside the requested dates that start after the response is produced, are still offered, and are not occupied by a booking, in pages of at most 500 ordered by start instant; send next_cursor as cursor, with the same dates, to read the next page. Every slot declares the IANA time zone its date and times are local to and its start and end as UTC instants; no time is local to the server. Availability is information, not a reservation: a returned slot can be taken at any moment, and booking creation revalidates and reserves the slot atomically and can still refuse it.
      */
     readonly get: operations['PublicProfessionalController_findAvailability'];
     readonly put?: never;
@@ -3328,7 +3328,7 @@ export interface components {
       readonly total: number;
       readonly total_pages: number;
     };
-    /** @description Slots one professional offered when the response was produced. It is information, not a reservation: a slot can be taken at any moment after `as_of`, and booking creation revalidates and reserves a slot atomically and can still refuse it. */
+    /** @description One page of the slots one professional offered when the response was produced. It is information, not a reservation: a slot can be taken at any moment after `as_of`, and booking creation revalidates and reserves a slot atomically and can still refuse it. */
     readonly PublicProfessionalAvailabilityDto: {
       /**
        * Format: date-time
@@ -3336,7 +3336,7 @@ export interface components {
        * @example 2026-01-14T10:30:00.000Z
        */
       readonly as_of: string;
-      /** @description Days that have at least one slot, in chronological order. A day without slots is absent. */
+      /** @description Days of this page that have at least one slot, ordered by date. Slots within a day are ordered by starts_at. A day without slots is absent. */
       readonly days: readonly components['schemas']['PublicAvailabilityDayDto'][];
       /**
        * Format: date
@@ -3344,8 +3344,13 @@ export interface components {
        * @example 2026-01-15
        */
       readonly from: string;
-      /** @description True when the range holds more slots than one response returns. Request a range that starts on the last returned date to read the rest. */
+      /** @description True when the range holds slots after this page. Equivalent to next_cursor not being null. */
       readonly has_more: boolean;
+      /**
+       * @description Opaque value to send as cursor, with the same from and to, to read the slots after this page; null on the last page. Pages follow the order of starts_at and then id, so every slot of the range is returned exactly once across pages.
+       * @example null
+       */
+      readonly next_cursor: string | null;
       /**
        * Format: date
        * @description Last calendar date of the range that was read
@@ -9791,6 +9796,8 @@ export interface operations {
   readonly PublicProfessionalController_findAvailability: {
     readonly parameters: {
       readonly query: {
+        /** @description Opaque next_cursor from the previous response for the same range. Returns the slots that come after it; omit it to start from the beginning. */
+        readonly cursor?: string;
         /** @description First calendar date to read, as YYYY-MM-DD. Dates are local to the time zone of each slot, not to the server or the caller. */
         readonly from: string;
         /** @description Last calendar date to read, as YYYY-MM-DD. On or after from; the inclusive range covers at most 31 days and must not have ended in every time zone */

@@ -15,6 +15,7 @@ import {
   PUBLIC_DISCOVERY_ICON,
   PUBLIC_DISCOVERY_MAX_AVAILABILITY_SLOTS,
 } from './public-discovery.constants';
+import { encodePublicAvailabilityCursor } from './public-discovery.cursor';
 import { toPublicLabel, toPublicProse } from './public-discovery.text';
 
 export type PublicSpecialitySource = Pick<
@@ -168,8 +169,11 @@ function orderPublicAvailabilitySlots(
 }
 
 /**
- * Groups slots under the local date they start on. Slots are ordered by the
- * instant they start, so the result does not depend on the order of the rows.
+ * Groups slots under the local date they start on. Days are ordered by that
+ * date and slots within a day by the instant they start, so the result does
+ * not depend on the order of the rows. Ordering days by date matters when
+ * slots of different zones interleave: a slot can start earlier as an
+ * instant yet fall on a later local date.
  */
 export function toPublicAvailabilityDays(
   slots: readonly IPublicAvailabilitySlotSource[],
@@ -189,13 +193,15 @@ export function toPublicAvailabilityDays(
     days.set(slot.date, day);
   }
 
-  return [...days.values()];
+  return [...days.values()].sort((a, b) => a.date.localeCompare(b.date));
 }
 
 /**
- * The availability of one professional over a range, read at `asOf`. At most
- * `maxSlots` of the earliest slots are published; `has_more` reports that
- * later ones were left out.
+ * One page of the availability of one professional over a range, read at
+ * `asOf`. `slots` are the open slots after the requested cursor, with at
+ * most one row beyond the page. The first `maxSlots` in order are published;
+ * when a further row exists, `next_cursor` names the last published slot so
+ * the next page starts right after it.
  */
 export function toPublicProfessionalAvailability(
   range: Pick<PublicDateRangeQueryDto, 'from' | 'to'>,
@@ -203,14 +209,23 @@ export function toPublicProfessionalAvailability(
   slots: readonly IPublicAvailabilitySlotSource[],
   maxSlots: number = PUBLIC_DISCOVERY_MAX_AVAILABILITY_SLOTS,
 ): PublicProfessionalAvailabilityDto {
+  const page = orderPublicAvailabilitySlots(slots).slice(0, maxSlots);
+  const last = page[page.length - 1];
+  const nextCursor =
+    slots.length > maxSlots && last
+      ? encodePublicAvailabilityCursor({
+          startsAt: last.starts_at,
+          id: last.id,
+        })
+      : null;
+
   return {
     from: range.from,
     to: range.to,
     as_of: asOf.toISOString(),
-    days: toPublicAvailabilityDays(
-      orderPublicAvailabilitySlots(slots).slice(0, maxSlots),
-    ),
-    has_more: slots.length > maxSlots,
+    days: toPublicAvailabilityDays(page),
+    has_more: nextCursor !== null,
+    next_cursor: nextCursor,
   };
 }
 

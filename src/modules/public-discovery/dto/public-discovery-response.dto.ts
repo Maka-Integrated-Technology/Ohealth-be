@@ -186,7 +186,7 @@ export class PublicAvailabilityDayDto {
 
 @ApiSchema({
   description:
-    'Slots one professional offered when the response was produced. It is information, not a reservation: a slot can be taken at any moment after `as_of`, and booking creation revalidates and reserves a slot atomically and can still refuse it.',
+    'One page of the slots one professional offered when the response was produced. It is information, not a reservation: a slot can be taken at any moment after `as_of`, and booking creation revalidates and reserves a slot atomically and can still refuse it.',
 })
 export class PublicProfessionalAvailabilityDto {
   @ApiProperty({
@@ -214,15 +214,24 @@ export class PublicProfessionalAvailabilityDto {
   @ApiProperty({
     type: [PublicAvailabilityDayDto],
     description:
-      'Days that have at least one slot, in chronological order. A day without slots is absent.',
+      'Days of this page that have at least one slot, ordered by date. Slots within a day are ordered by starts_at. A day without slots is absent.',
   })
   days: PublicAvailabilityDayDto[];
 
   @ApiProperty({
     description:
-      'True when the range holds more slots than one response returns. Request a range that starts on the last returned date to read the rest.',
+      'True when the range holds slots after this page. Equivalent to next_cursor not being null.',
   })
   has_more: boolean;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: null,
+    description:
+      'Opaque value to send as cursor, with the same from and to, to read the slots after this page; null on the last page. Pages follow the order of starts_at and then id, so every slot of the range is returned exactly once across pages.',
+  })
+  next_cursor: string | null;
 }
 
 export class PublicPaginationMetaDto {

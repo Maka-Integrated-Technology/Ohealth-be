@@ -5,6 +5,7 @@ import { Repository, SelectQueryBuilder } from 'typeorm';
 import { Booking, BookingStatus } from '../booking/entities/booking.entity';
 import {
   isPublicCalendarDateOver,
+  PublicAvailabilityQueryDto,
   PublicDateRangeQueryDto,
   PublicProfessionalDirectoryQueryDto,
 } from '../public-discovery/dto/public-discovery-query.dto';
@@ -20,6 +21,10 @@ import {
   PublicProfessionalSortField,
   PublicSortOrder,
 } from '../public-discovery/public-discovery.constants';
+import {
+  decodePublicAvailabilityCursor,
+  IPublicAvailabilityCursor,
+} from '../public-discovery/public-discovery.cursor';
 import {
   PublicQueryRejectedException,
   PublicResourceNotFoundException,
@@ -227,7 +232,7 @@ export class PublicProfessionalService {
    */
   async findAvailability(
     id: string,
-    query: PublicDateRangeQueryDto,
+    query: PublicAvailabilityQueryDto,
   ): Promise<PublicProfessionalAvailabilityDto> {
     const now = this.clock.now();
 
@@ -249,7 +254,15 @@ export class PublicProfessionalService {
     if (!professional) throw new PublicResourceNotFoundException();
 
     // One row more than the bound shows whether later slots were left out.
-    const slots = await this.createOpenSlotQuery(professional.id, query, now)
+    const after = query.cursor
+      ? decodePublicAvailabilityCursor(query.cursor)
+      : null;
+    const slots = await this.createOpenSlotQuery(
+      professional.id,
+      query,
+      now,
+      after,
+    )
       .limit(PUBLIC_DISCOVERY_MAX_AVAILABILITY_SLOTS + 1)
       .getRawMany<IPublicAvailabilitySlotSource>();
 
@@ -266,6 +279,7 @@ export class PublicProfessionalService {
     professionalId: string,
     range: PublicDateRangeQueryDto,
     now: Date,
+    after: IPublicAvailabilityCursor | null,
   ): SelectQueryBuilder<ProfessionalAvailability> {
     const slots = this.availabilityRepository
       .createQueryBuilder('availability')
@@ -301,6 +315,19 @@ export class PublicProfessionalService {
           .getQuery()}`,
       ),
     );
+
+    // A page continues strictly after the last slot of the previous page in
+    // the full order key, so no slot is repeated or skipped however many
+    // share a date or an instant.
+    if (after) {
+      slots.andWhere(
+        `(${SLOT_STARTS_AT}, availability.id) > (CAST(:publicAfterStartsAt AS timestamptz), CAST(:publicAfterId AS uuid))`,
+        {
+          publicAfterStartsAt: after.startsAt.toISOString(),
+          publicAfterId: after.id,
+        },
+      );
+    }
 
     return slots
       .setParameter('publicCancelledBooking', BookingStatus.CANCELLED)

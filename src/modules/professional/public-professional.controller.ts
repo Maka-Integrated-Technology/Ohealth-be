@@ -2,7 +2,7 @@ import { Get, Header, Param, Query } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiParam } from '@nestjs/swagger';
 
 import {
-  PublicDateRangeQueryDto,
+  PublicAvailabilityQueryDto,
   PublicProfessionalDirectoryQueryDto,
 } from '../public-discovery/dto/public-discovery-query.dto';
 import {
@@ -69,7 +69,7 @@ export class PublicProfessionalController {
   @ApiOperation({
     summary: 'Get the open future slots of one approved professional',
     description:
-      'Returns the slots inside the requested dates that start after the response is produced, are still offered, and are not occupied by a booking, earliest first. Every slot declares the IANA time zone its date and times are local to and its start and end as UTC instants; no time is local to the server. Availability is information, not a reservation: a returned slot can be taken at any moment, and booking creation revalidates and reserves the slot atomically and can still refuse it.',
+      'Returns the slots inside the requested dates that start after the response is produced, are still offered, and are not occupied by a booking, in pages of at most 500 ordered by start instant; send next_cursor as cursor, with the same dates, to read the next page. Every slot declares the IANA time zone its date and times are local to and its start and end as UTC instants; no time is local to the server. Availability is information, not a reservation: a returned slot can be taken at any moment, and booking creation revalidates and reserves the slot atomically and can still refuse it.',
   })
   @ApiParam({
     name: 'id',
@@ -81,7 +81,7 @@ export class PublicProfessionalController {
   @ApiPublicResourceNotFound()
   findAvailability(
     @Param('id', PublicResourceIdPipe) id: string,
-    @Query() query: PublicDateRangeQueryDto,
+    @Query() query: PublicAvailabilityQueryDto,
   ): Promise<PublicProfessionalAvailabilityDto> {
     return this.professionalService.findAvailability(id, query);
   }
