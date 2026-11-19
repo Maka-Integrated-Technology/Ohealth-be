@@ -69,6 +69,8 @@ import { OrganizationDocumentsService } from '../../modules/organization/organiz
 import { OrganizationOnboardingService } from '../../modules/organization/organization-onboarding.service';
 import { OrganizationVerificationService } from '../../modules/organization/organization-verification.service';
 import { OrganizationController } from '../../modules/organization/organization.controller';
+import { PatientProfile } from '../../modules/patient/entities/patient-profile.entity';
+import { CanonicalPatientProfileService } from '../../modules/patient/personal-profile/canonical-patient-profile.service';
 import { ProfessionalAvailability } from '../../modules/professional/entities/professional-availability.entity';
 import { Professional } from '../../modules/professional/entities/professional.entity';
 import { ProfessionalController } from '../../modules/professional/professional.controller';
@@ -231,7 +233,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       'CREATE TABLE patient_profiles (' +
         'id uuid PRIMARY KEY DEFAULT uuid_generate_v4(), created_at timestamptz NOT NULL DEFAULT now(), ' +
         'updated_at timestamptz NOT NULL DEFAULT now(), user_id uuid NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE, ' +
-        'patient_reference varchar, medical_conditions text, allergies text, blood_group varchar, height_cm int, ' +
+        'patient_reference varchar, address varchar(500), medical_conditions text, allergies text, blood_group varchar, height_cm int, ' +
         'weight_kg double precision, genotype varchar, emergency_contact_name varchar, emergency_contact_phone varchar)',
     );
     await database.query(
@@ -381,6 +383,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       ],
       providers: [
         AuthService,
+        CanonicalPatientProfileService,
         BrowserSessionConfig,
         BrowserSessionCookieService,
         BrowserSessionGuard,
@@ -446,6 +449,10 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         {
           provide: getRepositoryToken(User),
           useValue: source.getRepository(User),
+        },
+        {
+          provide: getRepositoryToken(PatientProfile),
+          useValue: source.getRepository(PatientProfile),
         },
         {
           provide: getRepositoryToken(AuthSession),
