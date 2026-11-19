@@ -174,6 +174,9 @@ jobs:
       - name: Verify credential enumeration resistance (isolated e2e)
         run: npx jest --config ./test/jest-e2e.json --runInBand test/auth-login-enumeration.e2e-spec.ts
 
+      - name: Verify patient personal-profile HTTP body boundary (isolated e2e)
+        run: npx jest --config ./test/jest-e2e.json --runInBand test/patient-profile-boundary.e2e-spec.ts
+
       - name: Verify purpose-bound public auth contracts (isolated HTTP e2e)
         run: npx jest --config ./test/jest-e2e.json --runInBand test/auth-challenge-public.e2e-spec.ts
 
@@ -268,6 +271,16 @@ jobs:
         env:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
         run: npx jest --runInBand src/database/tests/auth-challenge-live-http.integration.spec.ts
+
+      - name: Verify patient address migration on real PostgreSQL
+        env:
+          PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
+        run: npx jest --runInBand src/database/tests/patient-personal-address.integration.spec.ts
+
+      - name: Verify canonical patient profile on real PostgreSQL
+        env:
+          PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
+        run: npx jest --runInBand src/database/tests/canonical-patient-personal-profile.integration.spec.ts
 
       - name: Verify delivery lease safety across independent PostgreSQL connections
         env:

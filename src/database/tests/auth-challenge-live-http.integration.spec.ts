@@ -922,6 +922,19 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       .get(RefreshSessionService)
       .issue(professional.id);
     const professionalAuth = `Bearer ${professionalSession.access_token}`;
+    const professionalContext = await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .set('Authorization', professionalAuth)
+      .expect(200);
+    expect(
+      professionalContext.body.data.account_context.capabilities,
+    ).toContain('persona.professional');
+    expect(professionalContext.body.data.address).toBeNull();
+    await request(app.getHttpServer())
+      .patch('/api/auth/me')
+      .set('Authorization', professionalAuth)
+      .send({ first_name: 'Rejected' })
+      .expect(403);
     await request(app.getHttpServer())
       .get('/api/bookings')
       .set('Authorization', professionalAuth)
@@ -960,6 +973,32 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
        VALUES ($1, $2, 'owner', 'active')`,
       [orgA, professional.id],
     );
+    const organizationOwner = await createUser('organization-only', 'active');
+    await database.query(
+      `INSERT INTO organization_memberships
+         (organization_id, user_id, role, status)
+       VALUES ($1, $2, 'owner', 'active')`,
+      [orgB, organizationOwner.id],
+    );
+    const ownerSession = await app
+      .get(RefreshSessionService)
+      .issue(organizationOwner.id);
+    const ownerAuth = `Bearer ${ownerSession.access_token}`;
+    const ownerContext = await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .set('Authorization', ownerAuth)
+      .expect(200);
+    expect(ownerContext.body.data.account_context.memberships).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ organization_id: orgB, role: 'owner' }),
+      ]),
+    );
+    expect(ownerContext.body.data.address).toBeNull();
+    await request(app.getHttpServer())
+      .patch('/api/auth/me')
+      .set('Authorization', ownerAuth)
+      .send({ first_name: 'Rejected' })
+      .expect(403);
     await database.query(
       `INSERT INTO user_2fa (user_id, two_fa_enabled, encrypted_secret)
        VALUES ($1, true, 'test-encrypted-factor')`,

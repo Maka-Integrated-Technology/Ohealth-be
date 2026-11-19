@@ -337,7 +337,7 @@ export interface paths {
       readonly path?: never;
       readonly cookie?: never;
     };
-    /** Fetch the authenticated patient personal profile and account context */
+    /** Restore authenticated account context and patient profile data */
     readonly get: operations['AuthController_getProfile'];
     readonly put?: never;
     readonly post?: never;
@@ -1962,6 +1962,7 @@ export interface components {
     };
     readonly AuthMeResponseDto: {
       readonly account_context: components['schemas']['AuthContextResponseDto'];
+      /** @description Patient address; null when no active patient persona is present */
       readonly address: string | null;
       /** @deprecated */
       readonly country: string | null;

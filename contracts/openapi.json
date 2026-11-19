@@ -441,6 +441,7 @@
             "$ref": "#/components/schemas/AuthContextResponseDto"
           },
           "address": {
+            "description": "Patient address; null when no active patient persona is present",
             "maxLength": 500,
             "nullable": true,
             "type": "string"
@@ -7777,7 +7778,7 @@
             "bearer": []
           }
         ],
-        "summary": "Fetch the authenticated patient personal profile and account context",
+        "summary": "Restore authenticated account context and patient profile data",
         "tags": [
           "Authentication"
         ]

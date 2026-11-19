@@ -1,4 +1,8 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -20,6 +24,7 @@ import { AccountAccessPolicyService } from './account-access-policy.service';
 import { AuthService } from './auth.service';
 import { AuthChallengeDeliveryService } from './challenges/auth-challenge-delivery.service';
 import { SecureAuthChallengeFlowsService } from './challenges/secure-auth-challenge-flows.service';
+import { AuthCapability } from './context/auth-capability';
 import { AuthContextService } from './context/auth-context.service';
 import { VerifySignupDto } from './dto/auth.dto';
 import { AuthSession } from './entities/auth.entity';
@@ -117,7 +122,7 @@ describe('AuthService', () => {
       personas: [],
       professional: null,
       memberships: [],
-      capabilities: [],
+      capabilities: [AuthCapability.PERSONA_PATIENT],
       session: { id: 'session-id-1' },
     }),
   };
@@ -667,6 +672,45 @@ describe('AuthService', () => {
         }),
       );
     });
+
+    it('restores non-patient account context without reading patient data', async () => {
+      const nonPatientContext = {
+        account: { id: 'user-id-1' },
+        personas: [],
+        professional: null,
+        memberships: [{ organization_id: 'organization-id-1' }],
+        capabilities: [AuthCapability.ACCOUNT_CONTEXT_READ],
+        session: { id: 'session-id-1' },
+      };
+      mockAuthContextService.resolve
+        .mockResolvedValueOnce(nonPatientContext)
+        .mockResolvedValueOnce(nonPatientContext);
+      mockUserService.findById.mockResolvedValue({
+        id: 'user-id-1',
+        email: 'owner@example.com',
+        first_name: 'Amina',
+        last_name: 'Bello',
+        role: [],
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date(),
+      });
+      const req = {
+        user: { id: 'user-id-1', sessionId: 'session-id-1' },
+      } as IRequestWithUser;
+
+      await expect(service.getProfile(req)).resolves.toMatchObject({
+        first_name: 'Amina',
+        address: null,
+        account_context: {
+          memberships: [{ organization_id: 'organization-id-1' }],
+        },
+      });
+      expect(mockPatientProfiles.get).not.toHaveBeenCalled();
+      await expect(service.getProfile(req, true)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
   });
 
   describe('updateProfile', () => {
@@ -702,6 +746,10 @@ describe('AuthService', () => {
         { first_name: 'Amaka' },
       );
       expect(result).toMatchObject({ first_name: 'Amaka', address: 'Lagos' });
+      expect(result.account_context.account).toMatchObject({
+        first_name: 'Amaka',
+        profile: { middle_name: null, country: null },
+      });
       expect(mockPatientProfiles.get).toHaveBeenCalledTimes(1);
     });
   });

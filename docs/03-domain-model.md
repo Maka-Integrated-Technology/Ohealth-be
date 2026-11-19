@@ -31,6 +31,11 @@ own dedicated settings workflows. Medical and emergency-contact fields remain
 outside the personal-profile patch. The address follows the patient profile's
 retention and deletion lifecycle and must not appear in logs or audit metadata.
 
+`GET /auth/me` restores canonical account context for every active account.
+It includes the patient address only when the session has an active patient
+persona; the address is null for other account contexts. `PATCH /auth/me`
+requires that active patient persona and cannot change contact or clinical data.
+
 The user does not own an organization role and should not contain speciality or
 clinical data.
 
