@@ -14,10 +14,7 @@ import { AuthSession } from '../auth/entities/auth.entity';
 import { UserAccountStatusHistory } from './entities/user-account-status-history.entity';
 import { User } from './entities/user.entity';
 import { AccountStatus } from './enums/account-status.enum';
-import {
-  AuthenticatedUserProfileUpdate,
-  IGoogleIdentityProfile,
-} from './interfaces/user-mutation.interface';
+import { IGoogleIdentityProfile } from './interfaces/user-mutation.interface';
 
 @Injectable()
 export class UserService {
@@ -113,20 +110,6 @@ export class UserService {
       });
       user.verification_code = code;
       user.verification_code_expires_at = expiresAt;
-      return user;
-    });
-  }
-
-  async updateAuthenticatedProfile(
-    userId: string,
-    update: AuthenticatedUserProfileUpdate,
-  ): Promise<User> {
-    return this.userRepository.manager.transaction(async (manager) => {
-      const user = await this.findLockedAuthenticatedUser(manager, userId);
-      if (Object.keys(update).length) {
-        await manager.update(User, user.id, update);
-        Object.assign(user, update);
-      }
       return user;
     });
   }

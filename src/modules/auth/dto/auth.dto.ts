@@ -3,7 +3,6 @@ import {
   IsNotEmpty,
   IsEmail,
   Matches,
-  IsOptional,
   IsString,
   IsUUID,
 } from 'class-validator';
@@ -91,89 +90,6 @@ export class LogoutDto {
   @IsUUID()
   @IsNotEmpty()
   session_id: string;
-}
-
-export class UpdateProfileDto {
-  @ApiProperty({
-    description: 'User first name',
-    example: 'John',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  @IsNotEmpty()
-  first_name?: string;
-
-  @ApiProperty({
-    description: 'User last name',
-    example: 'Doe',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  @IsNotEmpty()
-  last_name?: string;
-
-  @ApiProperty({
-    description: 'User middle name',
-    example: 'Michael',
-    required: false,
-    nullable: true,
-  })
-  @IsOptional()
-  @IsString()
-  middle_name?: string | null;
-
-  @ApiProperty({
-    description: 'User gender',
-    example: 'Male',
-    enum: ['Male', 'Female', 'Other'],
-    required: false,
-    nullable: true,
-  })
-  @IsOptional()
-  @IsString()
-  gender?: string | null;
-
-  @ApiProperty({
-    description: 'Date of birth in YYYY-MM-DD format',
-    example: '2000-01-15',
-    required: false,
-    nullable: true,
-  })
-  @IsOptional()
-  @IsString()
-  dob?: string | null;
-
-  @ApiProperty({
-    description: 'User phone number',
-    example: '+1234567890',
-    required: false,
-    nullable: true,
-  })
-  @IsOptional()
-  @IsString()
-  phone?: string | null;
-
-  @ApiProperty({
-    description: 'User country of residence',
-    example: 'Nigeria',
-    required: false,
-    nullable: true,
-  })
-  @IsOptional()
-  @IsString()
-  country?: string | null;
-
-  @ApiProperty({
-    description: 'User avatar image URL',
-    example: 'https://res.cloudinary.com/ohealth/image/upload/v123/avatar.png',
-    required: false,
-    nullable: true,
-  })
-  @IsOptional()
-  @IsString()
-  image?: string | null;
 }
 
 export class ChangePasswordDto {

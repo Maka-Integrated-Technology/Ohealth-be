@@ -1,4 +1,8 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -10,6 +14,7 @@ import { Logger } from 'winston';
 import { IRequestWithUser } from '../../common/types';
 import * as sysMsg from '../../constants/system.messages';
 import { EmailService } from '../email/email.service';
+import { CanonicalPatientProfileService } from '../patient/personal-profile/canonical-patient-profile.service';
 import { User } from '../user/entities/user.entity';
 import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserRole } from '../user/enums/user-role.enum';
@@ -19,6 +24,7 @@ import { AccountAccessPolicyService } from './account-access-policy.service';
 import { AuthService } from './auth.service';
 import { AuthChallengeDeliveryService } from './challenges/auth-challenge-delivery.service';
 import { SecureAuthChallengeFlowsService } from './challenges/secure-auth-challenge-flows.service';
+import { AuthCapability } from './context/auth-capability';
 import { AuthContextService } from './context/auth-context.service';
 import { VerifySignupDto } from './dto/auth.dto';
 import { AuthSession } from './entities/auth.entity';
@@ -39,7 +45,6 @@ describe('AuthService', () => {
     setPasswordResetChallenge: jest.fn(),
     consumePasswordResetToken: jest.fn(),
     rotateVerificationChallenge: jest.fn(),
-    updateAuthenticatedProfile: jest.fn(),
     replaceAuthenticatedPassword: jest.fn(),
     linkGoogleIdentity: jest.fn(),
     verifyEmailWithCode: jest.fn(),
@@ -117,9 +122,13 @@ describe('AuthService', () => {
       personas: [],
       professional: null,
       memberships: [],
-      capabilities: [],
+      capabilities: [AuthCapability.PERSONA_PATIENT],
       session: { id: 'session-id-1' },
     }),
+  };
+  const mockPatientProfiles = {
+    get: jest.fn(),
+    update: jest.fn(),
   };
 
   const mockLogger = {
@@ -177,6 +186,10 @@ describe('AuthService', () => {
           useValue: mockAuthContextService,
         },
         {
+          provide: CanonicalPatientProfileService,
+          useValue: mockPatientProfiles,
+        },
+        {
           provide: AuthSecurityAuditService,
           useValue: audit,
         },
@@ -189,6 +202,15 @@ describe('AuthService', () => {
 
     service = module.get<AuthService>(AuthService);
     jest.clearAllMocks();
+    mockPatientProfiles.get.mockResolvedValue({
+      first_name: 'Funke',
+      last_name: 'Ibrahim',
+      middle_name: null,
+      gender: 'Female',
+      dob: '2001-01-10',
+      country: null,
+      address: null,
+    });
     mockRegistration.register.mockResolvedValue({
       message: 'Verification code queued',
       challenge_id: 'f64031c5-70e4-4b37-a92c-f193e59a6621',
@@ -649,6 +671,86 @@ describe('AuthService', () => {
           subject_user_id: 'user-id-1',
         }),
       );
+    });
+
+    it('restores non-patient account context without reading patient data', async () => {
+      const nonPatientContext = {
+        account: { id: 'user-id-1' },
+        personas: [],
+        professional: null,
+        memberships: [{ organization_id: 'organization-id-1' }],
+        capabilities: [AuthCapability.ACCOUNT_CONTEXT_READ],
+        session: { id: 'session-id-1' },
+      };
+      mockAuthContextService.resolve
+        .mockResolvedValueOnce(nonPatientContext)
+        .mockResolvedValueOnce(nonPatientContext);
+      mockUserService.findById.mockResolvedValue({
+        id: 'user-id-1',
+        email: 'owner@example.com',
+        first_name: 'Amina',
+        last_name: 'Bello',
+        role: [],
+        is_active: true,
+        created_at: new Date(),
+        updated_at: new Date(),
+      });
+      const req = {
+        user: { id: 'user-id-1', sessionId: 'session-id-1' },
+      } as IRequestWithUser;
+
+      await expect(service.getProfile(req)).resolves.toMatchObject({
+        first_name: 'Amina',
+        address: null,
+        account_context: {
+          memberships: [{ organization_id: 'organization-id-1' }],
+        },
+      });
+      expect(mockPatientProfiles.get).not.toHaveBeenCalled();
+      await expect(service.getProfile(req, true)).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+  });
+
+  describe('updateProfile', () => {
+    const req = {
+      user: { id: 'user-id-1', sessionId: 'session-id-1' },
+    } as IRequestWithUser;
+
+    it('returns the committed personal fields without a post-write read', async () => {
+      mockUserService.findById.mockResolvedValue({
+        id: 'user-id-1',
+        first_name: 'Funke',
+        last_name: 'Ibrahim',
+        role: [UserRole.PATIENT],
+        created_at: new Date(),
+        updated_at: new Date(),
+      });
+      mockPatientProfiles.update.mockResolvedValue({
+        first_name: 'Amaka',
+        last_name: 'Ibrahim',
+        middle_name: null,
+        gender: null,
+        dob: null,
+        country: null,
+        address: 'Lagos',
+        updated_at: new Date('2026-11-19T00:00:00Z'),
+      });
+
+      const result = await service.updateProfile(req, { first_name: 'Amaka' });
+
+      expect(mockPatientProfiles.update).toHaveBeenCalledWith(
+        'user-id-1',
+        'session-id-1',
+        { first_name: 'Amaka' },
+      );
+      expect(result).toMatchObject({ first_name: 'Amaka', address: 'Lagos' });
+      expect(result.account_context.account).toMatchObject({
+        first_name: 'Amaka',
+        profile: { middle_name: null, country: null },
+      });
+      expect(mockPatientProfiles.get).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -114,6 +114,13 @@ export class AuthMeResponseDto {
   @ApiProperty({ nullable: true, deprecated: true }) dob: string | null;
   @ApiProperty({ nullable: true, deprecated: true }) phone: string | null;
   @ApiProperty({ nullable: true, deprecated: true }) country: string | null;
+  @ApiProperty({
+    nullable: true,
+    maxLength: 500,
+    description:
+      'Patient address; null when no active patient persona is present',
+  })
+  address: string | null;
   @ApiProperty({ nullable: true, deprecated: true }) image: string | null;
   @ApiProperty({ deprecated: true }) is_active: boolean;
   @ApiProperty({ format: 'date-time', deprecated: true }) created_at: Date;

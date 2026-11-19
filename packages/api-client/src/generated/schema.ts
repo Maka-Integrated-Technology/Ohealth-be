@@ -337,14 +337,14 @@ export interface paths {
       readonly path?: never;
       readonly cookie?: never;
     };
-    /** Fetches the canonical authenticated account context */
+    /** Restore authenticated account context and patient profile data */
     readonly get: operations['AuthController_getProfile'];
     readonly put?: never;
     readonly post?: never;
     readonly delete?: never;
     readonly options?: never;
     readonly head?: never;
-    /** Update authenticated user profile */
+    /** Update authenticated patient personal profile */
     readonly patch: operations['AuthController_updateProfile'];
     readonly trace?: never;
   };
@@ -1962,6 +1962,8 @@ export interface components {
     };
     readonly AuthMeResponseDto: {
       readonly account_context: components['schemas']['AuthContextResponseDto'];
+      /** @description Patient address; null when no active patient persona is present */
+      readonly address: string | null;
       /** @deprecated */
       readonly country: string | null;
       /**
@@ -3765,6 +3767,17 @@ export interface components {
        */
       readonly turnaround_time_minutes?: number;
     };
+    readonly UpdatePatientPersonalProfileDto: {
+      readonly address?: string | null;
+      readonly country?: string | null;
+      /** Format: date */
+      readonly dob?: string | null;
+      readonly first_name?: string;
+      /** @enum {string|null} */
+      readonly gender?: UpdatePatientPersonalProfileDtoGender;
+      readonly last_name?: string;
+      readonly middle_name?: string | null;
+    };
     readonly UpdateProfessionalDto: {
       /** @example Experienced general practitioner. */
       readonly about?: string;
@@ -3791,49 +3804,6 @@ export interface components {
     readonly UpdateProfessionalPatientNoteDto: {
       /** @example Patient reports recurring headaches in the evenings. Advised hydration and reduced screen time. */
       readonly content?: string;
-    };
-    readonly UpdateProfileDto: {
-      /**
-       * @description User country of residence
-       * @example Nigeria
-       */
-      readonly country?: string | null;
-      /**
-       * @description Date of birth in YYYY-MM-DD format
-       * @example 2000-01-15
-       */
-      readonly dob?: string | null;
-      /**
-       * @description User first name
-       * @example John
-       */
-      readonly first_name?: string;
-      /**
-       * @description User gender
-       * @example Male
-       * @enum {string|null}
-       */
-      readonly gender?: UpdateProfileDtoGender;
-      /**
-       * @description User avatar image URL
-       * @example https://res.cloudinary.com/ohealth/image/upload/v123/avatar.png
-       */
-      readonly image?: string | null;
-      /**
-       * @description User last name
-       * @example Doe
-       */
-      readonly last_name?: string;
-      /**
-       * @description User middle name
-       * @example Michael
-       */
-      readonly middle_name?: string | null;
-      /**
-       * @description User phone number
-       * @example +1234567890
-       */
-      readonly phone?: string | null;
     };
     readonly UpdateSpecialityDto: {
       /** @example General medical consultations */
@@ -5092,7 +5062,7 @@ export interface operations {
     };
     readonly requestBody: {
       readonly content: {
-        readonly 'application/json': components['schemas']['UpdateProfileDto'];
+        readonly 'application/json': components['schemas']['UpdatePatientPersonalProfileDto'];
       };
     };
     readonly responses: {
@@ -10353,7 +10323,7 @@ export enum StartGoogleOAuthDtoOperation {
   signin = 'signin',
   link = 'link',
 }
-export enum UpdateProfileDtoGender {
+export enum UpdatePatientPersonalProfileDtoGender {
   Male = 'Male',
   Female = 'Female',
   Other = 'Other',

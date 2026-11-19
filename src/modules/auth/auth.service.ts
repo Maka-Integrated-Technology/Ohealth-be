@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   UnauthorizedException,
@@ -13,6 +14,8 @@ import { IRequestWithUser } from '../../common/types';
 import { EmailTemplateID } from '../../constants/email-constants';
 import * as sysMsg from '../../constants/system.messages';
 import { EmailService } from '../email/email.service';
+import { CanonicalPatientProfileService } from '../patient/personal-profile/canonical-patient-profile.service';
+import { UpdatePatientPersonalProfileDto } from '../patient/personal-profile/patient-personal-profile.dto';
 import { User } from '../user/entities/user.entity';
 import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserService } from '../user/user.service';
@@ -24,6 +27,7 @@ import {
   AuthChallengeTransport,
 } from './challenges/auth-challenge.entity';
 import { SecureAuthChallengeFlowsService } from './challenges/secure-auth-challenge-flows.service';
+import { AuthCapability } from './context/auth-capability';
 import { AuthContextService } from './context/auth-context.service';
 import {
   RegistrationBootstrapDto,
@@ -37,7 +41,6 @@ import {
   LogoutDto,
   RefreshTokenDto,
   ResetPasswordDto,
-  UpdateProfileDto,
   VerifySignupDto,
 } from './dto/auth.dto';
 import { LoginDto } from './dto/login.dto';
@@ -63,6 +66,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly emailService: EmailService,
     private readonly authContext: AuthContextService,
+    private readonly patientProfiles: CanonicalPatientProfileService,
     private readonly accountAccessPolicy: AccountAccessPolicyService,
     private readonly passwordCredentials: PasswordCredentialsService,
     private readonly challengeFlows: SecureAuthChallengeFlowsService,
@@ -275,51 +279,59 @@ export class AuthService {
     return this.challengeFlows.resendRecovery(payload.challenge_id);
   }
 
-  async getProfile(req: IRequestWithUser) {
-    const userId = req.user?.id ?? req.user?.userId;
-    if (!userId) {
+  async getProfile(req: IRequestWithUser, patientOnly = false) {
+    const userId = req.user?.id;
+    const sessionId = req.user?.sessionId;
+    if (!userId || !sessionId) {
       throw new UnauthorizedException(sysMsg.TOKEN_INVALID);
     }
-
-    const user = await this.userService.findById(userId);
-    if (!user) {
-      this.logger.warn(sysMsg.USER_NOT_FOUND);
-      throw new UnauthorizedException(sysMsg.USER_NOT_FOUND);
-    }
-
     let accountContext;
+    let profile;
+    let user: User;
     try {
-      accountContext = await this.authContext.resolve(
-        user.id,
-        req.user.sessionId,
+      accountContext = await this.authContext.resolve(userId, sessionId);
+      const hasPatientContext = accountContext.capabilities.includes(
+        AuthCapability.PERSONA_PATIENT,
       );
+      if (patientOnly && !hasPatientContext) {
+        throw new ForbiddenException('Patient profile access required.');
+      }
+      profile = hasPatientContext
+        ? await this.patientProfiles.get(userId, sessionId)
+        : null;
+      const found = await this.userService.findById(userId);
+      if (!found) {
+        throw new UnauthorizedException(sysMsg.USER_NOT_FOUND);
+      }
+      user = found;
     } catch (error) {
       await this.audit.recordAttempt({
         event_type: AuthSecurityEventType.CONTEXT_RESTORATION,
         outcome: AuthSecurityEventOutcome.DENIED,
-        subject_user_id: user.id,
-        session_id: req.user.sessionId,
+        subject_user_id: userId,
+        session_id: sessionId,
       });
       throw error;
     }
     await this.audit.recordAttempt({
       event_type: AuthSecurityEventType.CONTEXT_RESTORATION,
       outcome: AuthSecurityEventOutcome.SUCCEEDED,
-      actor_user_id: user.id,
-      subject_user_id: user.id,
-      session_id: req.user.sessionId,
+      actor_user_id: userId,
+      subject_user_id: userId,
+      session_id: sessionId,
     });
     return {
       id: user.id,
       email: user.email,
-      first_name: user.first_name,
-      last_name: user.last_name,
+      first_name: profile?.first_name ?? user.first_name,
+      last_name: profile?.last_name ?? user.last_name,
       role: user.role,
-      middle_name: user.middle_name,
-      gender: user.gender,
-      dob: user.dob,
+      middle_name: profile?.middle_name ?? user.middle_name ?? null,
+      gender: profile?.gender ?? user.gender ?? null,
+      dob: profile?.dob ?? user.dob ?? null,
       phone: user.phone,
-      country: user.country,
+      country: profile?.country ?? user.country ?? null,
+      address: profile?.address ?? null,
       image: user.image,
       is_active: user.is_active,
       created_at: user.created_at,
@@ -328,48 +340,45 @@ export class AuthService {
     };
   }
 
-  async updateProfile(req: IRequestWithUser, dto: UpdateProfileDto) {
-    const userId = req.user?.id ?? req.user?.userId;
-    if (!userId) {
+  async updateProfile(
+    req: IRequestWithUser,
+    dto: UpdatePatientPersonalProfileDto,
+  ) {
+    const userId = req.user?.id;
+    const sessionId = req.user?.sessionId;
+    if (!userId || !sessionId) {
       throw new UnauthorizedException(sysMsg.TOKEN_INVALID);
     }
-
-    const update: UpdateProfileDto = {};
-    if (dto.first_name !== undefined) {
-      update.first_name = dto.first_name.trim();
-    }
-    if (dto.last_name !== undefined) {
-      update.last_name = dto.last_name.trim();
-    }
-    if (dto.middle_name !== undefined) {
-      update.middle_name = dto.middle_name?.trim() || null;
-    }
-    if (dto.gender !== undefined) {
-      update.gender = dto.gender;
-    }
-    if (dto.dob !== undefined) {
-      update.dob = dto.dob;
-    }
-    if (dto.phone !== undefined) {
-      update.phone = dto.phone;
-    }
-    if (dto.country !== undefined) {
-      update.country = dto.country;
-    }
-    if (dto.image !== undefined) {
-      update.image = dto.image;
-    }
-
-    const saved = await this.userService.updateAuthenticatedProfile(
-      userId,
-      update,
-    );
-    this.logger.info(`Profile updated for user ${saved.id}`);
-
-    return this.getProfile({
-      ...req,
-      user: { ...req.user, id: saved.id },
-    } as IRequestWithUser);
+    const current = await this.getProfile(req, true);
+    const saved = await this.patientProfiles.update(userId, sessionId, dto);
+    this.logger.info(`Profile updated for user ${userId}`);
+    return {
+      ...current,
+      first_name: saved.first_name,
+      last_name: saved.last_name,
+      middle_name: saved.middle_name,
+      gender: saved.gender,
+      dob: saved.dob,
+      country: saved.country,
+      address: saved.address,
+      updated_at: saved.updated_at,
+      account_context: {
+        ...current.account_context,
+        account: {
+          ...current.account_context.account,
+          first_name: saved.first_name,
+          last_name: saved.last_name,
+          profile: {
+            ...current.account_context.account.profile,
+            middle_name: saved.middle_name,
+            gender: saved.gender,
+            dob: saved.dob,
+            country: saved.country,
+            updated_at: saved.updated_at,
+          },
+        },
+      },
+    };
   }
 
   async changePassword(req: IRequestWithUser, dto: ChangePasswordDto) {

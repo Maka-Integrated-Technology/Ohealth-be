@@ -69,6 +69,8 @@ import { OrganizationDocumentsService } from '../../modules/organization/organiz
 import { OrganizationOnboardingService } from '../../modules/organization/organization-onboarding.service';
 import { OrganizationVerificationService } from '../../modules/organization/organization-verification.service';
 import { OrganizationController } from '../../modules/organization/organization.controller';
+import { PatientProfile } from '../../modules/patient/entities/patient-profile.entity';
+import { CanonicalPatientProfileService } from '../../modules/patient/personal-profile/canonical-patient-profile.service';
 import { ProfessionalAvailability } from '../../modules/professional/entities/professional-availability.entity';
 import { Professional } from '../../modules/professional/entities/professional.entity';
 import { ProfessionalController } from '../../modules/professional/professional.controller';
@@ -231,7 +233,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       'CREATE TABLE patient_profiles (' +
         'id uuid PRIMARY KEY DEFAULT uuid_generate_v4(), created_at timestamptz NOT NULL DEFAULT now(), ' +
         'updated_at timestamptz NOT NULL DEFAULT now(), user_id uuid NOT NULL UNIQUE REFERENCES users(id) ON DELETE CASCADE, ' +
-        'patient_reference varchar, medical_conditions text, allergies text, blood_group varchar, height_cm int, ' +
+        'patient_reference varchar, address varchar(500), medical_conditions text, allergies text, blood_group varchar, height_cm int, ' +
         'weight_kg double precision, genotype varchar, emergency_contact_name varchar, emergency_contact_phone varchar)',
     );
     await database.query(
@@ -381,6 +383,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       ],
       providers: [
         AuthService,
+        CanonicalPatientProfileService,
         BrowserSessionConfig,
         BrowserSessionCookieService,
         BrowserSessionGuard,
@@ -446,6 +449,10 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         {
           provide: getRepositoryToken(User),
           useValue: source.getRepository(User),
+        },
+        {
+          provide: getRepositoryToken(PatientProfile),
+          useValue: source.getRepository(PatientProfile),
         },
         {
           provide: getRepositoryToken(AuthSession),
@@ -915,6 +922,19 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       .get(RefreshSessionService)
       .issue(professional.id);
     const professionalAuth = `Bearer ${professionalSession.access_token}`;
+    const professionalContext = await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .set('Authorization', professionalAuth)
+      .expect(200);
+    expect(
+      professionalContext.body.data.account_context.capabilities,
+    ).toContain('persona.professional');
+    expect(professionalContext.body.data.address).toBeNull();
+    await request(app.getHttpServer())
+      .patch('/api/auth/me')
+      .set('Authorization', professionalAuth)
+      .send({ first_name: 'Rejected' })
+      .expect(403);
     await request(app.getHttpServer())
       .get('/api/bookings')
       .set('Authorization', professionalAuth)
@@ -953,6 +973,32 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
        VALUES ($1, $2, 'owner', 'active')`,
       [orgA, professional.id],
     );
+    const organizationOwner = await createUser('organization-only', 'active');
+    await database.query(
+      `INSERT INTO organization_memberships
+         (organization_id, user_id, role, status)
+       VALUES ($1, $2, 'owner', 'active')`,
+      [orgB, organizationOwner.id],
+    );
+    const ownerSession = await app
+      .get(RefreshSessionService)
+      .issue(organizationOwner.id);
+    const ownerAuth = `Bearer ${ownerSession.access_token}`;
+    const ownerContext = await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .set('Authorization', ownerAuth)
+      .expect(200);
+    expect(ownerContext.body.data.account_context.memberships).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ organization_id: orgB, role: 'owner' }),
+      ]),
+    );
+    expect(ownerContext.body.data.address).toBeNull();
+    await request(app.getHttpServer())
+      .patch('/api/auth/me')
+      .set('Authorization', ownerAuth)
+      .send({ first_name: 'Rejected' })
+      .expect(403);
     await database.query(
       `INSERT INTO user_2fa (user_id, two_fa_enabled, encrypted_secret)
        VALUES ($1, true, 'test-encrypted-factor')`,

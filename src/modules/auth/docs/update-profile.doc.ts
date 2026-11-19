@@ -12,7 +12,7 @@ import { AuthMeResponseDto } from '../dto/auth-response.dto';
 export const UpdateProfileDocs = () =>
   applyDecorators(
     ApiBearerAuth(),
-    ApiOperation({ summary: 'Update authenticated user profile' }),
+    ApiOperation({ summary: 'Update authenticated patient personal profile' }),
     ApiOkResponse({
       description: sysMsg.PROFILE_UPDATED,
       type: AuthMeResponseDto,
