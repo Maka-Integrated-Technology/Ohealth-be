@@ -17,6 +17,9 @@ export class PatientProfile extends BaseEntity {
   @Column({ nullable: true })
   patient_reference?: string | null;
 
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  address?: string | null;
+
   @Column({ type: 'simple-array', nullable: true })
   medical_conditions?: string[] | null;
 

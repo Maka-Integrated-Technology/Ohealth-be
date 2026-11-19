@@ -10,6 +10,7 @@ import { Logger } from 'winston';
 import { IRequestWithUser } from '../../common/types';
 import * as sysMsg from '../../constants/system.messages';
 import { EmailService } from '../email/email.service';
+import { CanonicalPatientProfileService } from '../patient/personal-profile/canonical-patient-profile.service';
 import { User } from '../user/entities/user.entity';
 import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserRole } from '../user/enums/user-role.enum';
@@ -39,7 +40,6 @@ describe('AuthService', () => {
     setPasswordResetChallenge: jest.fn(),
     consumePasswordResetToken: jest.fn(),
     rotateVerificationChallenge: jest.fn(),
-    updateAuthenticatedProfile: jest.fn(),
     replaceAuthenticatedPassword: jest.fn(),
     linkGoogleIdentity: jest.fn(),
     verifyEmailWithCode: jest.fn(),
@@ -121,6 +121,10 @@ describe('AuthService', () => {
       session: { id: 'session-id-1' },
     }),
   };
+  const mockPatientProfiles = {
+    get: jest.fn(),
+    update: jest.fn(),
+  };
 
   const mockLogger = {
     child: jest.fn().mockReturnThis(),
@@ -177,6 +181,10 @@ describe('AuthService', () => {
           useValue: mockAuthContextService,
         },
         {
+          provide: CanonicalPatientProfileService,
+          useValue: mockPatientProfiles,
+        },
+        {
           provide: AuthSecurityAuditService,
           useValue: audit,
         },
@@ -189,6 +197,15 @@ describe('AuthService', () => {
 
     service = module.get<AuthService>(AuthService);
     jest.clearAllMocks();
+    mockPatientProfiles.get.mockResolvedValue({
+      first_name: 'Funke',
+      last_name: 'Ibrahim',
+      middle_name: null,
+      gender: 'Female',
+      dob: '2001-01-10',
+      country: null,
+      address: null,
+    });
     mockRegistration.register.mockResolvedValue({
       message: 'Verification code queued',
       challenge_id: 'f64031c5-70e4-4b37-a92c-f193e59a6621',
@@ -649,6 +666,43 @@ describe('AuthService', () => {
           subject_user_id: 'user-id-1',
         }),
       );
+    });
+  });
+
+  describe('updateProfile', () => {
+    const req = {
+      user: { id: 'user-id-1', sessionId: 'session-id-1' },
+    } as IRequestWithUser;
+
+    it('returns the committed personal fields without a post-write read', async () => {
+      mockUserService.findById.mockResolvedValue({
+        id: 'user-id-1',
+        first_name: 'Funke',
+        last_name: 'Ibrahim',
+        role: [UserRole.PATIENT],
+        created_at: new Date(),
+        updated_at: new Date(),
+      });
+      mockPatientProfiles.update.mockResolvedValue({
+        first_name: 'Amaka',
+        last_name: 'Ibrahim',
+        middle_name: null,
+        gender: null,
+        dob: null,
+        country: null,
+        address: 'Lagos',
+        updated_at: new Date('2026-11-19T00:00:00Z'),
+      });
+
+      const result = await service.updateProfile(req, { first_name: 'Amaka' });
+
+      expect(mockPatientProfiles.update).toHaveBeenCalledWith(
+        'user-id-1',
+        'session-id-1',
+        { first_name: 'Amaka' },
+      );
+      expect(result).toMatchObject({ first_name: 'Amaka', address: 'Lagos' });
+      expect(mockPatientProfiles.get).toHaveBeenCalledTimes(1);
     });
   });
 

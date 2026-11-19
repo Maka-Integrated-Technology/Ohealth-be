@@ -440,6 +440,11 @@
           "account_context": {
             "$ref": "#/components/schemas/AuthContextResponseDto"
           },
+          "address": {
+            "maxLength": 500,
+            "nullable": true,
+            "type": "string"
+          },
           "country": {
             "deprecated": true,
             "nullable": true,
@@ -519,6 +524,7 @@
           "dob",
           "phone",
           "country",
+          "address",
           "image",
           "is_active",
           "created_at",
@@ -5626,6 +5632,48 @@
         },
         "type": "object"
       },
+      "UpdatePatientPersonalProfileDto": {
+        "properties": {
+          "address": {
+            "maxLength": 500,
+            "nullable": true,
+            "type": "string"
+          },
+          "country": {
+            "maxLength": 100,
+            "nullable": true,
+            "type": "string"
+          },
+          "dob": {
+            "format": "date",
+            "nullable": true,
+            "type": "string"
+          },
+          "first_name": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "gender": {
+            "enum": [
+              "Male",
+              "Female",
+              "Other"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "last_name": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "middle_name": {
+            "maxLength": 100,
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "UpdateProfessionalDto": {
         "properties": {
           "about": {
@@ -5679,62 +5727,6 @@
           "content": {
             "example": "Patient reports recurring headaches in the evenings. Advised hydration and reduced screen time.",
             "maxLength": 2000,
-            "type": "string"
-          }
-        },
-        "type": "object"
-      },
-      "UpdateProfileDto": {
-        "properties": {
-          "country": {
-            "description": "User country of residence",
-            "example": "Nigeria",
-            "nullable": true,
-            "type": "string"
-          },
-          "dob": {
-            "description": "Date of birth in YYYY-MM-DD format",
-            "example": "2000-01-15",
-            "nullable": true,
-            "type": "string"
-          },
-          "first_name": {
-            "description": "User first name",
-            "example": "John",
-            "type": "string"
-          },
-          "gender": {
-            "description": "User gender",
-            "enum": [
-              "Male",
-              "Female",
-              "Other"
-            ],
-            "example": "Male",
-            "nullable": true,
-            "type": "string"
-          },
-          "image": {
-            "description": "User avatar image URL",
-            "example": "https://res.cloudinary.com/ohealth/image/upload/v123/avatar.png",
-            "nullable": true,
-            "type": "string"
-          },
-          "last_name": {
-            "description": "User last name",
-            "example": "Doe",
-            "type": "string"
-          },
-          "middle_name": {
-            "description": "User middle name",
-            "example": "Michael",
-            "nullable": true,
-            "type": "string"
-          },
-          "phone": {
-            "description": "User phone number",
-            "example": "+1234567890",
-            "nullable": true,
             "type": "string"
           }
         },
@@ -7785,7 +7777,7 @@
             "bearer": []
           }
         ],
-        "summary": "Fetches the canonical authenticated account context",
+        "summary": "Fetch the authenticated patient personal profile and account context",
         "tags": [
           "Authentication"
         ]
@@ -7797,7 +7789,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateProfileDto"
+                "$ref": "#/components/schemas/UpdatePatientPersonalProfileDto"
               }
             }
           },
@@ -7865,7 +7857,7 @@
             "bearer": []
           }
         ],
-        "summary": "Update authenticated user profile",
+        "summary": "Update authenticated patient personal profile",
         "tags": [
           "Authentication"
         ]

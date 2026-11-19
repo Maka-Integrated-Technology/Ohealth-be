@@ -13,7 +13,8 @@ export const GetProfileDocs = () =>
   applyDecorators(
     ApiBearerAuth(),
     ApiOperation({
-      summary: 'Fetches the canonical authenticated account context',
+      summary:
+        'Fetch the authenticated patient personal profile and account context',
     }),
     ApiOkResponse({
       description: sysMsg.PROFILE_RETRIEVED,

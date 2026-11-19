@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  ForbiddenException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { IsNull, Repository } from 'typeorm';
 
 import { AccountAccessPolicyService } from '../auth/account-access-policy.service';
@@ -158,42 +154,6 @@ describe('UserService atomic verification and audited state transitions', () => 
     );
     expect(result).toBeNull();
     expect(update).not.toHaveBeenCalled();
-  });
-
-  it('rejects a profile write when the locked current account is suspended', async () => {
-    findOne.mockResolvedValue({
-      id: 'suspended-user',
-      account_status: AccountStatus.SUSPENDED,
-      email_verified_at: new Date(),
-    });
-
-    await expect(
-      service.updateAuthenticatedProfile('suspended-user', {
-        first_name: 'Changed',
-      }),
-    ).rejects.toThrow(UnauthorizedException);
-    expect(update).not.toHaveBeenCalled();
-  });
-
-  it('updates only permitted profile fields after locking an active account', async () => {
-    const user = {
-      id: 'active-user',
-      first_name: 'Old',
-      account_status: AccountStatus.ACTIVE,
-      email_verified_at: new Date(),
-    } as User;
-    findOne.mockResolvedValue(user);
-
-    await service.updateAuthenticatedProfile(user.id, {
-      first_name: 'New',
-    });
-
-    expect(update).toHaveBeenCalledWith(User, user.id, { first_name: 'New' });
-    expect(update).not.toHaveBeenCalledWith(
-      User,
-      user.id,
-      expect.objectContaining({ account_status: expect.anything() }),
-    );
   });
 
   it('updates only reset-challenge fields without saving a stale user entity', async () => {
