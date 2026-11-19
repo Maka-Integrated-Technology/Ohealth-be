@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/naming-convention -- Environment variable names are intentionally uppercase. */
 import {
   DeleteObjectCommand,
   GetObjectCommand,
@@ -24,6 +25,7 @@ import {
   IStorageUploadOptions,
   IStorageUploadResult,
 } from './interfaces/storage.interface';
+import { parseObjectStorageSettings } from './object-storage-config';
 
 @Injectable()
 export class StorageService {
@@ -93,11 +95,11 @@ export class StorageService {
   private resolveBucket(bucket?: string): string {
     const resolvedBucket =
       bucket?.trim() ||
-      this.configService.get<string>('storage.aws.s3.privateBucket')?.trim();
+      this.configService.get<string>('storage.privateBucket')?.trim();
 
     if (!resolvedBucket) {
       throw new InternalServerErrorException(
-        'AWS_S3_PRIVATE_BUCKET is required when no bucket is provided',
+        'OBJECT_STORAGE_PRIVATE_BUCKET is required when no bucket is provided',
       );
     }
 
@@ -105,23 +107,37 @@ export class StorageService {
   }
 
   private assertStorageConfigured(): void {
-    const missingConfig = [
-      ['AWS_REGION', this.configService.get<string>('storage.aws.region')],
-      [
-        'AWS_ACCESS_KEY_ID',
-        this.configService.get<string>('storage.aws.accessKeyId'),
-      ],
-      [
-        'AWS_SECRET_ACCESS_KEY',
-        this.configService.get<string>('storage.aws.secretAccessKey'),
-      ],
-    ]
-      .filter(([, value]) => !value)
-      .map(([name]) => name);
-
-    if (missingConfig.length) {
+    try {
+      parseObjectStorageSettings(
+        {
+          OBJECT_STORAGE_ENDPOINT:
+            this.configService.get<string>('storage.endpoint'),
+          OBJECT_STORAGE_REGION:
+            this.configService.get<string>('storage.region'),
+          OBJECT_STORAGE_ACCESS_KEY_ID: this.configService.get<string>(
+            'storage.accessKeyId',
+          ),
+          OBJECT_STORAGE_SECRET_ACCESS_KEY: this.configService.get<string>(
+            'storage.secretAccessKey',
+          ),
+          OBJECT_STORAGE_PRIVATE_BUCKET: this.configService.get<string>(
+            'storage.privateBucket',
+          ),
+          OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS: String(
+            this.configService.get<string | number>(
+              'storage.signedUrlTtlSeconds',
+            ) ?? '300',
+          ),
+          OBJECT_STORAGE_FORCE_PATH_STYLE: this.configService.get<string>(
+            'storage.forcePathStyle',
+          ),
+        },
+        'OBJECT_STORAGE',
+        this.configService.get<string>('env') === 'test',
+      );
+    } catch {
       throw new InternalServerErrorException(
-        `S3 storage is not configured. Missing: ${missingConfig.join(', ')}`,
+        'Object storage is not configured.',
       );
     }
   }
@@ -159,8 +175,11 @@ export class StorageService {
   private resolveSignedUrlTtl(expiresInSeconds?: number): number {
     const ttl =
       expiresInSeconds ??
-      this.configService.get<number>('storage.aws.s3.signedUrlTtlSeconds') ??
-      DEFAULT_SIGNED_URL_TTL_SECONDS;
+      Number(
+        this.configService.get<string | number>(
+          'storage.signedUrlTtlSeconds',
+        ) ?? DEFAULT_SIGNED_URL_TTL_SECONDS,
+      );
 
     if (!Number.isInteger(ttl) || ttl < 1) {
       throw new BadRequestException(

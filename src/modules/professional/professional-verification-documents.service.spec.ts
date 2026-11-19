@@ -50,7 +50,7 @@ describe('ProfessionalVerificationDocumentsService', () => {
 
   const mockConfigService = {
     get: jest.fn((key: string) =>
-      key === 'storage.aws.s3.signedUrlTtlSeconds' ? 900 : undefined,
+      key === 'storage.signedUrlTtlSeconds' ? 900 : undefined,
     ),
   };
 

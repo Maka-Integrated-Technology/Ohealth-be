@@ -334,8 +334,7 @@ export class ProfessionalVerificationDocumentsService {
     document: ProfessionalVerificationDocument,
   ): Promise<ProfessionalVerificationDocumentDownloadDto> {
     const expiresInSeconds =
-      this.configService.get<number>('storage.aws.s3.signedUrlTtlSeconds') ||
-      300;
+      this.configService.get<number>('storage.signedUrlTtlSeconds') || 300;
     const url = await this.storageService.createSignedGetUrl({
       bucket: document.bucket,
       key: document.storage_key,

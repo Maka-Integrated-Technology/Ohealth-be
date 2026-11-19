@@ -27,15 +27,19 @@ describe('StorageService', () => {
 
   const getConfigValue = (key: string): string | number | undefined => {
     switch (key) {
-      case 'storage.aws.region':
+      case 'storage.endpoint':
+        return 'https://s3.example.test';
+      case 'storage.forcePathStyle':
+        return 'false';
+      case 'storage.region':
         return 'eu-west-1';
-      case 'storage.aws.accessKeyId':
+      case 'storage.accessKeyId':
         return 'access-key-id';
-      case 'storage.aws.secretAccessKey':
+      case 'storage.secretAccessKey':
         return 'secret-access-key';
-      case 'storage.aws.s3.privateBucket':
+      case 'storage.privateBucket':
         return 'private-bucket';
-      case 'storage.aws.s3.signedUrlTtlSeconds':
+      case 'storage.signedUrlTtlSeconds':
         return 300;
       default:
         return undefined;
@@ -153,7 +157,7 @@ describe('StorageService', () => {
 
   it('should throw when no bucket is available', async () => {
     mockConfigService.get.mockImplementation((key: string) => {
-      if (key === 'storage.aws.s3.privateBucket') {
+      if (key === 'storage.privateBucket') {
         return undefined;
       }
 
@@ -171,7 +175,7 @@ describe('StorageService', () => {
 
   it('should throw when storage credentials are missing', async () => {
     mockConfigService.get.mockImplementation((key: string) => {
-      if (key === 'storage.aws.accessKeyId') {
+      if (key === 'storage.accessKeyId') {
         return undefined;
       }
 
@@ -184,7 +188,7 @@ describe('StorageService', () => {
         body: Buffer.from('file'),
         contentType: 'application/pdf',
       }),
-    ).rejects.toThrow('S3 storage is not configured');
+    ).rejects.toThrow('Object storage is not configured');
   });
 
   it('should reject empty or absolute storage keys', async () => {
@@ -295,7 +299,7 @@ describe('StorageService', () => {
 
   it('should reject invalid configured signed url ttl values', async () => {
     mockConfigService.get.mockImplementation((key: string) => {
-      if (key === 'storage.aws.s3.signedUrlTtlSeconds') {
+      if (key === 'storage.signedUrlTtlSeconds') {
         return 1.5;
       }
 
@@ -306,7 +310,7 @@ describe('StorageService', () => {
       service.createSignedGetUrl({
         key: 'laboratories/lab-id/license.pdf',
       }),
-    ).rejects.toThrow('signed url expiration must be a positive integer');
+    ).rejects.toThrow('Object storage is not configured');
   });
 
   it('should reject signed url ttl values above the maximum supported limit', async () => {

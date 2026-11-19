@@ -57,7 +57,7 @@ describe('LaboratoryVerificationDocumentsService', () => {
 
   const mockConfigService = {
     get: jest.fn((key: string) =>
-      key === 'storage.aws.s3.signedUrlTtlSeconds' ? 900 : undefined,
+      key === 'storage.signedUrlTtlSeconds' ? 900 : undefined,
     ),
   };
 
@@ -200,7 +200,7 @@ describe('LaboratoryVerificationDocumentsService', () => {
     );
     mockStorageService.deleteObject.mockResolvedValue(undefined);
     mockConfigService.get.mockImplementation((key: string) =>
-      key === 'storage.aws.s3.signedUrlTtlSeconds' ? 900 : undefined,
+      key === 'storage.signedUrlTtlSeconds' ? 900 : undefined,
     );
   });
 

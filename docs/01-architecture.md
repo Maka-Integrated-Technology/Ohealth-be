@@ -71,9 +71,14 @@ prefer separate production instances.
 
 ### Object storage
 
-Documents and media live in private S3-compatible storage. PostgreSQL stores
-metadata and object keys, not file contents. Download access is authorized before
-a short-lived signed URL is issued.
+Documents and media live in private Backblaze B2 storage through the shared
+S3-compatible protocol boundary. The endpoint, region, explicit application-key
+credentials, bucket, and addressing mode come from environment configuration;
+production access requires HTTPS. The separate audit bucket uses SSE-B2 and
+Object Lock. Provisioning and live B2 verification are deferred to #163.
+PostgreSQL stores metadata and object keys, not file contents or provider URLs.
+Bucket names, object keys, and provider metadata must contain no PII or PHI.
+Download access is authorized before a short-lived signed URL is issued.
 
 ## Module boundaries
 

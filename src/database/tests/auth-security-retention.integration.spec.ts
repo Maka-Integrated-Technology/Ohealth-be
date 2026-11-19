@@ -114,6 +114,13 @@ integration('auth security-event retention on PostgreSQL', () => {
       condition: string | undefined;
     }> = [];
     const send = jest.fn(async (command: unknown) => {
+      if (command instanceof ListObjectVersionsCommand) {
+        const key = command.input.Prefix!;
+        return {
+          IsTruncated: false,
+          Versions: stored.has(key) ? [{ Key: key, VersionId: 'v1' }] : [],
+        };
+      }
       if (command instanceof PutObjectCommand) {
         const key = command.input.Key!;
         putProtection.push({
@@ -134,8 +141,7 @@ integration('auth security-event retention on PostgreSQL', () => {
         return {
           VersionId: 'v1',
           LastModified: object.lastModified,
-          ServerSideEncryption: 'aws:kms',
-          SSEKMSKeyId: 'test-kms-key',
+          ServerSideEncryption: 'AES256',
           ObjectLockMode: 'COMPLIANCE',
           ObjectLockRetainUntilDate: object.retainUntil,
           ContentLength: object.body.length,
@@ -153,12 +159,12 @@ integration('auth security-event retention on PostgreSQL', () => {
     const service = new AuthSecurityRetentionService(
       database,
       { send } as unknown as S3Client,
-      { bucket: 'private-audit-test', kmsKeyId: 'test-kms-key' },
+      { bucket: 'private-audit-test' },
     );
     expect(await service.archiveNext()).toBe(true);
     expect(putProtection).toEqual([
-      { encryption: 'aws:kms', lockMode: 'COMPLIANCE', condition: '*' },
-      { encryption: 'aws:kms', lockMode: 'COMPLIANCE', condition: '*' },
+      { encryption: 'AES256', lockMode: 'COMPLIANCE', condition: undefined },
+      { encryption: 'AES256', lockMode: 'COMPLIANCE', condition: undefined },
     ]);
     const receipts: Array<{
       event_id: string;
@@ -304,8 +310,20 @@ integration('auth security-event retention on PostgreSQL', () => {
   it('leaves a durable attempt and the online event when archive readback fails', async () => {
     await insertEvent(13);
     let retainUntil: Date;
+    let contentLength = 0;
+    let uploaded = false;
     const send = jest.fn(async (command: unknown) => {
+      if (command instanceof ListObjectVersionsCommand) {
+        return {
+          IsTruncated: false,
+          Versions: uploaded
+            ? [{ Key: command.input.Prefix, VersionId: 'v1' }]
+            : [],
+        };
+      }
       if (command instanceof PutObjectCommand) {
+        uploaded = true;
+        contentLength = (command.input.Body as Buffer).length;
         retainUntil = command.input.ObjectLockRetainUntilDate!;
         return { VersionId: 'v1' };
       }
@@ -313,11 +331,10 @@ integration('auth security-event retention on PostgreSQL', () => {
         return {
           VersionId: 'v1',
           LastModified: new Date(),
-          ServerSideEncryption: 'aws:kms',
-          SSEKMSKeyId: 'test-kms-key',
+          ServerSideEncryption: 'AES256',
           ObjectLockMode: 'COMPLIANCE',
           ObjectLockRetainUntilDate: retainUntil,
-          ContentLength: 8192,
+          ContentLength: contentLength,
         };
       }
       if (command instanceof GetObjectCommand) {
@@ -328,7 +345,7 @@ integration('auth security-event retention on PostgreSQL', () => {
     const service = new AuthSecurityRetentionService(
       database,
       { send } as unknown as S3Client,
-      { bucket: 'private-audit-test', kmsKeyId: 'test-kms-key' },
+      { bucket: 'private-audit-test' },
     );
     await expect(service.archiveNext()).rejects.toThrow('readback unavailable');
     const attempts: Array<{ event_id: string }> = await database.query(
@@ -470,7 +487,7 @@ integration('auth security-event retention on PostgreSQL', () => {
     const service = new AuthSecurityRetentionService(
       database,
       { send } as unknown as S3Client,
-      { bucket: 'private-audit-test', kmsKeyId: 'test-kms-key' },
+      { bucket: 'private-audit-test' },
     );
     expect(await service.purgeExpiredArchive('operator', 'APPROVAL-81')).toBe(
       true,
@@ -510,7 +527,7 @@ integration('auth security-event retention on PostgreSQL', () => {
     const service = new AuthSecurityRetentionService(
       database,
       { send } as unknown as S3Client,
-      { bucket: 'private-audit-test', kmsKeyId: 'test-kms-key' },
+      { bucket: 'private-audit-test' },
     );
     await expect(
       service.purgeExpiredArchive('operator', 'APPROVAL-81'),
@@ -554,7 +571,7 @@ integration('auth security-event retention on PostgreSQL', () => {
     const service = new AuthSecurityRetentionService(
       database,
       { send } as unknown as S3Client,
-      { bucket: 'private-audit-test', kmsKeyId: 'test-kms-key' },
+      { bucket: 'private-audit-test' },
     );
     expect(await service.purgeExpiredArchive('operator', 'APPROVAL-81')).toBe(
       true,

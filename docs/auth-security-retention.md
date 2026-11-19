@@ -71,11 +71,11 @@ production activation.
 The private archive bucket must have versioning and Object Lock enabled,
 with each object locked through its 24-month expiry from `occurred_at`
 (rounded up for object-store timestamp precision),
-and a dedicated KMS key. Configure the worker with the exact KMS key ARN. The writer needs only
-scoped object write, version read and head permissions; permanent version
+and SSE-B2 encryption (`AES256`). Configure a separate B2 application key.
+The writer needs only scoped object write, version read and head permissions; permanent version
 deletion belongs to the dedicated retention maintenance identity and must be
 blocked until the object lock expires. Deny public access. Audit object reads,
-deletes, KMS use, and temporary restores. Keep the bucket and database access
+deletes and temporary restores. Keep the bucket and database access
 separate from application runtime credentials.
 
 The offline worker accepts one operation per invocation:
@@ -86,11 +86,16 @@ npm run auth-audit-retention:run:prod -- --purge-online
 npm run auth-audit-retention:run:prod -- --purge-archive
 ```
 
-Set `AUTH_AUDIT_RETENTION_DATABASE_URL`, `AWS_REGION`,
-`AUTH_AUDIT_ARCHIVE_BUCKET`, and `AUTH_AUDIT_ARCHIVE_KMS_KEY_ARN` for every
-operation. Purges also require `AUTH_AUDIT_RETENTION_INITIATOR` and
-`AUTH_AUDIT_RETENTION_APPROVAL_REFERENCE`. The archive operation records an
-immutable upload attempt, then verifies encryption, compliance lock, version,
+Set `AUTH_AUDIT_RETENTION_DATABASE_URL`, `AUTH_AUDIT_ARCHIVE_ENDPOINT`,
+`AUTH_AUDIT_ARCHIVE_REGION`, `AUTH_AUDIT_ARCHIVE_ACCESS_KEY_ID`,
+`AUTH_AUDIT_ARCHIVE_SECRET_ACCESS_KEY`, `AUTH_AUDIT_ARCHIVE_BUCKET`, and
+`AUTH_AUDIT_ARCHIVE_FORCE_PATH_STYLE` for every operation. Endpoints must use
+HTTPS outside tests. Purges also require `AUTH_AUDIT_RETENTION_INITIATOR` and
+`AUTH_AUDIT_RETENTION_APPROVAL_REFERENCE`. Real B2 bucket and key provisioning,
+Object Lock verification, and live acceptance remain deferred to #163. The worker
+must stay disabled until that gate completes.
+
+The archive operation records an immutable upload attempt, then verifies encryption, compliance lock, version,
 content, and manifest before it records an immutable receipt. Online purge is
 limited to 100 rows per call. Archive purge is limited to 100 events per
 invocation and verifies that all object and manifest versions are absent before
