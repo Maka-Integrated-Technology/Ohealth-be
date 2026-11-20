@@ -11,11 +11,17 @@ import { JwtAuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
 describe('Patient profile HTTP body boundary', () => {
   let app: INestApplication;
   const updateProfile = jest.fn();
+  const updateProfessionalProfile = jest.fn();
 
   beforeAll(async () => {
     const module = await Test.createTestingModule({
       controllers: [AuthController],
-      providers: [{ provide: AuthService, useValue: { updateProfile } }],
+      providers: [
+        {
+          provide: AuthService,
+          useValue: { updateProfile, updateProfessionalProfile },
+        },
+      ],
     })
       .overrideGuard(JwtAuthGuard)
       .useValue({ canActivate: () => true })
@@ -38,6 +44,7 @@ describe('Patient profile HTTP body boundary', () => {
 
   beforeEach(() => {
     updateProfile.mockReset().mockResolvedValue({ ok: true });
+    updateProfessionalProfile.mockReset().mockResolvedValue({ ok: true });
   });
 
   it('accepts supported fields and rejects protected and unknown fields', async () => {
@@ -68,5 +75,35 @@ describe('Patient profile HTTP body boundary', () => {
         .expect(400);
     }
     expect(updateProfile).toHaveBeenCalledTimes(1);
+  });
+
+  it('accepts professional personal fields and rejects patient or practice fields', async () => {
+    await request(app.getHttpServer())
+      .patch('/api/auth/me/professional-profile')
+      .send({ first_name: ' Ada ', country: ' Nigeria ' })
+      .expect(200);
+    expect(updateProfessionalProfile).toHaveBeenCalledTimes(1);
+
+    for (const field of [
+      'address',
+      'user_id',
+      'role',
+      'persona',
+      'account_status',
+      'speciality_id',
+      'license_number',
+      'consultation_fee',
+      'availability',
+      'organization_id',
+      'image',
+      'phone',
+      'password',
+    ]) {
+      await request(app.getHttpServer())
+        .patch('/api/auth/me/professional-profile')
+        .send({ [field]: 'forbidden' })
+        .expect(400);
+    }
+    expect(updateProfessionalProfile).toHaveBeenCalledTimes(1);
   });
 });

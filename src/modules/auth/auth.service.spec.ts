@@ -15,6 +15,7 @@ import { IRequestWithUser } from '../../common/types';
 import * as sysMsg from '../../constants/system.messages';
 import { EmailService } from '../email/email.service';
 import { CanonicalPatientProfileService } from '../patient/personal-profile/canonical-patient-profile.service';
+import { CanonicalProfessionalProfileService } from '../professional/personal-profile/canonical-professional-profile.service';
 import { User } from '../user/entities/user.entity';
 import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserRole } from '../user/enums/user-role.enum';
@@ -130,6 +131,7 @@ describe('AuthService', () => {
     get: jest.fn(),
     update: jest.fn(),
   };
+  const mockProfessionalProfiles = { update: jest.fn() };
 
   const mockLogger = {
     child: jest.fn().mockReturnThis(),
@@ -188,6 +190,10 @@ describe('AuthService', () => {
         {
           provide: CanonicalPatientProfileService,
           useValue: mockPatientProfiles,
+        },
+        {
+          provide: CanonicalProfessionalProfileService,
+          useValue: mockProfessionalProfiles,
         },
         {
           provide: AuthSecurityAuditService,
@@ -751,6 +757,50 @@ describe('AuthService', () => {
         profile: { middle_name: null, country: null },
       });
       expect(mockPatientProfiles.get).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('updateProfessionalProfile', () => {
+    it('returns committed person-wide fields in the canonical account response', async () => {
+      mockAuthContextService.resolve.mockResolvedValueOnce({
+        account: { id: 'user-id-1', profile: {} },
+        capabilities: [AuthCapability.PERSONA_PROFESSIONAL],
+      });
+      mockUserService.findById.mockResolvedValue({
+        id: 'user-id-1',
+        first_name: 'Ada',
+        last_name: 'Okafor',
+        role: [],
+        created_at: new Date(),
+        updated_at: new Date(),
+      });
+      mockProfessionalProfiles.update.mockResolvedValue({
+        first_name: 'Amaka',
+        last_name: 'Okafor',
+        middle_name: null,
+        gender: null,
+        dob: null,
+        country: 'Nigeria',
+        updated_at: new Date(),
+      });
+      const req = {
+        user: { id: 'user-id-1', sessionId: 'session-id-1' },
+      } as IRequestWithUser;
+      const result = await service.updateProfessionalProfile(req, {
+        first_name: 'Amaka',
+      });
+      expect(mockProfessionalProfiles.update).toHaveBeenCalledWith(
+        'user-id-1',
+        'session-id-1',
+        { first_name: 'Amaka' },
+      );
+      expect(result).toMatchObject({
+        first_name: 'Amaka',
+        address: null,
+        account_context: {
+          account: { first_name: 'Amaka', profile: { country: 'Nigeria' } },
+        },
+      });
     });
   });
 

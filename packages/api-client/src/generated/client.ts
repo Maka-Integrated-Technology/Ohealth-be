@@ -207,6 +207,19 @@ export type AuthController_signupError =
   | operations['AuthController_signup']['responses'][500]['content']['application/json']
   | operations['AuthController_signup']['responses'][503]['content']['application/json'];
 
+export type AuthController_updateProfessionalProfileRequest = Readonly<{
+  readonly body: NonNullable<
+    operations['AuthController_updateProfessionalProfile']['requestBody']
+  >['content']['application/json'];
+  readonly headers?: ApiHeaders;
+}>;
+export type AuthController_updateProfessionalProfileResponse =
+  operations['AuthController_updateProfessionalProfile']['responses'][200]['content']['application/json'];
+export type AuthController_updateProfessionalProfileError =
+  | operations['AuthController_updateProfessionalProfile']['responses'][400]['content']['application/json']
+  | operations['AuthController_updateProfessionalProfile']['responses'][401]['content']['application/json']
+  | operations['AuthController_updateProfessionalProfile']['responses'][500]['content']['application/json'];
+
 export type AuthController_updateProfileRequest = Readonly<{
   readonly body: NonNullable<
     operations['AuthController_updateProfile']['requestBody']
@@ -1665,6 +1678,9 @@ export interface ApiClient {
   readonly AuthController_signup: (
     request: AuthController_signupRequest,
   ) => Promise<AuthController_signupResponse>;
+  readonly AuthController_updateProfessionalProfile: (
+    request: AuthController_updateProfessionalProfileRequest,
+  ) => Promise<AuthController_updateProfessionalProfileResponse>;
   readonly AuthController_updateProfile: (
     request: AuthController_updateProfileRequest,
   ) => Promise<AuthController_updateProfileResponse>;
@@ -2165,6 +2181,19 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
           operationId: 'AuthController_signup',
           method: 'POST',
           path: '/api/auth/signup',
+          requestMediaType: 'application/json',
+        },
+        request,
+      ),
+    AuthController_updateProfessionalProfile: (request) =>
+      core.request<
+        AuthController_updateProfessionalProfileResponse,
+        AuthController_updateProfessionalProfileError
+      >(
+        {
+          operationId: 'AuthController_updateProfessionalProfile',
+          method: 'PATCH',
+          path: '/api/auth/me/professional-profile',
           requestMediaType: 'application/json',
         },
         request,

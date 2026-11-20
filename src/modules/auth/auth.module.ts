@@ -13,6 +13,7 @@ import { Organization } from '../organization/entities/organization.entity';
 import { PatientProfile } from '../patient/entities/patient-profile.entity';
 import { CanonicalPatientProfileService } from '../patient/personal-profile/canonical-patient-profile.service';
 import { Professional } from '../professional/entities/professional.entity';
+import { CanonicalProfessionalProfileService } from '../professional/personal-profile/canonical-professional-profile.service';
 import { User } from '../user/entities/user.entity';
 import { UserModule } from '../user/user.module';
 
@@ -77,6 +78,7 @@ import { TwoFactorAuthController } from './two-factor-auth.controller';
   providers: [
     AuthService,
     CanonicalPatientProfileService,
+    CanonicalProfessionalProfileService,
     BrowserSessionConfig,
     BrowserSessionCookieService,
     BrowserSessionGuard,
