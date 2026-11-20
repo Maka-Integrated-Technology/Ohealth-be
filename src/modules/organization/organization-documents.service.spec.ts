@@ -262,4 +262,20 @@ describe('OrganizationDocumentsService', () => {
       key: 'stored-key',
     });
   });
+
+  it('does not report successful removal when provider cleanup fails', async () => {
+    documents.findOne.mockResolvedValue({
+      bucket: 'private',
+      storage_key: 'stored-key',
+    });
+    storage.deleteObject.mockRejectedValueOnce(new Error('provider failure'));
+    await expect(
+      service.deleteMine(
+        'user-id',
+        'organization-id',
+        OrganizationDocumentType.OPERATING_LICENSE,
+      ),
+    ).rejects.toThrow('Document object cleanup is incomplete');
+    expect(documents.remove).toHaveBeenCalled();
+  });
 });

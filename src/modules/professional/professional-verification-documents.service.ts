@@ -6,6 +6,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -94,6 +95,7 @@ export class ProfessionalVerificationDocumentsService {
       await this.deleteStoredObjectBestEffort(
         persistenceResult.replacedDocument.bucket,
         persistenceResult.replacedDocument.storage_key,
+        true,
       );
     }
 
@@ -188,6 +190,7 @@ export class ProfessionalVerificationDocumentsService {
     await this.deleteStoredObjectBestEffort(
       document.bucket,
       document.storage_key,
+      true,
     );
 
     return {
@@ -401,6 +404,7 @@ export class ProfessionalVerificationDocumentsService {
   private async deleteStoredObjectBestEffort(
     bucket: string,
     key: string,
+    required = false,
   ): Promise<void> {
     try {
       await this.storageService.deleteObject({
@@ -416,6 +420,10 @@ export class ProfessionalVerificationDocumentsService {
           error: error instanceof Error ? error.message : String(error),
         },
       );
+      if (required)
+        throw new InternalServerErrorException(
+          'Document object cleanup is incomplete.',
+        );
     }
   }
 

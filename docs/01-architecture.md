@@ -79,6 +79,9 @@ Object Lock. Provisioning and live B2 verification are deferred to #163.
 PostgreSQL stores metadata and object keys, not file contents or provider URLs.
 Bucket names, object keys, and provider metadata must contain no PII, PHI, or person-linked identifiers. Verification document keys use opaque random IDs; ownership, document type, and uploader remain in PostgreSQL.
 Download access is authorized before a short-lived signed URL is issued.
+Mutable document deletion enumerates exact object versions and delete markers,
+deletes by version ID, and verifies absence. A name-only delete is insufficient
+in B2's versioned buckets.
 
 ## Module boundaries
 

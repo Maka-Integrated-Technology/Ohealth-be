@@ -2,6 +2,7 @@
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  ListObjectVersionsCommand,
   PutObjectCommand,
   S3Client,
 } from '@aws-sdk/client-s3';
@@ -26,6 +27,8 @@ import {
   IStorageUploadResult,
 } from './interfaces/storage.interface';
 import { parseObjectStorageSettings } from './object-storage-config';
+
+const MAX_VERSION_LIST_PAGES = 100;
 
 @Injectable()
 export class StorageService {
@@ -68,11 +71,76 @@ export class StorageService {
     const key = this.resolveKey(reference.key);
     this.assertStorageConfigured();
 
-    await this.s3Client.send(
-      new DeleteObjectCommand({
-        Bucket: bucket,
-        Key: key,
-      }),
+    const versions = await this.listExactVersions(bucket, key);
+    for (const versionId of versions) {
+      await this.s3Client.send(
+        new DeleteObjectCommand({
+          Bucket: bucket,
+          Key: key,
+          VersionId: versionId,
+        }),
+      );
+    }
+    if ((await this.listExactVersions(bucket, key)).length !== 0) {
+      throw new InternalServerErrorException('Object deletion is incomplete.');
+    }
+  }
+
+  private async listExactVersions(
+    bucket: string,
+    key: string,
+  ): Promise<string[]> {
+    const versions: string[] = [];
+    const seenVersions = new Set<string>();
+    const seenCursors = new Set<string>();
+    let keyMarker: string | undefined;
+    let versionIdMarker: string | undefined;
+    for (let page = 0; page < MAX_VERSION_LIST_PAGES; page += 1) {
+      const listed = await this.s3Client.send(
+        new ListObjectVersionsCommand({
+          Bucket: bucket,
+          Prefix: key,
+          KeyMarker: keyMarker,
+          VersionIdMarker: versionIdMarker,
+          MaxKeys: 1000,
+        }),
+      );
+      for (const item of [
+        ...(listed.Versions ?? []),
+        ...(listed.DeleteMarkers ?? []),
+      ]) {
+        if (item.Key !== key) continue;
+        if (!item.VersionId || seenVersions.has(item.VersionId)) {
+          throw new InternalServerErrorException(
+            'Object version listing is invalid.',
+          );
+        }
+        seenVersions.add(item.VersionId);
+        versions.push(item.VersionId);
+      }
+      if (listed.IsTruncated === false) return versions;
+      if (listed.IsTruncated !== true) {
+        throw new InternalServerErrorException(
+          'Object version listing is incomplete.',
+        );
+      }
+      if (!listed.NextKeyMarker) {
+        throw new InternalServerErrorException(
+          'Object version listing is incomplete.',
+        );
+      }
+      const nextCursor = `${listed.NextKeyMarker}\u0000${listed.NextVersionIdMarker ?? ''}`;
+      if (seenCursors.has(nextCursor)) {
+        throw new InternalServerErrorException(
+          'Object version listing is incomplete.',
+        );
+      }
+      seenCursors.add(nextCursor);
+      keyMarker = listed.NextKeyMarker;
+      versionIdMarker = listed.NextVersionIdMarker;
+    }
+    throw new InternalServerErrorException(
+      'Object version listing exceeds the safety bound.',
     );
   }
 

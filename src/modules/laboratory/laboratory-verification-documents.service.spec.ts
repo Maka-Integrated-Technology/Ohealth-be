@@ -261,7 +261,7 @@ describe('LaboratoryVerificationDocumentsService', () => {
     });
   });
 
-  it('should replace an existing document and remove the old S3 object', async () => {
+  it('reports failure when replacement cannot remove the old object', async () => {
     mockDocumentRepository.findOne.mockResolvedValue(document);
     mockStorageService.deleteObject.mockRejectedValueOnce(
       new Error('old object delete failed'),
@@ -274,10 +274,7 @@ describe('LaboratoryVerificationDocumentsService', () => {
         LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
         uploadFile,
       ),
-    ).resolves.toMatchObject({
-      id: 'document-id',
-      document_type: LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
-    });
+    ).rejects.toThrow('Document object cleanup is incomplete');
 
     expect(mockDocumentRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({ id: document.id }),
@@ -412,17 +409,19 @@ describe('LaboratoryVerificationDocumentsService', () => {
     });
   });
 
-  it('should delete a document while the laboratory is editable', async () => {
+  it('does not report successful deletion when provider cleanup fails', async () => {
     mockDocumentRepository.findOne.mockResolvedValue(document);
     mockStorageService.deleteObject.mockRejectedValueOnce(
       new Error('cleanup failed'),
     );
 
-    const result = await service.deleteMyDocument(
-      'user-id',
-      'laboratory-id',
-      LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
-    );
+    await expect(
+      service.deleteMyDocument(
+        'user-id',
+        'laboratory-id',
+        LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
+      ),
+    ).rejects.toThrow('Document object cleanup is incomplete');
 
     expect(mockDocumentRepository.remove).toHaveBeenCalledWith(document);
     expect(mockLaboratoryRepository.findOne).toHaveBeenCalledWith({
@@ -432,9 +431,6 @@ describe('LaboratoryVerificationDocumentsService', () => {
     expect(mockStorageService.deleteObject).toHaveBeenCalledWith({
       bucket: document.bucket,
       key: document.storage_key,
-    });
-    expect(result).toEqual({
-      message: 'laboratory verification document deleted successfully',
     });
     expect(mockLogger.warn).toHaveBeenCalled();
   });

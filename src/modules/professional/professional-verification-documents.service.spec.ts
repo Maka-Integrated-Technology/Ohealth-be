@@ -251,6 +251,20 @@ describe('ProfessionalVerificationDocumentsService', () => {
     expect(mockDocumentRepository.remove).not.toHaveBeenCalled();
   });
 
+  it('does not report successful removal when provider cleanup fails', async () => {
+    mockDocumentRepository.findOne.mockResolvedValue(document);
+    mockStorageService.deleteObject.mockRejectedValueOnce(
+      new Error('provider failure'),
+    );
+    await expect(
+      service.deleteMyDocument(
+        'user-id',
+        ProfessionalVerificationDocumentType.PROFESSIONAL_LICENSE,
+      ),
+    ).rejects.toThrow('Document object cleanup is incomplete');
+    expect(mockDocumentRepository.remove).toHaveBeenCalledWith(document);
+  });
+
   it('should not leak whose document set is missing across users without a professional profile', async () => {
     mockProfessionalRepository.findOne.mockResolvedValue(null);
 

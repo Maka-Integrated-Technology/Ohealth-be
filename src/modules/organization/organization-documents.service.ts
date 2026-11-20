@@ -5,6 +5,7 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -100,6 +101,7 @@ export class OrganizationDocumentsService {
       await this.deleteStoredObjectBestEffort(
         persisted.replaced.bucket,
         persisted.replaced.storage_key,
+        true,
       );
     }
     return this.toDto(persisted.saved);
@@ -182,6 +184,7 @@ export class OrganizationDocumentsService {
     await this.deleteStoredObjectBestEffort(
       removed.bucket,
       removed.storage_key,
+      true,
     );
     return { message: 'organization document deleted successfully' };
   }
@@ -350,7 +353,11 @@ export class OrganizationDocumentsService {
     return document;
   }
 
-  private async deleteStoredObjectBestEffort(bucket: string, key: string) {
+  private async deleteStoredObjectBestEffort(
+    bucket: string,
+    key: string,
+    required = false,
+  ) {
     try {
       await this.storageService.deleteObject({ bucket, key });
     } catch (error) {
@@ -359,6 +366,10 @@ export class OrganizationDocumentsService {
         key,
         error,
       });
+      if (required)
+        throw new InternalServerErrorException(
+          'Document object cleanup is incomplete.',
+        );
     }
   }
 

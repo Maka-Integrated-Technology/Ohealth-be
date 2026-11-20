@@ -1,6 +1,8 @@
+/* eslint-disable jest/no-conditional-expect -- Protocol fakes assert inputs in each command branch. */
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  ListObjectVersionsCommand,
   PutObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
@@ -227,21 +229,117 @@ describe('StorageService', () => {
     ).rejects.toThrow('storage content type is required');
   });
 
-  it('should delete an object from S3', async () => {
-    mockS3Client.send.mockResolvedValue({});
-
-    await service.deleteObject({
-      bucket: 'explicit-bucket',
-      key: 'laboratories/lab-id/license.pdf',
+  it('permanently removes every exact data version and delete marker across pages', async () => {
+    const key = 'verification-documents/opaque.pdf';
+    const remaining = new Set(['v1', 'v2', 'marker']);
+    mockS3Client.send.mockImplementation(async (command: unknown) => {
+      if (command instanceof ListObjectVersionsCommand) {
+        expect(command.input).toMatchObject({
+          Bucket: 'explicit-bucket',
+          Prefix: key,
+        });
+        if (!remaining.size)
+          return { IsTruncated: false, Versions: [], DeleteMarkers: [] };
+        if (!command.input.KeyMarker) {
+          return {
+            IsTruncated: true,
+            Versions: [
+              { Key: key, VersionId: 'v1' },
+              { Key: `${key}.other`, VersionId: 'other' },
+            ],
+            NextKeyMarker: key,
+            NextVersionIdMarker: 'v1',
+          };
+        }
+        expect(command.input.VersionIdMarker).toBe('v1');
+        return {
+          IsTruncated: false,
+          Versions: [{ Key: key, VersionId: 'v2' }],
+          DeleteMarkers: [{ Key: key, VersionId: 'marker' }],
+        };
+      }
+      if (command instanceof DeleteObjectCommand) {
+        expect(command.input).toMatchObject({
+          Bucket: 'explicit-bucket',
+          Key: key,
+        });
+        expect(command.input.VersionId).toBeDefined();
+        remaining.delete(command.input.VersionId!);
+        return {};
+      }
+      throw new Error('unexpected command');
     });
 
-    expect(mockS3Client.send).toHaveBeenCalledWith(
-      expect.any(DeleteObjectCommand),
+    await expect(
+      service.deleteObject({ bucket: 'explicit-bucket', key }),
+    ).resolves.toBeUndefined();
+    expect(remaining.size).toBe(0);
+    expect(
+      mockS3Client.send.mock.calls.filter(
+        ([command]) => command instanceof DeleteObjectCommand,
+      ),
+    ).toHaveLength(3);
+  });
+
+  it('refuses incomplete listings before deleting any version', async () => {
+    mockS3Client.send.mockResolvedValue({
+      IsTruncated: true,
+      Versions: [{ Key: 'opaque', VersionId: 'v1' }],
+    });
+    await expect(service.deleteObject({ key: 'opaque' })).rejects.toThrow(
+      'incomplete',
     );
-    expect(mockS3Client.send.mock.calls[0][0].input).toEqual({
-      Bucket: 'explicit-bucket',
-      Key: 'laboratories/lab-id/license.pdf',
+    expect(
+      mockS3Client.send.mock.calls.some(
+        ([command]) => command instanceof DeleteObjectCommand,
+      ),
+    ).toBe(false);
+  });
+
+  it('reports partial deletion failure without a success result', async () => {
+    let deleted = false;
+    mockS3Client.send.mockImplementation(async (command: unknown) => {
+      if (command instanceof ListObjectVersionsCommand)
+        return {
+          IsTruncated: false,
+          Versions: [
+            { Key: 'opaque', VersionId: 'v1' },
+            { Key: 'opaque', VersionId: 'v2' },
+          ],
+        };
+      if (command instanceof DeleteObjectCommand) {
+        if (command.input.VersionId === 'v1') {
+          deleted = true;
+          return {};
+        }
+        throw new Error('provider delete failed');
+      }
+      throw new Error('unexpected command');
     });
+    await expect(service.deleteObject({ key: 'opaque' })).rejects.toThrow(
+      'provider delete failed',
+    );
+    expect(deleted).toBe(true);
+  });
+
+  it('rejects a provider that still lists a version after deletion', async () => {
+    mockS3Client.send.mockImplementation(async (command: unknown) => {
+      if (command instanceof ListObjectVersionsCommand)
+        return {
+          IsTruncated: false,
+          Versions: [{ Key: 'opaque', VersionId: 'v1' }],
+        };
+      if (command instanceof DeleteObjectCommand) return {};
+      throw new Error('unexpected command');
+    });
+    await expect(service.deleteObject({ key: 'opaque' })).rejects.toThrow(
+      'incomplete',
+    );
+    expect(
+      mockS3Client.send.mock.calls.filter(
+        ([command]) => command instanceof ListObjectVersionsCommand,
+      ),
+    ).toHaveLength(2);
   });
 
   it('should create a signed get url with default ttl', async () => {
