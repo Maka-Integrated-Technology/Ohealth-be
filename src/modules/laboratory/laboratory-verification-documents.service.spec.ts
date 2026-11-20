@@ -15,6 +15,7 @@ import { Logger } from 'winston';
 import { IMulterFile } from '../../common/types';
 import appConfig from '../../config/config';
 import { MAX_LAB_VERIFICATION_DOCUMENT_SIZE } from '../../constants/file-upload.constants';
+import { StorageCleanupService } from '../storage/storage-cleanup.service';
 import { StorageService } from '../storage/storage.service';
 
 import { LaboratoryAdmin } from './entities/laboratory-admin.entity';
@@ -56,6 +57,18 @@ describe('LaboratoryVerificationDocumentsService', () => {
     uploadPrivateObject: jest.fn(),
     createSignedGetUrl: jest.fn(),
     deleteObject: jest.fn(),
+  };
+  const cleanupReferences = new Map<string, { bucket: string; key: string }>();
+  const mockStorageCleanup = {
+    enqueue: jest.fn(async (_manager, bucket: string, key: string) => {
+      const id = `cleanup-${cleanupReferences.size + 1}`;
+      cleanupReferences.set(id, { bucket, key });
+      return id;
+    }),
+    process: jest.fn(async (id: string) => {
+      await mockStorageService.deleteObject(cleanupReferences.get(id));
+      cleanupReferences.delete(id);
+    }),
   };
 
   const mockConfigService = {
@@ -152,6 +165,7 @@ describe('LaboratoryVerificationDocumentsService', () => {
           provide: StorageService,
           useValue: mockStorageService,
         },
+        { provide: StorageCleanupService, useValue: mockStorageCleanup },
         {
           provide: ConfigService,
           useValue: mockConfigService,
@@ -168,6 +182,7 @@ describe('LaboratoryVerificationDocumentsService', () => {
     );
 
     jest.clearAllMocks();
+    cleanupReferences.clear();
     mockDataSource.transaction.mockImplementation(
       async (
         callback: (manager: {
@@ -284,12 +299,13 @@ describe('LaboratoryVerificationDocumentsService', () => {
       key: document.storage_key,
     });
     expect(mockLogger.warn).toHaveBeenCalledWith(
-      'Failed to clean up laboratory verification document',
-      expect.objectContaining({
-        bucket: document.bucket,
-        key: document.storage_key,
-      }),
+      'Laboratory document cleanup remains pending',
+      { id: 'cleanup-1' },
     );
+    expect(cleanupReferences.get('cleanup-1')).toEqual({
+      bucket: document.bucket,
+      key: document.storage_key,
+    });
   });
 
   it('should delete the uploaded object if persistence fails', async () => {
@@ -433,6 +449,12 @@ describe('LaboratoryVerificationDocumentsService', () => {
       key: document.storage_key,
     });
     expect(mockLogger.warn).toHaveBeenCalled();
+    expect(cleanupReferences.get('cleanup-1')).toEqual({
+      bucket: document.bucket,
+      key: document.storage_key,
+    });
+    await mockStorageCleanup.process('cleanup-1');
+    expect(cleanupReferences.size).toBe(0);
   });
 
   it('should allow document changes while verification is submitted', async () => {

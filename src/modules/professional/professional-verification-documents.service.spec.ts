@@ -14,6 +14,7 @@ import { Logger } from 'winston';
 
 import { IMulterFile } from '../../common/types';
 import appConfig from '../../config/config';
+import { StorageCleanupService } from '../storage/storage-cleanup.service';
 import { StorageService } from '../storage/storage.service';
 
 import { ProfessionalVerificationDocument } from './entities/professional-verification-document.entity';
@@ -49,6 +50,18 @@ describe('ProfessionalVerificationDocumentsService', () => {
     uploadPrivateObject: jest.fn(),
     createSignedGetUrl: jest.fn(),
     deleteObject: jest.fn(),
+  };
+  const cleanupReferences = new Map<string, { bucket: string; key: string }>();
+  const mockStorageCleanup = {
+    enqueue: jest.fn(async (_manager, bucket: string, key: string) => {
+      const id = `cleanup-${cleanupReferences.size + 1}`;
+      cleanupReferences.set(id, { bucket, key });
+      return id;
+    }),
+    process: jest.fn(async (id: string) => {
+      await mockStorageService.deleteObject(cleanupReferences.get(id));
+      cleanupReferences.delete(id);
+    }),
   };
 
   const mockConfigService = {
@@ -128,6 +141,7 @@ describe('ProfessionalVerificationDocumentsService', () => {
           provide: StorageService,
           useValue: mockStorageService,
         },
+        { provide: StorageCleanupService, useValue: mockStorageCleanup },
         {
           provide: ConfigService,
           useValue: mockConfigService,
@@ -144,6 +158,7 @@ describe('ProfessionalVerificationDocumentsService', () => {
     );
 
     jest.clearAllMocks();
+    cleanupReferences.clear();
     mockDataSource.transaction.mockImplementation(
       async (
         callback: (manager: {
@@ -263,6 +278,12 @@ describe('ProfessionalVerificationDocumentsService', () => {
       ),
     ).rejects.toThrow('Document object cleanup is incomplete');
     expect(mockDocumentRepository.remove).toHaveBeenCalledWith(document);
+    expect(cleanupReferences.get('cleanup-1')).toEqual({
+      bucket: document.bucket,
+      key: document.storage_key,
+    });
+    await mockStorageCleanup.process('cleanup-1');
+    expect(cleanupReferences.size).toBe(0);
   });
 
   it('should not leak whose document set is missing across users without a professional profile', async () => {

@@ -82,6 +82,12 @@ Download access is authorized before a short-lived signed URL is issued.
 Mutable document deletion enumerates exact object versions and delete markers,
 deletes by version ID, and verifies absence. A name-only delete is insufficient
 in B2's versioned buckets.
+Document deletion and replacement also enqueue the old bucket/key in the
+existing PostgreSQL outbox within the document transaction. Cleanup marks the
+event published only after exact-key version and delete-marker absence is
+verified. Provider failures leave a pending reference for retry. The bounded
+`private-object-cleanup:run` maintenance command retries due records; it is not
+enabled in production until the B2 rollout in #163.
 
 ## Module boundaries
 

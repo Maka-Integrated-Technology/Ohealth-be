@@ -16,6 +16,7 @@ import { Logger } from 'winston';
 import { IMulterFile } from '../../common/types';
 import { VerificationDocumentFileValidator } from '../../common/validators/verification-document-file.validator';
 import { IStorageUploadResult } from '../storage/interfaces/storage.interface';
+import { StorageCleanupService } from '../storage/storage-cleanup.service';
 import { StorageService } from '../storage/storage.service';
 
 import {
@@ -52,6 +53,7 @@ export class OrganizationDocumentsService {
     private readonly documentRepository: Repository<OrganizationDocument>,
     private readonly dataSource: DataSource,
     private readonly storageService: StorageService,
+    private readonly storageCleanup: StorageCleanupService,
     private readonly fileValidator: VerificationDocumentFileValidator,
     @Inject(WINSTON_MODULE_PROVIDER) baseLogger: Logger,
   ) {
@@ -82,7 +84,7 @@ export class OrganizationDocumentsService {
 
     let persisted: {
       saved: OrganizationDocument;
-      replaced: OrganizationDocument | null;
+      cleanupId: string | null;
     };
     try {
       persisted = await this.persistUpload(
@@ -97,12 +99,8 @@ export class OrganizationDocumentsService {
       throw error;
     }
 
-    if (persisted.replaced) {
-      await this.deleteStoredObjectBestEffort(
-        persisted.replaced.bucket,
-        persisted.replaced.storage_key,
-        true,
-      );
+    if (persisted.cleanupId) {
+      await this.processCleanup(persisted.cleanupId);
     }
     return this.toDto(persisted.saved);
   }
@@ -162,7 +160,7 @@ export class OrganizationDocumentsService {
     );
     this.assertDocumentTypeAllowed(organization, documentType);
 
-    const removed = await this.dataSource.transaction(async (manager) => {
+    const cleanupId = await this.dataSource.transaction(async (manager) => {
       const organizations = manager.withRepository(this.organizationRepository);
       const documents = manager.withRepository(this.documentRepository);
       const locked = await organizations.findOne({
@@ -177,15 +175,16 @@ export class OrganizationDocumentsService {
         organization.id,
         documentType,
       );
+      const cleanupId = await this.storageCleanup.enqueue(
+        manager,
+        document.bucket,
+        document.storage_key,
+      );
       await documents.remove(document);
-      return document;
+      return cleanupId;
     });
 
-    await this.deleteStoredObjectBestEffort(
-      removed.bucket,
-      removed.storage_key,
-      true,
-    );
+    await this.processCleanup(cleanupId);
     return { message: 'organization document deleted successfully' };
   }
 
@@ -241,7 +240,14 @@ export class OrganizationDocumentsService {
           uploaded_by_user_id: userId,
         }),
       );
-      return { saved, replaced };
+      const cleanupId = replaced
+        ? await this.storageCleanup.enqueue(
+            manager,
+            replaced.bucket,
+            replaced.storage_key,
+          )
+        : null;
+      return { saved, cleanupId };
     });
   }
 
@@ -351,6 +357,19 @@ export class OrganizationDocumentsService {
       throw new NotFoundException('organization document not found');
     }
     return document;
+  }
+
+  private async processCleanup(id: string): Promise<void> {
+    try {
+      await this.storageCleanup.process(id);
+    } catch {
+      this.logger.error('Organization document cleanup remains pending', {
+        id,
+      });
+      throw new InternalServerErrorException(
+        'Document object cleanup is incomplete.',
+      );
+    }
   }
 
   private async deleteStoredObjectBestEffort(
