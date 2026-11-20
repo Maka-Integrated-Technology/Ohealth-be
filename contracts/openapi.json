@@ -5733,6 +5733,43 @@
         },
         "type": "object"
       },
+      "UpdateProfessionalPersonalProfileDto": {
+        "properties": {
+          "country": {
+            "maxLength": 100,
+            "nullable": true,
+            "type": "string"
+          },
+          "dob": {
+            "format": "date",
+            "nullable": true,
+            "type": "string"
+          },
+          "first_name": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "gender": {
+            "enum": [
+              "Male",
+              "Female",
+              "Other"
+            ],
+            "nullable": true,
+            "type": "string"
+          },
+          "last_name": {
+            "maxLength": 100,
+            "type": "string"
+          },
+          "middle_name": {
+            "maxLength": 100,
+            "nullable": true,
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "UpdateSpecialityDto": {
         "properties": {
           "description": {
@@ -7778,7 +7815,7 @@
             "bearer": []
           }
         ],
-        "summary": "Restore authenticated account context and patient profile data",
+        "summary": "Restore authenticated account context and basic profile data",
         "tags": [
           "Authentication"
         ]
@@ -7859,6 +7896,98 @@
           }
         ],
         "summary": "Update authenticated patient personal profile",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/me/professional-profile": {
+      "patch": {
+        "operationId": "AuthController_updateProfessionalProfile",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfessionalPersonalProfileDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/AuthMeResponseDto"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Request validation failed"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Authentication is required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Active professional persona required"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Update authenticated healthcare-professional basic profile",
         "tags": [
           "Authentication"
         ]

@@ -16,6 +16,8 @@ import * as sysMsg from '../../constants/system.messages';
 import { EmailService } from '../email/email.service';
 import { CanonicalPatientProfileService } from '../patient/personal-profile/canonical-patient-profile.service';
 import { UpdatePatientPersonalProfileDto } from '../patient/personal-profile/patient-personal-profile.dto';
+import { CanonicalProfessionalProfileService } from '../professional/personal-profile/canonical-professional-profile.service';
+import { UpdateProfessionalPersonalProfileDto } from '../professional/personal-profile/professional-personal-profile.dto';
 import { User } from '../user/entities/user.entity';
 import { AccountStatus } from '../user/enums/account-status.enum';
 import { UserService } from '../user/user.service';
@@ -67,6 +69,7 @@ export class AuthService {
     private readonly emailService: EmailService,
     private readonly authContext: AuthContextService,
     private readonly patientProfiles: CanonicalPatientProfileService,
+    private readonly professionalProfiles: CanonicalProfessionalProfileService,
     private readonly accountAccessPolicy: AccountAccessPolicyService,
     private readonly passwordCredentials: PasswordCredentialsService,
     private readonly challengeFlows: SecureAuthChallengeFlowsService,
@@ -362,6 +365,43 @@ export class AuthService {
       country: saved.country,
       address: saved.address,
       updated_at: saved.updated_at,
+      account_context: {
+        ...current.account_context,
+        account: {
+          ...current.account_context.account,
+          first_name: saved.first_name,
+          last_name: saved.last_name,
+          profile: {
+            ...current.account_context.account.profile,
+            middle_name: saved.middle_name,
+            gender: saved.gender,
+            dob: saved.dob,
+            country: saved.country,
+            updated_at: saved.updated_at,
+          },
+        },
+      },
+    };
+  }
+
+  async updateProfessionalProfile(
+    req: IRequestWithUser,
+    dto: UpdateProfessionalPersonalProfileDto,
+  ) {
+    const userId = req.user?.id;
+    const sessionId = req.user?.sessionId;
+    if (!userId || !sessionId) {
+      throw new UnauthorizedException(sysMsg.TOKEN_INVALID);
+    }
+    const current = await this.getProfile(req);
+    const saved = await this.professionalProfiles.update(
+      userId,
+      sessionId,
+      dto,
+    );
+    return {
+      ...current,
+      ...saved,
       account_context: {
         ...current.account_context,
         account: {

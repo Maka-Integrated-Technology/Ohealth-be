@@ -127,19 +127,20 @@ export class AuthContextService {
     }
 
     if (
-      professional &&
       this.hasPersona(activePersonas, UserPersonaType.HEALTHCARE_PROFESSIONAL)
     ) {
       capabilities.add(AuthCapability.PERSONA_PROFESSIONAL);
-      capabilities.add(AuthCapability.PROFESSIONAL_ONBOARDING);
-      capabilities.add(AuthCapability.PROFESSIONAL_VERIFICATION);
-      if (
-        professional.is_active &&
-        professional.verification_status ===
-          ProfessionalVerificationStatus.VERIFIED
-      ) {
-        capabilities.add(AuthCapability.PROFESSIONAL_OPERATIONAL);
-        capabilities.add(AuthCapability.PROFESSIONAL_PATIENT_CARE);
+      if (professional) {
+        capabilities.add(AuthCapability.PROFESSIONAL_ONBOARDING);
+        capabilities.add(AuthCapability.PROFESSIONAL_VERIFICATION);
+        if (
+          professional.is_active &&
+          professional.verification_status ===
+            ProfessionalVerificationStatus.VERIFIED
+        ) {
+          capabilities.add(AuthCapability.PROFESSIONAL_OPERATIONAL);
+          capabilities.add(AuthCapability.PROFESSIONAL_PATIENT_CARE);
+        }
       }
     }
 

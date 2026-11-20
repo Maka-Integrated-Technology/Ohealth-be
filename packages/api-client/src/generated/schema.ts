@@ -337,7 +337,7 @@ export interface paths {
       readonly path?: never;
       readonly cookie?: never;
     };
-    /** Restore authenticated account context and patient profile data */
+    /** Restore authenticated account context and basic profile data */
     readonly get: operations['AuthController_getProfile'];
     readonly put?: never;
     readonly post?: never;
@@ -346,6 +346,23 @@ export interface paths {
     readonly head?: never;
     /** Update authenticated patient personal profile */
     readonly patch: operations['AuthController_updateProfile'];
+    readonly trace?: never;
+  };
+  readonly '/api/auth/me/professional-profile': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    readonly post?: never;
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    /** Update authenticated healthcare-professional basic profile */
+    readonly patch: operations['AuthController_updateProfessionalProfile'];
     readonly trace?: never;
   };
   readonly '/api/auth/oauth/google/complete': {
@@ -3805,6 +3822,16 @@ export interface components {
       /** @example Patient reports recurring headaches in the evenings. Advised hydration and reduced screen time. */
       readonly content?: string;
     };
+    readonly UpdateProfessionalPersonalProfileDto: {
+      readonly country?: string | null;
+      /** Format: date */
+      readonly dob?: string | null;
+      readonly first_name?: string;
+      /** @enum {string|null} */
+      readonly gender?: UpdatePatientPersonalProfileDtoGender;
+      readonly last_name?: string;
+      readonly middle_name?: string | null;
+    };
     readonly UpdateSpecialityDto: {
       /** @example General medical consultations */
       readonly description?: string;
@@ -5088,6 +5115,67 @@ export interface operations {
       };
       /** @description unauthorized */
       readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly AuthController_updateProfessionalProfile: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly 'application/json': components['schemas']['UpdateProfessionalPersonalProfileDto'];
+      };
+    };
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['AuthMeResponseDto'];
+          };
+        };
+      };
+      /** @description Request validation failed */
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Authentication is required */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Active professional persona required */
+      readonly 403: {
         headers: {
           readonly [name: string]: unknown;
         };

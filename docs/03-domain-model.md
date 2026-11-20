@@ -35,6 +35,12 @@ retention and deletion lifecycle and must not appear in logs or audit metadata.
 It includes the patient address only when the session has an active patient
 persona; the address is null for other account contexts. `PATCH /auth/me`
 requires that active patient persona and cannot change contact or clinical data.
+An active healthcare-professional persona updates the same person-wide fields
+(first, last and middle name, gender, date of birth, and country) through
+`PATCH /auth/me/professional-profile`. These fields remain on `users`; a basic
+profile does not create or change the separate professional practice/onboarding
+record. The professional endpoint does not accept patient address or any
+speciality, verification, organization, or privilege field.
 
 The user does not own an organization role and should not contain speciality or
 clinical data.

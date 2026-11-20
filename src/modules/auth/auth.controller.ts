@@ -15,6 +15,7 @@ import {
   ApiBearerAuth,
   ApiBadRequestResponse,
   ApiExcludeEndpoint,
+  ApiForbiddenResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -25,6 +26,7 @@ import { Public } from '../../common/decorators/public.decorator';
 import { IAuthUser, IRequestWithUser } from '../../common/types';
 import * as sysMsg from '../../constants/system.messages';
 import { UpdatePatientPersonalProfileDto } from '../patient/personal-profile/patient-personal-profile.dto';
+import { UpdateProfessionalPersonalProfileDto } from '../professional/personal-profile/professional-personal-profile.dto';
 
 import { AuthService } from './auth.service';
 import { AuthAbuseGuard } from './challenges/auth-abuse.guard';
@@ -53,7 +55,11 @@ import {
   VerifySignupDocs,
   VerifyLoginDocs,
 } from './docs';
-import { LogoutResponseDto, LoginResponseDto } from './dto/auth-response.dto';
+import {
+  AuthMeResponseDto,
+  LogoutResponseDto,
+  LoginResponseDto,
+} from './dto/auth-response.dto';
 import {
   ChangePasswordDto,
   ForgotPasswordDto,
@@ -227,6 +233,22 @@ export class AuthController {
     @Body() updateProfileDto: UpdatePatientPersonalProfileDto,
   ) {
     return this.authService.updateProfile(req, updateProfileDto);
+  }
+
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Update authenticated healthcare-professional basic profile',
+  })
+  @ApiOkResponse({ type: AuthMeResponseDto })
+  @ApiForbiddenResponse({ description: 'Active professional persona required' })
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @Patch('me/professional-profile')
+  async updateProfessionalProfile(
+    @Req() req: IRequestWithUser,
+    @Body() dto: UpdateProfessionalPersonalProfileDto,
+  ) {
+    return this.authService.updateProfessionalProfile(req, dto);
   }
 
   @ChangePasswordDocs()

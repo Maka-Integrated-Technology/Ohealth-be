@@ -23,6 +23,7 @@ import { PasswordCredentialsService } from '../src/modules/auth/password-policy/
 import { RegistrationService } from '../src/modules/auth/registration/registration.service';
 import { EmailService } from '../src/modules/email/email.service';
 import { CanonicalPatientProfileService } from '../src/modules/patient/personal-profile/canonical-patient-profile.service';
+import { CanonicalProfessionalProfileService } from '../src/modules/professional/personal-profile/canonical-professional-profile.service';
 import { User } from '../src/modules/user/entities/user.entity';
 import { AccountStatus } from '../src/modules/user/enums/account-status.enum';
 import { UserRole } from '../src/modules/user/enums/user-role.enum';
@@ -116,6 +117,7 @@ describe('Credential enumeration resistance (isolated HTTP e2e)', () => {
         { provide: EmailService, useValue: {} },
         { provide: AuthContextService, useValue: {} },
         { provide: CanonicalPatientProfileService, useValue: {} },
+        { provide: CanonicalProfessionalProfileService, useValue: {} },
         { provide: JwtAuthGuard, useValue: { canActivate: () => false } },
         {
           provide: ConfigService,

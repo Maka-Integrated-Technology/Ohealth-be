@@ -104,6 +104,24 @@ describe('AuthContextService', () => {
     expect(context.memberships[0].organization_id).toBe('org-id');
   });
 
+  it('grants the persona capability before practice onboarding', async () => {
+    professionals.findOne.mockResolvedValue(null);
+
+    const context = await service.resolve('user-id', 'session-id');
+
+    expect(context.capabilities).toContain(AuthCapability.PERSONA_PROFESSIONAL);
+    expect(context.professional).toBeNull();
+    expect(context.capabilities).not.toContain(
+      AuthCapability.PROFESSIONAL_ONBOARDING,
+    );
+    expect(context.capabilities).not.toContain(
+      AuthCapability.PROFESSIONAL_VERIFICATION,
+    );
+    expect(context.capabilities).not.toContain(
+      AuthCapability.PROFESSIONAL_OPERATIONAL,
+    );
+  });
+
   it('derives platform capabilities only from the separate privilege record', async () => {
     platformPrivileges.find.mockResolvedValue([
       { privilege: PlatformPrivilege.ADMIN },
