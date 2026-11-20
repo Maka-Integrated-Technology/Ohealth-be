@@ -73,6 +73,7 @@ import { PatientProfile } from '../../modules/patient/entities/patient-profile.e
 import { CanonicalPatientProfileService } from '../../modules/patient/personal-profile/canonical-patient-profile.service';
 import { ProfessionalAvailability } from '../../modules/professional/entities/professional-availability.entity';
 import { Professional } from '../../modules/professional/entities/professional.entity';
+import { CanonicalProfessionalProfileService } from '../../modules/professional/personal-profile/canonical-professional-profile.service';
 import { ProfessionalController } from '../../modules/professional/professional.controller';
 import { ProfessionalService } from '../../modules/professional/professional.service';
 import { User } from '../../modules/user/entities/user.entity';
@@ -384,6 +385,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       providers: [
         AuthService,
         CanonicalPatientProfileService,
+        CanonicalProfessionalProfileService,
         BrowserSessionConfig,
         BrowserSessionCookieService,
         BrowserSessionGuard,
