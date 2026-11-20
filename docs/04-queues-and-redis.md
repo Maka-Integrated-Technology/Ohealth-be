@@ -65,6 +65,15 @@ resolves the verified canonical contact at dispatch time and never persists the
 provider token, nonce, or address in the event payload. Aggregate queue depth
 and oldest-event age are the worker's operational signals.
 
+Mutable private-document deletion and replacement write a `private_object_delete`
+event in the same transaction as the document change. Its payload contains only
+the private bucket and opaque object key. The storage cleanup maintenance
+command retries pending events with bounded backoff and no terminal failure;
+it marks an event published only after every exact-key version and delete
+marker is absent. Failed cleanup is therefore visible and retryable even when
+the document row has been removed. This command is available for manual use;
+production scheduling is deferred to the B2 rollout in #163.
+
 ## Initial queues
 
 | Queue           | Purpose                                                        |

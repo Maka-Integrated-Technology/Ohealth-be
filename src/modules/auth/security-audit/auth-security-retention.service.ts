@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  GetObjectRetentionCommand,
   HeadObjectCommand,
   ListObjectVersionsCommand,
   PutObjectCommand,
@@ -41,7 +42,6 @@ interface IImmutableObject {
 
 export interface IAuthSecurityRetentionOptions {
   bucket: string;
-  kmsKeyId: string;
 }
 
 const ADVISORY_LOCK = 810081;
@@ -57,8 +57,8 @@ export class AuthSecurityRetentionService {
     private readonly s3: S3Client,
     private readonly options: IAuthSecurityRetentionOptions,
   ) {
-    if (!options.bucket || !options.kmsKeyId) {
-      throw new Error('Audit archive bucket and KMS key are required.');
+    if (!options.bucket) {
+      throw new Error('Audit archive bucket is required.');
     }
   }
 
@@ -288,34 +288,48 @@ export class AuthSecurityRetentionService {
     }
   }
 
+  private async listExactVersions(
+    key: string,
+  ): Promise<Array<{ versionId: string; isDeleteMarker: boolean }>> {
+    const listed = await this.s3.send(
+      new ListObjectVersionsCommand({
+        Bucket: this.options.bucket,
+        Prefix: key,
+        MaxKeys: 1000,
+      }),
+    );
+    if (listed.IsTruncated) {
+      throw new Error('Archive version listing is incomplete.');
+    }
+    const versions = [
+      ...(listed.Versions ?? []).map((item) => ({
+        ...item,
+        isDeleteMarker: false,
+      })),
+      ...(listed.DeleteMarkers ?? []).map((item) => ({
+        ...item,
+        isDeleteMarker: true,
+      })),
+    ].filter((item) => item.Key === key);
+    if (versions.some((item) => !item.VersionId)) {
+      throw new Error('Archive version identifier is missing.');
+    }
+    return versions.map((item) => ({
+      versionId: item.VersionId!,
+      isDeleteMarker: item.isDeleteMarker,
+    }));
+  }
+
   private async deleteEveryVersion(key: string): Promise<void> {
-    // A retry can begin after a prior delete succeeded but before its ledger
-    // insert committed. List all versions, including delete markers.
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      const listed = await this.s3.send(
-        new ListObjectVersionsCommand({
-          Bucket: this.options.bucket,
-          Prefix: key,
-          MaxKeys: 1000,
-        }),
-      );
-      if (listed.IsTruncated) {
-        throw new Error('Archive has too many versions to purge safely.');
-      }
-      const versions = [
-        ...(listed.Versions ?? []),
-        ...(listed.DeleteMarkers ?? []),
-      ].filter((item) => item.Key === key);
+      const versions = await this.listExactVersions(key);
       if (versions.length === 0) return;
       for (const version of versions) {
-        if (!version.VersionId) {
-          throw new Error('Archive version identifier is missing.');
-        }
         await this.s3.send(
           new DeleteObjectCommand({
             Bucket: this.options.bucket,
             Key: key,
-            VersionId: version.VersionId,
+            VersionId: version.versionId,
           }),
         );
       }
@@ -328,42 +342,73 @@ export class AuthSecurityRetentionService {
     body: Buffer,
     retainUntil: Date,
   ): Promise<IImmutableObject> {
-    try {
-      await this.s3.send(
-        new PutObjectCommand({
-          Bucket: this.options.bucket,
-          Key: key,
-          Body: body,
-          ContentType: 'application/json',
-          ServerSideEncryption: 'aws:kms',
-          SSEKMSKeyId: this.options.kmsKeyId,
-          ObjectLockMode: 'COMPLIANCE',
-          ObjectLockRetainUntilDate: retainUntil,
-          IfNoneMatch: '*',
-        }),
-      );
-    } catch (error) {
-      const status = (error as { $metadata?: { httpStatusCode?: number } })
-        .$metadata?.httpStatusCode;
-      if (status !== 412) throw error;
-      // A previous attempt may have uploaded before its DB receipt committed.
-      // Only exact, still-locked content is accepted on retry.
+    const existing = await this.listExactVersions(key);
+    if (
+      existing.length > 1 ||
+      existing.some((version) => version.isDeleteMarker)
+    ) {
+      throw new Error('Audit archive has conflicting versions.');
     }
-
+    let versionId = existing[0]?.versionId;
+    if (!versionId) {
+      try {
+        const put = await this.s3.send(
+          new PutObjectCommand({
+            Bucket: this.options.bucket,
+            Key: key,
+            Body: body,
+            ContentType: 'application/json',
+            ServerSideEncryption: 'AES256',
+            ObjectLockMode: 'COMPLIANCE',
+            ObjectLockRetainUntilDate: retainUntil,
+          }),
+        );
+        versionId = put.VersionId;
+      } catch (error) {
+        // A lost acknowledgement can follow a committed write. Read the
+        // version listing before deciding whether retry would create a copy.
+        const afterError = await this.listExactVersions(key);
+        if (afterError.length === 0) throw error;
+        if (afterError.length !== 1 || afterError[0].isDeleteMarker) {
+          throw new Error('Audit archive has conflicting versions.');
+        }
+        versionId = afterError[0].versionId;
+      }
+    }
+    if (!versionId)
+      throw new Error('Audit archive version identifier is missing.');
+    const afterWrite = await this.listExactVersions(key);
+    if (
+      afterWrite.length !== 1 ||
+      afterWrite[0].isDeleteMarker ||
+      afterWrite[0].versionId !== versionId
+    ) {
+      throw new Error('Audit archive has conflicting versions.');
+    }
     const head = await this.s3.send(
-      new HeadObjectCommand({ Bucket: this.options.bucket, Key: key }),
+      new HeadObjectCommand({
+        Bucket: this.options.bucket,
+        Key: key,
+        VersionId: versionId,
+      }),
+    );
+    const retention = await this.s3.send(
+      new GetObjectRetentionCommand({
+        Bucket: this.options.bucket,
+        Key: key,
+        VersionId: versionId,
+      }),
     );
     if (
-      !head.VersionId ||
+      head.VersionId !== versionId ||
       !head.LastModified ||
-      head.ServerSideEncryption !== 'aws:kms' ||
-      head.SSEKMSKeyId !== this.options.kmsKeyId ||
-      head.ObjectLockMode !== 'COMPLIANCE' ||
-      !head.ObjectLockRetainUntilDate ||
-      head.ObjectLockRetainUntilDate < retainUntil ||
-      head.ObjectLockRetainUntilDate.getTime() >
+      head.ServerSideEncryption !== 'AES256' ||
+      retention.Retention?.Mode !== 'COMPLIANCE' ||
+      !retention.Retention.RetainUntilDate ||
+      retention.Retention.RetainUntilDate < retainUntil ||
+      retention.Retention.RetainUntilDate.getTime() >
         retainUntil.getTime() + 60_000 ||
-      head.ContentLength === undefined ||
+      head.ContentLength !== body.length ||
       head.ContentLength > MAX_ARCHIVE_BYTES
     ) {
       throw new Error(
@@ -374,7 +419,7 @@ export class AuthSecurityRetentionService {
       new GetObjectCommand({
         Bucket: this.options.bucket,
         Key: key,
-        VersionId: head.VersionId,
+        VersionId: versionId,
       }),
     );
     if (!fetched.Body) throw new Error('Audit archive object is empty.');
@@ -382,6 +427,6 @@ export class AuthSecurityRetentionService {
     if (!body.equals(readBack)) {
       throw new Error('Audit archive read-back checksum mismatch.');
     }
-    return { key, versionId: head.VersionId, lastModified: head.LastModified };
+    return { key, versionId, lastModified: head.LastModified };
   }
 }

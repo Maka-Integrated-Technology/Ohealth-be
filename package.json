@@ -47,7 +47,9 @@
     "oauth-security-notifications:dispatch": "ts-node -r tsconfig-paths/register src/workers/oauth-security-notifications.ts",
     "oauth-security-notifications:dispatch:prod": "node dist/workers/oauth-security-notifications.js",
     "auth-audit-retention:run": "ts-node -r tsconfig-paths/register src/workers/auth-security-retention.ts",
-    "auth-audit-retention:run:prod": "node dist/workers/auth-security-retention.js"
+    "auth-audit-retention:run:prod": "node dist/workers/auth-security-retention.js",
+    "private-object-cleanup:run": "ts-node -r tsconfig-paths/register src/workers/private-object-cleanup.ts",
+    "private-object-cleanup:run:prod": "node dist/workers/private-object-cleanup.js"
   },
   "lint-staged": {
     "src/**/*.ts": [

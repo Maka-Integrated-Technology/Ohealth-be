@@ -1,3 +1,5 @@
+import { env } from 'node:process';
+
 import {
   BadRequestException,
   ForbiddenException,
@@ -11,6 +13,8 @@ import { DataSource } from 'typeorm';
 import { Logger } from 'winston';
 
 import { IMulterFile } from '../../common/types';
+import appConfig from '../../config/config';
+import { StorageCleanupService } from '../storage/storage-cleanup.service';
 import { StorageService } from '../storage/storage.service';
 
 import { ProfessionalVerificationDocument } from './entities/professional-verification-document.entity';
@@ -47,10 +51,22 @@ describe('ProfessionalVerificationDocumentsService', () => {
     createSignedGetUrl: jest.fn(),
     deleteObject: jest.fn(),
   };
+  const cleanupReferences = new Map<string, { bucket: string; key: string }>();
+  const mockStorageCleanup = {
+    enqueue: jest.fn(async (_manager, bucket: string, key: string) => {
+      const id = `cleanup-${cleanupReferences.size + 1}`;
+      cleanupReferences.set(id, { bucket, key });
+      return id;
+    }),
+    process: jest.fn(async (id: string) => {
+      await mockStorageService.deleteObject(cleanupReferences.get(id));
+      cleanupReferences.delete(id);
+    }),
+  };
 
   const mockConfigService = {
     get: jest.fn((key: string) =>
-      key === 'storage.aws.s3.signedUrlTtlSeconds' ? 900 : undefined,
+      key === 'storage.signedUrlTtlSeconds' ? 900 : undefined,
     ),
   };
 
@@ -125,6 +141,7 @@ describe('ProfessionalVerificationDocumentsService', () => {
           provide: StorageService,
           useValue: mockStorageService,
         },
+        { provide: StorageCleanupService, useValue: mockStorageCleanup },
         {
           provide: ConfigService,
           useValue: mockConfigService,
@@ -141,6 +158,7 @@ describe('ProfessionalVerificationDocumentsService', () => {
     );
 
     jest.clearAllMocks();
+    cleanupReferences.clear();
     mockDataSource.transaction.mockImplementation(
       async (
         callback: (manager: {
@@ -180,7 +198,7 @@ describe('ProfessionalVerificationDocumentsService', () => {
     expect(service).toBeDefined();
   });
 
-  it('should upload and tag a professional verification document', async () => {
+  it('uploads a professional document without provider-visible identifiers', async () => {
     const result = await service.uploadMyDocument(
       'user-id',
       ProfessionalVerificationDocumentType.PROFESSIONAL_LICENSE,
@@ -193,17 +211,16 @@ describe('ProfessionalVerificationDocumentsService', () => {
     expect(mockStorageService.uploadPrivateObject).toHaveBeenCalledWith(
       expect.objectContaining({
         key: expect.stringMatching(
-          /^professionals\/professional-id\/verification-documents\/professional_license-[0-9a-f-]{36}\.pdf$/,
+          /^verification-documents\/[0-9a-f-]{36}\.pdf$/,
         ),
         body: uploadFile.buffer,
         contentType: 'application/pdf',
-        metadata: {
-          professional_id: 'professional-id',
-          document_type:
-            ProfessionalVerificationDocumentType.PROFESSIONAL_LICENSE,
-          uploaded_by_user_id: 'user-id',
-        },
       }),
+    );
+    const upload = mockStorageService.uploadPrivateObject.mock.calls[0][0];
+    expect(upload).not.toHaveProperty('metadata');
+    expect(upload.key).not.toMatch(
+      /professional-id|user-id|professional_license/,
     );
     expect(result.document_type).toBe(
       ProfessionalVerificationDocumentType.PROFESSIONAL_LICENSE,
@@ -249,6 +266,26 @@ describe('ProfessionalVerificationDocumentsService', () => {
     expect(mockDocumentRepository.remove).not.toHaveBeenCalled();
   });
 
+  it('does not report successful removal when provider cleanup fails', async () => {
+    mockDocumentRepository.findOne.mockResolvedValue(document);
+    mockStorageService.deleteObject.mockRejectedValueOnce(
+      new Error('provider failure'),
+    );
+    await expect(
+      service.deleteMyDocument(
+        'user-id',
+        ProfessionalVerificationDocumentType.PROFESSIONAL_LICENSE,
+      ),
+    ).rejects.toThrow('Document object cleanup is incomplete');
+    expect(mockDocumentRepository.remove).toHaveBeenCalledWith(document);
+    expect(cleanupReferences.get('cleanup-1')).toEqual({
+      bucket: document.bucket,
+      key: document.storage_key,
+    });
+    await mockStorageCleanup.process('cleanup-1');
+    expect(cleanupReferences.size).toBe(0);
+  });
+
   it('should not leak whose document set is missing across users without a professional profile', async () => {
     mockProfessionalRepository.findOne.mockResolvedValue(null);
 
@@ -287,6 +324,13 @@ describe('ProfessionalVerificationDocumentsService', () => {
   });
 
   it('should scope a download URL to the requesting professional’s own document', async () => {
+    const previousTtl = env.OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS;
+    env.OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS = '300';
+    const configuredTtl = appConfig().storage.signedUrlTtlSeconds;
+    if (previousTtl === undefined)
+      delete env.OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS;
+    else env.OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS = previousTtl;
+    mockConfigService.get.mockReturnValue(configuredTtl);
     mockDocumentRepository.findOne.mockResolvedValue(document);
 
     const result = await service.createMyDocumentDownloadUrl(
@@ -298,8 +342,10 @@ describe('ProfessionalVerificationDocumentsService', () => {
       expect.objectContaining({
         bucket: document.bucket,
         key: document.storage_key,
+        expiresInSeconds: 300,
       }),
     );
     expect(result.url).toBe('https://signed-url.test/license.pdf');
+    expect(result.expires_in_seconds).toBe(300);
   });
 });

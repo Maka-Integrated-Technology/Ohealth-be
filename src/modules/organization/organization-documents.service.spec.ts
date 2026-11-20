@@ -4,6 +4,7 @@ import { Logger } from 'winston';
 
 import { IMulterFile } from '../../common/types';
 import { VerificationDocumentFileValidator } from '../../common/validators/verification-document-file.validator';
+import { StorageCleanupService } from '../storage/storage-cleanup.service';
 import { StorageService } from '../storage/storage.service';
 
 import { OrganizationDocument } from './entities/organization-document.entity';
@@ -35,6 +36,18 @@ describe('OrganizationDocumentsService', () => {
     deleteObject: jest.fn(),
     createSignedGetUrl: jest.fn(),
   };
+  const cleanupReferences = new Map<string, { bucket: string; key: string }>();
+  const cleanup = {
+    enqueue: jest.fn(async (_manager, bucket: string, key: string) => {
+      const id = `cleanup-${cleanupReferences.size + 1}`;
+      cleanupReferences.set(id, { bucket, key });
+      return id;
+    }),
+    process: jest.fn(async (id: string) => {
+      await storage.deleteObject(cleanupReferences.get(id));
+      cleanupReferences.delete(id);
+    }),
+  };
   const validator = {
     validate: jest.fn().mockReturnValue({
       extension: '.pdf',
@@ -65,10 +78,12 @@ describe('OrganizationDocumentsService', () => {
       documents as unknown as Repository<OrganizationDocument>,
       dataSource as unknown as DataSource,
       storage as unknown as StorageService,
+      cleanup as unknown as StorageCleanupService,
       validator as unknown as VerificationDocumentFileValidator,
       logger as unknown as Logger,
     );
     jest.clearAllMocks();
+    cleanupReferences.clear();
     organization.verification_status = OrganizationVerificationStatus.PENDING;
     administrators.findOne.mockResolvedValue({ organization, role: 'owner' });
     organizations.findOne.mockResolvedValue(organization);
@@ -100,13 +115,14 @@ describe('OrganizationDocumentsService', () => {
     expect(storage.uploadPrivateObject).toHaveBeenCalledWith(
       expect.objectContaining({
         body: file.buffer,
-        metadata: {
-          organization_id: organization.id,
-          document_type: OrganizationDocumentType.OPERATING_LICENSE,
-          uploaded_by_user_id: 'user-id',
-        },
+        key: expect.stringMatching(
+          /^verification-documents\/[0-9a-f-]{36}\.pdf$/,
+        ),
       }),
     );
+    const upload = storage.uploadPrivateObject.mock.calls[0][0];
+    expect(upload).not.toHaveProperty('metadata');
+    expect(upload.key).not.toMatch(/organization-id|user-id|operating_license/);
     expect(documents.create).toHaveBeenCalledWith(
       expect.objectContaining({
         organization_id: organization.id,
@@ -260,5 +276,27 @@ describe('OrganizationDocumentsService', () => {
       bucket: 'private',
       key: 'stored-key',
     });
+  });
+
+  it('does not report successful removal when provider cleanup fails', async () => {
+    documents.findOne.mockResolvedValue({
+      bucket: 'private',
+      storage_key: 'stored-key',
+    });
+    storage.deleteObject.mockRejectedValueOnce(new Error('provider failure'));
+    await expect(
+      service.deleteMine(
+        'user-id',
+        'organization-id',
+        OrganizationDocumentType.OPERATING_LICENSE,
+      ),
+    ).rejects.toThrow('Document object cleanup is incomplete');
+    expect(documents.remove).toHaveBeenCalled();
+    expect(cleanupReferences.get('cleanup-1')).toEqual({
+      bucket: 'private',
+      key: 'stored-key',
+    });
+    await cleanup.process('cleanup-1');
+    expect(cleanupReferences.size).toBe(0);
   });
 });

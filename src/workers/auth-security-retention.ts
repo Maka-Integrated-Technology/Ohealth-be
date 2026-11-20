@@ -4,6 +4,10 @@ import { S3Client } from '@aws-sdk/client-s3';
 import { DataSource } from 'typeorm';
 
 import { AuthSecurityRetentionService } from '../modules/auth/security-audit/auth-security-retention.service';
+import {
+  objectStorageClientConfig,
+  parseObjectStorageSettings,
+} from '../modules/storage/object-storage-config';
 
 function required(name: string): string {
   const value = env[name]?.trim();
@@ -31,10 +35,14 @@ async function main(): Promise<void> {
     type: 'postgres',
     url: required('AUTH_AUDIT_RETENTION_DATABASE_URL'),
   });
-  const s3 = new S3Client({ region: required('AWS_REGION') });
+  const archive = parseObjectStorageSettings(
+    env,
+    'AUTH_AUDIT_ARCHIVE',
+    env.NODE_ENV === 'test',
+  );
+  const s3 = new S3Client(objectStorageClientConfig(archive));
   const service = new AuthSecurityRetentionService(database, s3, {
-    bucket: required('AUTH_AUDIT_ARCHIVE_BUCKET'),
-    kmsKeyId: required('AUTH_AUDIT_ARCHIVE_KMS_KEY_ARN'),
+    bucket: archive.bucket,
   });
   const initiator =
     operation === '--purge-online' || operation === '--purge-archive'

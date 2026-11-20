@@ -48,6 +48,12 @@ function applicationEnvironment(
     ['MAIL_PORT', '1025'],
     ['MAIL_FROM_ADDRESS', 'no-reply@example.com'],
     ['MAIL_FROM_NAME', 'OHealth'],
+    ['OBJECT_STORAGE_ENDPOINT', 'https://storage.example.test'],
+    ['OBJECT_STORAGE_REGION', 'eu-central-003'],
+    ['OBJECT_STORAGE_ACCESS_KEY_ID', 'test-key-id'],
+    ['OBJECT_STORAGE_SECRET_ACCESS_KEY', 'test-secret-key'],
+    ['OBJECT_STORAGE_PRIVATE_BUCKET', 'test-private-media'],
+    ['OBJECT_STORAGE_FORCE_PATH_STYLE', 'false'],
   ];
 }
 

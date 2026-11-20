@@ -6,6 +6,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -16,6 +17,7 @@ import { Logger } from 'winston';
 
 import { IMulterFile } from '../../common/types';
 import { IStorageUploadResult } from '../storage/interfaces/storage.interface';
+import { StorageCleanupService } from '../storage/storage-cleanup.service';
 import { StorageService } from '../storage/storage.service';
 
 import {
@@ -49,6 +51,7 @@ export class LaboratoryVerificationDocumentsService {
     private readonly documentRepository: Repository<LaboratoryVerificationDocument>,
     private readonly dataSource: DataSource,
     private readonly storageService: StorageService,
+    private readonly storageCleanup: StorageCleanupService,
     private readonly configService: ConfigService,
     private readonly fileValidator: LaboratoryVerificationDocumentFileValidator,
     @Inject(WINSTON_MODULE_PROVIDER) baseLogger: Logger,
@@ -74,25 +77,16 @@ export class LaboratoryVerificationDocumentsService {
     this.assertValidDocumentType(documentType);
     const validatedFile = this.fileValidator.validate(file);
 
-    const storageKey = this.buildStorageKey(
-      laboratory.id,
-      documentType,
-      validatedFile.extension,
-    );
+    const storageKey = this.buildStorageKey(validatedFile.extension);
     const uploaded = await this.storageService.uploadPrivateObject({
       key: storageKey,
       body: file.buffer,
       contentType: validatedFile.mimeType,
-      metadata: {
-        laboratory_id: laboratory.id,
-        document_type: documentType,
-        uploaded_by_user_id: userId,
-      },
     });
 
     let persistenceResult: {
       savedDocument: LaboratoryVerificationDocument;
-      replacedDocument: LaboratoryVerificationDocument | null;
+      cleanupId: string | null;
     };
     try {
       persistenceResult = await this.persistUploadedDocument(
@@ -107,11 +101,8 @@ export class LaboratoryVerificationDocumentsService {
       throw error;
     }
 
-    if (persistenceResult.replacedDocument?.storage_key) {
-      await this.deleteStoredObjectBestEffort(
-        persistenceResult.replacedDocument.bucket,
-        persistenceResult.replacedDocument.storage_key,
-      );
+    if (persistenceResult.cleanupId) {
+      await this.processCleanup(persistenceResult.cleanupId);
     }
 
     return this.toDocumentDto(persistenceResult.savedDocument);
@@ -184,7 +175,7 @@ export class LaboratoryVerificationDocumentsService {
       laboratoryId,
     );
     this.assertCanMutateDocuments(laboratory);
-    const document = await this.dataSource.transaction(async (manager) => {
+    const cleanupId = await this.dataSource.transaction(async (manager) => {
       const laboratoryRepository = manager.withRepository(
         this.laboratoryRepository,
       );
@@ -206,15 +197,17 @@ export class LaboratoryVerificationDocumentsService {
         laboratory.id,
         documentType,
       );
+      const cleanupId = await this.storageCleanup.enqueue(
+        manager,
+        storedDocument.bucket,
+        storedDocument.storage_key,
+      );
       await documentRepository.remove(storedDocument);
 
-      return storedDocument;
+      return cleanupId;
     });
 
-    await this.deleteStoredObjectBestEffort(
-      document.bucket,
-      document.storage_key,
-    );
+    await this.processCleanup(cleanupId);
 
     return { message: 'laboratory verification document deleted successfully' };
   }
@@ -240,7 +233,7 @@ export class LaboratoryVerificationDocumentsService {
     uploaded: IStorageUploadResult,
   ): Promise<{
     savedDocument: LaboratoryVerificationDocument;
-    replacedDocument: LaboratoryVerificationDocument | null;
+    cleanupId: string | null;
   }> {
     return this.dataSource.transaction(async (manager) => {
       const laboratoryRepository = manager.withRepository(
@@ -278,8 +271,14 @@ export class LaboratoryVerificationDocumentsService {
           uploaded_by_user_id: userId,
         }),
       );
-
-      return { savedDocument, replacedDocument };
+      const cleanupId = replacedDocument?.storage_key
+        ? await this.storageCleanup.enqueue(
+            manager,
+            replacedDocument.bucket,
+            replacedDocument.storage_key,
+          )
+        : null;
+      return { savedDocument, cleanupId };
     });
   }
 
@@ -348,8 +347,7 @@ export class LaboratoryVerificationDocumentsService {
     document: LaboratoryVerificationDocument,
   ): Promise<LaboratoryVerificationDocumentDownloadDto> {
     const expiresInSeconds =
-      this.configService.get<number>('storage.aws.s3.signedUrlTtlSeconds') ||
-      300;
+      this.configService.get<number>('storage.signedUrlTtlSeconds') || 300;
     const url = await this.storageService.createSignedGetUrl({
       bucket: document.bucket,
       key: document.storage_key,
@@ -381,12 +379,8 @@ export class LaboratoryVerificationDocumentsService {
     }
   }
 
-  private buildStorageKey(
-    laboratoryId: string,
-    documentType: LaboratoryVerificationDocumentType,
-    extension: string,
-  ): string {
-    return `laboratories/${laboratoryId}/verification-documents/${documentType}-${randomUUID()}${extension}`;
+  private buildStorageKey(extension: string): string {
+    return `verification-documents/${randomUUID()}${extension}`;
   }
 
   private normalizeFilename(filename?: string): string {
@@ -426,9 +420,21 @@ export class LaboratoryVerificationDocumentsService {
     };
   }
 
+  private async processCleanup(id: string): Promise<void> {
+    try {
+      await this.storageCleanup.process(id);
+    } catch {
+      this.logger.warn('Laboratory document cleanup remains pending', { id });
+      throw new InternalServerErrorException(
+        'Document object cleanup is incomplete.',
+      );
+    }
+  }
+
   private async deleteStoredObjectBestEffort(
     bucket: string,
     key: string,
+    required = false,
   ): Promise<void> {
     try {
       await this.storageService.deleteObject({
@@ -441,6 +447,10 @@ export class LaboratoryVerificationDocumentsService {
         key,
         error: error instanceof Error ? error.message : String(error),
       });
+      if (required)
+        throw new InternalServerErrorException(
+          'Document object cleanup is incomplete.',
+        );
     }
   }
 

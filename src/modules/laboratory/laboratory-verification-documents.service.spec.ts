@@ -1,3 +1,5 @@
+import { env } from 'node:process';
+
 import {
   BadRequestException,
   ForbiddenException,
@@ -11,7 +13,9 @@ import { DataSource } from 'typeorm';
 import { Logger } from 'winston';
 
 import { IMulterFile } from '../../common/types';
+import appConfig from '../../config/config';
 import { MAX_LAB_VERIFICATION_DOCUMENT_SIZE } from '../../constants/file-upload.constants';
+import { StorageCleanupService } from '../storage/storage-cleanup.service';
 import { StorageService } from '../storage/storage.service';
 
 import { LaboratoryAdmin } from './entities/laboratory-admin.entity';
@@ -54,10 +58,22 @@ describe('LaboratoryVerificationDocumentsService', () => {
     createSignedGetUrl: jest.fn(),
     deleteObject: jest.fn(),
   };
+  const cleanupReferences = new Map<string, { bucket: string; key: string }>();
+  const mockStorageCleanup = {
+    enqueue: jest.fn(async (_manager, bucket: string, key: string) => {
+      const id = `cleanup-${cleanupReferences.size + 1}`;
+      cleanupReferences.set(id, { bucket, key });
+      return id;
+    }),
+    process: jest.fn(async (id: string) => {
+      await mockStorageService.deleteObject(cleanupReferences.get(id));
+      cleanupReferences.delete(id);
+    }),
+  };
 
   const mockConfigService = {
     get: jest.fn((key: string) =>
-      key === 'storage.aws.s3.signedUrlTtlSeconds' ? 900 : undefined,
+      key === 'storage.signedUrlTtlSeconds' ? 900 : undefined,
     ),
   };
 
@@ -149,6 +165,7 @@ describe('LaboratoryVerificationDocumentsService', () => {
           provide: StorageService,
           useValue: mockStorageService,
         },
+        { provide: StorageCleanupService, useValue: mockStorageCleanup },
         {
           provide: ConfigService,
           useValue: mockConfigService,
@@ -165,6 +182,7 @@ describe('LaboratoryVerificationDocumentsService', () => {
     );
 
     jest.clearAllMocks();
+    cleanupReferences.clear();
     mockDataSource.transaction.mockImplementation(
       async (
         callback: (manager: {
@@ -200,7 +218,7 @@ describe('LaboratoryVerificationDocumentsService', () => {
     );
     mockStorageService.deleteObject.mockResolvedValue(undefined);
     mockConfigService.get.mockImplementation((key: string) =>
-      key === 'storage.aws.s3.signedUrlTtlSeconds' ? 900 : undefined,
+      key === 'storage.signedUrlTtlSeconds' ? 900 : undefined,
     );
   });
 
@@ -208,7 +226,7 @@ describe('LaboratoryVerificationDocumentsService', () => {
     expect(service).toBeDefined();
   });
 
-  it('should upload and tag a laboratory verification document', async () => {
+  it('uploads a laboratory document without provider-visible identifiers', async () => {
     const result = await service.uploadMyDocument(
       'user-id',
       'laboratory-id',
@@ -223,17 +241,15 @@ describe('LaboratoryVerificationDocumentsService', () => {
     expect(mockStorageService.uploadPrivateObject).toHaveBeenCalledWith(
       expect.objectContaining({
         key: expect.stringMatching(
-          /^laboratories\/laboratory-id\/verification-documents\/laboratory_license-[0-9a-f-]{36}\.pdf$/,
+          /^verification-documents\/[0-9a-f-]{36}\.pdf$/,
         ),
         body: uploadFile.buffer,
         contentType: 'application/pdf',
-        metadata: {
-          laboratory_id: 'laboratory-id',
-          document_type: LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
-          uploaded_by_user_id: 'user-id',
-        },
       }),
     );
+    const upload = mockStorageService.uploadPrivateObject.mock.calls[0][0];
+    expect(upload).not.toHaveProperty('metadata');
+    expect(upload.key).not.toMatch(/laboratory-id|user-id|laboratory_license/);
     expect(mockLaboratoryRepository.findOne).toHaveBeenCalledWith({
       where: { id: laboratory.id },
       lock: { mode: 'pessimistic_write' },
@@ -260,7 +276,7 @@ describe('LaboratoryVerificationDocumentsService', () => {
     });
   });
 
-  it('should replace an existing document and remove the old S3 object', async () => {
+  it('reports failure when replacement cannot remove the old object', async () => {
     mockDocumentRepository.findOne.mockResolvedValue(document);
     mockStorageService.deleteObject.mockRejectedValueOnce(
       new Error('old object delete failed'),
@@ -273,10 +289,7 @@ describe('LaboratoryVerificationDocumentsService', () => {
         LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
         uploadFile,
       ),
-    ).resolves.toMatchObject({
-      id: 'document-id',
-      document_type: LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
-    });
+    ).rejects.toThrow('Document object cleanup is incomplete');
 
     expect(mockDocumentRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({ id: document.id }),
@@ -286,12 +299,13 @@ describe('LaboratoryVerificationDocumentsService', () => {
       key: document.storage_key,
     });
     expect(mockLogger.warn).toHaveBeenCalledWith(
-      'Failed to clean up laboratory verification document',
-      expect.objectContaining({
-        bucket: document.bucket,
-        key: document.storage_key,
-      }),
+      'Laboratory document cleanup remains pending',
+      { id: 'cleanup-1' },
     );
+    expect(cleanupReferences.get('cleanup-1')).toEqual({
+      bucket: document.bucket,
+      key: document.storage_key,
+    });
   });
 
   it('should delete the uploaded object if persistence fails', async () => {
@@ -384,6 +398,13 @@ describe('LaboratoryVerificationDocumentsService', () => {
   });
 
   it('should create a signed download URL for a document', async () => {
+    const previousTtl = env.OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS;
+    env.OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS = '300';
+    const configuredTtl = appConfig().storage.signedUrlTtlSeconds;
+    if (previousTtl === undefined)
+      delete env.OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS;
+    else env.OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS = previousTtl;
+    mockConfigService.get.mockReturnValue(configuredTtl);
     mockDocumentRepository.findOne.mockResolvedValue(document);
 
     const result = await service.createMyDocumentDownloadUrl(
@@ -395,26 +416,28 @@ describe('LaboratoryVerificationDocumentsService', () => {
     expect(mockStorageService.createSignedGetUrl).toHaveBeenCalledWith({
       bucket: document.bucket,
       key: document.storage_key,
-      expiresInSeconds: 900,
+      expiresInSeconds: 300,
       responseContentDisposition: 'attachment; filename="license.pdf"',
     });
     expect(result).toEqual({
       url: 'https://signed-url.test/license.pdf',
-      expires_in_seconds: 900,
+      expires_in_seconds: 300,
     });
   });
 
-  it('should delete a document while the laboratory is editable', async () => {
+  it('does not report successful deletion when provider cleanup fails', async () => {
     mockDocumentRepository.findOne.mockResolvedValue(document);
     mockStorageService.deleteObject.mockRejectedValueOnce(
       new Error('cleanup failed'),
     );
 
-    const result = await service.deleteMyDocument(
-      'user-id',
-      'laboratory-id',
-      LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
-    );
+    await expect(
+      service.deleteMyDocument(
+        'user-id',
+        'laboratory-id',
+        LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
+      ),
+    ).rejects.toThrow('Document object cleanup is incomplete');
 
     expect(mockDocumentRepository.remove).toHaveBeenCalledWith(document);
     expect(mockLaboratoryRepository.findOne).toHaveBeenCalledWith({
@@ -425,10 +448,13 @@ describe('LaboratoryVerificationDocumentsService', () => {
       bucket: document.bucket,
       key: document.storage_key,
     });
-    expect(result).toEqual({
-      message: 'laboratory verification document deleted successfully',
-    });
     expect(mockLogger.warn).toHaveBeenCalled();
+    expect(cleanupReferences.get('cleanup-1')).toEqual({
+      bucket: document.bucket,
+      key: document.storage_key,
+    });
+    await mockStorageCleanup.process('cleanup-1');
+    expect(cleanupReferences.size).toBe(0);
   });
 
   it('should allow document changes while verification is submitted', async () => {

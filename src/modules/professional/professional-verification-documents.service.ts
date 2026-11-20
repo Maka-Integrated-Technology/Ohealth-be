@@ -6,6 +6,7 @@ import {
   ForbiddenException,
   Inject,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -16,6 +17,7 @@ import { Logger } from 'winston';
 
 import { IMulterFile } from '../../common/types';
 import { IStorageUploadResult } from '../storage/interfaces/storage.interface';
+import { StorageCleanupService } from '../storage/storage-cleanup.service';
 import { StorageService } from '../storage/storage.service';
 
 import {
@@ -45,6 +47,7 @@ export class ProfessionalVerificationDocumentsService {
     private readonly documentRepository: Repository<ProfessionalVerificationDocument>,
     private readonly dataSource: DataSource,
     private readonly storageService: StorageService,
+    private readonly storageCleanup: StorageCleanupService,
     private readonly configService: ConfigService,
     private readonly fileValidator: ProfessionalVerificationDocumentFileValidator,
     @Inject(WINSTON_MODULE_PROVIDER) baseLogger: Logger,
@@ -66,25 +69,16 @@ export class ProfessionalVerificationDocumentsService {
     this.assertValidDocumentType(documentType);
     const validatedFile = this.fileValidator.validate(file);
 
-    const storageKey = this.buildStorageKey(
-      professional.id,
-      documentType,
-      validatedFile.extension,
-    );
+    const storageKey = this.buildStorageKey(validatedFile.extension);
     const uploaded = await this.storageService.uploadPrivateObject({
       key: storageKey,
       body: file.buffer,
       contentType: validatedFile.mimeType,
-      metadata: {
-        professional_id: professional.id,
-        document_type: documentType,
-        uploaded_by_user_id: userId,
-      },
     });
 
     let persistenceResult: {
       savedDocument: ProfessionalVerificationDocument;
-      replacedDocument: ProfessionalVerificationDocument | null;
+      cleanupId: string | null;
     };
     try {
       persistenceResult = await this.persistUploadedDocument(
@@ -99,11 +93,8 @@ export class ProfessionalVerificationDocumentsService {
       throw error;
     }
 
-    if (persistenceResult.replacedDocument?.storage_key) {
-      await this.deleteStoredObjectBestEffort(
-        persistenceResult.replacedDocument.bucket,
-        persistenceResult.replacedDocument.storage_key,
-      );
+    if (persistenceResult.cleanupId) {
+      await this.processCleanup(persistenceResult.cleanupId);
     }
 
     return this.toDocumentDto(persistenceResult.savedDocument);
@@ -167,7 +158,7 @@ export class ProfessionalVerificationDocumentsService {
   ): Promise<{ message: string }> {
     const professional = await this.findProfessionalForUserOrThrow(userId);
     this.assertCanMutateDocuments(professional);
-    const document = await this.dataSource.transaction(async (manager) => {
+    const cleanupId = await this.dataSource.transaction(async (manager) => {
       const professionalRepository = manager.withRepository(
         this.professionalRepository,
       );
@@ -189,15 +180,17 @@ export class ProfessionalVerificationDocumentsService {
         professional.id,
         documentType,
       );
+      const cleanupId = await this.storageCleanup.enqueue(
+        manager,
+        storedDocument.bucket,
+        storedDocument.storage_key,
+      );
       await documentRepository.remove(storedDocument);
 
-      return storedDocument;
+      return cleanupId;
     });
 
-    await this.deleteStoredObjectBestEffort(
-      document.bucket,
-      document.storage_key,
-    );
+    await this.processCleanup(cleanupId);
 
     return {
       message: 'professional verification document deleted successfully',
@@ -226,7 +219,7 @@ export class ProfessionalVerificationDocumentsService {
     uploaded: IStorageUploadResult,
   ): Promise<{
     savedDocument: ProfessionalVerificationDocument;
-    replacedDocument: ProfessionalVerificationDocument | null;
+    cleanupId: string | null;
   }> {
     return this.dataSource.transaction(async (manager) => {
       const professionalRepository = manager.withRepository(
@@ -264,8 +257,14 @@ export class ProfessionalVerificationDocumentsService {
           uploaded_by_user_id: userId,
         }),
       );
-
-      return { savedDocument, replacedDocument };
+      const cleanupId = replacedDocument?.storage_key
+        ? await this.storageCleanup.enqueue(
+            manager,
+            replacedDocument.bucket,
+            replacedDocument.storage_key,
+          )
+        : null;
+      return { savedDocument, cleanupId };
     });
   }
 
@@ -334,8 +333,7 @@ export class ProfessionalVerificationDocumentsService {
     document: ProfessionalVerificationDocument,
   ): Promise<ProfessionalVerificationDocumentDownloadDto> {
     const expiresInSeconds =
-      this.configService.get<number>('storage.aws.s3.signedUrlTtlSeconds') ||
-      300;
+      this.configService.get<number>('storage.signedUrlTtlSeconds') || 300;
     const url = await this.storageService.createSignedGetUrl({
       bucket: document.bucket,
       key: document.storage_key,
@@ -367,12 +365,8 @@ export class ProfessionalVerificationDocumentsService {
     }
   }
 
-  private buildStorageKey(
-    professionalId: string,
-    documentType: ProfessionalVerificationDocumentType,
-    extension: string,
-  ): string {
-    return `professionals/${professionalId}/verification-documents/${documentType}-${randomUUID()}${extension}`;
+  private buildStorageKey(extension: string): string {
+    return `verification-documents/${randomUUID()}${extension}`;
   }
 
   private normalizeFilename(filename?: string): string {
@@ -412,9 +406,21 @@ export class ProfessionalVerificationDocumentsService {
     };
   }
 
+  private async processCleanup(id: string): Promise<void> {
+    try {
+      await this.storageCleanup.process(id);
+    } catch {
+      this.logger.warn('Professional document cleanup remains pending', { id });
+      throw new InternalServerErrorException(
+        'Document object cleanup is incomplete.',
+      );
+    }
+  }
+
   private async deleteStoredObjectBestEffort(
     bucket: string,
     key: string,
+    required = false,
   ): Promise<void> {
     try {
       await this.storageService.deleteObject({
@@ -430,6 +436,10 @@ export class ProfessionalVerificationDocumentsService {
           error: error instanceof Error ? error.message : String(error),
         },
       );
+      if (required)
+        throw new InternalServerErrorException(
+          'Document object cleanup is incomplete.',
+        );
     }
   }
 
