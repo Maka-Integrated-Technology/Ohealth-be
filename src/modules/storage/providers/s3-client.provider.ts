@@ -25,8 +25,8 @@ export const s3ClientProvider = {
         OBJECT_STORAGE_PRIVATE_BUCKET: configService.get<string>(
           'storage.privateBucket',
         ),
-        OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS: configService.get<string>(
-          'storage.signedUrlTtlSeconds',
+        OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS: String(
+          configService.get<number>('storage.signedUrlTtlSeconds') ?? '',
         ),
         OBJECT_STORAGE_FORCE_PATH_STYLE: configService.get<string>(
           'storage.forcePathStyle',

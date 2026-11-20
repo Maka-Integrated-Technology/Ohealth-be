@@ -2,6 +2,7 @@
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  GetObjectRetentionCommand,
   HeadObjectCommand,
   ListObjectVersionsCommand,
   PutObjectCommand,
@@ -36,10 +37,13 @@ function protectedObject(command: HeadObjectCommand) {
     VersionId: command.input.VersionId,
     LastModified: new Date('2026-11-20T00:00:00.000Z'),
     ServerSideEncryption: 'AES256',
-    ObjectLockMode: 'COMPLIANCE',
-    ObjectLockRetainUntilDate: retainUntil,
     ContentLength: body.length,
   };
+}
+
+function protectedRetention(command: GetObjectRetentionCommand) {
+  expect(command.input.VersionId).toBe('v1');
+  return { Retention: { Mode: 'COMPLIANCE', RetainUntilDate: retainUntil } };
 }
 
 describe('audit archive version safety', () => {
@@ -65,6 +69,8 @@ describe('audit archive version safety', () => {
         throw new Error('acknowledgement lost');
       }
       if (command instanceof HeadObjectCommand) return protectedObject(command);
+      if (command instanceof GetObjectRetentionCommand)
+        return protectedRetention(command);
       if (command instanceof GetObjectCommand)
         return { Body: { transformToByteArray: async () => body } };
       throw new Error('unexpected command');
@@ -89,6 +95,11 @@ describe('audit archive version safety', () => {
             (command as HeadObjectCommand).input.VersionId === 'v1',
         ),
     ).toBe(true);
+    expect(
+      send.mock.calls.filter(
+        ([command]) => command instanceof GetObjectRetentionCommand,
+      ),
+    ).toHaveLength(2);
   });
 
   it('rejects mismatched readback and extra versions', async () => {
@@ -99,6 +110,8 @@ describe('audit archive version safety', () => {
           Versions: [{ Key: command.input.Prefix, VersionId: 'v1' }],
         };
       if (command instanceof HeadObjectCommand) return protectedObject(command);
+      if (command instanceof GetObjectRetentionCommand)
+        return protectedRetention(command);
       if (command instanceof GetObjectCommand)
         return {
           Body: { transformToByteArray: async () => Buffer.from('wrong') },
@@ -126,11 +139,6 @@ describe('audit archive version safety', () => {
 
   it.each([
     ['encryption', { ServerSideEncryption: undefined }],
-    ['lock', { ObjectLockMode: undefined }],
-    [
-      'retention',
-      { ObjectLockRetainUntilDate: new Date('2028-11-19T00:00:00.000Z') },
-    ],
     ['length', { ContentLength: body.length - 1 }],
     ['version', { VersionId: 'different' }],
   ])('rejects missing or wrong %s evidence', async (_field, override) => {
@@ -144,6 +152,30 @@ describe('audit archive version safety', () => {
       if (command instanceof HeadObjectCommand) {
         return { ...protectedObject(command), ...override };
       }
+      if (command instanceof GetObjectRetentionCommand)
+        return protectedRetention(command);
+      throw new Error('unexpected command');
+    });
+    await expect(
+      harness(send).putAndVerify('archive/a', body, retainUntil),
+    ).rejects.toThrow('immutable protection');
+  });
+
+  it.each([
+    ['mode', { Mode: undefined }],
+    ['retention', { RetainUntilDate: new Date('2028-11-19T00:00:00.000Z') }],
+  ])('rejects missing or wrong %s lock evidence', async (_field, override) => {
+    const send = jest.fn(async (command: unknown) => {
+      if (command instanceof ListObjectVersionsCommand)
+        return {
+          IsTruncated: false,
+          Versions: [{ Key: command.input.Prefix, VersionId: 'v1' }],
+        };
+      if (command instanceof HeadObjectCommand) return protectedObject(command);
+      if (command instanceof GetObjectRetentionCommand)
+        return {
+          Retention: { ...protectedRetention(command).Retention, ...override },
+        };
       throw new Error('unexpected command');
     });
     await expect(

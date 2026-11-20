@@ -1,3 +1,5 @@
+import { env } from 'node:process';
+
 import {
   BadRequestException,
   ForbiddenException,
@@ -11,6 +13,7 @@ import { DataSource } from 'typeorm';
 import { Logger } from 'winston';
 
 import { IMulterFile } from '../../common/types';
+import appConfig from '../../config/config';
 import { StorageService } from '../storage/storage.service';
 
 import { ProfessionalVerificationDocument } from './entities/professional-verification-document.entity';
@@ -180,7 +183,7 @@ describe('ProfessionalVerificationDocumentsService', () => {
     expect(service).toBeDefined();
   });
 
-  it('should upload and tag a professional verification document', async () => {
+  it('uploads a professional document without provider-visible identifiers', async () => {
     const result = await service.uploadMyDocument(
       'user-id',
       ProfessionalVerificationDocumentType.PROFESSIONAL_LICENSE,
@@ -193,17 +196,16 @@ describe('ProfessionalVerificationDocumentsService', () => {
     expect(mockStorageService.uploadPrivateObject).toHaveBeenCalledWith(
       expect.objectContaining({
         key: expect.stringMatching(
-          /^professionals\/professional-id\/verification-documents\/professional_license-[0-9a-f-]{36}\.pdf$/,
+          /^verification-documents\/[0-9a-f-]{36}\.pdf$/,
         ),
         body: uploadFile.buffer,
         contentType: 'application/pdf',
-        metadata: {
-          professional_id: 'professional-id',
-          document_type:
-            ProfessionalVerificationDocumentType.PROFESSIONAL_LICENSE,
-          uploaded_by_user_id: 'user-id',
-        },
       }),
+    );
+    const upload = mockStorageService.uploadPrivateObject.mock.calls[0][0];
+    expect(upload).not.toHaveProperty('metadata');
+    expect(upload.key).not.toMatch(
+      /professional-id|user-id|professional_license/,
     );
     expect(result.document_type).toBe(
       ProfessionalVerificationDocumentType.PROFESSIONAL_LICENSE,
@@ -287,6 +289,13 @@ describe('ProfessionalVerificationDocumentsService', () => {
   });
 
   it('should scope a download URL to the requesting professional’s own document', async () => {
+    const previousTtl = env.OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS;
+    env.OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS = '300';
+    const configuredTtl = appConfig().storage.signedUrlTtlSeconds;
+    if (previousTtl === undefined)
+      delete env.OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS;
+    else env.OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS = previousTtl;
+    mockConfigService.get.mockReturnValue(configuredTtl);
     mockDocumentRepository.findOne.mockResolvedValue(document);
 
     const result = await service.createMyDocumentDownloadUrl(
@@ -298,8 +307,10 @@ describe('ProfessionalVerificationDocumentsService', () => {
       expect.objectContaining({
         bucket: document.bucket,
         key: document.storage_key,
+        expiresInSeconds: 300,
       }),
     );
     expect(result.url).toBe('https://signed-url.test/license.pdf');
+    expect(result.expires_in_seconds).toBe(300);
   });
 });

@@ -4,6 +4,7 @@ import { env } from 'node:process';
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  GetObjectRetentionCommand,
   HeadObjectCommand,
   ListObjectVersionsCommand,
   PutObjectCommand,
@@ -142,9 +143,19 @@ integration('auth security-event retention on PostgreSQL', () => {
           VersionId: 'v1',
           LastModified: object.lastModified,
           ServerSideEncryption: 'AES256',
-          ObjectLockMode: 'COMPLIANCE',
-          ObjectLockRetainUntilDate: object.retainUntil,
           ContentLength: object.body.length,
+        };
+      }
+      if (command instanceof GetObjectRetentionCommand) {
+        const object = stored.get(command.input.Key!);
+        if (!object) throw new Error('object missing');
+        if (command.input.VersionId !== 'v1')
+          throw new Error('wrong retention version');
+        return {
+          Retention: {
+            Mode: 'COMPLIANCE',
+            RetainUntilDate: object.retainUntil,
+          },
         };
       }
       if (command instanceof GetObjectCommand) {
@@ -332,9 +343,14 @@ integration('auth security-event retention on PostgreSQL', () => {
           VersionId: 'v1',
           LastModified: new Date(),
           ServerSideEncryption: 'AES256',
-          ObjectLockMode: 'COMPLIANCE',
-          ObjectLockRetainUntilDate: retainUntil,
           ContentLength: contentLength,
+        };
+      }
+      if (command instanceof GetObjectRetentionCommand) {
+        if (command.input.VersionId !== 'v1')
+          throw new Error('wrong retention version');
+        return {
+          Retention: { Mode: 'COMPLIANCE', RetainUntilDate: retainUntil },
         };
       }
       if (command instanceof GetObjectCommand) {

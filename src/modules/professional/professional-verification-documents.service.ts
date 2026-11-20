@@ -66,20 +66,11 @@ export class ProfessionalVerificationDocumentsService {
     this.assertValidDocumentType(documentType);
     const validatedFile = this.fileValidator.validate(file);
 
-    const storageKey = this.buildStorageKey(
-      professional.id,
-      documentType,
-      validatedFile.extension,
-    );
+    const storageKey = this.buildStorageKey(validatedFile.extension);
     const uploaded = await this.storageService.uploadPrivateObject({
       key: storageKey,
       body: file.buffer,
       contentType: validatedFile.mimeType,
-      metadata: {
-        professional_id: professional.id,
-        document_type: documentType,
-        uploaded_by_user_id: userId,
-      },
     });
 
     let persistenceResult: {
@@ -366,12 +357,8 @@ export class ProfessionalVerificationDocumentsService {
     }
   }
 
-  private buildStorageKey(
-    professionalId: string,
-    documentType: ProfessionalVerificationDocumentType,
-    extension: string,
-  ): string {
-    return `professionals/${professionalId}/verification-documents/${documentType}-${randomUUID()}${extension}`;
+  private buildStorageKey(extension: string): string {
+    return `verification-documents/${randomUUID()}${extension}`;
   }
 
   private normalizeFilename(filename?: string): string {

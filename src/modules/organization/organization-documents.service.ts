@@ -72,22 +72,11 @@ export class OrganizationDocumentsService {
     this.assertDocumentTypeAllowed(organization, documentType);
     this.assertDocumentsEditable(organization);
     const validated = this.fileValidator.validate(file);
-    const storageKey = [
-      'organizations',
-      organization.id,
-      'onboarding',
-      documentType,
-      `${randomUUID()}${validated.extension}`,
-    ].join('/');
+    const storageKey = `verification-documents/${randomUUID()}${validated.extension}`;
     const uploaded = await this.storageService.uploadPrivateObject({
       key: storageKey,
       body: file!.buffer,
       contentType: validated.mimeType,
-      metadata: {
-        organization_id: organization.id,
-        document_type: documentType,
-        uploaded_by_user_id: userId,
-      },
     });
 
     let persisted: {

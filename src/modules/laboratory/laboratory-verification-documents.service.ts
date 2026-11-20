@@ -74,20 +74,11 @@ export class LaboratoryVerificationDocumentsService {
     this.assertValidDocumentType(documentType);
     const validatedFile = this.fileValidator.validate(file);
 
-    const storageKey = this.buildStorageKey(
-      laboratory.id,
-      documentType,
-      validatedFile.extension,
-    );
+    const storageKey = this.buildStorageKey(validatedFile.extension);
     const uploaded = await this.storageService.uploadPrivateObject({
       key: storageKey,
       body: file.buffer,
       contentType: validatedFile.mimeType,
-      metadata: {
-        laboratory_id: laboratory.id,
-        document_type: documentType,
-        uploaded_by_user_id: userId,
-      },
     });
 
     let persistenceResult: {
@@ -380,12 +371,8 @@ export class LaboratoryVerificationDocumentsService {
     }
   }
 
-  private buildStorageKey(
-    laboratoryId: string,
-    documentType: LaboratoryVerificationDocumentType,
-    extension: string,
-  ): string {
-    return `laboratories/${laboratoryId}/verification-documents/${documentType}-${randomUUID()}${extension}`;
+  private buildStorageKey(extension: string): string {
+    return `verification-documents/${randomUUID()}${extension}`;
   }
 
   private normalizeFilename(filename?: string): string {

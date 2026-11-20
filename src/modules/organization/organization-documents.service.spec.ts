@@ -100,13 +100,14 @@ describe('OrganizationDocumentsService', () => {
     expect(storage.uploadPrivateObject).toHaveBeenCalledWith(
       expect.objectContaining({
         body: file.buffer,
-        metadata: {
-          organization_id: organization.id,
-          document_type: OrganizationDocumentType.OPERATING_LICENSE,
-          uploaded_by_user_id: 'user-id',
-        },
+        key: expect.stringMatching(
+          /^verification-documents\/[0-9a-f-]{36}\.pdf$/,
+        ),
       }),
     );
+    const upload = storage.uploadPrivateObject.mock.calls[0][0];
+    expect(upload).not.toHaveProperty('metadata');
+    expect(upload.key).not.toMatch(/organization-id|user-id|operating_license/);
     expect(documents.create).toHaveBeenCalledWith(
       expect.objectContaining({
         organization_id: organization.id,

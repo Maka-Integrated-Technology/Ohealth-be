@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  GetObjectRetentionCommand,
   HeadObjectCommand,
   ListObjectVersionsCommand,
   PutObjectCommand,
@@ -391,14 +392,21 @@ export class AuthSecurityRetentionService {
         VersionId: versionId,
       }),
     );
+    const retention = await this.s3.send(
+      new GetObjectRetentionCommand({
+        Bucket: this.options.bucket,
+        Key: key,
+        VersionId: versionId,
+      }),
+    );
     if (
       head.VersionId !== versionId ||
       !head.LastModified ||
       head.ServerSideEncryption !== 'AES256' ||
-      head.ObjectLockMode !== 'COMPLIANCE' ||
-      !head.ObjectLockRetainUntilDate ||
-      head.ObjectLockRetainUntilDate < retainUntil ||
-      head.ObjectLockRetainUntilDate.getTime() >
+      retention.Retention?.Mode !== 'COMPLIANCE' ||
+      !retention.Retention.RetainUntilDate ||
+      retention.Retention.RetainUntilDate < retainUntil ||
+      retention.Retention.RetainUntilDate.getTime() >
         retainUntil.getTime() + 60_000 ||
       head.ContentLength !== body.length ||
       head.ContentLength > MAX_ARCHIVE_BYTES

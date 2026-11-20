@@ -2,6 +2,8 @@
 import { S3Client } from '@aws-sdk/client-s3';
 import { ConfigService } from '@nestjs/config';
 
+import appConfig from '../../config/config';
+
 import {
   objectStorageClientConfig,
   parseObjectStorageSettings,
@@ -36,7 +38,7 @@ describe('object storage configuration', () => {
         accessKeyId: media.OBJECT_STORAGE_ACCESS_KEY_ID,
         secretAccessKey: media.OBJECT_STORAGE_SECRET_ACCESS_KEY,
         privateBucket: media.OBJECT_STORAGE_PRIVATE_BUCKET,
-        signedUrlTtlSeconds: media.OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS,
+        signedUrlTtlSeconds: 300,
         forcePathStyle: media.OBJECT_STORAGE_FORCE_PATH_STYLE,
       },
     });
@@ -121,6 +123,34 @@ describe('object storage configuration', () => {
         true,
       ).endpoint,
     ).toBe('http://localhost:9000');
+  });
+
+  it('accepts HTTP in the provider factory only for the configured test environment', async () => {
+    const storage = {
+      endpoint: 'http://localhost:9000',
+      region: media.OBJECT_STORAGE_REGION,
+      accessKeyId: media.OBJECT_STORAGE_ACCESS_KEY_ID,
+      secretAccessKey: media.OBJECT_STORAGE_SECRET_ACCESS_KEY,
+      privateBucket: media.OBJECT_STORAGE_PRIVATE_BUCKET,
+      signedUrlTtlSeconds: 300,
+      forcePathStyle: media.OBJECT_STORAGE_FORCE_PATH_STYLE,
+    };
+    const client = s3ClientProvider.useFactory(
+      new ConfigService({ env: appConfig().env, storage }),
+    );
+    try {
+      expect(await client.config.endpoint()).toMatchObject({
+        protocol: 'http:',
+        hostname: 'localhost',
+      });
+    } finally {
+      client.destroy();
+    }
+    expect(() =>
+      s3ClientProvider.useFactory(
+        new ConfigService({ env: 'staging', storage }),
+      ),
+    ).toThrow('ENDPOINT');
   });
 
   it('never selects ambient credentials or an AWS endpoint', () => {

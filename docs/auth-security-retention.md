@@ -72,7 +72,7 @@ The private archive bucket must have versioning and Object Lock enabled,
 with each object locked through its 24-month expiry from `occurred_at`
 (rounded up for object-store timestamp precision),
 and SSE-B2 encryption (`AES256`). Configure a separate B2 application key.
-The writer needs only scoped object write, version read and head permissions; permanent version
+The writer needs only scoped object write, version read, head and Get Object Retention permissions; permanent version
 deletion belongs to the dedicated retention maintenance identity and must be
 blocked until the object lock expires. Deny public access. Audit object reads,
 deletes and temporary restores. Keep the bucket and database access

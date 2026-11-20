@@ -77,7 +77,7 @@ credentials, bucket, and addressing mode come from environment configuration;
 production access requires HTTPS. The separate audit bucket uses SSE-B2 and
 Object Lock. Provisioning and live B2 verification are deferred to #163.
 PostgreSQL stores metadata and object keys, not file contents or provider URLs.
-Bucket names, object keys, and provider metadata must contain no PII or PHI.
+Bucket names, object keys, and provider metadata must contain no PII, PHI, or person-linked identifiers. Verification document keys use opaque random IDs; ownership, document type, and uploader remain in PostgreSQL.
 Download access is authorized before a short-lived signed URL is issued.
 
 ## Module boundaries

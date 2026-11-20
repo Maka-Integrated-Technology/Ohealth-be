@@ -94,8 +94,9 @@ export default () => ({
     accessKeyId: process.env.OBJECT_STORAGE_ACCESS_KEY_ID,
     secretAccessKey: process.env.OBJECT_STORAGE_SECRET_ACCESS_KEY,
     privateBucket: process.env.OBJECT_STORAGE_PRIVATE_BUCKET,
-    signedUrlTtlSeconds:
+    signedUrlTtlSeconds: Number(
       process.env.OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS ?? '300',
+    ),
     forcePathStyle: process.env.OBJECT_STORAGE_FORCE_PATH_STYLE ?? 'false',
   },
 

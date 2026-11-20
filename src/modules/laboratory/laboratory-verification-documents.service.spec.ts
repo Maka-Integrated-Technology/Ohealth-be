@@ -1,3 +1,5 @@
+import { env } from 'node:process';
+
 import {
   BadRequestException,
   ForbiddenException,
@@ -11,6 +13,7 @@ import { DataSource } from 'typeorm';
 import { Logger } from 'winston';
 
 import { IMulterFile } from '../../common/types';
+import appConfig from '../../config/config';
 import { MAX_LAB_VERIFICATION_DOCUMENT_SIZE } from '../../constants/file-upload.constants';
 import { StorageService } from '../storage/storage.service';
 
@@ -208,7 +211,7 @@ describe('LaboratoryVerificationDocumentsService', () => {
     expect(service).toBeDefined();
   });
 
-  it('should upload and tag a laboratory verification document', async () => {
+  it('uploads a laboratory document without provider-visible identifiers', async () => {
     const result = await service.uploadMyDocument(
       'user-id',
       'laboratory-id',
@@ -223,17 +226,15 @@ describe('LaboratoryVerificationDocumentsService', () => {
     expect(mockStorageService.uploadPrivateObject).toHaveBeenCalledWith(
       expect.objectContaining({
         key: expect.stringMatching(
-          /^laboratories\/laboratory-id\/verification-documents\/laboratory_license-[0-9a-f-]{36}\.pdf$/,
+          /^verification-documents\/[0-9a-f-]{36}\.pdf$/,
         ),
         body: uploadFile.buffer,
         contentType: 'application/pdf',
-        metadata: {
-          laboratory_id: 'laboratory-id',
-          document_type: LaboratoryVerificationDocumentType.LABORATORY_LICENSE,
-          uploaded_by_user_id: 'user-id',
-        },
       }),
     );
+    const upload = mockStorageService.uploadPrivateObject.mock.calls[0][0];
+    expect(upload).not.toHaveProperty('metadata');
+    expect(upload.key).not.toMatch(/laboratory-id|user-id|laboratory_license/);
     expect(mockLaboratoryRepository.findOne).toHaveBeenCalledWith({
       where: { id: laboratory.id },
       lock: { mode: 'pessimistic_write' },
@@ -384,6 +385,13 @@ describe('LaboratoryVerificationDocumentsService', () => {
   });
 
   it('should create a signed download URL for a document', async () => {
+    const previousTtl = env.OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS;
+    env.OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS = '300';
+    const configuredTtl = appConfig().storage.signedUrlTtlSeconds;
+    if (previousTtl === undefined)
+      delete env.OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS;
+    else env.OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS = previousTtl;
+    mockConfigService.get.mockReturnValue(configuredTtl);
     mockDocumentRepository.findOne.mockResolvedValue(document);
 
     const result = await service.createMyDocumentDownloadUrl(
@@ -395,12 +403,12 @@ describe('LaboratoryVerificationDocumentsService', () => {
     expect(mockStorageService.createSignedGetUrl).toHaveBeenCalledWith({
       bucket: document.bucket,
       key: document.storage_key,
-      expiresInSeconds: 900,
+      expiresInSeconds: 300,
       responseContentDisposition: 'attachment; filename="license.pdf"',
     });
     expect(result).toEqual({
       url: 'https://signed-url.test/license.pdf',
-      expires_in_seconds: 900,
+      expires_in_seconds: 300,
     });
   });
 
