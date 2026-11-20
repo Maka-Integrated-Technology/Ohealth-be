@@ -1026,6 +1026,96 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     expect(denials[0].count).toBeGreaterThanOrEqual(3);
   });
 
+  it('updates a newly registered professional basic profile before practice onboarding', async () => {
+    const email = `basic-professional+${randomUUID()}@example.test`;
+    const registered = await request(app.getHttpServer())
+      .post('/api/auth/signup')
+      .send({
+        first_name: 'Ada',
+        last_name: 'Owner',
+        email,
+        password: 'a memorable registration passphrase',
+        intent: 'healthcare_professional',
+        accepted_terms_version: 'terms-v1',
+        accepted_privacy_version: 'privacy-v1',
+      })
+      .expect(201);
+    await delivery.dispatchBatch(1);
+    const mailed = mail.mock.calls[0][0] as { templateData: { code: string } };
+    const verified = await request(app.getHttpServer())
+      .post('/api/auth/verify')
+      .send({
+        challenge_id: registered.body.data.challenge_id,
+        code: mailed.templateData.code,
+      })
+      .expect(200);
+    const auth = `Bearer ${verified.body.data.access_token}`;
+    const rows: Array<{ id: string; professional_count: number }> =
+      await database.query(
+        `SELECT u.id, (SELECT count(*)::int FROM professionals p WHERE p.user_id = u.id)
+         AS professional_count FROM users u WHERE u.email = $1`,
+        [email],
+      );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].professional_count).toBe(0);
+    const context = await request(app.getHttpServer())
+      .get('/api/auth/me')
+      .set('Authorization', auth)
+      .expect(200);
+    expect(context.body.data.account_context.capabilities).toContain(
+      'persona.professional',
+    );
+    expect(context.body.data.account_context.professional).toBeNull();
+    await request(app.getHttpServer())
+      .patch('/api/auth/me/professional-profile')
+      .set('Authorization', auth)
+      .send({ first_name: ' Amaka ', country: ' Nigeria ' })
+      .expect(200);
+    const updated: Array<{ first_name: string; country: string }> =
+      await database.query(
+        'SELECT first_name, country FROM users WHERE id = $1',
+        [rows[0].id],
+      );
+    expect(updated).toEqual([{ first_name: 'Amaka', country: 'Nigeria' }]);
+
+    const patient = await createUser('basic-profile-patient', 'active');
+    await database.query(
+      `INSERT INTO user_personas (user_id, persona_type) VALUES ($1, 'patient')`,
+      [patient.id],
+    );
+    const patientSession = await app
+      .get(RefreshSessionService)
+      .issue(patient.id);
+    await request(app.getHttpServer())
+      .patch('/api/auth/me/professional-profile')
+      .set('Authorization', `Bearer ${patientSession.access_token}`)
+      .send({ first_name: 'Denied' })
+      .expect(403);
+
+    await database.query(
+      `UPDATE users SET account_status = 'suspended' WHERE id = $1`,
+      [rows[0].id],
+    );
+    await request(app.getHttpServer())
+      .patch('/api/auth/me/professional-profile')
+      .set('Authorization', auth)
+      .send({ first_name: 'Denied' })
+      .expect(401);
+    await database.query('UPDATE users SET account_status = $2 WHERE id = $1', [
+      rows[0].id,
+      'active',
+    ]);
+    await database.query(
+      'UPDATE user_personas SET is_active = false WHERE user_id = $1',
+      [rows[0].id],
+    );
+    await request(app.getHttpServer())
+      .patch('/api/auth/me/professional-profile')
+      .set('Authorization', auth)
+      .send({ first_name: 'Denied' })
+      .expect(403);
+  }, 20_000);
+
   it('refuses another patient’s booking even with its resource ID and a forged user selector', async () => {
     const owner = await createUser('booking-owner', 'active');
     const other = await createUser('booking-other', 'active');

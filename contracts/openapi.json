@@ -7961,6 +7961,16 @@
             },
             "description": "Authentication is required"
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Active professional persona required"
+          },
           "500": {
             "content": {
               "application/json": {

@@ -32,6 +32,15 @@ function schemaName(ref: string): string {
 }
 
 describe('canonical public authentication contract', () => {
+  it('documents professional profile persona denial', () => {
+    const operation = contract.paths['/api/auth/me/professional-profile'].patch;
+    expect(
+      operation.responses['403'].content?.['application/json']?.schema,
+    ).toEqual({
+      $ref: '#/components/schemas/ApiErrorResponseDto',
+    });
+  });
+
   const operations = Object.entries(contract.paths).flatMap(([path, item]) =>
     path.startsWith('/api/auth/')
       ? Object.entries(item)

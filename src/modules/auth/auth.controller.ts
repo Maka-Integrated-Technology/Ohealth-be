@@ -15,6 +15,7 @@ import {
   ApiBearerAuth,
   ApiBadRequestResponse,
   ApiExcludeEndpoint,
+  ApiForbiddenResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
@@ -239,6 +240,7 @@ export class AuthController {
     summary: 'Update authenticated healthcare-professional basic profile',
   })
   @ApiOkResponse({ type: AuthMeResponseDto })
+  @ApiForbiddenResponse({ description: 'Active professional persona required' })
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @Patch('me/professional-profile')

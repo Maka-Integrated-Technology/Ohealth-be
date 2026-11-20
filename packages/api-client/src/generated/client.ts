@@ -218,6 +218,7 @@ export type AuthController_updateProfessionalProfileResponse =
 export type AuthController_updateProfessionalProfileError =
   | operations['AuthController_updateProfessionalProfile']['responses'][400]['content']['application/json']
   | operations['AuthController_updateProfessionalProfile']['responses'][401]['content']['application/json']
+  | operations['AuthController_updateProfessionalProfile']['responses'][403]['content']['application/json']
   | operations['AuthController_updateProfessionalProfile']['responses'][500]['content']['application/json'];
 
 export type AuthController_updateProfileRequest = Readonly<{
