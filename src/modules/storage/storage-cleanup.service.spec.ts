@@ -23,6 +23,7 @@ describe('StorageCleanupService', () => {
       save: async (value: OutboxEvent) => {
         const saved = structuredClone(value);
         saved.id ??= `cleanup-${++nextId}`;
+        saved.attempts ??= 0;
         records.set(saved.id, saved);
         return saved;
       },

@@ -12,11 +12,13 @@ export interface IStorageUploadResult {
   contentType: string;
   size: number;
   etag?: string;
+  versionId?: string;
 }
 
 export interface ISignedUrlOptions {
   bucket?: string;
   key: string;
+  versionId?: string;
   expiresInSeconds?: number;
   responseContentDisposition?: string;
 }

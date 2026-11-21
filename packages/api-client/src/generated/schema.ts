@@ -365,6 +365,25 @@ export interface paths {
     readonly patch: operations['AuthController_updateProfessionalProfile'];
     readonly trace?: never;
   };
+  readonly '/api/auth/me/profile-photo': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    /** Get a short-lived, owner-authorized profile photo URL */
+    readonly get: operations['ProfilePhotoController_get'];
+    readonly put?: never;
+    /** Upload or replace the authenticated person’s private profile photo */
+    readonly post: operations['ProfilePhotoController_upload'];
+    /** Remove the active profile photo and enqueue versioned cleanup */
+    readonly delete: operations['ProfilePhotoController_remove'];
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly '/api/auth/oauth/google/complete': {
     readonly parameters: {
       readonly query?: never;
@@ -3271,6 +3290,25 @@ export interface components {
        */
       readonly verification_status: AuthProfessionalResponseDtoVerification_status;
     };
+    readonly ProfilePhotoDownloadDto: {
+      readonly expires_in_seconds: number;
+      /** Format: uri */
+      readonly url: string;
+    };
+    readonly ProfilePhotoRemovalDto: {
+      /** @enum {string} */
+      readonly cleanup_status: ProfilePhotoRemovalDtoCleanup_status;
+    };
+    readonly ProfilePhotoResponseDto: {
+      readonly byte_size: number;
+      readonly cleanup_pending: boolean;
+      /** @enum {string} */
+      readonly content_type: ProfilePhotoResponseDtoContent_type;
+      readonly height: number;
+      /** Format: date-time */
+      readonly updated_at: string;
+      readonly width: number;
+    };
     readonly PublicAvailabilityDayDto: {
       /**
        * Format: date
@@ -5184,6 +5222,187 @@ export interface operations {
         };
       };
       /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly ProfilePhotoController_get: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['ProfilePhotoDownloadDto'];
+          };
+        };
+      };
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description No canonical profile photo exists */
+      readonly 404: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly ProfilePhotoController_upload: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly 'multipart/form-data': {
+          /**
+           * Format: binary
+           * @description Maximum size: 5242880 bytes. Accepted MIME types: image/jpeg, image/png, image/webp.
+           */
+          readonly file: string;
+        };
+      };
+    };
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['ProfilePhotoResponseDto'];
+          };
+        };
+      };
+      /** @description Invalid or malformed image */
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description An active patient or professional persona is required */
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Upload reservation expired */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 413: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly ProfilePhotoController_remove: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody?: never;
+    readonly responses: {
+      readonly 202: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['ProfilePhotoRemovalDto'];
+          };
+        };
+      };
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
       readonly 500: {
         headers: {
           readonly [name: string]: unknown;
@@ -10388,6 +10607,13 @@ export enum ProfessionalAppointmentResponseDtoStatus {
   confirmed = 'confirmed',
   completed = 'completed',
   cancelled = 'cancelled',
+}
+export enum ProfilePhotoRemovalDtoCleanup_status {
+  pending = 'pending',
+  completed = 'completed',
+}
+export enum ProfilePhotoResponseDtoContent_type {
+  image_jpeg = 'image/jpeg',
 }
 export enum PublicProfessionalSortField {
   rating = 'rating',
