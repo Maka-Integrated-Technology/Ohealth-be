@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomUUID, timingSafeEqual } from 'crypto';
 
 import {
+  ConflictException,
   HttpException,
   Injectable,
   UnauthorizedException,
@@ -12,8 +13,13 @@ import { DataSource, EntityManager, IsNull } from 'typeorm';
 import * as sysMsg from '../../../constants/system.messages';
 import { User } from '../../user/entities/user.entity';
 import { AccountAccessPolicyService } from '../account-access-policy.service';
+import {
+  AuthChallengePurpose,
+  AuthChallengeTerminalReason,
+} from '../challenges/auth-challenge.entity';
 import { AuthSession } from '../entities/auth.entity';
 import { RefreshCredential } from '../entities/refresh-credential.entity';
+import { PasswordCredentialsService } from '../password-policy/password-credentials.service';
 import { AuthSecurityAuditService } from '../security-audit/auth-security-audit.service';
 import {
   AuthSecurityEventOutcome,
@@ -46,6 +52,7 @@ export class RefreshSessionService {
     private readonly config: ConfigService,
     private readonly accountPolicy: AccountAccessPolicyService,
     private readonly audit: AuthSecurityAuditService,
+    private readonly passwords: PasswordCredentialsService,
   ) {}
 
   async issue(
@@ -411,7 +418,9 @@ export class RefreshSessionService {
 
   async replacePassword(
     userId: string,
-    expectedPasswordHash: string,
+    sessionId: string,
+    currentPassword: string,
+    newPassword: string,
     newPasswordHash: string,
   ): Promise<void> {
     return this.auditFailures(
@@ -419,16 +428,21 @@ export class RefreshSessionService {
       () =>
         this.replacePasswordUntracked(
           userId,
-          expectedPasswordHash,
+          sessionId,
+          currentPassword,
+          newPassword,
           newPasswordHash,
         ),
       userId,
+      sessionId,
     );
   }
 
   private async replacePasswordUntracked(
     userId: string,
-    expectedPasswordHash: string,
+    sessionId: string,
+    currentPassword: string,
+    newPassword: string,
     newPasswordHash: string,
   ): Promise<void> {
     await this.dataSource.transaction(async (manager) => {
@@ -437,14 +451,58 @@ export class RefreshSessionService {
         lock: { mode: 'pessimistic_write' },
       });
       this.accountPolicy.assertCanAuthenticate(user);
-      if (!user || !this.sameSecret(expectedPasswordHash, user.password)) {
-        throw new UnauthorizedException(sysMsg.INVALID_CURRENT_PASSWORD);
+      if (!user || !user.password_authentication_enabled) {
+        throw new UnauthorizedException({
+          message: sysMsg.INVALID_CURRENT_PASSWORD,
+          error_code: 'PASSWORD_CURRENT_INVALID',
+        });
       }
-      await manager.update(User, user.id, { password: newPasswordHash });
+      const session = await manager.findOne(AuthSession, {
+        where: { session_id: sessionId, user_id: userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (
+        !session ||
+        session.revoked_at ||
+        session.expires_at <= new Date() ||
+        session.credential_version !== 2
+      ) {
+        throw new UnauthorizedException({
+          message: sysMsg.TOKEN_INVALID,
+          error_code: 'PASSWORD_CHANGE_SESSION_INVALID',
+        });
+      }
+      if (
+        !(await this.passwords.verifyForLogin(currentPassword, user.password))
+      ) {
+        throw new UnauthorizedException({
+          message: sysMsg.INVALID_CURRENT_PASSWORD,
+          error_code: 'PASSWORD_CURRENT_INVALID',
+        });
+      }
+      if (await this.passwords.verify(newPassword, user.password)) {
+        throw new ConflictException({
+          message: 'Choose a different password.',
+          error_code: 'PASSWORD_REUSED',
+        });
+      }
+      await manager.update(User, user.id, {
+        password: newPasswordHash,
+        reset_token: null,
+        reset_token_expiry: null,
+      });
       await manager.query(
-        'UPDATE auth_challenges SET consumed_at = now() ' +
-          'WHERE subject_user_id = $1 AND purpose = $2 AND consumed_at IS NULL',
-        [user.id, 'login_verification'],
+        'UPDATE auth_challenges SET consumed_at = now(), terminal_reason = $3 ' +
+          'WHERE subject_user_id = $1 AND purpose = ANY($2) AND terminal_reason IS NULL',
+        [
+          user.id,
+          [
+            AuthChallengePurpose.LOGIN_VERIFICATION,
+            AuthChallengePurpose.PASSWORD_RECOVERY,
+            AuthChallengePurpose.MFA_LOGIN,
+          ],
+          AuthChallengeTerminalReason.ADMINISTRATIVELY_REVOKED,
+        ],
       );
       await manager.update(
         AuthSession,
@@ -456,6 +514,7 @@ export class RefreshSessionService {
         outcome: AuthSecurityEventOutcome.SUCCEEDED,
         actor_user_id: user.id,
         subject_user_id: user.id,
+        session_id: sessionId,
       });
     });
   }

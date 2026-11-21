@@ -77,6 +77,7 @@ integration('Secure MFA lifecycle on real PostgreSQL', () => {
       config,
       new AccountAccessPolicyService(),
       new AuthSecurityAuditService(dataSource),
+      passwords,
     );
   });
 

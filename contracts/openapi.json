@@ -985,6 +985,37 @@
         ],
         "type": "object"
       },
+      "ChangePasswordResponseDto": {
+        "properties": {
+          "message": {
+            "example": "password changed",
+            "type": "string"
+          },
+          "session_terminated": {
+            "description": "The current session and all other sessions have been revoked.",
+            "example": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "message",
+          "session_terminated"
+        ],
+        "type": "object"
+      },
+      "ChangePasswordResponseDtoData": {
+        "properties": {
+          "session_terminated": {
+            "description": "The current session and all other sessions have been revoked.",
+            "example": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "session_terminated"
+        ],
+        "type": "object"
+      },
       "ChatHistoryResponseDto": {
         "properties": {
           "chats": {
@@ -7123,8 +7154,7 @@
                     {
                       "properties": {
                         "data": {
-                          "example": null,
-                          "nullable": true
+                          "$ref": "#/components/schemas/ChangePasswordResponseDtoData"
                         }
                       },
                       "required": [

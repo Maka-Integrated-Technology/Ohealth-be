@@ -116,6 +116,11 @@ jobs, or analytics.
 - Sessions record device-safe metadata, creation, activity, expiry, and
   revocation.
 - Password reset revokes all existing sessions.
+- Authenticated password change verifies the current credential under the user
+  row lock, rejects reuse of the current password, and terminates every session,
+  including the caller's. The client must sign in again. The same transaction
+  invalidates pending login, MFA login, and password-recovery challenges and
+  records the password-change security event.
 - MFA or privilege changes require step-up authentication and may revoke other
   sessions.
 

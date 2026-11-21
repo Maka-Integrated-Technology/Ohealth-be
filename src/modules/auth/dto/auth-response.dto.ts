@@ -225,3 +225,15 @@ export class LogoutResponseDto {
   })
   message?: string;
 }
+
+export class ChangePasswordResponseDto {
+  @ApiProperty({ example: 'password changed' })
+  message: string;
+
+  @ApiProperty({
+    example: true,
+    description:
+      'The current session and all other sessions have been revoked.',
+  })
+  session_terminated: boolean;
+}
