@@ -90,7 +90,8 @@ verified. Provider failures leave a pending reference for retry. The bounded
 enabled in production until the B2 rollout in #163.
 Private profile photos use the same boundary and cleanup worker. A person-wide
 `profile_photos` record stores the exact active version; a pre-upload outbox
-reservation owns each new opaque key until activation or cleanup. The cleanup
+reservation owns each new opaque key until activation; abandoned reservations
+retain the key for recurring late-write reconciliation after cleanup probes. The cleanup
 worker claims records with a recoverable lease and calls the provider outside a
 database transaction. Completed cleanup records scrub their object reference.
 See [profile-photo-lifecycle.md](./profile-photo-lifecycle.md).

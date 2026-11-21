@@ -101,6 +101,18 @@ describe('shared profile photo lifecycle', () => {
     };
     let nextId = 0;
     const cleanup = {
+      reserveUpload: jest.fn(async (_manager, bucket, key, availableAt) => {
+        const id = `event-${++nextId}`;
+        events.set(id, {
+          id,
+          payload: { bucket, key, reservation: true },
+          event_type: 'private_object_delete',
+          status: OutboxEventStatus.PENDING,
+          attempts: 0,
+          available_at: availableAt,
+        } as unknown as OutboxEvent);
+        return id;
+      }),
       enqueue: jest.fn(async (_manager, bucket, key, availableAt) => {
         const id = `event-${++nextId}`;
         events.set(id, {
@@ -108,6 +120,7 @@ describe('shared profile photo lifecycle', () => {
           payload: { bucket, key },
           event_type: 'private_object_delete',
           status: OutboxEventStatus.PENDING,
+          attempts: 0,
           available_at: availableAt ?? new Date(),
         } as unknown as OutboxEvent);
         return id;

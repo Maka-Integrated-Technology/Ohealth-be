@@ -8,6 +8,7 @@ import { StorageService } from './storage.service';
 
 const EVENT_TYPE = 'private_object_delete';
 const CLEANUP_LEASE_MS = 5 * 60 * 1000;
+const LATE_UPLOAD_RECHECK_MS = 24 * 60 * 60 * 1000;
 
 /** Retains an exact private-object reference until versioned deletion succeeds. */
 @Injectable()
@@ -23,11 +24,33 @@ export class StorageCleanupService {
     key: string,
     availableAt?: Date,
   ): Promise<string> {
+    return this.createEvent(manager, bucket, key, availableAt, false);
+  }
+
+  /** An abandoned PUT may complete after a cleanup probe. Keep its key for later reconciliation. */
+  async reserveUpload(
+    manager: EntityManager,
+    bucket: string,
+    key: string,
+    availableAt: Date,
+  ): Promise<string> {
+    return this.createEvent(manager, bucket, key, availableAt, true);
+  }
+
+  private async createEvent(
+    manager: EntityManager,
+    bucket: string,
+    key: string,
+    availableAt: Date | undefined,
+    reservation: boolean,
+  ): Promise<string> {
     const event = await manager.save(
       manager.create(OutboxEvent, {
         aggregate_type: 'private_object',
         event_type: EVENT_TYPE,
-        payload: { bucket, key },
+        payload: reservation
+          ? { bucket, key, reservation: true }
+          : { bucket, key },
         status: OutboxEventStatus.PENDING,
         available_at: availableAt ?? new Date(),
       }),
@@ -35,7 +58,7 @@ export class StorageCleanupService {
     return event.id;
   }
 
-  async process(id: string): Promise<void> {
+  async process(id: string): Promise<boolean> {
     const claim = await this.dataSource.transaction(async (manager) => {
       const event = await manager.findOne(OutboxEvent, {
         where: { id, event_type: EVENT_TYPE },
@@ -60,12 +83,17 @@ export class StorageCleanupService {
       event.attempts += 1;
       event.available_at = new Date(Date.now() + CLEANUP_LEASE_MS);
       await manager.save(event);
-      return { bucket, key, attempt: event.attempts };
+      return {
+        bucket,
+        key,
+        attempt: event.attempts,
+        reservation: event.payload.reservation === true,
+      };
     });
-    if (!claim) return;
+    if (!claim) return true;
     try {
       await this.storage.deleteObject({ bucket: claim.bucket, key: claim.key });
-      await this.dataSource.transaction(async (manager) => {
+      return await this.dataSource.transaction(async (manager) => {
         const event = await manager.findOne(OutboxEvent, {
           where: { id, event_type: EVENT_TYPE },
           lock: { mode: 'pessimistic_write' },
@@ -75,11 +103,20 @@ export class StorageCleanupService {
           event.status !== OutboxEventStatus.PROCESSING ||
           event.attempts !== claim.attempt
         )
-          return;
+          return false;
+        if (claim.reservation) {
+          // A late provider write can arrive after absence was observed. This
+          // durable key remains eligible for repeated exact-key reconciliation.
+          event.status = OutboxEventStatus.PENDING;
+          event.available_at = new Date(Date.now() + LATE_UPLOAD_RECHECK_MS);
+          await manager.save(event);
+          return false;
+        }
         event.status = OutboxEventStatus.PUBLISHED;
         event.processed_at = new Date();
         event.payload = {};
         await manager.save(event);
+        return true;
       });
     } catch (error) {
       await this.recordFailure(id, claim.attempt);
@@ -129,8 +166,7 @@ export class StorageCleanupService {
     let failed = 0;
     for (const event of pending) {
       try {
-        await this.process(event.id);
-        completed += 1;
+        if (await this.process(event.id)) completed += 1;
       } catch {
         failed += 1;
       }

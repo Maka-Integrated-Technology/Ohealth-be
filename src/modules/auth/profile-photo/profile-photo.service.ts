@@ -56,7 +56,7 @@ export class ProfilePhotoService {
     const key = `profile-photos/${randomUUID()}`;
     const bucket = this.privateBucket();
     const reservationId = await this.dataSource.transaction(async (manager) =>
-      this.cleanup.enqueue(
+      this.cleanup.reserveUpload(
         manager,
         bucket,
         key,
@@ -91,7 +91,8 @@ export class ProfilePhotoService {
           });
           if (
             !reservation ||
-            reservation.status !== OutboxEventStatus.PENDING
+            reservation.status !== OutboxEventStatus.PENDING ||
+            reservation.attempts !== 0
           ) {
             throw new ConflictException('Profile photo upload expired.');
           }

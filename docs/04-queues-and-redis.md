@@ -76,9 +76,11 @@ production scheduling is deferred to the B2 rollout in #163.
 The worker claims a pending record using a recoverable five-minute lease,
 performs provider deletion outside the database transaction, and fences
 completion by attempt number. Expired claims can be replayed. A successful
-claim scrubs the bucket/key payload after verified absence. Profile-photo
+ordinary claim scrubs the bucket/key payload after verified absence. Profile-photo
 uploads reserve their opaque key in this outbox before provider upload so a
-failed activation cannot strand an untracked object.
+failed activation cannot strand an untracked object. Abandoned upload
+reservations keep their opaque key for daily reconciliation, even after a probe
+finds no object, because a late PUT may still complete.
 
 ## Initial queues
 

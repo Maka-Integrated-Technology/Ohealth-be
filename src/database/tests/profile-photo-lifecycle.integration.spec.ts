@@ -43,6 +43,12 @@ integration('profile photo lifecycle on PostgreSQL', () => {
   let service: ProfilePhotoService;
   let app: INestApplication;
   let providerFailed: boolean;
+  let storage: {
+    uploadPrivateObject: jest.Mock;
+    createSignedGetUrl: jest.Mock;
+    deleteObject: jest.Mock;
+  };
+  let cleanup: StorageCleanupService;
 
   beforeAll(async () => {
     admin = new DataSource({ type: 'postgres', url: env.PG_INTEGRATION_URL });
@@ -116,7 +122,7 @@ integration('profile photo lifecycle on PostgreSQL', () => {
       (session_id, user_id, refresh_token_hash, expires_at) VALUES ($1, $2, 'hash', now() + interval '1 hour')`,
       [sessionId, userId],
     );
-    const storage = {
+    storage = {
       uploadPrivateObject: jest.fn(async ({ key }) => ({
         bucket: 'private',
         key,
@@ -126,8 +132,11 @@ integration('profile photo lifecycle on PostgreSQL', () => {
       deleteObject: jest.fn(async () => {
         if (providerFailed) throw new Error('provider unavailable');
       }),
-    } as unknown as StorageService;
-    const cleanup = new StorageCleanupService(database, storage);
+    };
+    cleanup = new StorageCleanupService(
+      database,
+      storage as unknown as StorageService,
+    );
     const context = {
       resolve: jest.fn(async (actorId: string, actorSessionId: string) => {
         const rows = await database.query(
@@ -157,7 +166,7 @@ integration('profile photo lifecycle on PostgreSQL', () => {
       database,
       context,
       new AccountAccessPolicyService(),
-      storage,
+      storage as unknown as StorageService,
       cleanup,
       { get: () => 'private' } as unknown as ConfigService,
     );
@@ -277,6 +286,63 @@ integration('profile photo lifecycle on PostgreSQL', () => {
       events.filter((event) => event.event_type === 'private_object_delete'),
     ).toHaveLength(3);
     expect(events.filter((event) => event.payload['key'])).toHaveLength(0);
+  });
+
+  it('retains cleanup ownership when the reservation is probed before a late PUT completes', async () => {
+    let uploadStarted!: () => void;
+    let finishUpload!: () => void;
+    const started = new Promise<void>((resolve) => {
+      uploadStarted = resolve;
+    });
+    storage.uploadPrivateObject.mockImplementationOnce(
+      ({ key }: { key: string }) =>
+        new Promise((resolve) => {
+          finishUpload = () =>
+            resolve({ bucket: 'private', key, versionId: randomUUID() });
+          uploadStarted();
+        }),
+    );
+    const pendingUpload = service.upload(userId, sessionId, await image());
+    await started;
+    const reservation = await database
+      .getRepository(OutboxEvent)
+      .findOneByOrFail({
+        event_type: 'private_object_delete',
+      });
+    await database.getRepository(OutboxEvent).update(reservation.id, {
+      available_at: new Date(0),
+    });
+    expect(await cleanup.processPending()).toEqual({ completed: 0, failed: 0 });
+    const afterProbe = await database
+      .getRepository(OutboxEvent)
+      .findOneByOrFail({
+        id: reservation.id,
+      });
+    expect(afterProbe).toMatchObject({
+      status: OutboxEventStatus.PENDING,
+      attempts: 1,
+      payload: {
+        bucket: 'private',
+        key: reservation.payload['key'],
+        reservation: true,
+      },
+    });
+    finishUpload();
+    await expect(pendingUpload).rejects.toThrow(
+      'Profile photo upload expired.',
+    );
+    expect(await database.getRepository(ProfilePhoto).count()).toBe(0);
+    const afterLatePut = await database
+      .getRepository(OutboxEvent)
+      .findOneByOrFail({
+        id: reservation.id,
+      });
+    expect(afterLatePut.status).toBe(OutboxEventStatus.PENDING);
+    expect(afterLatePut.payload['key']).toBe(reservation.payload['key']);
+    expect(storage.deleteObject).toHaveBeenCalledWith({
+      bucket: 'private',
+      key: reservation.payload['key'],
+    });
   });
 
   it('runs the real JWT HTTP lifecycle for patient and professional personas without onboarding', async () => {
