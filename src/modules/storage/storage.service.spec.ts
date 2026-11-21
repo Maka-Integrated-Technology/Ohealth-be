@@ -363,6 +363,27 @@ describe('StorageService', () => {
     expect(result).toBe('https://signed-url.test');
   });
 
+  it('returns the provider version and signs the exact active version', async () => {
+    mockS3Client.send.mockResolvedValue({ VersionId: 'opaque-version' });
+    const uploaded = await service.uploadPrivateObject({
+      key: 'profile-photos/opaque',
+      body: Buffer.from('photo'),
+      contentType: 'image/jpeg',
+    });
+    expect(uploaded.versionId).toBe('opaque-version');
+    (getSignedUrl as jest.Mock).mockResolvedValue('https://signed-url.test');
+    await service.createSignedGetUrl({
+      key: uploaded.key,
+      versionId: uploaded.versionId,
+      expiresInSeconds: 300,
+      responseContentDisposition: 'inline; filename="profile-photo.jpg"',
+    });
+    expect((getSignedUrl as jest.Mock).mock.calls[0][1].input).toMatchObject({
+      Key: uploaded.key,
+      VersionId: 'opaque-version',
+    });
+  });
+
   it('should create a signed get url with caller ttl', async () => {
     (getSignedUrl as jest.Mock).mockResolvedValue('https://short-url.test');
 

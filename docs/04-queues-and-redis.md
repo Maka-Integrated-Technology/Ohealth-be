@@ -73,6 +73,12 @@ it marks an event published only after every exact-key version and delete
 marker is absent. Failed cleanup is therefore visible and retryable even when
 the document row has been removed. This command is available for manual use;
 production scheduling is deferred to the B2 rollout in #163.
+The worker claims a pending record using a recoverable five-minute lease,
+performs provider deletion outside the database transaction, and fences
+completion by attempt number. Expired claims can be replayed. A successful
+claim scrubs the bucket/key payload after verified absence. Profile-photo
+uploads reserve their opaque key in this outbox before provider upload so a
+failed activation cannot strand an untracked object.
 
 ## Initial queues
 

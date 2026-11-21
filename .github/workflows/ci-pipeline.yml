@@ -257,6 +257,11 @@ jobs:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
         run: npx jest --runInBand src/database/tests/private-object-cleanup.integration.spec.ts
 
+      - name: Profile photo lifecycle PostgreSQL integration
+        env:
+          PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
+        run: npx jest --runInBand src/database/tests/profile-photo-lifecycle.integration.spec.ts
+
       - name: Verify canonical Google OAuth migration on PostgreSQL
         env:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci

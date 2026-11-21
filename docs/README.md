@@ -25,6 +25,8 @@ must follow.
    — handle-bound resend, lineage, stable errors, and recovery links.
 10. [Public discovery contract](./public-discovery-contract.md) — public route
     boundary, visibility policy, query conventions, and response allowlists.
+11. [Private profile photos](./profile-photo-lifecycle.md) — shared account ownership,
+    validation limits, object consistency, and deletion semantics.
 
 ## Documentation status labels
 
@@ -56,6 +58,7 @@ must follow.
 | Public professional availability                  | Implemented |
 | Existing role-array authentication                | Legacy      |
 | Canonical account context and capability policies | Implemented |
+| Private patient/professional profile photos       | Implemented |
 
 Update this table whenever an area moves between statuses.
 

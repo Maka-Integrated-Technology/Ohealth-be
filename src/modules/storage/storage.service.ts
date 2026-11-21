@@ -63,6 +63,7 @@ export class StorageService {
       contentType,
       size: options.body.length,
       etag: result.ETag,
+      ...(result.VersionId ? { versionId: result.VersionId } : {}),
     };
   }
 
@@ -152,6 +153,7 @@ export class StorageService {
     const command = new GetObjectCommand({
       Bucket: bucket,
       Key: key,
+      VersionId: options.versionId,
       ResponseContentDisposition: options.responseContentDisposition,
     });
 

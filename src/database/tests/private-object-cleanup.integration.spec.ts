@@ -136,4 +136,48 @@ integration('Private-object cleanup on PostgreSQL', () => {
     ).toEqual([{ id: documentId }]);
     expect(await database.getRepository(OutboxEvent).count()).toBe(0);
   });
+
+  it('fences concurrent workers and recovers an expired cleanup lease', async () => {
+    let releaseDelete: () => void;
+    const gate = new Promise<void>((resolve) => {
+      releaseDelete = resolve;
+    });
+    const storage = {
+      deleteObject: jest.fn(async () => gate),
+    } as unknown as StorageService;
+    const cleanup = new StorageCleanupService(database, storage);
+    const id = await database.transaction((manager) =>
+      cleanup.enqueue(manager, 'private', 'opaque'),
+    );
+    const first = cleanup.process(id);
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const current = await database
+        .getRepository(OutboxEvent)
+        .findOneByOrFail({ id });
+      if (current.status === OutboxEventStatus.PROCESSING) break;
+      await new Promise((resolve) => {
+        setTimeout(resolve, 10);
+      });
+    }
+    await expect(cleanup.process(id)).rejects.toThrow('not retryable');
+    releaseDelete();
+    await first;
+    expect(storage.deleteObject).toHaveBeenCalledTimes(1);
+    expect(
+      (await database.getRepository(OutboxEvent).findOneByOrFail({ id }))
+        .payload,
+    ).toEqual({});
+    const expiredId = await database.transaction((manager) =>
+      cleanup.enqueue(manager, 'private', 'expired'),
+    );
+    await database.getRepository(OutboxEvent).update(
+      { id: expiredId },
+      {
+        status: OutboxEventStatus.PROCESSING,
+        available_at: new Date(Date.now() - 1000),
+      },
+    );
+    await cleanup.process(expiredId);
+    expect(storage.deleteObject).toHaveBeenCalledTimes(2);
+  });
 });

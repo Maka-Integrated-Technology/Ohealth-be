@@ -14,6 +14,7 @@ import { PatientProfile } from '../patient/entities/patient-profile.entity';
 import { CanonicalPatientProfileService } from '../patient/personal-profile/canonical-patient-profile.service';
 import { Professional } from '../professional/entities/professional.entity';
 import { CanonicalProfessionalProfileService } from '../professional/personal-profile/canonical-professional-profile.service';
+import { StorageModule } from '../storage/storage.module';
 import { User } from '../user/entities/user.entity';
 import { UserModule } from '../user/user.module';
 
@@ -37,6 +38,9 @@ import { RolesGuard } from './guards/roles.guard';
 import { MfaModule } from './mfa.module';
 import { OAuthModule } from './oauth/oauth.module';
 import { PasswordCredentialsService } from './password-policy/password-credentials.service';
+import { ProfilePhotoController } from './profile-photo/profile-photo.controller';
+import { ProfilePhoto } from './profile-photo/profile-photo.entity';
+import { ProfilePhotoService } from './profile-photo/profile-photo.service';
 import { RegistrationModule } from './registration/registration.module';
 import { AuthSecurityAuditModule } from './security-audit/auth-security-audit.module';
 import { RefreshSessionModule } from './sessions/refresh-session.module';
@@ -54,6 +58,7 @@ import { TwoFactorAuthController } from './two-factor-auth.controller';
     ConfigModule,
     EmailModule,
     UserModule,
+    StorageModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     TypeOrmModule.forFeature([
       User2fa,
@@ -68,15 +73,18 @@ import { TwoFactorAuthController } from './two-factor-auth.controller';
       AuthSession,
       PlatformPrivilegeEntity,
       PatientProfile,
+      ProfilePhoto,
     ]),
   ],
   controllers: [
     AuthController,
     BrowserSessionController,
     TwoFactorAuthController,
+    ProfilePhotoController,
   ],
   providers: [
     AuthService,
+    ProfilePhotoService,
     CanonicalPatientProfileService,
     CanonicalProfessionalProfileService,
     BrowserSessionConfig,

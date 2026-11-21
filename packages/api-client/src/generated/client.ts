@@ -1452,6 +1452,43 @@ export type ProfessionalVerificationStatusController_verifyError =
   | operations['ProfessionalVerificationStatusController_verify']['responses'][401]['content']['application/json']
   | operations['ProfessionalVerificationStatusController_verify']['responses'][500]['content']['application/json'];
 
+export type ProfilePhotoController_getRequest = Readonly<{
+  readonly headers?: ApiHeaders;
+}>;
+export type ProfilePhotoController_getResponse =
+  operations['ProfilePhotoController_get']['responses'][200]['content']['application/json'];
+export type ProfilePhotoController_getError =
+  | operations['ProfilePhotoController_get']['responses'][401]['content']['application/json']
+  | operations['ProfilePhotoController_get']['responses'][403]['content']['application/json']
+  | operations['ProfilePhotoController_get']['responses'][404]['content']['application/json']
+  | operations['ProfilePhotoController_get']['responses'][500]['content']['application/json'];
+
+export type ProfilePhotoController_removeRequest = Readonly<{
+  readonly headers?: ApiHeaders;
+}>;
+export type ProfilePhotoController_removeResponse =
+  operations['ProfilePhotoController_remove']['responses'][202]['content']['application/json'];
+export type ProfilePhotoController_removeError =
+  | operations['ProfilePhotoController_remove']['responses'][401]['content']['application/json']
+  | operations['ProfilePhotoController_remove']['responses'][403]['content']['application/json']
+  | operations['ProfilePhotoController_remove']['responses'][500]['content']['application/json'];
+
+export type ProfilePhotoController_uploadRequest = Readonly<{
+  readonly body: NonNullable<
+    operations['ProfilePhotoController_upload']['requestBody']
+  >['content']['multipart/form-data'];
+  readonly headers?: ApiHeaders;
+}>;
+export type ProfilePhotoController_uploadResponse =
+  operations['ProfilePhotoController_upload']['responses'][200]['content']['application/json'];
+export type ProfilePhotoController_uploadError =
+  | operations['ProfilePhotoController_upload']['responses'][400]['content']['application/json']
+  | operations['ProfilePhotoController_upload']['responses'][401]['content']['application/json']
+  | operations['ProfilePhotoController_upload']['responses'][403]['content']['application/json']
+  | operations['ProfilePhotoController_upload']['responses'][409]['content']['application/json']
+  | operations['ProfilePhotoController_upload']['responses'][413]['content']['application/json']
+  | operations['ProfilePhotoController_upload']['responses'][500]['content']['application/json'];
+
 export type PublicDiscoveryController_getContractRequest = Readonly<{
   readonly headers?: ApiHeaders;
 }>;
@@ -1943,6 +1980,15 @@ export interface ApiClient {
   readonly ProfessionalVerificationStatusController_verify: (
     request: ProfessionalVerificationStatusController_verifyRequest,
   ) => Promise<ProfessionalVerificationStatusController_verifyResponse>;
+  readonly ProfilePhotoController_get: (
+    request?: ProfilePhotoController_getRequest,
+  ) => Promise<ProfilePhotoController_getResponse>;
+  readonly ProfilePhotoController_remove: (
+    request?: ProfilePhotoController_removeRequest,
+  ) => Promise<ProfilePhotoController_removeResponse>;
+  readonly ProfilePhotoController_upload: (
+    request: ProfilePhotoController_uploadRequest,
+  ) => Promise<ProfilePhotoController_uploadResponse>;
   readonly PublicDiscoveryController_getContract: (
     request?: PublicDiscoveryController_getContractRequest,
   ) => Promise<PublicDiscoveryController_getContractResponse>;
@@ -3293,6 +3339,43 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
           operationId: 'ProfessionalVerificationStatusController_verify',
           method: 'POST',
           path: '/api/professionals/{professionalId}/verify',
+        },
+        request,
+      ),
+    ProfilePhotoController_get: (request = {}) =>
+      core.request<
+        ProfilePhotoController_getResponse,
+        ProfilePhotoController_getError
+      >(
+        {
+          operationId: 'ProfilePhotoController_get',
+          method: 'GET',
+          path: '/api/auth/me/profile-photo',
+        },
+        request,
+      ),
+    ProfilePhotoController_remove: (request = {}) =>
+      core.request<
+        ProfilePhotoController_removeResponse,
+        ProfilePhotoController_removeError
+      >(
+        {
+          operationId: 'ProfilePhotoController_remove',
+          method: 'DELETE',
+          path: '/api/auth/me/profile-photo',
+        },
+        request,
+      ),
+    ProfilePhotoController_upload: (request) =>
+      core.request<
+        ProfilePhotoController_uploadResponse,
+        ProfilePhotoController_uploadError
+      >(
+        {
+          operationId: 'ProfilePhotoController_upload',
+          method: 'POST',
+          path: '/api/auth/me/profile-photo',
+          requestMediaType: 'multipart/form-data',
         },
         request,
       ),
