@@ -87,7 +87,7 @@
     "dotenv": "^18.0.10",
     "google-auth-library": "^10.5.0",
     "morgan": "^1.10.1",
-    "nest-winston": "^1.10.2",
+    "nest-winston": "^2.0.0",
     "nodemailer": "10.5.0",
     "nunjucks": "^3.2.4",
     "passport": "^0.7.0",
