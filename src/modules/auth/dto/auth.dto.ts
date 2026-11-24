@@ -54,16 +54,6 @@ export class RefreshTokenDto {
   refresh_token: string;
 }
 
-export class GoogleLoginDto {
-  @ApiProperty({
-    example: 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjFj... (Google ID Token)',
-    description: 'Google ID Token',
-  })
-  @IsString()
-  @IsNotEmpty()
-  token: string;
-}
-
 export class VerifySignupDto {
   @ApiProperty({
     format: 'uuid',

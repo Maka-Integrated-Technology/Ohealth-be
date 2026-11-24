@@ -1,4 +1,3 @@
-import { ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { IS_PUBLIC_KEY } from '../../common/decorators/public.decorator';
@@ -21,7 +20,6 @@ describe('AuthController', () => {
     login: jest.fn(),
     verifyLogin: jest.fn(),
     resendLogin: jest.fn(),
-    googleLogin: jest.fn(),
     refreshToken: jest.fn(),
     forgotPassword: jest.fn(),
     resetPassword: jest.fn(),
@@ -104,17 +102,13 @@ describe('AuthController', () => {
     expect(result).toEqual(expected);
   });
 
-  it('permanently denies the deprecated account activation command', () => {
-    expect(() => controller.activateAccount()).toThrow(ForbiddenException);
-  });
-
   it('should return profile for authenticated request', async () => {
     const request = {
       user: {
         id: 'user-id-1',
         userId: 'user-id-1',
         email: 'tunde@example.com',
-        roles: ['PATIENT'],
+        sessionId: 'session-id-1',
       },
     } as IRequestWithUser;
     const expected = {

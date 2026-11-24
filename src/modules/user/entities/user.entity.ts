@@ -7,7 +7,6 @@ import { LegalAcceptance } from '../../identity/entities/legal-acceptance.entity
 import { UserPersona } from '../../identity/entities/user-persona.entity';
 import { OrganizationMembership } from '../../organization/entities/organization-membership.entity';
 import { AccountStatus } from '../enums/account-status.enum';
-import { UserRole } from '../enums/user-role.enum';
 
 @Check(
   'CHK_users_account_status',
@@ -45,9 +44,6 @@ export class User extends BaseEntity {
   @Column({ nullable: true })
   image?: string | null;
 
-  @Column({ type: 'simple-array', default: UserRole.PATIENT })
-  role: UserRole[];
-
   @Column({ default: false })
   is_active: boolean;
 
@@ -63,23 +59,11 @@ export class User extends BaseEntity {
   @Column({ type: 'timestamp with time zone', nullable: true })
   email_verified_at?: Date | null;
 
-  @Column({ nullable: true })
-  verification_code?: string | null;
-
-  @Column({ type: 'timestamp with time zone', nullable: true })
-  verification_code_expires_at?: Date | null;
-
   @Column({ default: true })
   password_authentication_enabled: boolean;
 
   @Column({ nullable: true })
   google_id?: string | null;
-
-  @Column({ nullable: true })
-  reset_token?: string | null;
-
-  @Column({ type: 'timestamp with time zone', nullable: true })
-  reset_token_expiry?: Date | null;
 
   @OneToMany(() => AuthSession, (session) => session.user)
   sessions: AuthSession[];

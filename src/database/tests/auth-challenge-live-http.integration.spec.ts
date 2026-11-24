@@ -2286,13 +2286,12 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         })
         .expect(201);
       const rows: Array<{
-        role: string;
         persona_type: string | null;
         organization_type: string | null;
         membership_role: string | null;
         legal_count: number;
       }> = await database.query(
-        `SELECT u.role, p.persona_type, o.organization_type,
+        `SELECT p.persona_type, o.organization_type,
                 m.role AS membership_role,
                 (SELECT count(*)::int FROM legal_acceptances l WHERE l.user_id = u.id) AS legal_count
          FROM users u
@@ -2303,7 +2302,6 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         [email],
       );
       expect(rows).toHaveLength(1);
-      expect(rows[0].role).toBe('');
       expect(rows[0].legal_count).toBe(2);
       const expectedContext =
         intent === 'healthcare_professional'
@@ -2321,6 +2319,46 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     },
     20_000,
   );
+
+  it.each([
+    ['role', ['ADMIN']],
+    ['personas', ['patient']],
+    ['memberships', [{ organization_id: randomUUID(), role: 'owner' }]],
+    ['routing_target', 'admin-dashboard'],
+  ])('rejects client-supplied %s authority at signup', async (field, value) => {
+    const email = `forged-${field}+${randomUUID()}@example.test`;
+    await request(app.getHttpServer())
+      .post('/api/auth/signup')
+      .send({
+        first_name: 'Ada',
+        last_name: 'Forger',
+        email,
+        password: 'a memorable registration passphrase',
+        intent: 'patient',
+        accepted_terms_version: 'terms-v1',
+        accepted_privacy_version: 'privacy-v1',
+        [field]: value,
+      })
+      .expect(400);
+    const [{ count }] = await database.query(
+      'SELECT count(*)::int AS count FROM users WHERE email = $1',
+      [email],
+    );
+    expect(count).toBe(0);
+  });
+
+  it('does not expose a parallel pharmacy registration path', async () => {
+    const registrationNumber = `RC-${randomUUID()}`;
+    await request(app.getHttpServer())
+      .post('/api/pharmacies/register')
+      .send({ registration_number: registrationNumber })
+      .expect(404);
+    const [{ count }] = await database.query(
+      'SELECT count(*)::int AS count FROM organizations WHERE registration_number = $1',
+      [registrationNumber],
+    );
+    expect(count).toBe(0);
+  });
 
   it('serializes concurrent duplicate and idempotent registration attempts', async () => {
     const suffix = randomUUID();

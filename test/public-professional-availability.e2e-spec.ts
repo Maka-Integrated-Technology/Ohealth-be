@@ -12,7 +12,6 @@ import { GlobalExceptionFilter } from '../src/common/exceptions/filters/global-e
 import { TransformInterceptor } from '../src/common/interceptors/transform.interceptor';
 import { AuthChallengeValidationPipe } from '../src/modules/auth/challenges/auth-challenge-validation.pipe';
 import { JwtAuthGuard } from '../src/modules/auth/guards/jwt-auth.guard';
-import { RolesGuard } from '../src/modules/auth/guards/roles.guard';
 import { RefreshSessionService } from '../src/modules/auth/sessions/refresh-session.service';
 import { JwtStrategy } from '../src/modules/auth/strategies/jwt.strategy';
 import { ProfessionalAvailability } from '../src/modules/professional/entities/professional-availability.entity';
@@ -134,7 +133,6 @@ describe('Public professional availability (#145)', () => {
         PublicDiscoveryVisibilityPolicy,
         PublicResourceIdPipe,
         JwtStrategy,
-        RolesGuard,
         { provide: PublicDiscoveryClock, useValue: { now: () => NOW } },
         { provide: getRepositoryToken(Professional), useValue: repository },
         {

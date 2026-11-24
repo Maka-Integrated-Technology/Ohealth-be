@@ -312,7 +312,6 @@ describe('SecureAuthChallengeFlowsService', () => {
       expect.objectContaining({
         password: 'new-secret-hash',
         password_authentication_enabled: true,
-        reset_token: null,
       }),
     );
     expect(manager.update).toHaveBeenCalledWith(

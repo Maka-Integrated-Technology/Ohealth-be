@@ -36,7 +36,6 @@ import { AuthSession } from './entities/auth.entity';
 import { User2fa } from './entities/user-2fa.entity';
 import { CapabilitiesGuard } from './guards/capabilities.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { RolesGuard } from './guards/roles.guard';
 import { MfaModule } from './mfa.module';
 import { OAuthModule } from './oauth/oauth.module';
 import { PasswordCredentialsService } from './password-policy/password-credentials.service';
@@ -101,7 +100,6 @@ import { TwoFactorAuthController } from './two-factor-auth.controller';
     PasswordCredentialsService,
     JwtStrategy,
     JwtAuthGuard,
-    RolesGuard,
     CapabilitiesGuard,
   ],
   exports: [
@@ -112,7 +110,6 @@ import { TwoFactorAuthController } from './two-factor-auth.controller';
     AuthService,
     PasswordCredentialsService,
     JwtAuthGuard,
-    RolesGuard,
     AuthContextService,
     // Modules that guard routes with CapabilitiesGuard resolve its
     // authorization audit through this export; without it the guard fails

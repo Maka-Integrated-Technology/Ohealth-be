@@ -378,7 +378,7 @@ describe('AuthService', () => {
         is_verified: true,
         account_status: AccountStatus.ACTIVE,
         email_verified_at: new Date(),
-      } as User;
+      } as unknown as User;
       mockUserService.findByEmail.mockResolvedValue(user);
       mockJwtService.signAsync
         .mockResolvedValueOnce('access-token')
@@ -436,7 +436,7 @@ describe('AuthService', () => {
         first_name: 'Patient',
         last_name: 'User',
         role: [UserRole.PATIENT],
-      } as User;
+      } as unknown as User;
       mockChallengeFlows.verifyLogin.mockResolvedValue({
         user,
         session: {
@@ -489,46 +489,6 @@ describe('AuthService', () => {
       expect(mockJwtService.signAsync).not.toHaveBeenCalled();
     },
   );
-
-  describe('issueAuthSession', () => {
-    it('should issue tokens and create a refresh session for an existing user', async () => {
-      const expiresAt = new Date('2026-07-11T16:16:13.000Z');
-      mockJwtService.signAsync
-        .mockResolvedValueOnce('access-token')
-        .mockResolvedValueOnce('refresh-token');
-      mockJwtService.decode.mockReturnValue({
-        exp: Math.floor(expiresAt.getTime() / 1000),
-      });
-      mockSessionRepository.create.mockImplementation(
-        (payload: Partial<AuthSession>) => ({
-          id: 'session-db-id',
-          ...payload,
-        }),
-      );
-      mockSessionRepository.save.mockImplementation(
-        async (payload: Partial<AuthSession>) => payload,
-      );
-
-      const result = await service.issueAuthSession({
-        id: 'user-id-1',
-        email: 'lab.admin@example.com',
-        role: [UserRole.LAB_ADMIN],
-        account_status: AccountStatus.ACTIVE,
-        email_verified_at: new Date(),
-      } as User);
-
-      expect(mockSessions.issue).toHaveBeenCalledWith('user-id-1', undefined);
-      expect(result).toEqual(
-        expect.objectContaining({
-          account_context: expect.any(Object),
-          access_token: 'access-token',
-          refresh_token: 'refresh-token',
-          session_id: '550e8400-e29b-41d4-a716-446655440000',
-          session_expires_at: expiresAt,
-        }),
-      );
-    });
-  });
 
   describe('forgotPassword', () => {
     it('returns a generic queued response without writing legacy reset tokens', async () => {
@@ -586,7 +546,7 @@ describe('AuthService', () => {
         is_verified: true,
         account_status: AccountStatus.ACTIVE,
         email_verified_at: new Date(),
-      } as User;
+      } as unknown as User;
       mockSessions.rotate.mockResolvedValueOnce({
         userId: user.id,
         access_token: 'new-access-token',
@@ -658,7 +618,6 @@ describe('AuthService', () => {
           id: 'user-id-1',
           userId: 'user-id-1',
           email: 'funke@example.com',
-          roles: [UserRole.PATIENT],
           sessionId: 'session-id-1',
         },
       } as IRequestWithUser;
@@ -706,7 +665,6 @@ describe('AuthService', () => {
       } as IRequestWithUser;
 
       await expect(service.getProfile(req)).resolves.toMatchObject({
-        first_name: 'Amina',
         address: null,
         account_context: {
           memberships: [{ organization_id: 'organization-id-1' }],
@@ -725,6 +683,10 @@ describe('AuthService', () => {
     } as IRequestWithUser;
 
     it('returns the committed personal fields without a post-write read', async () => {
+      mockAuthContextService.resolve.mockResolvedValueOnce({
+        account: { id: 'user-id-1', profile: {} },
+        capabilities: [AuthCapability.PERSONA_PATIENT],
+      });
       mockUserService.findById.mockResolvedValue({
         id: 'user-id-1',
         first_name: 'Funke',
@@ -751,7 +713,7 @@ describe('AuthService', () => {
         'session-id-1',
         { first_name: 'Amaka' },
       );
-      expect(result).toMatchObject({ first_name: 'Amaka', address: 'Lagos' });
+      expect(result).toMatchObject({ address: 'Lagos' });
       expect(result.account_context.account).toMatchObject({
         first_name: 'Amaka',
         profile: { middle_name: null, country: null },
@@ -795,7 +757,6 @@ describe('AuthService', () => {
         { first_name: 'Amaka' },
       );
       expect(result).toMatchObject({
-        first_name: 'Amaka',
         address: null,
         account_context: {
           account: { first_name: 'Amaka', profile: { country: 'Nigeria' } },
@@ -938,17 +899,6 @@ describe('AuthService', () => {
         payload.code,
       );
       expect(mockEmailService.sendMail).toHaveBeenCalled();
-    });
-  });
-
-  describe('legacy Google login containment', () => {
-    it('requires the nonce-bound transaction flow', () => {
-      expect(() => service.googleLogin('legacy-google-token')).toThrow(
-        expect.objectContaining({ errorCode: 'OAUTH_TRANSACTION_REQUIRED' }),
-      );
-      expect(mockUserService.findByEmail).not.toHaveBeenCalled();
-      expect(mockUserService.linkGoogleIdentity).not.toHaveBeenCalled();
-      expect(mockSessions.issue).not.toHaveBeenCalled();
     });
   });
 });

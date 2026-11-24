@@ -261,8 +261,6 @@ export class RefreshSessionService {
         'user.last_name',
         'user.account_status',
         'user.email_verified_at',
-        'user.is_active',
-        'user.is_verified',
       ])
       .where('user.id = :userId', { userId })
       .andWhere('session.credential_version = 2')
@@ -488,8 +486,6 @@ export class RefreshSessionService {
       }
       await manager.update(User, user.id, {
         password: newPasswordHash,
-        reset_token: null,
-        reset_token_expiry: null,
       });
       await manager.query(
         'UPDATE auth_challenges SET consumed_at = now(), terminal_reason = $3 ' +

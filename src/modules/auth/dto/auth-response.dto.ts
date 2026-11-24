@@ -7,9 +7,7 @@ import { OrganizationType } from '../../organization/enums/organization-type.enu
 import { OrganizationVerificationStatus } from '../../organization/enums/organization-verification-status.enum';
 import { ProfessionalVerificationStatus } from '../../professional/entities/professional.entity';
 import { AccountStatus } from '../../user/enums/account-status.enum';
-import { UserRole } from '../../user/enums/user-role.enum';
 import { AuthChallengeContinuationDto } from '../contracts/auth-contract-response.dto';
-import { AuthAccessLevel, AuthRoutingTarget } from '../enums/auth-routing.enum';
 
 export class TokensDto {
   @ApiProperty({
@@ -104,16 +102,6 @@ export class AuthContextResponseDto {
 }
 
 export class AuthMeResponseDto {
-  @ApiProperty({ deprecated: true }) id: string;
-  @ApiProperty({ deprecated: true }) email: string;
-  @ApiProperty({ deprecated: true }) first_name: string;
-  @ApiProperty({ deprecated: true }) last_name: string;
-  @ApiProperty({ type: [String], deprecated: true }) role: UserRole[];
-  @ApiProperty({ nullable: true, deprecated: true }) middle_name: string | null;
-  @ApiProperty({ nullable: true, deprecated: true }) gender: string | null;
-  @ApiProperty({ nullable: true, deprecated: true }) dob: string | null;
-  @ApiProperty({ nullable: true, deprecated: true }) phone: string | null;
-  @ApiProperty({ nullable: true, deprecated: true }) country: string | null;
   @ApiProperty({
     nullable: true,
     maxLength: 500,
@@ -121,10 +109,6 @@ export class AuthMeResponseDto {
       'Patient address; null when no active patient persona is present',
   })
   address: string | null;
-  @ApiProperty({ nullable: true, deprecated: true }) image: string | null;
-  @ApiProperty({ deprecated: true }) is_active: boolean;
-  @ApiProperty({ format: 'date-time', deprecated: true }) created_at: Date;
-  @ApiProperty({ format: 'date-time', deprecated: true }) updated_at: Date;
   @ApiProperty({ type: AuthContextResponseDto })
   account_context: AuthContextResponseDto;
 }
@@ -136,24 +120,6 @@ export class CanonicalAuthResponseDto extends TokensDto {
       'Server-resolved account, persona, membership, verification, and capability context',
   })
   account_context: AuthContextResponseDto;
-
-  @ApiProperty({ deprecated: true })
-  user: {
-    id: string;
-    email: string;
-    first_name: string;
-    last_name: string;
-    role: UserRole[];
-  };
-
-  @ApiProperty({ enum: AuthRoutingTarget, deprecated: true })
-  routing_target: AuthRoutingTarget;
-
-  @ApiProperty({ enum: AuthAccessLevel, deprecated: true })
-  access_level: AuthAccessLevel;
-
-  @ApiProperty({ nullable: true, deprecated: true })
-  verification_status: string | null;
 }
 
 export class LoginResponseDto extends CanonicalAuthResponseDto {
