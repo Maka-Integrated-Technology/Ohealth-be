@@ -1,9 +1,18 @@
 import {
+  AuthAccountResponseDtoStatus,
   createApiClient,
+  OrganizationDocumentChecklistDtoMissing_document_types,
+  PathsApiLaboratoriesLaboratoryIdVerificationDocumentsDocumentTypeDownloadGetParametersPathDocumentType,
+  PathsApiOrganizationsOnboardingReviewApplicationsGetParametersQueryOrganization_type,
+  PathsApiOrganizationsOnboardingReviewApplicationsGetParametersQueryVerification_status,
   type ApiClient,
   type ApiTransport,
+  type AuthController_getProfileResponse,
   type AuthController_loginRequest,
   type AuthController_loginResponse,
+  type LaboratoryVerificationDocumentsController_uploadMyDocumentRequest,
+  type OrganizationController_listApplicationsRequest,
+  type OrganizationController_listApplicationsResponse,
   type PublicProfessionalController_findAvailabilityRequest,
 } from '@ohealth/api-client';
 
@@ -30,6 +39,69 @@ const loginRequest: AuthController_loginRequest = {
 const loginResponse: Promise<AuthController_loginResponse> =
   client.AuthController_login(loginRequest);
 void loginResponse;
+
+// Auth responses retain the backend's enum and nullable-field contracts.
+type Account =
+  AuthController_getProfileResponse['data']['account_context']['account'];
+const accountStatus: Account['status'] = AuthAccountResponseDtoStatus.active;
+const nullableProfileFields: Pick<
+  Account['profile'],
+  'country' | 'dob' | 'gender' | 'image' | 'middle_name' | 'phone'
+> = {
+  country: null,
+  dob: null,
+  gender: null,
+  image: null,
+  middle_name: null,
+  phone: null,
+};
+void [accountStatus, nullableProfileFields];
+
+// Organization review fixtures exercise enums, nullable response fields and
+// page-based pagination without depending on a frontend framework.
+const organizationPageRequest: OrganizationController_listApplicationsRequest =
+  {
+    query: {
+      limit: 20,
+      organization_type:
+        PathsApiOrganizationsOnboardingReviewApplicationsGetParametersQueryOrganization_type.laboratory,
+      page: 2,
+      verification_status:
+        PathsApiOrganizationsOnboardingReviewApplicationsGetParametersQueryVerification_status.under_review,
+    },
+  };
+const organizationPage: Promise<OrganizationController_listApplicationsResponse> =
+  client.OrganizationController_listApplications(organizationPageRequest);
+void organizationPage.then(({ data }) => {
+  const total: number = data.total;
+  const page: number = data.page;
+  const first = data.applications[0];
+  const nullableFields: readonly (string | null)[] = [
+    first.contact_phone,
+    first.rejection_reason,
+  ];
+  return [total, page, nullableFields];
+});
+
+// Multipart fields are exposed as transport-neutral strings so Node consumers
+// can choose their own FormData/file implementation.
+const laboratoryUpload: LaboratoryVerificationDocumentsController_uploadMyDocumentRequest =
+  {
+    path: {
+      documentType:
+        PathsApiLaboratoriesLaboratoryIdVerificationDocumentsDocumentTypeDownloadGetParametersPathDocumentType.laboratory_license,
+    },
+    headerParameters: {
+      'x-organization-id': '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
+    },
+    body: { file: 'transport-owned-binary-field' },
+  };
+void client.LaboratoryVerificationDocumentsController_uploadMyDocument(
+  laboratoryUpload,
+);
+const requiredOrganizationDocument =
+  OrganizationDocumentChecklistDtoMissing_document_types.operating_license;
+void requiredOrganizationDocument;
 
 // Public availability takes a pair of required calendar dates, and every slot
 // carries the IANA time zone it is local to and its start and end as instants.

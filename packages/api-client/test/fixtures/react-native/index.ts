@@ -1,7 +1,10 @@
 import {
   createApiClient,
+  AuthPersonaResponseDtoType,
   type ApiTransport,
   type ApiTransportRequest,
+  type AuthController_getProfileResponse,
+  type ProfilePhotoController_uploadRequest,
 } from '@ohealth/api-client';
 
 declare const nativeRequest: (request: ApiTransportRequest) => Promise<unknown>;
@@ -24,3 +27,15 @@ void client.BookingController_findOne({
     id: 'booking-id',
   },
 });
+
+const profilePhotoUpload: ProfilePhotoController_uploadRequest = {
+  body: { file: 'native-form-data-field' },
+};
+void client.ProfilePhotoController_upload(profilePhotoUpload);
+
+type AuthContext = AuthController_getProfileResponse['data']['account_context'];
+const patientPersona: AuthContext['personas'][number]['type'] =
+  AuthPersonaResponseDtoType.patient;
+const optionalProfessional: AuthContext['professional'] = null;
+const optionalActiveOrganization: AuthContext['active_organization_id'] = null;
+void [patientPersona, optionalProfessional, optionalActiveOrganization];

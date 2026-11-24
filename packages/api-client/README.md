@@ -88,5 +88,7 @@ edit them manually. Files under `src/core` are handwritten adapters and are
 kept separate from generated output.
 
 The verification command checks deterministic generation, performs a strict
-package build, runs runtime behavior tests, and compiles independent Node,
-browser and React Native fixtures.
+package build, runs runtime behavior tests, compiles independent Node, browser
+and React Native fixtures, and verifies the npm package manifest, automatic
+root metadata, and built `dist` artifacts against an explicit allowlist. It
+does not publish the package or require registry credentials.

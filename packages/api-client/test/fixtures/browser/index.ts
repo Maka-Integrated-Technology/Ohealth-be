@@ -1,8 +1,11 @@
 import {
   createApiClient,
   PathsApiAuthBrowserLoginMfaVerifyPostParametersHeaderXOHealthClient,
+  PathsApiOrganizationsOnboardingReviewApplicationsGetParametersQueryOrganization_type,
   type ApiTransport,
   type ApiTransportRequest,
+  type OrganizationController_listApplicationsRequest,
+  type ProfilePhotoController_uploadRequest,
 } from '@ohealth/api-client';
 
 const transport: ApiTransport = async (request: ApiTransportRequest) => {
@@ -41,3 +44,18 @@ void client.BrowserSessionController_completeGoogle({
     id_token: 'google-id-token',
   },
 });
+
+const profilePhotoUpload: ProfilePhotoController_uploadRequest = {
+  body: { file: 'browser-form-data-field' },
+};
+void client.ProfilePhotoController_upload(profilePhotoUpload);
+
+const organizationFilter: OrganizationController_listApplicationsRequest = {
+  query: {
+    organization_type:
+      PathsApiOrganizationsOnboardingReviewApplicationsGetParametersQueryOrganization_type.hospital,
+    page: 1,
+    limit: 10,
+  },
+};
+void client.OrganizationController_listApplications(organizationFilter);
