@@ -1432,6 +1432,62 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       .expect(401);
   });
 
+  it.each(['patient', 'healthcare_professional'])(
+    'changes %s password over HTTP and terminates all sessions',
+    async (persona) => {
+      const passwords = app.get(PasswordCredentialsService);
+      const current = 'a memorable current passphrase';
+      const replacement = 'a memorable replacement passphrase';
+      const user = await createUser(
+        `password-${persona}`,
+        'active',
+        await passwords.hashNewPassword(current),
+      );
+      await database.query(
+        'INSERT INTO user_personas (user_id, persona_type) VALUES ($1, $2)',
+        [user.id, persona],
+      );
+      const sessions = app.get(RefreshSessionService);
+      const first = await sessions.issue(user.id);
+      const second = await sessions.issue(user.id);
+
+      const denied = await request(app.getHttpServer())
+        .post('/api/auth/change-password')
+        .set('Authorization', `Bearer ${first.access_token}`)
+        .send({
+          currentPassword: 'incorrect passphrase',
+          newPassword: replacement,
+        })
+        .expect(401);
+      expect(denied.body.error_code).toBe('PASSWORD_CURRENT_INVALID');
+      const reused = await request(app.getHttpServer())
+        .post('/api/auth/change-password')
+        .set('Authorization', `Bearer ${first.access_token}`)
+        .send({ currentPassword: current, newPassword: current })
+        .expect(409);
+      expect(reused.body.error_code).toBe('PASSWORD_REUSED');
+      const changed = await request(app.getHttpServer())
+        .post('/api/auth/change-password')
+        .set('Authorization', `Bearer ${first.access_token}`)
+        .send({ currentPassword: current, newPassword: replacement })
+        .expect(200);
+      expect(changed.body.data.session_terminated).toBe(true);
+      await request(app.getHttpServer())
+        .get('/api/auth/me')
+        .set('Authorization', `Bearer ${first.access_token}`)
+        .expect(401);
+      await expect(sessions.rotate(second.refresh_token)).rejects.toThrow();
+      const stored = await database.query(
+        'SELECT password FROM users WHERE id = $1',
+        [user.id],
+      );
+      expect(await passwords.verify(replacement, stored[0].password)).toBe(
+        true,
+      );
+    },
+    20_000,
+  );
+
   it('revokes every caller session and records the revocation atomically', async () => {
     const user = await createUser('revoke-all-http', 'active');
     const sessions = app.get(RefreshSessionService);

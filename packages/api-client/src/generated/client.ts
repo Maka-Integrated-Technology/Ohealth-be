@@ -18,6 +18,7 @@ export type AuthController_changePasswordResponse =
 export type AuthController_changePasswordError =
   | operations['AuthController_changePassword']['responses'][400]['content']['application/json']
   | operations['AuthController_changePassword']['responses'][401]['content']['application/json']
+  | operations['AuthController_changePassword']['responses'][409]['content']['application/json']
   | operations['AuthController_changePassword']['responses'][500]['content']['application/json'];
 
 export type AuthController_forgotPasswordRequest = Readonly<{

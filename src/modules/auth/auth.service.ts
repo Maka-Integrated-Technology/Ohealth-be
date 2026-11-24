@@ -423,32 +423,21 @@ export class AuthService {
 
   async changePassword(req: IRequestWithUser, dto: ChangePasswordDto) {
     const userId = req.user?.id ?? req.user?.userId;
-    if (!userId) {
+    const sessionId = req.user?.sessionId;
+    if (!userId || !sessionId) {
       throw new UnauthorizedException(sysMsg.TOKEN_INVALID);
     }
-
-    const user = await this.userService.findById(userId);
-    if (!user) {
-      this.logger.warn(sysMsg.USER_NOT_FOUND);
-      throw new UnauthorizedException(sysMsg.USER_NOT_FOUND);
-    }
-
-    const isCurrentPasswordValid = await this.passwordCredentials.verify(
-      dto.currentPassword,
-      user.password,
-    );
-    if (!isCurrentPasswordValid) {
-      throw new UnauthorizedException(sysMsg.INVALID_CURRENT_PASSWORD);
-    }
-
     const password = await this.passwordCredentials.hashNewPassword(
       dto.newPassword,
     );
-    await this.sessions.replacePassword(user.id, user.password, password);
-
-    this.logger.info(`Password changed for user ${user.id}`);
-
-    return { message: sysMsg.PASSWORD_CHANGED };
+    await this.sessions.replacePassword(
+      userId,
+      sessionId,
+      dto.currentPassword,
+      dto.newPassword,
+      password,
+    );
+    return { message: sysMsg.PASSWORD_CHANGED, session_terminated: true };
   }
 
   // `userId` is always the authenticated caller. Trusting a user id from the

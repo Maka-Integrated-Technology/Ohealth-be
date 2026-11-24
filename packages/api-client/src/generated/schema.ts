@@ -2159,6 +2159,22 @@ export interface components {
        */
       readonly newPassword: string;
     };
+    readonly ChangePasswordResponseDto: {
+      /** @example password changed */
+      readonly message: string;
+      /**
+       * @description The current session and all other sessions have been revoked.
+       * @example true
+       */
+      readonly session_terminated: boolean;
+    };
+    readonly ChangePasswordResponseDtoData: {
+      /**
+       * @description The current session and all other sessions have been revoked.
+       * @example true
+       */
+      readonly session_terminated: boolean;
+    };
     readonly ChatHistoryResponseDto: {
       readonly chats: readonly components['schemas']['ChatSessionResponseDto'][];
       readonly messages: readonly components['schemas']['ChatMessageResponseDto'][];
@@ -4606,8 +4622,7 @@ export interface operations {
         };
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
-            /** @example null */
-            readonly data: unknown;
+            readonly data: components['schemas']['ChangePasswordResponseDtoData'];
           };
         };
       };
@@ -4622,6 +4637,15 @@ export interface operations {
       };
       /** @description unauthorized */
       readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description The new password must differ from the current password. */
+      readonly 409: {
         headers: {
           readonly [name: string]: unknown;
         };

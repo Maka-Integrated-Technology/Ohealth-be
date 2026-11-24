@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserModule } from '../../user/user.module';
 import { AuthSession } from '../entities/auth.entity';
 import { RefreshCredential } from '../entities/refresh-credential.entity';
+import { PasswordCredentialsService } from '../password-policy/password-credentials.service';
 import { AuthSecurityAuditModule } from '../security-audit/auth-security-audit.module';
 
 import { RefreshSessionService } from './refresh-session.service';
@@ -18,7 +19,7 @@ import { RefreshSessionService } from './refresh-session.service';
     UserModule,
     AuthSecurityAuditModule,
   ],
-  providers: [RefreshSessionService],
+  providers: [RefreshSessionService, PasswordCredentialsService],
   exports: [RefreshSessionService],
 })
 export class RefreshSessionModule {}
