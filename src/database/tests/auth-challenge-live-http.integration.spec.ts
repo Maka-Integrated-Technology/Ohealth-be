@@ -40,6 +40,7 @@ import { AuthRateLimitService } from '../../modules/auth/challenges/auth-rate-li
 import { SecureAuthChallengeFlowsService } from '../../modules/auth/challenges/secure-auth-challenge-flows.service';
 import { AuthContextService } from '../../modules/auth/context/auth-context.service';
 import { PlatformPrivilegeEntity } from '../../modules/auth/context/platform-privilege.entity';
+import { EmailDestinationService } from '../../modules/auth/email-change/email-destination';
 import { AuthSession } from '../../modules/auth/entities/auth.entity';
 import { User2fa } from '../../modules/auth/entities/user-2fa.entity';
 import { CapabilitiesGuard } from '../../modules/auth/guards/capabilities.guard';
@@ -86,6 +87,7 @@ import { CanonicalRefreshSessions1793400000000 } from '../migrations/17934000000
 import { LoginVerificationChallenges1793500000000 } from '../migrations/1793500000000-LoginVerificationChallenges';
 import { TransactionalIntentRegistration1793600000000 } from '../migrations/1793600000000-TransactionalIntentRegistration';
 import { AuthChallengeContinuation1793700000000 } from '../migrations/1793700000000-AuthChallengeContinuation';
+import { EmailChanges1795400000000 } from '../migrations/1795400000000-EmailChanges';
 
 // This suite deliberately uses the production controller, AuthService, abuse
 // guard, limit, challenge, delivery and audit services against real PostgreSQL.
@@ -310,6 +312,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       await new LoginVerificationChallenges1793500000000().up(runner);
       await new TransactionalIntentRegistration1793600000000().up(runner);
       await new AuthChallengeContinuation1793700000000().up(runner);
+      await new EmailChanges1795400000000().up(runner);
     } finally {
       await runner.release();
     }
@@ -396,6 +399,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         AuthChallengeService,
         AuthRateLimitService,
         AuthChallengeDeliveryService,
+        EmailDestinationService,
         SecureAuthChallengeFlowsService,
         AuthSecurityAuditService,
         AuthContextService,
@@ -553,7 +557,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
   beforeEach(async () => {
     mail.mockReset().mockResolvedValue(undefined);
     await database.query(
-      'TRUNCATE registration_attempts, auth_challenge_deliveries, ' +
+      'TRUNCATE registration_attempts, auth_challenge_deliveries, auth_email_changes, ' +
         'auth_challenges, auth_rate_limit_buckets',
     );
     await healthyWorker();

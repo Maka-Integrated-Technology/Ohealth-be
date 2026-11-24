@@ -8,6 +8,7 @@ import { AuthChallengeDeliveryService } from '../../modules/auth/challenges/auth
 import { AuthChallengePurpose } from '../../modules/auth/challenges/auth-challenge.entity';
 import { AuthChallengeService } from '../../modules/auth/challenges/auth-challenge.service';
 import { AuthRateLimitService } from '../../modules/auth/challenges/auth-rate-limit.service';
+import { EmailDestinationService } from '../../modules/auth/email-change/email-destination';
 import { EmailService } from '../../modules/email/email.service';
 import { User } from '../../modules/user/entities/user.entity';
 import { AuthChallengeFoundation1793000000000 } from '../migrations/1793000000000-AuthChallengeFoundation';
@@ -77,15 +78,17 @@ integration('Purpose-bound auth challenges on PostgreSQL', () => {
 
   it('stages an encrypted recoverable email envelope in the challenge transaction', async () => {
     const key = randomBytes(32).toString('base64');
+    const deliveryConfig = {
+      get: (name: string) =>
+        name === 'AUTH_CHALLENGE_DELIVERY_KEY' ? key : PEPPER,
+    } as unknown as ConfigService;
     const delivery = new AuthChallengeDeliveryService(
       dataSource,
-      {
-        get: (name: string) =>
-          name === 'AUTH_CHALLENGE_DELIVERY_KEY' ? key : PEPPER,
-      } as unknown as ConfigService,
+      deliveryConfig,
       challenges,
       { sendMail: jest.fn() } as unknown as EmailService,
       { recordInTransaction: jest.fn() } as never,
+      new EmailDestinationService(deliveryConfig),
     );
     const receipt = await delivery.queueInTransaction(
       runner.manager,

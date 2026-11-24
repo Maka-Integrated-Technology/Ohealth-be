@@ -348,6 +348,57 @@ export interface paths {
     readonly patch: operations['AuthController_updateProfile'];
     readonly trace?: never;
   };
+  readonly '/api/auth/me/email-change/confirm': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Commit a verified email and revoke every session */
+    readonly post: operations['EmailChangeController_confirm'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly '/api/auth/me/email-change/request': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Request a verified email change */
+    readonly post: operations['EmailChangeController_begin'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly '/api/auth/me/email-change/resend': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Resend candidate email proof */
+    readonly post: operations['EmailChangeController_resend'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
   readonly '/api/auth/me/professional-profile': {
     readonly parameters: {
       readonly query?: never;
@@ -2068,6 +2119,13 @@ export interface components {
       readonly is_available: boolean;
       readonly start_time: string;
     };
+    readonly BeginEmailChangeDto: {
+      readonly candidate_email: string;
+      /** @description Required for password-enabled accounts; recent OAuth sessions can use their active authenticator */
+      readonly current_password?: string;
+      /** @description Required when MFA is enabled */
+      readonly mfa_code?: string;
+    };
     readonly BeginMfaDto: {
       readonly current_code?: string;
       readonly password: string;
@@ -2223,6 +2281,11 @@ export interface components {
       readonly transaction_id: string;
       readonly transaction_token: string;
     };
+    readonly ConfirmEmailChangeDto: {
+      /** Format: uuid */
+      readonly challenge_id: string;
+      readonly code: string;
+    };
     readonly ConfirmMfaDto: {
       readonly code: string;
     };
@@ -2316,6 +2379,20 @@ export interface components {
       readonly icon?: string;
       /** @example General Doctor */
       readonly name: string;
+    };
+    readonly EmailChangeChallengeDto: {
+      /** Format: uuid */
+      readonly challenge_id: string;
+      readonly expires_in_seconds: number;
+      readonly resend_after_seconds: number;
+    };
+    readonly EmailChangeCommittedDto: {
+      /** @example true */
+      readonly sessions_revoked: boolean;
+    };
+    readonly EmailChangeHandleDto: {
+      /** Format: uuid */
+      readonly challenge_id: string;
     };
     readonly EnableTwoFactorAuthDataDto: {
       /** @example 600 */
@@ -5182,6 +5259,190 @@ export interface operations {
         };
         content: {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly EmailChangeController_confirm: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly 'application/json': components['schemas']['ConfirmEmailChangeDto'];
+      };
+    };
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['EmailChangeCommittedDto'];
+          };
+        };
+      };
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
+      /** @description Authentication is required */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 429: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly EmailChangeController_begin: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly 'application/json': components['schemas']['BeginEmailChangeDto'];
+      };
+    };
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['EmailChangeChallengeDto'];
+          };
+        };
+      };
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 429: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly EmailChangeController_resend: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly 'application/json': components['schemas']['EmailChangeHandleDto'];
+      };
+    };
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['EmailChangeChallengeDto'];
+          };
+        };
+      };
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
+      /** @description Authentication is required */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 429: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       /** @description Internal server error */

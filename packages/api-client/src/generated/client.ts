@@ -435,6 +435,49 @@ export type ChatController_sendMessageError =
   | operations['ChatController_sendMessage']['responses'][500]['content']['application/json']
   | operations['ChatController_sendMessage']['responses'][502]['content']['application/json'];
 
+export type EmailChangeController_beginRequest = Readonly<{
+  readonly body: NonNullable<
+    operations['EmailChangeController_begin']['requestBody']
+  >['content']['application/json'];
+  readonly headers?: ApiHeaders;
+}>;
+export type EmailChangeController_beginResponse =
+  operations['EmailChangeController_begin']['responses'][200]['content']['application/json'];
+export type EmailChangeController_beginError =
+  | operations['EmailChangeController_begin']['responses'][400]['content']['application/json']
+  | operations['EmailChangeController_begin']['responses'][401]['content']['application/json']
+  | operations['EmailChangeController_begin']['responses'][403]['content']['application/json']
+  | operations['EmailChangeController_begin']['responses'][429]['content']['application/json']
+  | operations['EmailChangeController_begin']['responses'][500]['content']['application/json'];
+
+export type EmailChangeController_confirmRequest = Readonly<{
+  readonly body: NonNullable<
+    operations['EmailChangeController_confirm']['requestBody']
+  >['content']['application/json'];
+  readonly headers?: ApiHeaders;
+}>;
+export type EmailChangeController_confirmResponse =
+  operations['EmailChangeController_confirm']['responses'][200]['content']['application/json'];
+export type EmailChangeController_confirmError =
+  | operations['EmailChangeController_confirm']['responses'][400]['content']['application/json']
+  | operations['EmailChangeController_confirm']['responses'][401]['content']['application/json']
+  | operations['EmailChangeController_confirm']['responses'][429]['content']['application/json']
+  | operations['EmailChangeController_confirm']['responses'][500]['content']['application/json'];
+
+export type EmailChangeController_resendRequest = Readonly<{
+  readonly body: NonNullable<
+    operations['EmailChangeController_resend']['requestBody']
+  >['content']['application/json'];
+  readonly headers?: ApiHeaders;
+}>;
+export type EmailChangeController_resendResponse =
+  operations['EmailChangeController_resend']['responses'][200]['content']['application/json'];
+export type EmailChangeController_resendError =
+  | operations['EmailChangeController_resend']['responses'][400]['content']['application/json']
+  | operations['EmailChangeController_resend']['responses'][401]['content']['application/json']
+  | operations['EmailChangeController_resend']['responses'][429]['content']['application/json']
+  | operations['EmailChangeController_resend']['responses'][500]['content']['application/json'];
+
 export type LaboratoryAuthController_setupAdministratorRequest = Readonly<{
   readonly body: NonNullable<
     operations['LaboratoryAuthController_setupAdministrator']['requestBody']
@@ -1768,6 +1811,15 @@ export interface ApiClient {
   readonly ChatController_sendMessage: (
     request: ChatController_sendMessageRequest,
   ) => Promise<ChatController_sendMessageResponse>;
+  readonly EmailChangeController_begin: (
+    request: EmailChangeController_beginRequest,
+  ) => Promise<EmailChangeController_beginResponse>;
+  readonly EmailChangeController_confirm: (
+    request: EmailChangeController_confirmRequest,
+  ) => Promise<EmailChangeController_confirmResponse>;
+  readonly EmailChangeController_resend: (
+    request: EmailChangeController_resendRequest,
+  ) => Promise<EmailChangeController_resendResponse>;
   readonly LaboratoryAuthController_setupAdministrator: (
     request: LaboratoryAuthController_setupAdministratorRequest,
   ) => Promise<LaboratoryAuthController_setupAdministratorResponse>;
@@ -2444,6 +2496,45 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
           operationId: 'ChatController_sendMessage',
           method: 'POST',
           path: '/api/chat/send',
+          requestMediaType: 'application/json',
+        },
+        request,
+      ),
+    EmailChangeController_begin: (request) =>
+      core.request<
+        EmailChangeController_beginResponse,
+        EmailChangeController_beginError
+      >(
+        {
+          operationId: 'EmailChangeController_begin',
+          method: 'POST',
+          path: '/api/auth/me/email-change/request',
+          requestMediaType: 'application/json',
+        },
+        request,
+      ),
+    EmailChangeController_confirm: (request) =>
+      core.request<
+        EmailChangeController_confirmResponse,
+        EmailChangeController_confirmError
+      >(
+        {
+          operationId: 'EmailChangeController_confirm',
+          method: 'POST',
+          path: '/api/auth/me/email-change/confirm',
+          requestMediaType: 'application/json',
+        },
+        request,
+      ),
+    EmailChangeController_resend: (request) =>
+      core.request<
+        EmailChangeController_resendResponse,
+        EmailChangeController_resendError
+      >(
+        {
+          operationId: 'EmailChangeController_resend',
+          method: 'POST',
+          path: '/api/auth/me/email-change/resend',
           requestMediaType: 'application/json',
         },
         request,

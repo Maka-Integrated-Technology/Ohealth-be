@@ -711,6 +711,25 @@
         ],
         "type": "object"
       },
+      "BeginEmailChangeDto": {
+        "properties": {
+          "candidate_email": {
+            "type": "string"
+          },
+          "current_password": {
+            "description": "Required for password-enabled accounts; recent OAuth sessions can use their active authenticator",
+            "type": "string"
+          },
+          "mfa_code": {
+            "description": "Required when MFA is enabled",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_email"
+        ],
+        "type": "object"
+      },
       "BeginMfaDto": {
         "properties": {
           "current_code": {
@@ -1126,6 +1145,22 @@
         ],
         "type": "object"
       },
+      "ConfirmEmailChangeDto": {
+        "properties": {
+          "challenge_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "challenge_id",
+          "code"
+        ],
+        "type": "object"
+      },
       "ConfirmMfaDto": {
         "properties": {
           "code": {
@@ -1356,6 +1391,50 @@
         },
         "required": [
           "name"
+        ],
+        "type": "object"
+      },
+      "EmailChangeChallengeDto": {
+        "properties": {
+          "challenge_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "expires_in_seconds": {
+            "type": "number"
+          },
+          "resend_after_seconds": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "challenge_id",
+          "expires_in_seconds",
+          "resend_after_seconds"
+        ],
+        "type": "object"
+      },
+      "EmailChangeCommittedDto": {
+        "properties": {
+          "sessions_revoked": {
+            "example": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "sessions_revoked"
+        ],
+        "type": "object"
+      },
+      "EmailChangeHandleDto": {
+        "properties": {
+          "challenge_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "challenge_id"
         ],
         "type": "object"
       },
@@ -8002,6 +8081,292 @@
           }
         ],
         "summary": "Update authenticated patient personal profile",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/me/email-change/confirm": {
+      "post": {
+        "operationId": "EmailChangeController_confirm",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmEmailChangeDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/EmailChangeCommittedDto"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Authentication is required"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Commit a verified email and revoke every session",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/me/email-change/request": {
+      "post": {
+        "operationId": "EmailChangeController_begin",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BeginEmailChangeDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/EmailChangeChallengeDto"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Request a verified email change",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/me/email-change/resend": {
+      "post": {
+        "operationId": "EmailChangeController_resend",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailChangeHandleDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/EmailChangeChallengeDto"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Authentication is required"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Resend candidate email proof",
         "tags": [
           "Authentication"
         ]
