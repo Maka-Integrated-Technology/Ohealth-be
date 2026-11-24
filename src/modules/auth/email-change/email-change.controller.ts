@@ -13,6 +13,7 @@ import {
   ApiForbiddenResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiServiceUnavailableResponse,
   ApiTags,
   ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
@@ -50,6 +51,7 @@ export class EmailChangeController {
   @ApiUnauthorizedResponse()
   @ApiForbiddenResponse()
   @ApiTooManyRequestsResponse({ type: AuthChallengeErrorResponseDto })
+  @ApiServiceUnavailableResponse({ type: AuthChallengeErrorResponseDto })
   begin(@CurrentUser() user: SessionUser, @Body() body: BeginEmailChangeDto) {
     return this.changes.begin(user.id, user.sessionId, body);
   }
@@ -60,7 +62,9 @@ export class EmailChangeController {
   @ApiOperation({ summary: 'Resend candidate email proof' })
   @ApiOkResponse({ type: EmailChangeChallengeDto })
   @ApiBadRequestResponse({ type: AuthChallengeErrorResponseDto })
+  @ApiForbiddenResponse()
   @ApiTooManyRequestsResponse({ type: AuthChallengeErrorResponseDto })
+  @ApiServiceUnavailableResponse({ type: AuthChallengeErrorResponseDto })
   resend(@CurrentUser() user: SessionUser, @Body() body: EmailChangeHandleDto) {
     return this.changes.resend(user.id, user.sessionId, body.challenge_id);
   }
@@ -71,6 +75,7 @@ export class EmailChangeController {
   @ApiOperation({ summary: 'Commit a verified email and revoke every session' })
   @ApiOkResponse({ type: EmailChangeCommittedDto })
   @ApiBadRequestResponse({ type: AuthChallengeErrorResponseDto })
+  @ApiForbiddenResponse()
   @ApiTooManyRequestsResponse({ type: AuthChallengeErrorResponseDto })
   confirm(
     @CurrentUser() user: SessionUser,

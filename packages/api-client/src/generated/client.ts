@@ -448,7 +448,8 @@ export type EmailChangeController_beginError =
   | operations['EmailChangeController_begin']['responses'][401]['content']['application/json']
   | operations['EmailChangeController_begin']['responses'][403]['content']['application/json']
   | operations['EmailChangeController_begin']['responses'][429]['content']['application/json']
-  | operations['EmailChangeController_begin']['responses'][500]['content']['application/json'];
+  | operations['EmailChangeController_begin']['responses'][500]['content']['application/json']
+  | operations['EmailChangeController_begin']['responses'][503]['content']['application/json'];
 
 export type EmailChangeController_confirmRequest = Readonly<{
   readonly body: NonNullable<
@@ -461,6 +462,7 @@ export type EmailChangeController_confirmResponse =
 export type EmailChangeController_confirmError =
   | operations['EmailChangeController_confirm']['responses'][400]['content']['application/json']
   | operations['EmailChangeController_confirm']['responses'][401]['content']['application/json']
+  | operations['EmailChangeController_confirm']['responses'][403]['content']['application/json']
   | operations['EmailChangeController_confirm']['responses'][429]['content']['application/json']
   | operations['EmailChangeController_confirm']['responses'][500]['content']['application/json'];
 
@@ -475,8 +477,10 @@ export type EmailChangeController_resendResponse =
 export type EmailChangeController_resendError =
   | operations['EmailChangeController_resend']['responses'][400]['content']['application/json']
   | operations['EmailChangeController_resend']['responses'][401]['content']['application/json']
+  | operations['EmailChangeController_resend']['responses'][403]['content']['application/json']
   | operations['EmailChangeController_resend']['responses'][429]['content']['application/json']
-  | operations['EmailChangeController_resend']['responses'][500]['content']['application/json'];
+  | operations['EmailChangeController_resend']['responses'][500]['content']['application/json']
+  | operations['EmailChangeController_resend']['responses'][503]['content']['application/json'];
 
 export type LaboratoryAuthController_setupAdministratorRequest = Readonly<{
   readonly body: NonNullable<

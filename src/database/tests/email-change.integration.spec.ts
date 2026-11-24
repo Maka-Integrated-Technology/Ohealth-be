@@ -35,6 +35,7 @@ integration('verified email change on PostgreSQL', () => {
   let mail: jest.Mock;
   let mfaEnabled: jest.Mock;
   let mfaVerify: jest.Mock;
+  let deliveryKey: string;
   const password = 'correct-current-password';
 
   beforeAll(async () => {
@@ -103,12 +104,12 @@ integration('verified email change on PostgreSQL', () => {
     await db.query(
       `INSERT INTO auth_challenge_worker_heartbeat (id, last_seen_at, pending, oldest_pending_seconds, expired_leases) VALUES ('delivery', now(), 0, 0, 0)`,
     );
-    const key = randomBytes(32).toString('base64');
+    deliveryKey = randomBytes(32).toString('base64');
     const settings = {
       get: (name: string) => {
         if (name === 'AUTH_CHALLENGE_PEPPER')
           return 'email-change-test-pepper-with-at-least-32-bytes';
-        if (name === 'AUTH_CHALLENGE_DELIVERY_KEY') return key;
+        if (name === 'AUTH_CHALLENGE_DELIVERY_KEY') return deliveryKey;
         if (name === 'AUTH_CHALLENGE_FLOWS_ENABLED') return 'true';
         if (name === 'auth.recoveryContinuationUrl')
           return 'https://app.example.test/reset-password';
@@ -366,6 +367,44 @@ integration('verified email change on PostgreSQL', () => {
     ).toBe(1);
   });
 
+  for (const purpose of [
+    AuthChallengePurpose.LOGIN_VERIFICATION,
+    AuthChallengePurpose.MFA_LOGIN,
+    AuthChallengePurpose.PASSWORD_RECOVERY,
+  ]) {
+    it(`revokes a pending ${purpose} proof when the email commits`, async () => {
+      const owner = await account(UserPersonaType.PATIENT);
+      const oldProof = await challenges.issueForUser(owner.userId, purpose);
+      const issued = await service.begin(owner.userId, owner.sessionId, {
+        candidate_email: 'new-proof@example.test',
+        current_password: password,
+      });
+      const code = await codeFor();
+      await service.confirm(
+        owner.userId,
+        owner.sessionId,
+        issued.challenge_id,
+        code,
+      );
+      expect(
+        (
+          await db.query(
+            'SELECT terminal_reason FROM auth_challenges WHERE id = $1',
+            [oldProof.challengeId],
+          )
+        )[0].terminal_reason,
+      ).toBe('administratively_revoked');
+      await expect(
+        challenges.consumeWithMutation(
+          oldProof.challengeId,
+          purpose,
+          oldProof.code,
+          async () => true,
+        ),
+      ).rejects.toBeDefined();
+    });
+  }
+
   it('fails closed when the delivery worker is unavailable', async () => {
     const owner = await account(UserPersonaType.PATIENT);
     await db.query(
@@ -383,6 +422,20 @@ integration('verified email change on PostgreSQL', () => {
         await db.query('SELECT email FROM users WHERE id = $1', [owner.userId])
       )[0].email,
     ).toBe(owner.email);
+  });
+
+  it('maps an invalid delivery key to the canonical 503 before hashing the candidate', async () => {
+    const owner = await account(UserPersonaType.PATIENT);
+    deliveryKey = 'invalid';
+    await expect(
+      service.begin(owner.userId, owner.sessionId, {
+        candidate_email: 'new@example.test',
+        current_password: password,
+      }),
+    ).rejects.toMatchObject({
+      status: 503,
+      response: { error_code: 'AUTH_SERVICE_TEMPORARILY_UNAVAILABLE' },
+    });
   });
 
   it('rejects wrong purpose, exhausted codes and ineligible state', async () => {
@@ -441,7 +494,10 @@ integration('verified email change on PostgreSQL', () => {
         candidate_email: 'next@example.test',
         current_password: 'wrong',
       }),
-    ).rejects.toBeDefined();
+    ).rejects.toMatchObject({
+      status: 401,
+      response: { error_code: 'EMAIL_CHANGE_REAUTHENTICATION_REQUIRED' },
+    });
     expect(await db.query('SELECT * FROM auth_email_changes')).toHaveLength(0);
     await db.query(
       'UPDATE user_personas SET is_active = false WHERE user_id = $1',
@@ -485,7 +541,10 @@ integration('verified email change on PostgreSQL', () => {
         candidate_email: 'mfa-next@example.test',
         current_password: password,
       }),
-    ).rejects.toBeDefined();
+    ).rejects.toMatchObject({
+      status: 401,
+      response: { error_code: 'EMAIL_CHANGE_MFA_REQUIRED' },
+    });
     expect(await db.query('SELECT * FROM auth_email_changes')).toHaveLength(0);
     mfaVerify.mockResolvedValue(true);
     const issued = await service.begin(owner.userId, owner.sessionId, {

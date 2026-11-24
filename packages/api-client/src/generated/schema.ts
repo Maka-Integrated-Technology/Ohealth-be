@@ -5312,6 +5312,14 @@ export interface operations {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
         };
       };
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
       readonly 429: {
         headers: {
           readonly [name: string]: unknown;
@@ -5395,6 +5403,14 @@ export interface operations {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
         };
       };
+      readonly 503: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
     };
   };
   readonly EmailChangeController_resend: {
@@ -5437,6 +5453,14 @@ export interface operations {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
         };
       };
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
       readonly 429: {
         headers: {
           readonly [name: string]: unknown;
@@ -5452,6 +5476,14 @@ export interface operations {
         };
         content: {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 503: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
     };

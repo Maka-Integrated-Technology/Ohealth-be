@@ -74,13 +74,13 @@ export class EmailChangeService {
     try {
       const email = this.normalize(body.candidate_email);
       await this.limit('email-change:account', userId, 4, 3600);
+      await this.ready();
       await this.limit(
         'email-change:destination',
         this.destinations.hash(email),
         4,
         3600,
       );
-      await this.ready();
       return await this.db.transaction(async (manager) => {
         const user = await this.lockEligible(manager, userId, sessionId);
         await this.reauthenticate(manager, user, sessionId, body);
@@ -199,11 +199,16 @@ export class EmailChangeService {
           user.email_verified_at = new Date();
           await manager.save(user);
           await manager.query(
-            'UPDATE auth_challenges SET consumed_at = now(), terminal_reason = $2 WHERE subject_user_id = $1 AND purpose = $3 AND terminal_reason IS NULL',
+            'UPDATE auth_challenges SET consumed_at = now(), terminal_reason = $3 WHERE subject_user_id = $1 AND purpose = ANY($2) AND terminal_reason IS NULL',
             [
               userId,
+              [
+                AuthChallengePurpose.EMAIL_CHANGE,
+                AuthChallengePurpose.LOGIN_VERIFICATION,
+                AuthChallengePurpose.MFA_LOGIN,
+                AuthChallengePurpose.PASSWORD_RECOVERY,
+              ],
               AuthChallengeTerminalReason.ADMINISTRATIVELY_REVOKED,
-              AuthChallengePurpose.EMAIL_CHANGE,
             ],
           );
           await manager.query(
@@ -250,7 +255,10 @@ export class EmailChangeService {
         !body.current_password ||
         !(await this.passwords.verify(body.current_password, user.password))
       )
-        throw new UnauthorizedException('Recent authentication required.');
+        throw new UnauthorizedException({
+          message: 'Recent authentication required.',
+          error_code: 'EMAIL_CHANGE_REAUTHENTICATION_REQUIRED',
+        });
     } else {
       // Matches the existing OAuth unlink step-up policy. A refresh does not
       // advance the original session creation time.
@@ -262,14 +270,20 @@ export class EmailChangeService {
         session.credential_version !== 2 ||
         session.created_at < new Date(Date.now() - 10 * 60_000)
       )
-        throw new UnauthorizedException('Recent authentication required.');
+        throw new UnauthorizedException({
+          message: 'Recent authentication required.',
+          error_code: 'EMAIL_CHANGE_REAUTHENTICATION_REQUIRED',
+        });
     }
     if (await this.mfa.isEnabled(manager, user.id)) {
       if (
         !body.mfa_code ||
         !(await this.mfa.verifyForLogin(manager, user.id, body.mfa_code))
       )
-        throw new UnauthorizedException('Current MFA proof required.');
+        throw new UnauthorizedException({
+          message: 'Current MFA proof required.',
+          error_code: 'EMAIL_CHANGE_MFA_REQUIRED',
+        });
     }
   }
 
