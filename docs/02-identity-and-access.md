@@ -104,6 +104,22 @@ retry metadata, and the trusted recovery-link contract are documented in
 Raw codes and reset tokens must not enter PostgreSQL, logs, outbox events, failed
 jobs, or analytics.
 
+Verified email change uses the same challenge and delivery worker with the
+`email_change` purpose. An active patient or healthcare-professional account
+must present its current password when password authentication is enabled.
+Accounts without password authentication require a canonical session created
+within the last ten minutes, matching the existing Google-unlink step-up
+policy. An enabled MFA factor also requires a current MFA proof. The candidate
+is normalized using registration's trim, NFC and lowercase policy, encrypted
+under the challenge-delivery key with a distinct context, and bound to the
+challenge lineage and account. An already-owned candidate receives an
+undeliverable challenge with the same public handle and resend lifecycle.
+Only proof sent to the candidate email can commit the replacement. The commit
+revokes all sessions, including the initiating one, and returns no credentials.
+Pending encrypted destinations are deleted on success or after their 30-minute
+flow expiry by the delivery worker. Audit records contain only safe identifiers
+and an email-change outcome.
+
 ## Session model
 
 - Access tokens are short-lived signed JWTs containing identity, session ID, and

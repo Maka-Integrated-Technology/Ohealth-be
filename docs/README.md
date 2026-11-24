@@ -59,6 +59,7 @@ must follow.
 | Existing role-array authentication                | Legacy      |
 | Canonical account context and capability policies | Implemented |
 | Private patient/professional profile photos       | Implemented |
+| Verified patient/professional email change        | Implemented |
 
 Update this table whenever an area moves between statuses.
 

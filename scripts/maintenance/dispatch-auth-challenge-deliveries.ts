@@ -8,6 +8,7 @@ import config from '../../src/config/config';
 import { initializeDataSource } from '../../src/database/data-source';
 import { AuthChallengeDeliveryService } from '../../src/modules/auth/challenges/auth-challenge-delivery.service';
 import { AuthChallengeService } from '../../src/modules/auth/challenges/auth-challenge.service';
+import { EmailDestinationService } from '../../src/modules/auth/email-change/email-destination';
 import { AuthSecurityAuditService } from '../../src/modules/auth/security-audit/auth-security-audit.service';
 import { EmailService } from '../../src/modules/email/email.service';
 
@@ -69,6 +70,7 @@ async function main(): Promise<void> {
       challenges,
       email,
       new AuthSecurityAuditService(dataSource),
+      new EmailDestinationService(settings),
     );
     service.assertConfigured();
     do {

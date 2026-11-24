@@ -40,6 +40,9 @@ import { AuthRateLimitService } from '../../modules/auth/challenges/auth-rate-li
 import { SecureAuthChallengeFlowsService } from '../../modules/auth/challenges/secure-auth-challenge-flows.service';
 import { AuthContextService } from '../../modules/auth/context/auth-context.service';
 import { PlatformPrivilegeEntity } from '../../modules/auth/context/platform-privilege.entity';
+import { EmailChangeController } from '../../modules/auth/email-change/email-change.controller';
+import { EmailChangeService } from '../../modules/auth/email-change/email-change.service';
+import { EmailDestinationService } from '../../modules/auth/email-change/email-destination';
 import { AuthSession } from '../../modules/auth/entities/auth.entity';
 import { User2fa } from '../../modules/auth/entities/user-2fa.entity';
 import { CapabilitiesGuard } from '../../modules/auth/guards/capabilities.guard';
@@ -86,6 +89,7 @@ import { CanonicalRefreshSessions1793400000000 } from '../migrations/17934000000
 import { LoginVerificationChallenges1793500000000 } from '../migrations/1793500000000-LoginVerificationChallenges';
 import { TransactionalIntentRegistration1793600000000 } from '../migrations/1793600000000-TransactionalIntentRegistration';
 import { AuthChallengeContinuation1793700000000 } from '../migrations/1793700000000-AuthChallengeContinuation';
+import { EmailChanges1795400000000 } from '../migrations/1795400000000-EmailChanges';
 
 // This suite deliberately uses the production controller, AuthService, abuse
 // guard, limit, challenge, delivery and audit services against real PostgreSQL.
@@ -310,6 +314,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       await new LoginVerificationChallenges1793500000000().up(runner);
       await new TransactionalIntentRegistration1793600000000().up(runner);
       await new AuthChallengeContinuation1793700000000().up(runner);
+      await new EmailChanges1795400000000().up(runner);
     } finally {
       await runner.release();
     }
@@ -317,7 +322,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       `ALTER TABLE auth_challenges DROP CONSTRAINT "CHK_auth_challenge_purpose"`,
     );
     await database.query(
-      `ALTER TABLE auth_challenges ADD CONSTRAINT "CHK_auth_challenge_purpose" CHECK (purpose IN ('contact_verification', 'password_recovery', 'login_verification', 'mfa_login'))`,
+      `ALTER TABLE auth_challenges ADD CONSTRAINT "CHK_auth_challenge_purpose" CHECK (purpose IN ('contact_verification', 'password_recovery', 'login_verification', 'mfa_login', 'email_change'))`,
     );
     await database.query(
       'ALTER TABLE auth_challenges ADD COLUMN continuation_transport varchar',
@@ -329,7 +334,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       `ALTER TABLE auth_security_events DROP CONSTRAINT "CHK_auth_security_events_type"`,
     );
     await database.query(
-      `ALTER TABLE auth_security_events ADD CONSTRAINT "CHK_auth_security_events_type" CHECK (event_type IN ('sign_in', 'contact_verification', 'password_recovery', 'password_change', 'session_refresh', 'session_reuse', 'logout', 'account_state_change', 'oauth_signup', 'oauth_sign_in', 'oauth_link', 'oauth_unlink', 'oauth_conflict', 'oauth_denial', 'registration', 'mfa', 'mfa_enrollment_started', 'mfa_activated', 'mfa_recovery_codes_regenerated', 'mfa_disabled', 'login_challenge_request', 'login_challenge_resend', 'login_challenge_delivery', 'login_challenge_expiry', 'login_challenge_verification', 'context_restoration', 'authorization_denial'))`,
+      `ALTER TABLE auth_security_events ADD CONSTRAINT "CHK_auth_security_events_type" CHECK (event_type IN ('sign_in', 'contact_verification', 'password_recovery', 'password_change', 'email_change', 'session_refresh', 'session_reuse', 'logout', 'account_state_change', 'oauth_signup', 'oauth_sign_in', 'oauth_link', 'oauth_unlink', 'oauth_conflict', 'oauth_denial', 'registration', 'mfa', 'mfa_enrollment_started', 'mfa_activated', 'mfa_recovery_codes_regenerated', 'mfa_disabled', 'login_challenge_request', 'login_challenge_resend', 'login_challenge_delivery', 'login_challenge_expiry', 'login_challenge_verification', 'context_restoration', 'authorization_denial'))`,
     );
     await healthyWorker();
     const values = new Map<string, unknown>([
@@ -375,6 +380,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       imports: [PassportModule.register({ defaultStrategy: 'jwt' })],
       controllers: [
         AuthController,
+        EmailChangeController,
         BrowserSessionController,
         TwoFactorAuthController,
         OAuthController,
@@ -396,6 +402,8 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         AuthChallengeService,
         AuthRateLimitService,
         AuthChallengeDeliveryService,
+        EmailDestinationService,
+        EmailChangeService,
         SecureAuthChallengeFlowsService,
         AuthSecurityAuditService,
         AuthContextService,
@@ -553,7 +561,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
   beforeEach(async () => {
     mail.mockReset().mockResolvedValue(undefined);
     await database.query(
-      'TRUNCATE registration_attempts, auth_challenge_deliveries, ' +
+      'TRUNCATE registration_attempts, auth_challenge_deliveries, auth_email_changes, ' +
         'auth_challenges, auth_rate_limit_buckets',
     );
     await healthyWorker();
@@ -1486,6 +1494,134 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       );
     },
     20_000,
+  );
+
+  it.each(['patient', 'healthcare_professional'])(
+    'changes %s email through live HTTP and invalidates old-email proofs',
+    async (persona) => {
+      const current = 'a memorable current passphrase';
+      const passwords = app.get(PasswordCredentialsService);
+      const owner = await createUser(
+        persona === 'patient' ? 'ec-p' : 'ec-h',
+        'active',
+        await passwords.hashNewPassword(current),
+      );
+      await database.query(
+        'INSERT INTO user_personas (user_id, persona_type) VALUES ($1, $2)',
+        [owner.id, persona],
+      );
+      const sessions = app.get(RefreshSessionService);
+      const session = await sessions.issue(owner.id);
+      const login = await request(app.getHttpServer())
+        .post('/api/auth/login')
+        .send({ email: owner.email, password: current })
+        .expect(200);
+      await delivery.dispatchBatch(1);
+      const loginCode = mail.mock.calls[mail.mock.calls.length - 1][0]
+        .templateData.code as string;
+      await request(app.getHttpServer())
+        .post('/api/auth/forgot-password')
+        .send({ email: owner.email })
+        .expect(202);
+      const recoveryRows: Array<{ id: string }> = await database.query(
+        'SELECT id FROM auth_challenges WHERE subject_user_id = $1 AND purpose = $2 AND terminal_reason IS NULL',
+        [owner.id, AuthChallengePurpose.PASSWORD_RECOVERY],
+      );
+      await delivery.dispatchBatch(1);
+      const recoveryCode = mail.mock.calls[mail.mock.calls.length - 1][0]
+        .templateData.otp as string;
+      const mfaProof = await app
+        .get(AuthChallengeService)
+        .issueForUser(
+          owner.id,
+          AuthChallengePurpose.MFA_LOGIN,
+          AuthChallengeTransport.MOBILE,
+        );
+      const denied = await request(app.getHttpServer())
+        .post('/api/auth/me/email-change/request')
+        .set('Authorization', `Bearer ${session.access_token}`)
+        .send({
+          candidate_email: 'new+' + owner.id + '@example.test',
+          current_password: 'wrong',
+        })
+        .expect(401);
+      expect(denied.body.error_code).toBe(
+        'EMAIL_CHANGE_REAUTHENTICATION_REQUIRED',
+      );
+      const candidate = 'new+' + owner.id + '@example.test';
+      const started = await request(app.getHttpServer())
+        .post('/api/auth/me/email-change/request')
+        .set('Authorization', `Bearer ${session.access_token}`)
+        .send({
+          candidate_email: candidate.toUpperCase(),
+          current_password: current,
+        })
+        .expect(200);
+      expect(
+        (
+          await database.query('SELECT email FROM users WHERE id = $1', [
+            owner.id,
+          ])
+        )[0].email,
+      ).toBe(owner.email);
+      await delivery.dispatchBatch(1);
+      const changeCode = mail.mock.calls[mail.mock.calls.length - 1][0]
+        .templateData.code as string;
+      const committed = await request(app.getHttpServer())
+        .post('/api/auth/me/email-change/confirm')
+        .set('Authorization', `Bearer ${session.access_token}`)
+        .send({
+          challenge_id: started.body.data.challenge_id,
+          code: changeCode,
+        })
+        .expect(200);
+      expect(committed.body.data).toEqual({ sessions_revoked: true });
+      expect(
+        (
+          await database.query('SELECT email FROM users WHERE id = $1', [
+            owner.id,
+          ])
+        )[0].email,
+      ).toBe(candidate);
+      const revokedProofs: Array<{ id: string; terminal_reason: string }> =
+        await database.query(
+          'SELECT id, terminal_reason FROM auth_challenges WHERE id = ANY($1)',
+          [
+            [
+              login.body.data.challenge_id,
+              recoveryRows[0].id,
+              mfaProof.challengeId,
+            ],
+          ],
+        );
+      expect(revokedProofs).toHaveLength(3);
+      expect(
+        revokedProofs.every(
+          (proof) => proof.terminal_reason === 'administratively_revoked',
+        ),
+      ).toBe(true);
+      await request(app.getHttpServer())
+        .post('/api/auth/login/verify')
+        .send({ challenge_id: login.body.data.challenge_id, code: loginCode })
+        .expect(400);
+      await request(app.getHttpServer())
+        .post('/api/auth/reset-password')
+        .send({
+          challenge_id: recoveryRows[0].id,
+          code: recoveryCode,
+          newPassword: 'another memorable passphrase',
+        })
+        .expect(400);
+      await request(app.getHttpServer())
+        .post('/api/auth/login/mfa/verify')
+        .send({ challenge_id: mfaProof.challengeId, code: '000000' })
+        .expect(400);
+      await request(app.getHttpServer())
+        .get('/api/auth/me')
+        .set('Authorization', `Bearer ${session.access_token}`)
+        .expect(401);
+      await expect(sessions.rotate(session.refresh_token)).rejects.toThrow();
+    },
   );
 
   it('revokes every caller session and records the revocation atomically', async () => {

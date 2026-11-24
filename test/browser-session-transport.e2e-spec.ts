@@ -100,6 +100,7 @@ describe('Browser session transport (e2e)', () => {
       response,
       refreshCredential: oldCredential,
       sessionExpiresAt: expiresAt,
+      issuedSession: true,
     });
     transport.verifySignup.mockResolvedValue({
       response,

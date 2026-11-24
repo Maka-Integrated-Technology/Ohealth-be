@@ -30,6 +30,8 @@ import { AuthChallengeModule } from './challenges/auth-challenge.module';
 import { SecureAuthChallengeFlowsService } from './challenges/secure-auth-challenge-flows.service';
 import { AuthContextService } from './context/auth-context.service';
 import { PlatformPrivilegeEntity } from './context/platform-privilege.entity';
+import { EmailChangeController } from './email-change/email-change.controller';
+import { EmailChangeService } from './email-change/email-change.service';
 import { AuthSession } from './entities/auth.entity';
 import { User2fa } from './entities/user-2fa.entity';
 import { CapabilitiesGuard } from './guards/capabilities.guard';
@@ -81,10 +83,12 @@ import { TwoFactorAuthController } from './two-factor-auth.controller';
     BrowserSessionController,
     TwoFactorAuthController,
     ProfilePhotoController,
+    EmailChangeController,
   ],
   providers: [
     AuthService,
     ProfilePhotoService,
+    EmailChangeService,
     CanonicalPatientProfileService,
     CanonicalProfessionalProfileService,
     BrowserSessionConfig,

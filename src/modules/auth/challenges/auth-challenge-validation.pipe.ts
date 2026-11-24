@@ -12,6 +12,11 @@ import {
   VerifyAuthChallengeDto,
 } from '../contracts/auth-challenge.dto';
 import { ResetPasswordDto, VerifySignupDto } from '../dto/auth.dto';
+import {
+  BeginEmailChangeDto,
+  ConfirmEmailChangeDto,
+  EmailChangeHandleDto,
+} from '../email-change/email-change.dto';
 
 import {
   AuthChallengeErrorCode,
@@ -23,6 +28,9 @@ const CHALLENGE_REQUEST_TYPES = new Set<Type<unknown>>([
   ResetPasswordDto,
   VerifyAuthChallengeDto,
   VerifySignupDto,
+  BeginEmailChangeDto,
+  ConfirmEmailChangeDto,
+  EmailChangeHandleDto,
 ]);
 
 /**

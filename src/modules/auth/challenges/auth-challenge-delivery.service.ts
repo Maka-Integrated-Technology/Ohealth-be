@@ -12,6 +12,10 @@ import { DataSource, EntityManager } from 'typeorm';
 import { EmailTemplateID } from '../../../constants/email-constants';
 import { EmailService } from '../../email/email.service';
 import { User } from '../../user/entities/user.entity';
+import {
+  EmailDestinationService,
+  IEncryptedEmail,
+} from '../email-change/email-destination';
 import { AuthSecurityAuditService } from '../security-audit/auth-security-audit.service';
 import {
   AuthSecurityEventOutcome,
@@ -39,6 +43,10 @@ interface IPendingDelivery {
   first_name: string;
   subject_user_id: string;
   attempts: number;
+  lineage_id: string;
+  destination_iv: string | null;
+  destination_ciphertext: string | null;
+  destination_tag: string | null;
 }
 
 /**
@@ -57,6 +65,7 @@ export class AuthChallengeDeliveryService {
     private readonly challenges: AuthChallengeService,
     private readonly email: EmailService,
     private readonly audit: AuthSecurityAuditService,
+    private readonly destinations: EmailDestinationService,
   ) {}
 
   /** Validate the AES-GCM secret before any public or worker action. */
@@ -124,6 +133,22 @@ export class AuthChallengeDeliveryService {
         Math.ceil((challenge.expiresAt.getTime() - Date.now()) / 1000),
       ),
     };
+  }
+
+  async stageEmailChangeInTransaction(
+    manager: EntityManager,
+    challengeId: string,
+    code: string,
+  ): Promise<void> {
+    if (!manager.queryRunner?.isTransactionActive)
+      throw new Error('Challenge delivery requires a database transaction.');
+    await this.stageEnvelope(
+      manager,
+      challengeId,
+      AuthChallengePurpose.EMAIL_CHANGE,
+      code,
+      this.getEncryptionKey(),
+    );
   }
 
   async replaceInTransaction(
@@ -214,6 +239,13 @@ export class AuthChallengeDeliveryService {
           if (!/^\d{6}$/.test(code)) {
             throw new Error('Invalid challenge envelope.');
           }
+          const destination =
+            claim.purpose === AuthChallengePurpose.EMAIL_CHANGE
+              ? this.destinations.decrypt(
+                  claim.lineage_id,
+                  claim as IEncryptedEmail,
+                )
+              : claim.email;
           const fromAddress = this.config.get<string>('mail.from.address');
           if (!fromAddress) throw new Error('Email sender not configured.');
           const fromName = this.config.get<string>('mail.from.name');
@@ -227,17 +259,21 @@ export class AuthChallengeDeliveryService {
           // No active DB transaction while waiting on SMTP/Resend.
           await this.sendWithTimeout({
             from: { email: fromAddress, name: fromName },
-            to: [{ email: claim.email, name: claim.first_name }],
+            to: [{ email: destination, name: claim.first_name }],
             subject: recovery
               ? 'Reset your ' + appName + ' password'
               : login
                 ? 'Your ' + appName + ' login code'
-                : 'Verify your ' + appName + ' account',
+                : claim.purpose === AuthChallengePurpose.EMAIL_CHANGE
+                  ? 'Confirm your ' + appName + ' email change'
+                  : 'Verify your ' + appName + ' account',
             templateNameID: recovery
               ? EmailTemplateID.OTP
               : login
                 ? EmailTemplateID.LOGIN_CODE
-                : EmailTemplateID.VERIFICATION_CODE,
+                : claim.purpose === AuthChallengePurpose.EMAIL_CHANGE
+                  ? EmailTemplateID.EMAIL_CHANGE
+                  : EmailTemplateID.VERIFICATION_CODE,
             templateData: recovery
               ? {
                   name: claim.first_name,
@@ -263,11 +299,14 @@ export class AuthChallengeDeliveryService {
                     app_name: appName,
                     code,
                     challenge_id: claim.challenge_id,
-                    verification_url: frontEndUrl
-                      ? frontEndUrl +
-                        '/verify-email?challenge_id=' +
-                        encodeURIComponent(claim.challenge_id)
-                      : undefined,
+                    verification_url:
+                      claim.purpose === AuthChallengePurpose.EMAIL_CHANGE
+                        ? undefined
+                        : frontEndUrl
+                          ? frontEndUrl +
+                            '/verify-email?challenge_id=' +
+                            encodeURIComponent(claim.challenge_id)
+                          : undefined,
                     expiry_minutes: 10,
                   },
           });
@@ -298,13 +337,18 @@ export class AuthChallengeDeliveryService {
     (IPendingDelivery & { lease_token: string; terminal: boolean }) | null
   > {
     return this.dataSource.transaction(async (manager) => {
+      await manager.query(
+        'DELETE FROM auth_email_changes WHERE expires_at <= now()',
+      );
       const rows: IPendingDelivery[] = await manager.query(
         'SELECT d.challenge_id, d.iv, d.ciphertext, d.tag, d.attempts, ' +
-          'c.purpose, c.subject_user_id, c.expires_at, c.consumed_at, ' +
+          'c.purpose, c.subject_user_id, c.expires_at, c.consumed_at, c.lineage_id, ' +
+          'x.destination_iv, x.destination_ciphertext, x.destination_tag, ' +
           'u.email, u.first_name ' +
           'FROM auth_challenge_deliveries d ' +
           'JOIN auth_challenges c ON c.id = d.challenge_id ' +
           'JOIN users u ON u.id = c.subject_user_id ' +
+          'LEFT JOIN auth_email_changes x ON x.lineage_id = c.lineage_id ' +
           'WHERE (d.status = $1 AND d.available_at <= now()) ' +
           'OR (d.status = $2 AND d.lease_expires_at <= now()) ' +
           'ORDER BY d.available_at, d.created_at LIMIT 1 ' +
