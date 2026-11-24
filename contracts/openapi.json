@@ -7188,6 +7188,16 @@
             },
             "description": "unauthorized"
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "The new password must differ from the current password."
+          },
           "500": {
             "content": {
               "application/json": {

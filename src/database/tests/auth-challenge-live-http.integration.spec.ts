@@ -1460,6 +1460,12 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
         })
         .expect(401);
       expect(denied.body.error_code).toBe('PASSWORD_CURRENT_INVALID');
+      const reused = await request(app.getHttpServer())
+        .post('/api/auth/change-password')
+        .set('Authorization', `Bearer ${first.access_token}`)
+        .send({ currentPassword: current, newPassword: current })
+        .expect(409);
+      expect(reused.body.error_code).toBe('PASSWORD_REUSED');
       const changed = await request(app.getHttpServer())
         .post('/api/auth/change-password')
         .set('Authorization', `Bearer ${first.access_token}`)

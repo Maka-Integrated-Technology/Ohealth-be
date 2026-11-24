@@ -1,6 +1,7 @@
 import { applyDecorators } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiOkResponse,
   ApiOperation,
   ApiUnauthorizedResponse,
@@ -22,5 +23,8 @@ export const ChangePasswordDocs = () =>
     }),
     ApiUnauthorizedResponse({
       description: sysMsg.UNAUTHORIZED,
+    }),
+    ApiConflictResponse({
+      description: 'The new password must differ from the current password.',
     }),
   );

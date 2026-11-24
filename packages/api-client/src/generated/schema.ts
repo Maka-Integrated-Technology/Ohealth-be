@@ -4644,6 +4644,15 @@ export interface operations {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
         };
       };
+      /** @description The new password must differ from the current password. */
+      readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
       /** @description Internal server error */
       readonly 500: {
         headers: {
