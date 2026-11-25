@@ -7,8 +7,6 @@ import { OrganizationType } from '../../organization/enums/organization-type.enu
 import { OrganizationVerificationStatus } from '../../organization/enums/organization-verification-status.enum';
 import { ProfessionalVerificationStatus } from '../../professional/entities/professional.entity';
 import { AccountStatus } from '../../user/enums/account-status.enum';
-import { UserRole } from '../../user/enums/user-role.enum';
-import { presentLegacyAuthResponse } from '../presentation/legacy-auth-response.presenter';
 
 import { AuthCapability } from './auth-capability';
 import { AuthContextService } from './auth-context.service';
@@ -150,15 +148,6 @@ describe('AuthContextService', () => {
       AuthCapability.ORGANIZATION_ADMIN,
     );
     expect(context.capabilities).toContain(AuthCapability.ORGANIZATION_MEMBER);
-  });
-
-  it('preserves deployed professional roles only in the deprecated response', async () => {
-    users.findOne.mockResolvedValue({ ...user, role: [UserRole.THERAPIST] });
-    const context = await service.resolve('user-id', 'session-id');
-    expect(presentLegacyAuthResponse(context).user.role).toContain(
-      UserRole.THERAPIST,
-    );
-    expect(JSON.stringify(context)).not.toContain('legacy_roles');
   });
 
   it('does not grant organization capabilities without an explicit active organization', async () => {

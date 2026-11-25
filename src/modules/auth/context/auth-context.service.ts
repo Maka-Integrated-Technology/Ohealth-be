@@ -226,10 +226,6 @@ export class AuthContextService {
         last_used_at: session.last_used_at ?? null,
       },
     };
-    Object.defineProperty(context, 'legacy_roles', {
-      value: user.role ?? [],
-      enumerable: false,
-    });
     return context;
   }
 

@@ -5,6 +5,7 @@ export enum AuthChallengePurpose {
   PASSWORD_RECOVERY = 'password_recovery',
   LOGIN_VERIFICATION = 'login_verification',
   MFA_LOGIN = 'mfa_login',
+  EMAIL_CHANGE = 'email_change',
 }
 
 export enum AuthChallengeTransport {
@@ -27,7 +28,7 @@ export enum AuthChallengeTerminalReason {
 ])
 @Check(
   'CHK_auth_challenge_purpose',
-  `"purpose" IN ('contact_verification', 'password_recovery', 'login_verification', 'mfa_login')`,
+  `"purpose" IN ('contact_verification', 'password_recovery', 'login_verification', 'mfa_login', 'email_change')`,
 )
 @Check(
   'CHK_auth_challenge_attempts',

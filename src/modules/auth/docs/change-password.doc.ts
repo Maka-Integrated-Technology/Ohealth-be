@@ -1,13 +1,14 @@
 import { applyDecorators } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiConflictResponse,
   ApiOkResponse,
   ApiOperation,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 
 import * as sysMsg from '../../../constants/system.messages';
-import { LogoutResponseDto } from '../dto/auth-response.dto';
+import { ChangePasswordResponseDto } from '../dto/auth-response.dto';
 
 export const ChangePasswordDocs = () =>
   applyDecorators(
@@ -18,9 +19,12 @@ export const ChangePasswordDocs = () =>
     }),
     ApiOkResponse({
       description: sysMsg.PASSWORD_CHANGED,
-      type: LogoutResponseDto,
+      type: ChangePasswordResponseDto,
     }),
     ApiUnauthorizedResponse({
       description: sysMsg.UNAUTHORIZED,
+    }),
+    ApiConflictResponse({
+      description: 'The new password must differ from the current password.',
     }),
   );

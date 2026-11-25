@@ -228,23 +228,6 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
-  readonly '/api/auth/google-login': {
-    readonly parameters: {
-      readonly query?: never;
-      readonly header?: never;
-      readonly path?: never;
-      readonly cookie?: never;
-    };
-    readonly get?: never;
-    readonly put?: never;
-    /** Retired Google login; use nonce-bound OAuth transactions */
-    readonly post: operations['AuthController_googleLogin'];
-    readonly delete?: never;
-    readonly options?: never;
-    readonly head?: never;
-    readonly patch?: never;
-    readonly trace?: never;
-  };
   readonly '/api/auth/login': {
     readonly parameters: {
       readonly query?: never;
@@ -346,6 +329,57 @@ export interface paths {
     readonly head?: never;
     /** Update authenticated patient personal profile */
     readonly patch: operations['AuthController_updateProfile'];
+    readonly trace?: never;
+  };
+  readonly '/api/auth/me/email-change/confirm': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Commit a verified email and revoke every session */
+    readonly post: operations['EmailChangeController_confirm'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly '/api/auth/me/email-change/request': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Request a verified email change */
+    readonly post: operations['EmailChangeController_begin'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
+    readonly trace?: never;
+  };
+  readonly '/api/auth/me/email-change/resend': {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly get?: never;
+    readonly put?: never;
+    /** Resend candidate email proof */
+    readonly post: operations['EmailChangeController_resend'];
+    readonly delete?: never;
+    readonly options?: never;
+    readonly head?: never;
+    readonly patch?: never;
     readonly trace?: never;
   };
   readonly '/api/auth/me/professional-profile': {
@@ -1256,23 +1290,6 @@ export interface paths {
     readonly patch?: never;
     readonly trace?: never;
   };
-  readonly '/api/pharmacies/register': {
-    readonly parameters: {
-      readonly query?: never;
-      readonly header?: never;
-      readonly path?: never;
-      readonly cookie?: never;
-    };
-    readonly get?: never;
-    readonly put?: never;
-    /** Register a pharmacy for onboarding review */
-    readonly post: operations['PharmacyController_register'];
-    readonly delete?: never;
-    readonly options?: never;
-    readonly head?: never;
-    readonly patch?: never;
-    readonly trace?: never;
-  };
   readonly '/api/professionals': {
     readonly parameters: {
       readonly query?: never;
@@ -2000,40 +2017,6 @@ export interface components {
       readonly account_context: components['schemas']['AuthContextResponseDto'];
       /** @description Patient address; null when no active patient persona is present */
       readonly address: string | null;
-      /** @deprecated */
-      readonly country: string | null;
-      /**
-       * Format: date-time
-       * @deprecated
-       */
-      readonly created_at: string;
-      /** @deprecated */
-      readonly dob: string | null;
-      /** @deprecated */
-      readonly email: string;
-      /** @deprecated */
-      readonly first_name: string;
-      /** @deprecated */
-      readonly gender: string | null;
-      /** @deprecated */
-      readonly id: string;
-      /** @deprecated */
-      readonly image: string | null;
-      /** @deprecated */
-      readonly is_active: boolean;
-      /** @deprecated */
-      readonly last_name: string;
-      /** @deprecated */
-      readonly middle_name: string | null;
-      /** @deprecated */
-      readonly phone: string | null;
-      /** @deprecated */
-      readonly role: readonly string[];
-      /**
-       * Format: date-time
-       * @deprecated
-       */
-      readonly updated_at: string;
     };
     readonly AuthPersonaResponseDto: {
       readonly is_active: boolean;
@@ -2068,6 +2051,13 @@ export interface components {
       readonly is_available: boolean;
       readonly start_time: string;
     };
+    readonly BeginEmailChangeDto: {
+      readonly candidate_email: string;
+      /** @description Required for password-enabled accounts; recent OAuth sessions can use their active authenticator */
+      readonly current_password?: string;
+      /** @description Required when MFA is enabled */
+      readonly mfa_code?: string;
+    };
     readonly BeginMfaDto: {
       readonly current_code?: string;
       readonly password: string;
@@ -2093,52 +2083,24 @@ export interface components {
       readonly status: string;
     };
     readonly BrowserSessionResponseDto: {
-      /**
-       * @deprecated
-       * @enum {string}
-       */
-      readonly access_level: BrowserSessionResponseDtoAccess_level;
       /** @description Short-lived access JWT for in-memory use only */
       readonly access_token: string;
       readonly account_context: components['schemas']['AuthContextResponseDto'];
       /** @example Login success */
       readonly message: string;
-      /**
-       * @deprecated
-       * @enum {string}
-       */
-      readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /** Format: date-time */
       readonly session_expires_at: string;
       /** Format: uuid */
       readonly session_id: string;
-      /** @deprecated */
-      readonly user: Record<string, never>;
-      /** @deprecated */
-      readonly verification_status: string | null;
     };
     readonly BrowserSessionResponseDtoData: {
-      /**
-       * @deprecated
-       * @enum {string}
-       */
-      readonly access_level: BrowserSessionResponseDtoAccess_level;
       /** @description Short-lived access JWT for in-memory use only */
       readonly access_token: string;
       readonly account_context: components['schemas']['AuthContextResponseDto'];
-      /**
-       * @deprecated
-       * @enum {string}
-       */
-      readonly routing_target: BrowserSessionResponseDtoRouting_target;
       /** Format: date-time */
       readonly session_expires_at: string;
       /** Format: uuid */
       readonly session_id: string;
-      /** @deprecated */
-      readonly user: Record<string, never>;
-      /** @deprecated */
-      readonly verification_status: string | null;
     };
     readonly BulkCreateAvailabilityDto: {
       readonly slots: readonly components['schemas']['AvailabilitySlotDto'][];
@@ -2158,6 +2120,22 @@ export interface components {
        * @example a memorable patient passphrase
        */
       readonly newPassword: string;
+    };
+    readonly ChangePasswordResponseDto: {
+      /** @example password changed */
+      readonly message: string;
+      /**
+       * @description The current session and all other sessions have been revoked.
+       * @example true
+       */
+      readonly session_terminated: boolean;
+    };
+    readonly ChangePasswordResponseDtoData: {
+      /**
+       * @description The current session and all other sessions have been revoked.
+       * @example true
+       */
+      readonly session_terminated: boolean;
     };
     readonly ChatHistoryResponseDto: {
       readonly chats: readonly components['schemas']['ChatSessionResponseDto'][];
@@ -2207,6 +2185,11 @@ export interface components {
       readonly transaction_id: string;
       readonly transaction_token: string;
     };
+    readonly ConfirmEmailChangeDto: {
+      /** Format: uuid */
+      readonly challenge_id: string;
+      readonly code: string;
+    };
     readonly ConfirmMfaDto: {
       readonly code: string;
     };
@@ -2236,22 +2219,6 @@ export interface components {
        * @example 1440
        */
       readonly turnaround_time_minutes: number;
-    };
-    readonly CreatePharmacyDto: {
-      /** @example 12 Admiralty Way, Lekki Phase 1, Lagos */
-      readonly business_address: string;
-      /** @example contact@healthplus.example */
-      readonly contact_email: string;
-      /** @example +2348012345678 */
-      readonly contact_phone: string;
-      /** @example LIC-789012 */
-      readonly license_number: string;
-      /** @example HealthPlus Pharmacy */
-      readonly name: string;
-      /** @example Lagos */
-      readonly region: string;
-      /** @example PCN-123456 */
-      readonly registration_number: string;
     };
     readonly CreateProfessionalDto: {
       /** @example Experienced general practitioner. */
@@ -2301,6 +2268,20 @@ export interface components {
       /** @example General Doctor */
       readonly name: string;
     };
+    readonly EmailChangeChallengeDto: {
+      /** Format: uuid */
+      readonly challenge_id: string;
+      readonly expires_in_seconds: number;
+      readonly resend_after_seconds: number;
+    };
+    readonly EmailChangeCommittedDto: {
+      /** @example true */
+      readonly sessions_revoked: boolean;
+    };
+    readonly EmailChangeHandleDto: {
+      /** Format: uuid */
+      readonly challenge_id: string;
+    };
     readonly EnableTwoFactorAuthDataDto: {
       /** @example 600 */
       readonly expires_in_seconds: number;
@@ -2315,13 +2296,6 @@ export interface components {
        * @example user@example.com
        */
       readonly email: string;
-    };
-    readonly GoogleLoginDto: {
-      /**
-       * @description Google ID Token
-       * @example eyJhbGciOiJSUzI1NiIsImtpZCI6IjFj... (Google ID Token)
-       */
-      readonly token: string;
     };
     readonly GoogleOAuthTransactionResponseDto: {
       readonly audience: string;
@@ -2623,11 +2597,6 @@ export interface components {
     };
     readonly LoginResponseDto: {
       /**
-       * @deprecated
-       * @enum {string}
-       */
-      readonly access_level: BrowserSessionResponseDtoAccess_level;
-      /**
        * @description JWT access token with 15 minutes expiration
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
        */
@@ -2642,11 +2611,6 @@ export interface components {
        */
       readonly refresh_token: string;
       /**
-       * @deprecated
-       * @enum {string}
-       */
-      readonly routing_target: BrowserSessionResponseDtoRouting_target;
-      /**
        * Format: date-time
        * @example 2024-01-15T10:30:00Z
        */
@@ -2655,17 +2619,8 @@ export interface components {
       readonly session_id: string | null;
       /** @example 200 */
       readonly status_code: number | null;
-      /** @deprecated */
-      readonly user: Record<string, never>;
-      /** @deprecated */
-      readonly verification_status: string | null;
     };
     readonly LoginResponseDtoData: {
-      /**
-       * @deprecated
-       * @enum {string}
-       */
-      readonly access_level: BrowserSessionResponseDtoAccess_level;
       /**
        * @description JWT access token with 15 minutes expiration
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -2679,21 +2634,12 @@ export interface components {
        */
       readonly refresh_token: string;
       /**
-       * @deprecated
-       * @enum {string}
-       */
-      readonly routing_target: BrowserSessionResponseDtoRouting_target;
-      /**
        * Format: date-time
        * @example 2024-01-15T10:30:00Z
        */
       readonly session_expires_at: string | null;
       /** @example 550e8400-e29b-41d4-a716-446655440000 */
       readonly session_id: string | null;
-      /** @deprecated */
-      readonly user: Record<string, never>;
-      /** @deprecated */
-      readonly verification_status: string | null;
     };
     readonly LogoutDto: {
       /**
@@ -2898,23 +2844,6 @@ export interface components {
       readonly updated_at: string;
       /** @enum {string} */
       readonly verification_status: PathsApiOrganizationsOnboardingReviewApplicationsGetParametersQueryVerification_status;
-    };
-    readonly PharmacyResponseDto: {
-      readonly business_address: string;
-      readonly contact_email: string;
-      readonly contact_phone: string;
-      /** Format: date-time */
-      readonly created_at: string;
-      readonly id: string;
-      readonly is_active: boolean;
-      readonly license_number: string;
-      readonly name: string;
-      readonly region: string;
-      readonly registration_number: string;
-      /** Format: date-time */
-      readonly updated_at: string;
-      /** @enum {string} */
-      readonly verification_status: PharmacyResponseDtoVerification_status;
     };
     readonly ProfessionalActivityResponseDto: {
       readonly message: string;
@@ -3530,11 +3459,6 @@ export interface components {
     };
     readonly RefreshTokenResponseDto: {
       /**
-       * @deprecated
-       * @enum {string}
-       */
-      readonly access_level: BrowserSessionResponseDtoAccess_level;
-      /**
        * @description JWT access token with 15 minutes expiration
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
        */
@@ -3549,11 +3473,6 @@ export interface components {
        */
       readonly refresh_token: string;
       /**
-       * @deprecated
-       * @enum {string}
-       */
-      readonly routing_target: BrowserSessionResponseDtoRouting_target;
-      /**
        * Format: date-time
        * @example 2024-01-15T10:30:00Z
        */
@@ -3562,17 +3481,8 @@ export interface components {
       readonly session_id: string;
       /** @example 200 */
       readonly status_code: number | null;
-      /** @deprecated */
-      readonly user: Record<string, never>;
-      /** @deprecated */
-      readonly verification_status: string | null;
     };
     readonly RefreshTokenResponseDtoData: {
-      /**
-       * @deprecated
-       * @enum {string}
-       */
-      readonly access_level: BrowserSessionResponseDtoAccess_level;
       /**
        * @description JWT access token with 15 minutes expiration
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -3586,21 +3496,12 @@ export interface components {
        */
       readonly refresh_token: string;
       /**
-       * @deprecated
-       * @enum {string}
-       */
-      readonly routing_target: BrowserSessionResponseDtoRouting_target;
-      /**
        * Format: date-time
        * @example 2024-01-15T10:30:00Z
        */
       readonly session_expires_at: string;
       /** @example 550e8400-e29b-41d4-a716-446655440000 */
       readonly session_id: string;
-      /** @deprecated */
-      readonly user: Record<string, never>;
-      /** @deprecated */
-      readonly verification_status: string | null;
     };
     readonly RegisterAccountDto: {
       /** @example 2026-08-01 */
@@ -3923,11 +3824,6 @@ export interface components {
     };
     readonly VerifySignupResponseDto: {
       /**
-       * @deprecated
-       * @enum {string}
-       */
-      readonly access_level: BrowserSessionResponseDtoAccess_level;
-      /**
        * @description JWT access token with 15 minutes expiration
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
        */
@@ -3942,11 +3838,6 @@ export interface components {
        */
       readonly refresh_token: string;
       /**
-       * @deprecated
-       * @enum {string}
-       */
-      readonly routing_target: BrowserSessionResponseDtoRouting_target;
-      /**
        * Format: date-time
        * @example 2024-01-15T10:30:00Z
        */
@@ -3955,17 +3846,8 @@ export interface components {
       readonly session_id: string | null;
       /** @example 200 */
       readonly status_code: number | null;
-      /** @deprecated */
-      readonly user: Record<string, never>;
-      /** @deprecated */
-      readonly verification_status: string | null;
     };
     readonly VerifySignupResponseDtoData: {
-      /**
-       * @deprecated
-       * @enum {string}
-       */
-      readonly access_level: BrowserSessionResponseDtoAccess_level;
       /**
        * @description JWT access token with 15 minutes expiration
        * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -3979,21 +3861,12 @@ export interface components {
        */
       readonly refresh_token: string;
       /**
-       * @deprecated
-       * @enum {string}
-       */
-      readonly routing_target: BrowserSessionResponseDtoRouting_target;
-      /**
        * Format: date-time
        * @example 2024-01-15T10:30:00Z
        */
       readonly session_expires_at: string | null;
       /** @example 550e8400-e29b-41d4-a716-446655440000 */
       readonly session_id: string | null;
-      /** @deprecated */
-      readonly user: Record<string, never>;
-      /** @deprecated */
-      readonly verification_status: string | null;
     };
   };
   responses: never;
@@ -4606,8 +4479,7 @@ export interface operations {
         };
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
-            /** @example null */
-            readonly data: unknown;
+            readonly data: components['schemas']['ChangePasswordResponseDtoData'];
           };
         };
       };
@@ -4622,6 +4494,15 @@ export interface operations {
       };
       /** @description unauthorized */
       readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description The new password must differ from the current password. */
+      readonly 409: {
         headers: {
           readonly [name: string]: unknown;
         };
@@ -4754,55 +4635,6 @@ export interface operations {
         };
         content: {
           readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
-        };
-      };
-    };
-  };
-  readonly AuthController_googleLogin: {
-    readonly parameters: {
-      readonly query?: never;
-      readonly header?: never;
-      readonly path?: never;
-      readonly cookie?: never;
-    };
-    readonly requestBody: {
-      readonly content: {
-        readonly 'application/json': components['schemas']['GoogleLoginDto'];
-      };
-    };
-    readonly responses: {
-      readonly 400: {
-        headers: {
-          readonly [name: string]: unknown;
-        };
-        content: {
-          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
-        };
-      };
-      readonly 401: {
-        headers: {
-          readonly [name: string]: unknown;
-        };
-        content: {
-          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
-        };
-      };
-      /** @description OAUTH_TRANSACTION_REQUIRED */
-      readonly 410: {
-        headers: {
-          readonly [name: string]: unknown;
-        };
-        content: {
-          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
-        };
-      };
-      /** @description Internal server error */
-      readonly 500: {
-        headers: {
-          readonly [name: string]: unknown;
-        };
-        content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
         };
       };
     };
@@ -5167,6 +4999,222 @@ export interface operations {
         };
         content: {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly EmailChangeController_confirm: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly 'application/json': components['schemas']['ConfirmEmailChangeDto'];
+      };
+    };
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['EmailChangeCommittedDto'];
+          };
+        };
+      };
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
+      /** @description Authentication is required */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 429: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly EmailChangeController_begin: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly 'application/json': components['schemas']['BeginEmailChangeDto'];
+      };
+    };
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['EmailChangeChallengeDto'];
+          };
+        };
+      };
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 429: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 503: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
+    };
+  };
+  readonly EmailChangeController_resend: {
+    readonly parameters: {
+      readonly query?: never;
+      readonly header?: never;
+      readonly path?: never;
+      readonly cookie?: never;
+    };
+    readonly requestBody: {
+      readonly content: {
+        readonly 'application/json': components['schemas']['EmailChangeHandleDto'];
+      };
+    };
+    readonly responses: {
+      readonly 200: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
+            readonly data: components['schemas']['EmailChangeChallengeDto'];
+          };
+        };
+      };
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
+      /** @description Authentication is required */
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 403: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 429: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+        };
+      };
+      /** @description Internal server error */
+      readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      readonly 503: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
     };
@@ -8441,58 +8489,6 @@ export interface operations {
       };
     };
   };
-  readonly PharmacyController_register: {
-    readonly parameters: {
-      readonly query?: never;
-      readonly header?: never;
-      readonly path?: never;
-      readonly cookie?: never;
-    };
-    readonly requestBody: {
-      readonly content: {
-        readonly 'application/json': components['schemas']['CreatePharmacyDto'];
-      };
-    };
-    readonly responses: {
-      readonly 201: {
-        headers: {
-          readonly [name: string]: unknown;
-        };
-        content: {
-          readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
-            readonly data: components['schemas']['PharmacyResponseDto'];
-          };
-        };
-      };
-      /** @description Request validation failed */
-      readonly 400: {
-        headers: {
-          readonly [name: string]: unknown;
-        };
-        content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
-        };
-      };
-      /** @description Pharmacy registration number or license number already exists */
-      readonly 409: {
-        headers: {
-          readonly [name: string]: unknown;
-        };
-        content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
-        };
-      };
-      /** @description Internal server error */
-      readonly 500: {
-        headers: {
-          readonly [name: string]: unknown;
-        };
-        content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
-        };
-      };
-    };
-  };
   readonly ProfessionalController_findBySpeciality: {
     readonly parameters: {
       readonly query: {
@@ -10507,25 +10503,6 @@ export enum BookingResponseDtoPayment_status {
   paid = 'paid',
   unpaid = 'unpaid',
 }
-export enum BrowserSessionResponseDtoAccess_level {
-  full = 'full',
-  limited = 'limited',
-}
-export enum BrowserSessionResponseDtoRouting_target {
-  email_verification = 'email_verification',
-  admin_dashboard = 'admin_dashboard',
-  patient_home = 'patient_home',
-  professional_verification = 'professional_verification',
-  professional_dashboard = 'professional_dashboard',
-  hospital_verification = 'hospital_verification',
-  hospital_dashboard = 'hospital_dashboard',
-  laboratory_verification = 'laboratory_verification',
-  laboratory_dashboard = 'laboratory_dashboard',
-  pharmacy_verification = 'pharmacy_verification',
-  pharmacy_dashboard = 'pharmacy_dashboard',
-  account_setup = 'account_setup',
-  account_restricted = 'account_restricted',
-}
 export enum ChatMessageResponseDtoSender {
   user = 'user',
   ai = 'ai',
@@ -10595,12 +10572,6 @@ export enum OrganizationDocumentChecklistDtoMissing_document_types {
   business_registration = 'business_registration',
   accreditation_certificate = 'accreditation_certificate',
   admin_identity = 'admin_identity',
-}
-export enum PharmacyResponseDtoVerification_status {
-  submitted = 'submitted',
-  under_review = 'under_review',
-  approved = 'approved',
-  rejected = 'rejected',
 }
 export enum ProfessionalAppointmentResponseDtoStatus {
   pending = 'pending',

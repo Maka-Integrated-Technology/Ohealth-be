@@ -17,7 +17,6 @@ import { ChatModule } from './modules/chat/chat.module';
 import { IdentityModule } from './modules/identity/identity.module';
 import { LaboratoryModule } from './modules/laboratory/laboratory.module';
 import { OrganizationModule } from './modules/organization/organization.module';
-import { PharmacyModule } from './modules/pharmacy/pharmacy.module';
 import { PlatformEventsModule } from './modules/platform-events/platform-events.module';
 import { ProfessionalModule } from './modules/professional/professional.module';
 import { PublicDiscoveryModule } from './modules/public-discovery/public-discovery.module';
@@ -62,7 +61,6 @@ import { isOpenApiContractGenerationEnabled } from './openapi/openapi-generation
     IdentityModule,
     LaboratoryModule,
     OrganizationModule,
-    PharmacyModule,
     PlatformEventsModule,
     PublicDiscoveryModule,
   ],

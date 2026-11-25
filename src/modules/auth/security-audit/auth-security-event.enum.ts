@@ -5,6 +5,7 @@
 export enum AuthSecurityEventType {
   SIGN_IN = 'sign_in',
   CONTACT_VERIFICATION = 'contact_verification',
+  EMAIL_CHANGE = 'email_change',
   PASSWORD_RECOVERY = 'password_recovery',
   PASSWORD_CHANGE = 'password_change',
   SESSION_REFRESH = 'session_refresh',

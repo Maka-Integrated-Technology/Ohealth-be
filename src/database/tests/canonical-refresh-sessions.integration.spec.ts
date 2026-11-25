@@ -7,8 +7,10 @@ import { JwtService } from '@nestjs/jwt';
 import { DataSource } from 'typeorm';
 
 import { AccountAccessPolicyService } from '../../modules/auth/account-access-policy.service';
+import { AuthChallengePurpose } from '../../modules/auth/challenges/auth-challenge.entity';
 import { AuthSession } from '../../modules/auth/entities/auth.entity';
 import { RefreshCredential } from '../../modules/auth/entities/refresh-credential.entity';
+import { PasswordCredentialsService } from '../../modules/auth/password-policy/password-credentials.service';
 import { AuthSecurityAuditService } from '../../modules/auth/security-audit/auth-security-audit.service';
 import { RefreshSessionService } from '../../modules/auth/sessions/refresh-session.service';
 import { User } from '../../modules/user/entities/user.entity';
@@ -52,6 +54,7 @@ integration('Canonical refresh sessions on real PostgreSQL', () => {
       config,
       new AccountAccessPolicyService(),
       new AuthSecurityAuditService(dataSource),
+      new PasswordCredentialsService(config),
     );
   });
 
@@ -218,18 +221,187 @@ integration('Canonical refresh sessions on real PostgreSQL', () => {
 
   it('changes the password and revokes sessions in one audited transaction', async () => {
     const user = await createUser();
+    const passwords = new PasswordCredentialsService(config);
+    const currentPassword = 'a memorable current passphrase';
+    const nextPassword = 'a memorable replacement passphrase';
+    user.password = await passwords.hashNewPassword(currentPassword);
+    await dataSource
+      .getRepository(User)
+      .update(user.id, { password: user.password });
     const first = await service.issue(user.id, user.password);
     const second = await service.issue(user.id, user.password);
-    await service.replacePassword(user.id, user.password, 'new-password-hash');
+    for (const purpose of [
+      AuthChallengePurpose.PASSWORD_RECOVERY,
+      AuthChallengePurpose.LOGIN_VERIFICATION,
+      AuthChallengePurpose.MFA_LOGIN,
+    ]) {
+      const challengeId = randomUUID();
+      await dataSource.query(
+        `INSERT INTO auth_challenges (id, purpose, subject_user_id, secret_hash, expires_at, lineage_id, flow_expires_at)
+         VALUES ($1, $2, $3, $4, now() + interval '10 minutes', $1, now() + interval '30 minutes')`,
+        [challengeId, purpose, user.id, '0'.repeat(64)],
+      );
+    }
+    const nextHash = await passwords.hashNewPassword(nextPassword);
+    await service.replacePassword(
+      user.id,
+      first.session_id,
+      currentPassword,
+      nextPassword,
+      nextHash,
+    );
 
     const stored = await dataSource
       .getRepository(User)
       .findOneByOrFail({ id: user.id });
-    expect(stored.password).toBe('new-password-hash');
+    expect(stored.password).toBe(nextHash);
     await expect(service.validate(user.id, first.session_id)).rejects.toThrow();
     await expect(
       service.validate(user.id, second.session_id),
     ).rejects.toThrow();
+    const challenges: Array<{
+      consumed_at: Date | null;
+      terminal_reason: string | null;
+    }> = await dataSource.query(
+      'SELECT consumed_at, terminal_reason FROM auth_challenges WHERE subject_user_id = $1',
+      [user.id],
+    );
+    expect(challenges).toHaveLength(3);
+    expect(
+      challenges.every(
+        (row) =>
+          row.consumed_at && row.terminal_reason === 'administratively_revoked',
+      ),
+    ).toBe(true);
+    const audit: Array<{
+      actor_user_id: string;
+      subject_user_id: string;
+      session_id: string;
+    }> = await dataSource.query(
+      "SELECT actor_user_id, subject_user_id, session_id FROM auth_security_events WHERE event_type = 'password_change' AND outcome = 'succeeded' AND subject_user_id = $1",
+      [user.id],
+    );
+    expect(audit).toEqual([
+      {
+        actor_user_id: user.id,
+        subject_user_id: user.id,
+        session_id: first.session_id,
+      },
+    ]);
+  });
+
+  it('rejects incorrect and reused passwords without changing the credential', async () => {
+    const passwords = new PasswordCredentialsService(config);
+    const current = 'a memorable current passphrase';
+    const user = await createUser();
+    user.password = await passwords.hashNewPassword(current);
+    await dataSource
+      .getRepository(User)
+      .update(user.id, { password: user.password });
+    const session = await service.issue(user.id, user.password);
+    const nextHash = await passwords.hashNewPassword(
+      'a different private passphrase',
+    );
+
+    await expect(
+      service.replacePassword(
+        user.id,
+        session.session_id,
+        'incorrect passphrase',
+        'a different private passphrase',
+        nextHash,
+      ),
+    ).rejects.toMatchObject({ status: 401 });
+    await expect(
+      service.replacePassword(
+        user.id,
+        session.session_id,
+        current,
+        current,
+        nextHash,
+      ),
+    ).rejects.toMatchObject({ status: 409 });
+    expect(
+      (await dataSource.getRepository(User).findOneByOrFail({ id: user.id }))
+        .password,
+    ).toBe(user.password);
+    await expect(
+      service.validate(user.id, session.session_id),
+    ).resolves.toBeDefined();
+  });
+
+  it('allows only one of two concurrent changes using the same current session', async () => {
+    const passwords = new PasswordCredentialsService(config);
+    const current = 'a memorable current passphrase';
+    const user = await createUser();
+    user.password = await passwords.hashNewPassword(current);
+    await dataSource
+      .getRepository(User)
+      .update(user.id, { password: user.password });
+    const session = await service.issue(user.id, user.password);
+    const first = 'first replacement passphrase';
+    const second = 'second replacement passphrase';
+    const results = await Promise.allSettled([
+      service.replacePassword(
+        user.id,
+        session.session_id,
+        current,
+        first,
+        await passwords.hashNewPassword(first),
+      ),
+      service.replacePassword(
+        user.id,
+        session.session_id,
+        current,
+        second,
+        await passwords.hashNewPassword(second),
+      ),
+    ]);
+    expect(
+      results.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1);
+    expect(
+      results.filter((result) => result.status === 'rejected'),
+    ).toHaveLength(1);
+    const stored = await dataSource
+      .getRepository(User)
+      .findOneByOrFail({ id: user.id });
+    expect(
+      (await passwords.verify(first, stored.password)) ||
+        (await passwords.verify(second, stored.password)),
+    ).toBe(true);
+    await expect(
+      service.validate(user.id, session.session_id),
+    ).rejects.toThrow();
+  });
+
+  it('fails closed after suspension without changing the stored password', async () => {
+    const passwords = new PasswordCredentialsService(config);
+    const current = 'a memorable current passphrase';
+    const user = await createUser();
+    user.password = await passwords.hashNewPassword(current);
+    await dataSource
+      .getRepository(User)
+      .update(user.id, { password: user.password });
+    const session = await service.issue(user.id, user.password);
+    await dataSource.getRepository(User).update(user.id, {
+      account_status: AccountStatus.SUSPENDED,
+      is_active: false,
+    });
+    const next = 'a different private passphrase';
+    await expect(
+      service.replacePassword(
+        user.id,
+        session.session_id,
+        current,
+        next,
+        await passwords.hashNewPassword(next),
+      ),
+    ).rejects.toMatchObject({ status: 401 });
+    expect(
+      (await dataSource.getRepository(User).findOneByOrFail({ id: user.id }))
+        .password,
+    ).toBe(user.password);
   });
 
   it('rejects issuance from a stale password proof', async () => {
@@ -252,6 +424,7 @@ integration('Canonical refresh sessions on real PostgreSQL', () => {
           throw new Error('audit unavailable');
         },
       } as unknown as AuthSecurityAuditService,
+      new PasswordCredentialsService(config),
     );
     await expect(failingService.issue(user.id, user.password)).rejects.toThrow(
       'audit unavailable',
@@ -298,7 +471,6 @@ integration('Canonical refresh sessions on real PostgreSQL', () => {
       password: `hash-${randomUUID()}`,
       first_name: 'Session',
       last_name: 'Tester',
-      role: ['PATIENT'],
       is_active: true,
       is_verified: true,
       account_status: AccountStatus.ACTIVE,

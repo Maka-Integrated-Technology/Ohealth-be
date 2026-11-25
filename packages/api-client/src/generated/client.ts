@@ -18,6 +18,7 @@ export type AuthController_changePasswordResponse =
 export type AuthController_changePasswordError =
   | operations['AuthController_changePassword']['responses'][400]['content']['application/json']
   | operations['AuthController_changePassword']['responses'][401]['content']['application/json']
+  | operations['AuthController_changePassword']['responses'][409]['content']['application/json']
   | operations['AuthController_changePassword']['responses'][500]['content']['application/json'];
 
 export type AuthController_forgotPasswordRequest = Readonly<{
@@ -50,19 +51,6 @@ export type AuthController_getRegistrationBootstrapResponse =
   operations['AuthController_getRegistrationBootstrap']['responses'][200]['content']['application/json'];
 export type AuthController_getRegistrationBootstrapError =
   operations['AuthController_getRegistrationBootstrap']['responses'][500]['content']['application/json'];
-
-export type AuthController_googleLoginRequest = Readonly<{
-  readonly body: NonNullable<
-    operations['AuthController_googleLogin']['requestBody']
-  >['content']['application/json'];
-  readonly headers?: ApiHeaders;
-}>;
-export type AuthController_googleLoginResponse = never;
-export type AuthController_googleLoginError =
-  | operations['AuthController_googleLogin']['responses'][400]['content']['application/json']
-  | operations['AuthController_googleLogin']['responses'][401]['content']['application/json']
-  | operations['AuthController_googleLogin']['responses'][410]['content']['application/json']
-  | operations['AuthController_googleLogin']['responses'][500]['content']['application/json'];
 
 export type AuthController_listSessionsRequest = Readonly<{
   readonly headers?: ApiHeaders;
@@ -433,6 +421,53 @@ export type ChatController_sendMessageError =
   | operations['ChatController_sendMessage']['responses'][401]['content']['application/json']
   | operations['ChatController_sendMessage']['responses'][500]['content']['application/json']
   | operations['ChatController_sendMessage']['responses'][502]['content']['application/json'];
+
+export type EmailChangeController_beginRequest = Readonly<{
+  readonly body: NonNullable<
+    operations['EmailChangeController_begin']['requestBody']
+  >['content']['application/json'];
+  readonly headers?: ApiHeaders;
+}>;
+export type EmailChangeController_beginResponse =
+  operations['EmailChangeController_begin']['responses'][200]['content']['application/json'];
+export type EmailChangeController_beginError =
+  | operations['EmailChangeController_begin']['responses'][400]['content']['application/json']
+  | operations['EmailChangeController_begin']['responses'][401]['content']['application/json']
+  | operations['EmailChangeController_begin']['responses'][403]['content']['application/json']
+  | operations['EmailChangeController_begin']['responses'][429]['content']['application/json']
+  | operations['EmailChangeController_begin']['responses'][500]['content']['application/json']
+  | operations['EmailChangeController_begin']['responses'][503]['content']['application/json'];
+
+export type EmailChangeController_confirmRequest = Readonly<{
+  readonly body: NonNullable<
+    operations['EmailChangeController_confirm']['requestBody']
+  >['content']['application/json'];
+  readonly headers?: ApiHeaders;
+}>;
+export type EmailChangeController_confirmResponse =
+  operations['EmailChangeController_confirm']['responses'][200]['content']['application/json'];
+export type EmailChangeController_confirmError =
+  | operations['EmailChangeController_confirm']['responses'][400]['content']['application/json']
+  | operations['EmailChangeController_confirm']['responses'][401]['content']['application/json']
+  | operations['EmailChangeController_confirm']['responses'][403]['content']['application/json']
+  | operations['EmailChangeController_confirm']['responses'][429]['content']['application/json']
+  | operations['EmailChangeController_confirm']['responses'][500]['content']['application/json'];
+
+export type EmailChangeController_resendRequest = Readonly<{
+  readonly body: NonNullable<
+    operations['EmailChangeController_resend']['requestBody']
+  >['content']['application/json'];
+  readonly headers?: ApiHeaders;
+}>;
+export type EmailChangeController_resendResponse =
+  operations['EmailChangeController_resend']['responses'][200]['content']['application/json'];
+export type EmailChangeController_resendError =
+  | operations['EmailChangeController_resend']['responses'][400]['content']['application/json']
+  | operations['EmailChangeController_resend']['responses'][401]['content']['application/json']
+  | operations['EmailChangeController_resend']['responses'][403]['content']['application/json']
+  | operations['EmailChangeController_resend']['responses'][429]['content']['application/json']
+  | operations['EmailChangeController_resend']['responses'][500]['content']['application/json']
+  | operations['EmailChangeController_resend']['responses'][503]['content']['application/json'];
 
 export type LaboratoryAuthController_setupAdministratorRequest = Readonly<{
   readonly body: NonNullable<
@@ -1044,19 +1079,6 @@ export type OrganizationController_uploadMineError =
   | operations['OrganizationController_uploadMine']['responses'][401]['content']['application/json']
   | operations['OrganizationController_uploadMine']['responses'][403]['content']['application/json']
   | operations['OrganizationController_uploadMine']['responses'][500]['content']['application/json'];
-
-export type PharmacyController_registerRequest = Readonly<{
-  readonly body: NonNullable<
-    operations['PharmacyController_register']['requestBody']
-  >['content']['application/json'];
-  readonly headers?: ApiHeaders;
-}>;
-export type PharmacyController_registerResponse =
-  operations['PharmacyController_register']['responses'][201]['content']['application/json'];
-export type PharmacyController_registerError =
-  | operations['PharmacyController_register']['responses'][400]['content']['application/json']
-  | operations['PharmacyController_register']['responses'][409]['content']['application/json']
-  | operations['PharmacyController_register']['responses'][500]['content']['application/json'];
 
 export type ProfessionalController_acceptMyBookingRequest = Readonly<{
   readonly path: NonNullable<
@@ -1680,9 +1702,6 @@ export interface ApiClient {
   readonly AuthController_getRegistrationBootstrap: (
     request?: AuthController_getRegistrationBootstrapRequest,
   ) => Promise<AuthController_getRegistrationBootstrapResponse>;
-  readonly AuthController_googleLogin: (
-    request: AuthController_googleLoginRequest,
-  ) => Promise<AuthController_googleLoginResponse>;
   readonly AuthController_listSessions: (
     request?: AuthController_listSessionsRequest,
   ) => Promise<AuthController_listSessionsResponse>;
@@ -1767,6 +1786,15 @@ export interface ApiClient {
   readonly ChatController_sendMessage: (
     request: ChatController_sendMessageRequest,
   ) => Promise<ChatController_sendMessageResponse>;
+  readonly EmailChangeController_begin: (
+    request: EmailChangeController_beginRequest,
+  ) => Promise<EmailChangeController_beginResponse>;
+  readonly EmailChangeController_confirm: (
+    request: EmailChangeController_confirmRequest,
+  ) => Promise<EmailChangeController_confirmResponse>;
+  readonly EmailChangeController_resend: (
+    request: EmailChangeController_resendRequest,
+  ) => Promise<EmailChangeController_resendResponse>;
   readonly LaboratoryAuthController_setupAdministrator: (
     request: LaboratoryAuthController_setupAdministratorRequest,
   ) => Promise<LaboratoryAuthController_setupAdministratorResponse>;
@@ -1890,9 +1918,6 @@ export interface ApiClient {
   readonly OrganizationController_uploadMine: (
     request: OrganizationController_uploadMineRequest,
   ) => Promise<OrganizationController_uploadMineResponse>;
-  readonly PharmacyController_register: (
-    request: PharmacyController_registerRequest,
-  ) => Promise<PharmacyController_registerResponse>;
   readonly ProfessionalController_acceptMyBooking: (
     request: ProfessionalController_acceptMyBookingRequest,
   ) => Promise<ProfessionalController_acceptMyBookingResponse>;
@@ -2084,19 +2109,6 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
           operationId: 'AuthController_getRegistrationBootstrap',
           method: 'GET',
           path: '/api/auth/registration/bootstrap',
-        },
-        request,
-      ),
-    AuthController_googleLogin: (request) =>
-      core.request<
-        AuthController_googleLoginResponse,
-        AuthController_googleLoginError
-      >(
-        {
-          operationId: 'AuthController_googleLogin',
-          method: 'POST',
-          path: '/api/auth/google-login',
-          requestMediaType: 'application/json',
         },
         request,
       ),
@@ -2443,6 +2455,45 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
           operationId: 'ChatController_sendMessage',
           method: 'POST',
           path: '/api/chat/send',
+          requestMediaType: 'application/json',
+        },
+        request,
+      ),
+    EmailChangeController_begin: (request) =>
+      core.request<
+        EmailChangeController_beginResponse,
+        EmailChangeController_beginError
+      >(
+        {
+          operationId: 'EmailChangeController_begin',
+          method: 'POST',
+          path: '/api/auth/me/email-change/request',
+          requestMediaType: 'application/json',
+        },
+        request,
+      ),
+    EmailChangeController_confirm: (request) =>
+      core.request<
+        EmailChangeController_confirmResponse,
+        EmailChangeController_confirmError
+      >(
+        {
+          operationId: 'EmailChangeController_confirm',
+          method: 'POST',
+          path: '/api/auth/me/email-change/confirm',
+          requestMediaType: 'application/json',
+        },
+        request,
+      ),
+    EmailChangeController_resend: (request) =>
+      core.request<
+        EmailChangeController_resendResponse,
+        EmailChangeController_resendError
+      >(
+        {
+          operationId: 'EmailChangeController_resend',
+          method: 'POST',
+          path: '/api/auth/me/email-change/resend',
           requestMediaType: 'application/json',
         },
         request,
@@ -2956,19 +3007,6 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
           method: 'POST',
           path: '/api/organizations/onboarding/me/documents/{documentType}',
           requestMediaType: 'multipart/form-data',
-        },
-        request,
-      ),
-    PharmacyController_register: (request) =>
-      core.request<
-        PharmacyController_registerResponse,
-        PharmacyController_registerError
-      >(
-        {
-          operationId: 'PharmacyController_register',
-          method: 'POST',
-          path: '/api/pharmacies/register',
-          requestMediaType: 'application/json',
         },
         request,
       ),

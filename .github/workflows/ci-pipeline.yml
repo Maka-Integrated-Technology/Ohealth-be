@@ -282,6 +282,11 @@ jobs:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
         run: npx jest --runInBand src/database/tests/auth-challenge-live-http.integration.spec.ts
 
+      - name: Verify email change PostgreSQL security invariants
+        env:
+          PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci
+        run: npx jest --runInBand src/database/tests/email-change.integration.spec.ts
+
       - name: Verify patient address migration on real PostgreSQL
         env:
           PG_INTEGRATION_URL: postgres://postgres:postgres@localhost:5432/ohealth_ci

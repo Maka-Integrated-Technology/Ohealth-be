@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 
 import { EmailModule } from '../../email/email.module';
+import { EmailDestinationService } from '../email-change/email-destination';
 import { AuthSecurityAuditModule } from '../security-audit/auth-security-audit.module';
 
 import { AuthChallengeDeliveryService } from './auth-challenge-delivery.service';
@@ -19,11 +20,13 @@ import { AuthRateLimitService } from './auth-rate-limit.service';
     AuthChallengeService,
     AuthChallengeDeliveryService,
     AuthRateLimitService,
+    EmailDestinationService,
   ],
   exports: [
     AuthChallengeService,
     AuthChallengeDeliveryService,
     AuthRateLimitService,
+    EmailDestinationService,
   ],
 })
 export class AuthChallengeModule {}
