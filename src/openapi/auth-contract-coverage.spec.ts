@@ -2,7 +2,18 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 type Schema = { $ref?: string; allOf?: Schema[]; oneOf?: Schema[] };
-type Response = { content?: Record<string, { schema?: Schema }> };
+type Response = {
+  content?: Record<
+    string,
+    {
+      schema?: Schema;
+      examples?: Record<
+        string,
+        { value: { data?: Record<string, unknown> | null } }
+      >;
+    }
+  >;
+};
 type Operation = { responses: Record<string, Response> };
 
 const contract = JSON.parse(
@@ -32,6 +43,31 @@ function schemaName(ref: string): string {
 }
 
 describe('canonical public authentication contract', () => {
+  it('publishes distinct mobile and browser continuation examples without browser refresh JSON', () => {
+    const mobile =
+      contract.paths['/api/auth/oauth/google/complete'].post.responses;
+    const browser =
+      contract.paths['/api/auth/browser/oauth/google/complete'].post.responses;
+    expect(
+      Object.keys(mobile['200'].content?.['application/json'].examples ?? {}),
+    ).toEqual(['mfa', 'session']);
+    expect(
+      Object.keys(mobile['202'].content?.['application/json'].examples ?? {}),
+    ).toEqual(['contact']);
+    expect(
+      Object.keys(browser['200'].content?.['application/json'].examples ?? {}),
+    ).toEqual(['link', 'mfa', 'session']);
+    expect(
+      Object.keys(browser['202'].content?.['application/json'].examples ?? {}),
+    ).toEqual(['contact']);
+    const mobileSession =
+      mobile['200'].content?.['application/json'].examples?.session.value.data;
+    const browserSession =
+      browser['200'].content?.['application/json'].examples?.session.value.data;
+    expect(mobileSession).toHaveProperty('refresh_token');
+    expect(browserSession).not.toHaveProperty('refresh_token');
+    expect(browserSession).toHaveProperty('access_token');
+  });
   it('documents professional profile persona denial', () => {
     const operation = contract.paths['/api/auth/me/professional-profile'].patch;
     expect(

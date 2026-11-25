@@ -115,7 +115,10 @@ export interface paths {
     };
     readonly get?: never;
     readonly put?: never;
-    /** Revoke and clear the browser session */
+    /**
+     * Revoke and clear the browser session
+     * @description Send the backend-managed HttpOnly refresh cookie with credentials and no body or an empty JSON object. The response clears the cookie. Bearer, query, and body refresh credentials are rejected.
+     */
     readonly post: operations['BrowserSessionController_logout'];
     readonly delete?: never;
     readonly options?: never;
@@ -152,7 +155,10 @@ export interface paths {
     };
     readonly get?: never;
     readonly put?: never;
-    /** Rotate the browser refresh cookie */
+    /**
+     * Rotate the browser refresh cookie
+     * @description Send the backend-managed HttpOnly refresh cookie with credentials. Do not send a bearer token, query parameter, or JSON refresh credential. The response contains an access token but no refresh token; rotation is returned in Set-Cookie.
+     */
     readonly post: operations['BrowserSessionController_refresh'];
     readonly delete?: never;
     readonly options?: never;
@@ -495,7 +501,10 @@ export interface paths {
     };
     readonly get?: never;
     readonly put?: never;
-    /** Refresh access token using refresh token */
+    /**
+     * Refresh a mobile session using a JSON refresh credential
+     * @description Mobile clients send refresh_token in the request JSON and receive the rotated refresh_token in response JSON. Browser clients use /api/auth/browser/refresh and keep the refresh credential in an HttpOnly cookie.
+     */
     readonly post: operations['AuthController_refreshToken'];
     readonly delete?: never;
     readonly options?: never;
@@ -2051,17 +2060,6 @@ export interface components {
       readonly is_available: boolean;
       readonly start_time: string;
     };
-    readonly BeginEmailChangeDto: {
-      readonly candidate_email: string;
-      /** @description Required for password-enabled accounts; recent OAuth sessions can use their active authenticator */
-      readonly current_password?: string;
-      /** @description Required when MFA is enabled */
-      readonly mfa_code?: string;
-    };
-    readonly BeginMfaDto: {
-      readonly current_code?: string;
-      readonly password: string;
-    };
     readonly BookingResponseDto: {
       readonly amount: number;
       readonly booking_date: string;
@@ -2086,7 +2084,7 @@ export interface components {
       /** @description Short-lived access JWT for in-memory use only */
       readonly access_token: string;
       readonly account_context: components['schemas']['AuthContextResponseDto'];
-      /** @example Login success */
+      /** @example login success */
       readonly message: string;
       /** Format: date-time */
       readonly session_expires_at: string;
@@ -2285,10 +2283,12 @@ export interface components {
     readonly EnableTwoFactorAuthDataDto: {
       /** @example 600 */
       readonly expires_in_seconds: number;
-      /** @example data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA... */
       readonly qrCodeUrl: string;
-      /** @example JBSWY3DPEHPK3PXP */
+      /** @description Enrollment secret; returned once and must be protected. */
       readonly secret: string;
+    };
+    readonly FirstMfaEnrollmentRequest: {
+      readonly password: string;
     };
     readonly ForgotPasswordDto: {
       /**
@@ -2305,9 +2305,65 @@ export interface components {
       readonly transaction_id: string;
       readonly transaction_token: string;
     };
+    readonly GooglePatientSignupTransactionRequest: {
+      readonly accepted_privacy_version: string;
+      readonly accepted_terms_version: string;
+      /** @description Exact Google OAuth client ID used by this client */
+      readonly audience: string;
+      /** @enum {string} */
+      readonly consumer: GooglePatientSignupTransactionRequestConsumer;
+      /** @enum {string} */
+      readonly intent: GooglePatientSignupTransactionRequestIntent;
+      /** @enum {string} */
+      readonly operation: GooglePatientSignupTransactionRequestOperation;
+    };
+    readonly GoogleProfessionalSignupTransactionRequest: {
+      readonly accepted_privacy_version: string;
+      readonly accepted_terms_version: string;
+      /** @description Exact Google OAuth client ID used by this client */
+      readonly audience: string;
+      /** @enum {string} */
+      readonly consumer: GooglePatientSignupTransactionRequestConsumer;
+      /** @enum {string} */
+      readonly intent: GoogleProfessionalSignupTransactionRequestIntent;
+      /** @enum {string} */
+      readonly operation: GooglePatientSignupTransactionRequestOperation;
+    };
+    readonly GoogleSignInTransactionRequest: {
+      /** @description Exact Google OAuth client ID used by this client */
+      readonly audience: string;
+      /** @enum {string} */
+      readonly consumer: GooglePatientSignupTransactionRequestConsumer;
+      /** @enum {string} */
+      readonly operation: GoogleSignInTransactionRequestOperation;
+    };
     readonly GroupedAvailabilityDto: {
       readonly date: string;
       readonly slots: readonly components['schemas']['AvailabilitySlotResponseDto'][];
+    };
+    /** @description hospital registration. The server derives the organization type from intent. */
+    readonly HospitalSignupRequest: {
+      /** @description Use privacy.version from GET /api/auth/registration/bootstrap; the current value can change. */
+      readonly accepted_privacy_version: string;
+      /** @description Use terms.version from GET /api/auth/registration/bootstrap; the current value can change. */
+      readonly accepted_terms_version: string;
+      /**
+       * Format: email
+       * @example person@example.com
+       */
+      readonly email: string;
+      /** @example Example */
+      readonly first_name: string;
+      /** @enum {string} */
+      readonly intent: HospitalSignupRequestIntent;
+      /** @example Person */
+      readonly last_name: string;
+      readonly organization: components['schemas']['OrganizationRegistrationDto'];
+      /**
+       * Format: password
+       * @description 15+ Unicode characters, no composition rule, max 1024 UTF-8 bytes
+       */
+      readonly password: string;
     };
     readonly InviteLaboratoryStaffDto: {
       /** @example amara@laboratory.example */
@@ -2445,6 +2501,30 @@ export interface components {
        * @enum {string}
        */
       readonly verification_status: PathsApiOrganizationsOnboardingReviewApplicationsGetParametersQueryVerification_status;
+    };
+    /** @description laboratory registration. The server derives the organization type from intent. */
+    readonly LaboratorySignupRequest: {
+      /** @description Use privacy.version from GET /api/auth/registration/bootstrap; the current value can change. */
+      readonly accepted_privacy_version: string;
+      /** @description Use terms.version from GET /api/auth/registration/bootstrap; the current value can change. */
+      readonly accepted_terms_version: string;
+      /**
+       * Format: email
+       * @example person@example.com
+       */
+      readonly email: string;
+      /** @example Example */
+      readonly first_name: string;
+      /** @enum {string} */
+      readonly intent: LaboratorySignupRequestIntent;
+      /** @example Person */
+      readonly last_name: string;
+      readonly organization: components['schemas']['OrganizationRegistrationDto'];
+      /**
+       * Format: password
+       * @description 15+ Unicode characters, no composition rule, max 1024 UTF-8 bytes
+       */
+      readonly password: string;
     };
     readonly LaboratoryStaffResponseDto: {
       /** Format: date-time */
@@ -2596,69 +2676,54 @@ export interface components {
       readonly password: string;
     };
     readonly LoginResponseDto: {
-      /**
-       * @description JWT access token with 15 minutes expiration
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-       */
+      /** @description JWT access token with 15 minutes expiration */
       readonly access_token: string;
       /** @description Server-resolved account, persona, membership, verification, and capability context */
       readonly account_context: components['schemas']['AuthContextResponseDto'];
-      /** @example Login success */
-      readonly message: string | null;
-      /**
-       * @description Opaque, rotating refresh credential
-       * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
-       */
+      /** @example login success */
+      readonly message: string;
+      /** @description Opaque, rotating refresh credential */
       readonly refresh_token: string;
-      /**
-       * Format: date-time
-       * @example 2024-01-15T10:30:00Z
-       */
-      readonly session_expires_at: string | null;
+      /** Format: date-time */
+      readonly session_expires_at: string;
       /** @example 550e8400-e29b-41d4-a716-446655440000 */
-      readonly session_id: string | null;
-      /** @example 200 */
-      readonly status_code: number | null;
+      readonly session_id: string;
     };
     readonly LoginResponseDtoData: {
-      /**
-       * @description JWT access token with 15 minutes expiration
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-       */
+      /** @description JWT access token with 15 minutes expiration */
       readonly access_token: string;
       /** @description Server-resolved account, persona, membership, verification, and capability context */
       readonly account_context: components['schemas']['AuthContextResponseDto'];
-      /**
-       * @description Opaque, rotating refresh credential
-       * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
-       */
+      /** @description Opaque, rotating refresh credential */
       readonly refresh_token: string;
-      /**
-       * Format: date-time
-       * @example 2024-01-15T10:30:00Z
-       */
-      readonly session_expires_at: string | null;
+      /** Format: date-time */
+      readonly session_expires_at: string;
       /** @example 550e8400-e29b-41d4-a716-446655440000 */
-      readonly session_id: string | null;
+      readonly session_id: string;
     };
     readonly LogoutDto: {
       /**
-       * @description session id
-       * @example session-id-123
+       * Format: uuid
+       * @description Current session UUID
+       * @example 550e8400-e29b-41d4-a716-446655440000
        */
       readonly session_id: string;
     };
     readonly LogoutResponseDto: {
       /** @example logout success */
-      readonly message: string | null;
-      /** @example 200 */
-      readonly status_code: number | null;
+      readonly message: string;
     };
     readonly MfaChallengeResponseDto: {
       /** @example 600 */
       readonly expires_in_seconds: number;
       /** @example MFA verification required. */
       readonly message: string;
+      /** Format: uuid */
+      readonly mfa_challenge_id: string;
+    };
+    readonly MfaChallengeResponseDtoData: {
+      /** @example 600 */
+      readonly expires_in_seconds: number;
       /** Format: uuid */
       readonly mfa_challenge_id: string;
     };
@@ -2670,6 +2735,10 @@ export interface components {
     readonly MfaRecoveryCodesResponseDtoData: {
       /** @description Shown once. Store offline. */
       readonly recovery_codes: readonly string[];
+    };
+    readonly MfaReenrollmentRequest: {
+      readonly current_code: string;
+      readonly password: string;
     };
     readonly OAuthContactVerificationResponseDto: {
       /** Format: uuid */
@@ -2794,13 +2863,13 @@ export interface components {
        * @example operations@example.com
        */
       readonly contact_email: string;
-      /** @example +2348012345678 */
+      /** @example +10000000000 */
       readonly contact_phone?: string;
-      /** @example 12 Adeola Odeku Street, Lagos */
+      /** @example Example location */
       readonly location: string;
-      /** @example OHealth Diagnostics */
+      /** @example Example Organization */
       readonly name: string;
-      /** @example RC-123456 */
+      /** @example EXAMPLE-001 */
       readonly registration_number: string;
     };
     readonly OrganizationResponseDto: {
@@ -2844,6 +2913,67 @@ export interface components {
       readonly updated_at: string;
       /** @enum {string} */
       readonly verification_status: PathsApiOrganizationsOnboardingReviewApplicationsGetParametersQueryVerification_status;
+    };
+    /** @description Password-enabled account; current password is required. */
+    readonly PasswordEmailChangeRequest: {
+      readonly candidate_email: string;
+      /** @description Required for password-enabled accounts; passwordless Google accounts instead require a recently created session */
+      readonly current_password: string;
+    };
+    /** @description Password-enabled account; current password is required. */
+    readonly PasswordMfaEmailChangeRequest: {
+      readonly candidate_email: string;
+      /** @description Required for password-enabled accounts; passwordless Google accounts instead require a recently created session */
+      readonly current_password: string;
+      /** @description Required when MFA is enabled */
+      readonly mfa_code: string;
+    };
+    /** @description patient registration. The server derives the organization type from intent. */
+    readonly PatientSignupRequest: {
+      /** @description Use privacy.version from GET /api/auth/registration/bootstrap; the current value can change. */
+      readonly accepted_privacy_version: string;
+      /** @description Use terms.version from GET /api/auth/registration/bootstrap; the current value can change. */
+      readonly accepted_terms_version: string;
+      /**
+       * Format: email
+       * @example person@example.com
+       */
+      readonly email: string;
+      /** @example Example */
+      readonly first_name: string;
+      /** @enum {string} */
+      readonly intent: GooglePatientSignupTransactionRequestIntent;
+      /** @example Person */
+      readonly last_name: string;
+      /**
+       * Format: password
+       * @description 15+ Unicode characters, no composition rule, max 1024 UTF-8 bytes
+       */
+      readonly password: string;
+    };
+    /** @description pharmacy registration. The server derives the organization type from intent. */
+    readonly PharmacySignupRequest: {
+      /** @description Use privacy.version from GET /api/auth/registration/bootstrap; the current value can change. */
+      readonly accepted_privacy_version: string;
+      /** @description Use terms.version from GET /api/auth/registration/bootstrap; the current value can change. */
+      readonly accepted_terms_version: string;
+      /**
+       * Format: email
+       * @example person@example.com
+       */
+      readonly email: string;
+      /** @example Example */
+      readonly first_name: string;
+      /** @enum {string} */
+      readonly intent: PharmacySignupRequestIntent;
+      /** @example Person */
+      readonly last_name: string;
+      readonly organization: components['schemas']['OrganizationRegistrationDto'];
+      /**
+       * Format: password
+       * @description 15+ Unicode characters, no composition rule, max 1024 UTF-8 bytes
+       */
+      readonly password: string;
     };
     readonly ProfessionalActivityResponseDto: {
       readonly message: string;
@@ -3142,6 +3272,29 @@ export interface components {
       readonly completed: boolean;
       readonly set_availability: boolean;
       readonly verified: boolean;
+    };
+    /** @description Independent professional signup. Organization membership is acquired later. */
+    readonly ProfessionalSignupRequest: {
+      /** @description Use privacy.version from GET /api/auth/registration/bootstrap; the current value can change. */
+      readonly accepted_privacy_version: string;
+      /** @description Use terms.version from GET /api/auth/registration/bootstrap; the current value can change. */
+      readonly accepted_terms_version: string;
+      /**
+       * Format: email
+       * @example person@example.com
+       */
+      readonly email: string;
+      /** @example Example */
+      readonly first_name: string;
+      /** @enum {string} */
+      readonly intent: GoogleProfessionalSignupTransactionRequestIntent;
+      /** @example Person */
+      readonly last_name: string;
+      /**
+       * Format: password
+       * @description 15+ Unicode characters, no composition rule, max 1024 UTF-8 bytes
+       */
+      readonly password: string;
     };
     readonly ProfessionalVerificationDocumentDownloadDto: {
       /** @example 300 */
@@ -3450,81 +3603,45 @@ export interface components {
        */
       readonly name: string;
     };
+    /** @description Passwordless Google account; session must have been created within the last ten minutes. */
+    readonly RecentOAuthEmailChangeRequest: {
+      readonly candidate_email: string;
+    };
+    /** @description Passwordless Google account; session must have been created within the last ten minutes. */
+    readonly RecentOAuthMfaEmailChangeRequest: {
+      readonly candidate_email: string;
+      /** @description Required when MFA is enabled */
+      readonly mfa_code: string;
+    };
     readonly RefreshTokenDto: {
-      /**
-       * @description Opaque refresh credential
-       * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
-       */
+      /** @description Opaque refresh credential */
       readonly refresh_token: string;
     };
     readonly RefreshTokenResponseDto: {
-      /**
-       * @description JWT access token with 15 minutes expiration
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-       */
+      /** @description JWT access token with 15 minutes expiration */
       readonly access_token: string;
       /** @description Server-resolved account, persona, membership, verification, and capability context */
       readonly account_context: components['schemas']['AuthContextResponseDto'];
-      /** @example Token refresh successful */
-      readonly message: string | null;
-      /**
-       * @description Opaque, rotating refresh credential
-       * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
-       */
+      /** @example token refresh successful */
+      readonly message: string;
+      /** @description Opaque, rotating refresh credential */
       readonly refresh_token: string;
-      /**
-       * Format: date-time
-       * @example 2024-01-15T10:30:00Z
-       */
+      /** Format: date-time */
       readonly session_expires_at: string;
       /** @example 550e8400-e29b-41d4-a716-446655440000 */
       readonly session_id: string;
-      /** @example 200 */
-      readonly status_code: number | null;
     };
     readonly RefreshTokenResponseDtoData: {
-      /**
-       * @description JWT access token with 15 minutes expiration
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-       */
+      /** @description JWT access token with 15 minutes expiration */
       readonly access_token: string;
       /** @description Server-resolved account, persona, membership, verification, and capability context */
       readonly account_context: components['schemas']['AuthContextResponseDto'];
-      /**
-       * @description Opaque, rotating refresh credential
-       * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
-       */
+      /** @description Opaque, rotating refresh credential */
       readonly refresh_token: string;
-      /**
-       * Format: date-time
-       * @example 2024-01-15T10:30:00Z
-       */
+      /** Format: date-time */
       readonly session_expires_at: string;
       /** @example 550e8400-e29b-41d4-a716-446655440000 */
       readonly session_id: string;
-    };
-    readonly RegisterAccountDto: {
-      /** @example 2026-08-01 */
-      readonly accepted_privacy_version: string;
-      /** @example 2026-08-01 */
-      readonly accepted_terms_version: string;
-      /**
-       * Format: email
-       * @example ada@example.com
-       */
-      readonly email: string;
-      /** @example Ada */
-      readonly first_name: string;
-      /** @description Closed self-service account type that determines persona or organization type. */
-      readonly intent: components['schemas']['SignupIntent'];
-      /** @example Okafor */
-      readonly last_name: string;
-      readonly organization?: components['schemas']['OrganizationRegistrationDto'];
-      /**
-       * Format: password
-       * @description 15+ Unicode characters, no composition rule, max 1024 UTF-8 bytes
-       */
-      readonly password: string;
     };
     readonly RegistrationBootstrapDto: {
       readonly intents: readonly components['schemas']['RegistrationBootstrapIntentDto'][];
@@ -3539,7 +3656,7 @@ export interface components {
     };
     readonly RegistrationBootstrapLegalDocumentDto: {
       readonly document_type: components['schemas']['LegalDocumentType'];
-      /** @example 2026-08-01 */
+      /** @description Current configured legal-document version. Copy this value into the matching signup or OAuth signup field. */
       readonly version: string;
     };
     readonly RegistrationPendingResponseDto: {
@@ -3696,19 +3813,7 @@ export interface components {
       /** @description Exact allowlisted Google OAuth client ID */
       readonly audience: string;
       /** @enum {string} */
-      readonly consumer: StartGoogleLinkDtoConsumer;
-    };
-    readonly StartGoogleOAuthDto: {
-      readonly accepted_privacy_version?: string;
-      readonly accepted_terms_version?: string;
-      /** @description Exact Google OAuth client ID used by this client */
-      readonly audience: string;
-      /** @enum {string} */
-      readonly consumer: StartGoogleLinkDtoConsumer;
-      /** @enum {string} */
-      readonly intent?: SignupIntent;
-      /** @enum {string} */
-      readonly operation: StartGoogleOAuthDtoOperation;
+      readonly consumer: GooglePatientSignupTransactionRequestConsumer;
     };
     readonly UpdateLaboratoryTestDto: {
       /** @example true */
@@ -3823,50 +3928,30 @@ export interface components {
       readonly code: string;
     };
     readonly VerifySignupResponseDto: {
-      /**
-       * @description JWT access token with 15 minutes expiration
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-       */
+      /** @description JWT access token with 15 minutes expiration */
       readonly access_token: string;
       /** @description Server-resolved account, persona, membership, verification, and capability context */
       readonly account_context: components['schemas']['AuthContextResponseDto'];
       /** @example account verified */
-      readonly message: string | null;
-      /**
-       * @description Opaque, rotating refresh credential
-       * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
-       */
+      readonly message: string;
+      /** @description Opaque, rotating refresh credential */
       readonly refresh_token: string;
-      /**
-       * Format: date-time
-       * @example 2024-01-15T10:30:00Z
-       */
-      readonly session_expires_at: string | null;
+      /** Format: date-time */
+      readonly session_expires_at: string;
       /** @example 550e8400-e29b-41d4-a716-446655440000 */
-      readonly session_id: string | null;
-      /** @example 200 */
-      readonly status_code: number | null;
+      readonly session_id: string;
     };
     readonly VerifySignupResponseDtoData: {
-      /**
-       * @description JWT access token with 15 minutes expiration
-       * @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-       */
+      /** @description JWT access token with 15 minutes expiration */
       readonly access_token: string;
       /** @description Server-resolved account, persona, membership, verification, and capability context */
       readonly account_context: components['schemas']['AuthContextResponseDto'];
-      /**
-       * @description Opaque, rotating refresh credential
-       * @example 4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA
-       */
+      /** @description Opaque, rotating refresh credential */
       readonly refresh_token: string;
-      /**
-       * Format: date-time
-       * @example 2024-01-15T10:30:00Z
-       */
-      readonly session_expires_at: string | null;
+      /** Format: date-time */
+      readonly session_expires_at: string;
       /** @example 550e8400-e29b-41d4-a716-446655440000 */
-      readonly session_id: string | null;
+      readonly session_id: string;
     };
   };
   responses: never;
@@ -3949,7 +4034,7 @@ export interface operations {
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
             /** @example null */
-            readonly data: unknown;
+            readonly data: Record<string, never> | null;
           };
         };
       };
@@ -3998,9 +4083,12 @@ export interface operations {
       readonly path?: never;
       readonly cookie?: never;
     };
+    /** @description First enrollment requires the current password. Re-enrollment of an active factor also requires current_code, a fresh six-digit TOTP code. Recovery codes are accepted only for login MFA continuation. */
     readonly requestBody: {
       readonly content: {
-        readonly 'application/json': components['schemas']['BeginMfaDto'];
+        readonly 'application/json':
+          | components['schemas']['FirstMfaEnrollmentRequest']
+          | components['schemas']['MfaReenrollmentRequest'];
       };
     };
     readonly responses: {
@@ -4100,6 +4188,8 @@ export interface operations {
     readonly parameters: {
       readonly query?: never;
       readonly header: {
+        /** @description Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually. */
+        readonly Origin?: string;
         readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginMfaVerifyPostParametersHeaderXOHealthClient;
       };
       readonly path?: never;
@@ -4121,7 +4211,11 @@ export interface operations {
           };
         };
       };
-      /** @description Challenge or request is invalid */
+      /**
+       * @description Malformed or forbidden browser credential transport
+       *
+       *     Challenge or request is invalid
+       */
       readonly 400: {
         headers: {
           readonly [name: string]: unknown;
@@ -4139,8 +4233,26 @@ export interface operations {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
         };
       };
+      /** @description A browser request with a body must use application/json */
+      readonly 415: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
       /** @description Internal server error */
       readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Browser session transport is disabled */
+      readonly 503: {
         headers: {
           readonly [name: string]: unknown;
         };
@@ -4154,6 +4266,8 @@ export interface operations {
     readonly parameters: {
       readonly query?: never;
       readonly header: {
+        /** @description Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually. */
+        readonly Origin?: string;
         readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginMfaVerifyPostParametersHeaderXOHealthClient;
       };
       readonly path?: never;
@@ -4172,11 +4286,12 @@ export interface operations {
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
             readonly data:
-              | components['schemas']['BrowserSessionResponseDto']
-              | components['schemas']['MfaChallengeResponseDto'];
+              | components['schemas']['BrowserSessionResponseDtoData']
+              | components['schemas']['MfaChallengeResponseDtoData'];
           };
         };
       };
+      /** @description Malformed or forbidden browser credential transport */
       readonly 400: {
         headers: {
           readonly [name: string]: unknown;
@@ -4194,8 +4309,26 @@ export interface operations {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
         };
       };
+      /** @description A browser request with a body must use application/json */
+      readonly 415: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
       /** @description Internal server error */
       readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Browser session transport is disabled */
+      readonly 503: {
         headers: {
           readonly [name: string]: unknown;
         };
@@ -4209,6 +4342,8 @@ export interface operations {
     readonly parameters: {
       readonly query?: never;
       readonly header: {
+        /** @description Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually. */
+        readonly Origin?: string;
         readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginMfaVerifyPostParametersHeaderXOHealthClient;
       };
       readonly path?: never;
@@ -4224,8 +4359,17 @@ export interface operations {
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
             /** @example null */
-            readonly data: unknown;
+            readonly data: Record<string, never> | null;
           };
+        };
+      };
+      /** @description Malformed or forbidden browser credential transport */
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
         };
       };
       /** @description Refresh cookie is invalid */
@@ -4246,8 +4390,26 @@ export interface operations {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
         };
       };
+      /** @description A browser request with a body must use application/json */
+      readonly 415: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
       /** @description Internal server error */
       readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Browser session transport is disabled */
+      readonly 503: {
         headers: {
           readonly [name: string]: unknown;
         };
@@ -4261,6 +4423,8 @@ export interface operations {
     readonly parameters: {
       readonly query?: never;
       readonly header: {
+        /** @description Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually. */
+        readonly Origin?: string;
         readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginMfaVerifyPostParametersHeaderXOHealthClient;
       };
       readonly path?: never;
@@ -4279,9 +4443,9 @@ export interface operations {
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
             readonly data:
-              | components['schemas']['BrowserSessionResponseDto']
-              | components['schemas']['ApiMessageResponseDto']
-              | components['schemas']['MfaChallengeResponseDto'];
+              | components['schemas']['BrowserSessionResponseDtoData']
+              | (Record<string, never> | null)
+              | components['schemas']['MfaChallengeResponseDtoData'];
           };
         };
       };
@@ -4295,6 +4459,7 @@ export interface operations {
           };
         };
       };
+      /** @description Malformed or forbidden browser credential transport */
       readonly 400: {
         headers: {
           readonly [name: string]: unknown;
@@ -4328,6 +4493,15 @@ export interface operations {
           readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
         };
       };
+      /** @description A browser request with a body must use application/json */
+      readonly 415: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
       readonly 429: {
         headers: {
           readonly [name: string]: unknown;
@@ -4345,6 +4519,7 @@ export interface operations {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
         };
       };
+      /** @description Browser session transport is disabled */
       readonly 503: {
         headers: {
           readonly [name: string]: unknown;
@@ -4359,6 +4534,8 @@ export interface operations {
     readonly parameters: {
       readonly query?: never;
       readonly header: {
+        /** @description Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually. */
+        readonly Origin?: string;
         readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginMfaVerifyPostParametersHeaderXOHealthClient;
       };
       readonly path?: never;
@@ -4374,6 +4551,15 @@ export interface operations {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
             readonly data: components['schemas']['BrowserSessionResponseDtoData'];
           };
+        };
+      };
+      /** @description Malformed or forbidden browser credential transport */
+      readonly 400: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
         };
       };
       /** @description Refresh cookie is invalid, expired, replayed, or revoked */
@@ -4394,8 +4580,26 @@ export interface operations {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
         };
       };
+      /** @description A browser request with a body must use application/json */
+      readonly 415: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
       /** @description Internal server error */
       readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Browser session transport is disabled */
+      readonly 503: {
         headers: {
           readonly [name: string]: unknown;
         };
@@ -4409,6 +4613,8 @@ export interface operations {
     readonly parameters: {
       readonly query?: never;
       readonly header: {
+        /** @description Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually. */
+        readonly Origin?: string;
         readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginMfaVerifyPostParametersHeaderXOHealthClient;
       };
       readonly path?: never;
@@ -4430,7 +4636,11 @@ export interface operations {
           };
         };
       };
-      /** @description Challenge or request is invalid */
+      /**
+       * @description Malformed or forbidden browser credential transport
+       *
+       *     Challenge or request is invalid
+       */
       readonly 400: {
         headers: {
           readonly [name: string]: unknown;
@@ -4448,8 +4658,26 @@ export interface operations {
           readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
         };
       };
+      /** @description A browser request with a body must use application/json */
+      readonly 415: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
       /** @description Internal server error */
       readonly 500: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+        };
+      };
+      /** @description Browser session transport is disabled */
+      readonly 503: {
         headers: {
           readonly [name: string]: unknown;
         };
@@ -4541,7 +4769,7 @@ export interface operations {
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
             /** @example null */
-            readonly data: unknown;
+            readonly data: Record<string, never> | null;
           };
         };
       };
@@ -4831,8 +5059,8 @@ export interface operations {
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
             readonly data:
-              | components['schemas']['LoginResponseDto']
-              | components['schemas']['MfaChallengeResponseDto'];
+              | components['schemas']['LoginResponseDtoData']
+              | components['schemas']['MfaChallengeResponseDtoData'];
           };
         };
       };
@@ -4877,7 +5105,7 @@ export interface operations {
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
             /** @example null */
-            readonly data: unknown;
+            readonly data: Record<string, never> | null;
           };
         };
       };
@@ -5077,9 +5305,14 @@ export interface operations {
       readonly path?: never;
       readonly cookie?: never;
     };
+    /** @description Password-enabled accounts require current_password. Passwordless Google accounts require a session created within ten minutes. When MFA is enabled, mfa_code is additionally required and accepts a six-digit TOTP code. Confirmation revokes all sessions. */
     readonly requestBody: {
       readonly content: {
-        readonly 'application/json': components['schemas']['BeginEmailChangeDto'];
+        readonly 'application/json':
+          | components['schemas']['PasswordEmailChangeRequest']
+          | components['schemas']['PasswordMfaEmailChangeRequest']
+          | components['schemas']['RecentOAuthEmailChangeRequest']
+          | components['schemas']['RecentOAuthMfaEmailChangeRequest'];
       };
     };
     readonly responses: {
@@ -5481,8 +5714,8 @@ export interface operations {
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
             readonly data:
-              | components['schemas']['LoginResponseDto']
-              | components['schemas']['MfaChallengeResponseDto'];
+              | components['schemas']['LoginResponseDtoData']
+              | components['schemas']['MfaChallengeResponseDtoData'];
           };
         };
       };
@@ -5563,7 +5796,7 @@ export interface operations {
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
             /** @example null */
-            readonly data: unknown;
+            readonly data: Record<string, never> | null;
           };
         };
       };
@@ -5660,9 +5893,13 @@ export interface operations {
       readonly path?: never;
       readonly cookie?: never;
     };
+    /** @description Start sign-in or patient/professional signup only. Use the authenticated /api/auth/oauth/google/link/transactions endpoint for linking. Signup legal versions must come from GET /api/auth/registration/bootstrap; sign-in forbids intent and legal versions. */
     readonly requestBody: {
       readonly content: {
-        readonly 'application/json': components['schemas']['StartGoogleOAuthDto'];
+        readonly 'application/json':
+          | components['schemas']['GoogleSignInTransactionRequest']
+          | components['schemas']['GooglePatientSignupTransactionRequest']
+          | components['schemas']['GoogleProfessionalSignupTransactionRequest'];
       };
     };
     readonly responses: {
@@ -5685,6 +5922,15 @@ export interface operations {
         };
       };
       readonly 409: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
+          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
+        };
+      };
+      /** @description Google signup supports only patient and healthcare professional intents */
+      readonly 422: {
         headers: {
           readonly [name: string]: unknown;
         };
@@ -5822,7 +6068,7 @@ export interface operations {
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
             /** @example null */
-            readonly data: unknown;
+            readonly data: Record<string, never> | null;
           };
         };
       };
@@ -5905,7 +6151,7 @@ export interface operations {
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
             /** @example null */
-            readonly data: unknown;
+            readonly data: Record<string, never> | null;
           };
         };
       };
@@ -5954,7 +6200,7 @@ export interface operations {
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
             /** @example null */
-            readonly data: unknown;
+            readonly data: Record<string, never> | null;
           };
         };
       };
@@ -5988,9 +6234,15 @@ export interface operations {
       readonly path?: never;
       readonly cookie?: never;
     };
+    /** @description Choose exactly one intent. Copy accepted_terms_version and accepted_privacy_version from GET /api/auth/registration/bootstrap immediately before signup. Persona signup forbids organization; organization signup requires it. */
     readonly requestBody: {
       readonly content: {
-        readonly 'application/json': components['schemas']['RegisterAccountDto'];
+        readonly 'application/json':
+          | components['schemas']['PatientSignupRequest']
+          | components['schemas']['ProfessionalSignupRequest']
+          | components['schemas']['HospitalSignupRequest']
+          | components['schemas']['LaboratorySignupRequest']
+          | components['schemas']['PharmacySignupRequest'];
       };
     };
     readonly responses: {
@@ -7042,7 +7294,7 @@ export interface operations {
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
             /** @example null */
-            readonly data: unknown;
+            readonly data: Record<string, never> | null;
           };
         };
       };
@@ -8269,7 +8521,7 @@ export interface operations {
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
             /** @example null */
-            readonly data: unknown;
+            readonly data: Record<string, never> | null;
           };
         };
       };
@@ -9834,7 +10086,7 @@ export interface operations {
         content: {
           readonly 'application/json': components['schemas']['ApiSuccessResponseDto'] & {
             /** @example null */
-            readonly data: unknown;
+            readonly data: Record<string, never> | null;
           };
         };
       };
@@ -10516,6 +10768,25 @@ export enum CreateBookingDtoConsultation_type {
   chat = 'chat',
   video = 'video',
 }
+export enum GooglePatientSignupTransactionRequestConsumer {
+  web = 'web',
+  mobile = 'mobile',
+}
+export enum GooglePatientSignupTransactionRequestIntent {
+  patient = 'patient',
+}
+export enum GooglePatientSignupTransactionRequestOperation {
+  signup = 'signup',
+}
+export enum GoogleProfessionalSignupTransactionRequestIntent {
+  healthcare_professional = 'healthcare_professional',
+}
+export enum GoogleSignInTransactionRequestOperation {
+  signin = 'signin',
+}
+export enum HospitalSignupRequestIntent {
+  hospital = 'hospital',
+}
 export enum InviteLaboratoryStaffDtoRole {
   manager = 'manager',
   scientist = 'scientist',
@@ -10538,6 +10809,9 @@ export enum LaboratorySetupResponseDtoOnboarding_status {
   profile_completed = 'profile_completed',
   verification_submitted = 'verification_submitted',
   verified = 'verified',
+}
+export enum LaboratorySignupRequestIntent {
+  laboratory = 'laboratory',
 }
 export enum LaboratoryStaffResponseDtoStatus {
   invited = 'invited',
@@ -10573,6 +10847,9 @@ export enum OrganizationDocumentChecklistDtoMissing_document_types {
   accreditation_certificate = 'accreditation_certificate',
   admin_identity = 'admin_identity',
 }
+export enum PharmacySignupRequestIntent {
+  pharmacy = 'pharmacy',
+}
 export enum ProfessionalAppointmentResponseDtoStatus {
   pending = 'pending',
   confirmed = 'confirmed',
@@ -10598,15 +10875,6 @@ export enum SignupIntent {
   pharmacy = 'pharmacy',
   laboratory = 'laboratory',
   hospital = 'hospital',
-}
-export enum StartGoogleLinkDtoConsumer {
-  web = 'web',
-  mobile = 'mobile',
-}
-export enum StartGoogleOAuthDtoOperation {
-  signup = 'signup',
-  signin = 'signin',
-  link = 'link',
 }
 export enum UpdatePatientPersonalProfileDtoGender {
   Male = 'Male',

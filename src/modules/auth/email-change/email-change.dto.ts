@@ -11,7 +11,7 @@ import {
 export class BeginEmailChangeDto {
   @ApiPropertyOptional({
     description:
-      'Required for password-enabled accounts; recent OAuth sessions can use their active authenticator',
+      'Required for password-enabled accounts; passwordless Google accounts instead require a recently created session',
   })
   @IsOptional()
   @IsString()

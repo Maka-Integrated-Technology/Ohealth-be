@@ -321,6 +321,7 @@ export type BrowserSessionController_completeGoogleError =
   | operations['BrowserSessionController_completeGoogle']['responses'][401]['content']['application/json']
   | operations['BrowserSessionController_completeGoogle']['responses'][403]['content']['application/json']
   | operations['BrowserSessionController_completeGoogle']['responses'][409]['content']['application/json']
+  | operations['BrowserSessionController_completeGoogle']['responses'][415]['content']['application/json']
   | operations['BrowserSessionController_completeGoogle']['responses'][429]['content']['application/json']
   | operations['BrowserSessionController_completeGoogle']['responses'][500]['content']['application/json']
   | operations['BrowserSessionController_completeGoogle']['responses'][503]['content']['application/json'];
@@ -334,9 +335,12 @@ export type BrowserSessionController_logoutRequest = Readonly<{
 export type BrowserSessionController_logoutResponse =
   operations['BrowserSessionController_logout']['responses'][200]['content']['application/json'];
 export type BrowserSessionController_logoutError =
+  | operations['BrowserSessionController_logout']['responses'][400]['content']['application/json']
   | operations['BrowserSessionController_logout']['responses'][401]['content']['application/json']
   | operations['BrowserSessionController_logout']['responses'][403]['content']['application/json']
-  | operations['BrowserSessionController_logout']['responses'][500]['content']['application/json'];
+  | operations['BrowserSessionController_logout']['responses'][415]['content']['application/json']
+  | operations['BrowserSessionController_logout']['responses'][500]['content']['application/json']
+  | operations['BrowserSessionController_logout']['responses'][503]['content']['application/json'];
 
 export type BrowserSessionController_refreshRequest = Readonly<{
   readonly headerParameters: NonNullable<
@@ -347,9 +351,12 @@ export type BrowserSessionController_refreshRequest = Readonly<{
 export type BrowserSessionController_refreshResponse =
   operations['BrowserSessionController_refresh']['responses'][200]['content']['application/json'];
 export type BrowserSessionController_refreshError =
+  | operations['BrowserSessionController_refresh']['responses'][400]['content']['application/json']
   | operations['BrowserSessionController_refresh']['responses'][401]['content']['application/json']
   | operations['BrowserSessionController_refresh']['responses'][403]['content']['application/json']
-  | operations['BrowserSessionController_refresh']['responses'][500]['content']['application/json'];
+  | operations['BrowserSessionController_refresh']['responses'][415]['content']['application/json']
+  | operations['BrowserSessionController_refresh']['responses'][500]['content']['application/json']
+  | operations['BrowserSessionController_refresh']['responses'][503]['content']['application/json'];
 
 export type BrowserSessionController_verifyLoginRequest = Readonly<{
   readonly headerParameters: NonNullable<
@@ -365,7 +372,9 @@ export type BrowserSessionController_verifyLoginResponse =
 export type BrowserSessionController_verifyLoginError =
   | operations['BrowserSessionController_verifyLogin']['responses'][400]['content']['application/json']
   | operations['BrowserSessionController_verifyLogin']['responses'][403]['content']['application/json']
-  | operations['BrowserSessionController_verifyLogin']['responses'][500]['content']['application/json'];
+  | operations['BrowserSessionController_verifyLogin']['responses'][415]['content']['application/json']
+  | operations['BrowserSessionController_verifyLogin']['responses'][500]['content']['application/json']
+  | operations['BrowserSessionController_verifyLogin']['responses'][503]['content']['application/json'];
 
 export type BrowserSessionController_verifyMfaLoginRequest = Readonly<{
   readonly headerParameters: NonNullable<
@@ -381,7 +390,9 @@ export type BrowserSessionController_verifyMfaLoginResponse =
 export type BrowserSessionController_verifyMfaLoginError =
   | operations['BrowserSessionController_verifyMfaLogin']['responses'][400]['content']['application/json']
   | operations['BrowserSessionController_verifyMfaLogin']['responses'][403]['content']['application/json']
-  | operations['BrowserSessionController_verifyMfaLogin']['responses'][500]['content']['application/json'];
+  | operations['BrowserSessionController_verifyMfaLogin']['responses'][415]['content']['application/json']
+  | operations['BrowserSessionController_verifyMfaLogin']['responses'][500]['content']['application/json']
+  | operations['BrowserSessionController_verifyMfaLogin']['responses'][503]['content']['application/json'];
 
 export type BrowserSessionController_verifySignupRequest = Readonly<{
   readonly headerParameters: NonNullable<
@@ -397,7 +408,9 @@ export type BrowserSessionController_verifySignupResponse =
 export type BrowserSessionController_verifySignupError =
   | operations['BrowserSessionController_verifySignup']['responses'][400]['content']['application/json']
   | operations['BrowserSessionController_verifySignup']['responses'][403]['content']['application/json']
-  | operations['BrowserSessionController_verifySignup']['responses'][500]['content']['application/json'];
+  | operations['BrowserSessionController_verifySignup']['responses'][415]['content']['application/json']
+  | operations['BrowserSessionController_verifySignup']['responses'][500]['content']['application/json']
+  | operations['BrowserSessionController_verifySignup']['responses'][503]['content']['application/json'];
 
 export type ChatController_getHistoryRequest = Readonly<{
   readonly headers?: ApiHeaders;
@@ -844,6 +857,7 @@ export type OAuthController_startResponse =
 export type OAuthController_startError =
   | operations['OAuthController_start']['responses'][400]['content']['application/json']
   | operations['OAuthController_start']['responses'][409]['content']['application/json']
+  | operations['OAuthController_start']['responses'][422]['content']['application/json']
   | operations['OAuthController_start']['responses'][429]['content']['application/json']
   | operations['OAuthController_start']['responses'][500]['content']['application/json']
   | operations['OAuthController_start']['responses'][503]['content']['application/json'];

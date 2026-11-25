@@ -5,6 +5,9 @@ import {
   ApiSuccessResponseDto,
 } from '../common/dto/response.dto';
 
+import { addAuthRequestVariants } from './auth-request-variants';
+import { addAuthResponseExamples } from './auth-response-examples';
+
 import type {
   OpenAPIObject,
   OperationObject,
@@ -69,7 +72,13 @@ function createDerivedDataSchema(
   );
 
   if (Object.keys(dataProperties).length === 0) {
-    return { nullable: true, example: null };
+    return {
+      type: 'object',
+      properties: {},
+      additionalProperties: false,
+      nullable: true,
+      example: null,
+    };
   }
 
   const derivedName = `${componentName}Data`;
@@ -101,6 +110,15 @@ function normalizeDataSchema(
     return schema;
   }
 
+  if (schema.oneOf) {
+    return {
+      ...schema,
+      oneOf: schema.oneOf.map((branch) =>
+        normalizeDataSchema(document, branch),
+      ),
+    };
+  }
+
   if (
     schema.type === 'object' &&
     schema.properties?.data &&
@@ -121,7 +139,13 @@ function normalizeDataSchema(
   );
 
   return Object.keys(properties).length === 0
-    ? { nullable: true, example: null }
+    ? {
+        type: 'object',
+        properties: {},
+        additionalProperties: false,
+        nullable: true,
+        example: null,
+      }
     : {
         ...schema,
         properties,
@@ -203,6 +227,9 @@ function transformOperation(
 export function transformOpenApiDocument(
   document: OpenAPIObject,
 ): OpenAPIObject {
+  if (document.paths['/api/auth/signup']) {
+    addAuthRequestVariants(document);
+  }
   const successEnvelope = document.components.schemas?.[
     ApiSuccessResponseDto.name
   ] as SchemaObject | undefined;
@@ -217,6 +244,10 @@ export function transformOpenApiDocument(
       if (operation) transformOperation(document, operation);
     });
   });
+
+  if (document.paths['/api/auth/signup']) {
+    addAuthResponseExamples(document);
+  }
 
   return document;
 }

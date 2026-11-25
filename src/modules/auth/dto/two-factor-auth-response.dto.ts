@@ -1,12 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 export class EnableTwoFactorAuthDataDto {
-  @ApiProperty({ example: 'JBSWY3DPEHPK3PXP' })
+  @ApiProperty({
+    description: 'Enrollment secret; returned once and must be protected.',
+  })
   secret: string;
 
-  @ApiProperty({
-    example: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...',
-  })
+  @ApiProperty({})
   qrCodeUrl: string;
 
   @ApiProperty({ example: 600 })

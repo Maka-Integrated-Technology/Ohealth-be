@@ -9,6 +9,7 @@ import {
   ApiHeader,
   ApiOkResponse,
   ApiOperation,
+  ApiResponse,
   ApiServiceUnavailableResponse,
   ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
@@ -27,11 +28,27 @@ import { BrowserSessionResponseDto } from './browser-session.dto';
 const BrowserBoundaryDocs = () =>
   applyDecorators(
     ApiHeader({
+      name: 'Origin',
+      required: false,
+      description:
+        'Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually.',
+    }),
+    ApiHeader({
       name: 'X-OHealth-Client',
       required: true,
       schema: { type: 'string', enum: ['browser'] },
     }),
     ApiForbiddenResponse({ description: 'Origin or browser header rejected' }),
+    ApiBadRequestResponse({
+      description: 'Malformed or forbidden browser credential transport',
+    }),
+    ApiResponse({
+      status: 415,
+      description: 'A browser request with a body must use application/json',
+    }),
+    ApiServiceUnavailableResponse({
+      description: 'Browser session transport is disabled',
+    }),
   );
 
 export const BrowserSessionCompletionDocs = (summary: string) =>
@@ -67,7 +84,11 @@ export const BrowserRefreshDocs = () =>
   applyDecorators(
     BrowserBoundaryDocs(),
     ApiCookieAuth('browserRefresh'),
-    ApiOperation({ summary: 'Rotate the browser refresh cookie' }),
+    ApiOperation({
+      summary: 'Rotate the browser refresh cookie',
+      description:
+        'Send the backend-managed HttpOnly refresh cookie with credentials. Do not send a bearer token, query parameter, or JSON refresh credential. The response contains an access token but no refresh token; rotation is returned in Set-Cookie.',
+    }),
     ApiOkResponse({ type: BrowserSessionResponseDto }),
     ApiUnauthorizedResponse({
       description: 'Refresh cookie is invalid, expired, replayed, or revoked',
@@ -108,7 +129,11 @@ export const BrowserLogoutDocs = () =>
   applyDecorators(
     BrowserBoundaryDocs(),
     ApiCookieAuth('browserRefresh'),
-    ApiOperation({ summary: 'Revoke and clear the browser session' }),
+    ApiOperation({
+      summary: 'Revoke and clear the browser session',
+      description:
+        'Send the backend-managed HttpOnly refresh cookie with credentials and no body or an empty JSON object. The response clears the cookie. Bearer, query, and body refresh credentials are rejected.',
+    }),
     ApiOkResponse({
       description: 'Browser session revoked',
       type: LogoutResponseDto,
