@@ -20,7 +20,6 @@ import {
 import { Speciality } from 'src/modules/speciality/entities/speciality.entity';
 import { User } from 'src/modules/user/entities/user.entity';
 import { AccountStatus } from 'src/modules/user/enums/account-status.enum';
-import { UserRole } from 'src/modules/user/enums/user-role.enum';
 
 // ── Date helpers ──────────────────────────────────────────────────────────────
 
@@ -53,9 +52,8 @@ interface IFindOrCreateResult<T> {
 }
 
 // Seeded accounts skip the verification challenge and land directly in the
-// `active` lifecycle state. `is_active`/`is_verified` are legacy mirrors of
-// `account_status` and are written only so the legacy guards keep working
-// until they are removed (docs/05-rework-plan.md, step 7).
+// `active` lifecycle state. `is_active`/`is_verified` remain schema mirrors of
+// `account_status` for rollback compatibility.
 export async function findOrCreateUser(
   repo: Repository<User>,
   data: {
@@ -63,7 +61,6 @@ export async function findOrCreateUser(
     password_plain: string;
     first_name: string;
     last_name: string;
-    role: UserRole[];
   },
 ): Promise<IFindOrCreateResult<User>> {
   const email = data.email.trim().toLowerCase();
@@ -77,7 +74,6 @@ export async function findOrCreateUser(
     password,
     first_name: data.first_name,
     last_name: data.last_name,
-    role: data.role,
     account_status: AccountStatus.ACTIVE,
     email_verified_at: new Date(),
     is_active: true,

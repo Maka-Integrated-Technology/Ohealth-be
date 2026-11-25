@@ -47,10 +47,8 @@ import {
 } from './dto/auth.dto';
 import { LoginDto } from './dto/login.dto';
 import { VerifyMfaLoginDto } from './dto/mfa.dto';
-import { OAuthException } from './oauth/oauth.error';
 import { PasswordCredentialsService } from './password-policy/password-credentials.service';
 import { isLoginPasswordWithinLimit } from './password-policy/password-policy';
-import { presentLegacyAuthResponse } from './presentation/legacy-auth-response.presenter';
 import { RegistrationService } from './registration/registration.service';
 import { AuthSecurityAuditService } from './security-audit/auth-security-audit.service';
 import {
@@ -143,7 +141,6 @@ export class AuthService {
     return {
       message: sysMsg.LOGIN_SUCCESS,
       account_context: accountContext,
-      ...presentLegacyAuthResponse(accountContext),
       ...session,
     };
   }
@@ -164,7 +161,6 @@ export class AuthService {
     return {
       message: sysMsg.LOGIN_SUCCESS,
       account_context: accountContext,
-      ...presentLegacyAuthResponse(accountContext),
       ...session,
     };
   }
@@ -176,21 +172,6 @@ export class AuthService {
   // Shared credential boundary for laboratory/organization administrators.
   async hashNewPassword(password: string): Promise<string> {
     return this.passwordCredentials.hashNewPassword(password);
-  }
-
-  async issueAuthSession(user: User) {
-    this.accountAccessPolicy.assertCanAuthenticate(user);
-    const session = await this.sessions.issue(user.id, user.password);
-    const accountContext = await this.authContext.resolve(
-      user.id,
-      session.session_id,
-    );
-
-    return {
-      account_context: accountContext,
-      ...presentLegacyAuthResponse(accountContext),
-      ...session,
-    };
   }
 
   async refreshToken(refreshToken: RefreshTokenDto) {
@@ -210,7 +191,6 @@ export class AuthService {
     return {
       message: sysMsg.TOKEN_REFRESH_SUCCESS,
       account_context: accountContext,
-      ...presentLegacyAuthResponse(accountContext),
       ...credentials,
     };
   }
@@ -246,7 +226,6 @@ export class AuthService {
     return {
       message: sysMsg.ACCOUNT_VERIFIED,
       account_context: accountContext,
-      ...presentLegacyAuthResponse(accountContext),
       ...session,
     };
   }
@@ -290,7 +269,6 @@ export class AuthService {
     }
     let accountContext;
     let profile;
-    let user: User;
     try {
       accountContext = await this.authContext.resolve(userId, sessionId);
       const hasPatientContext = accountContext.capabilities.includes(
@@ -302,11 +280,6 @@ export class AuthService {
       profile = hasPatientContext
         ? await this.patientProfiles.get(userId, sessionId)
         : null;
-      const found = await this.userService.findById(userId);
-      if (!found) {
-        throw new UnauthorizedException(sysMsg.USER_NOT_FOUND);
-      }
-      user = found;
     } catch (error) {
       await this.audit.recordAttempt({
         event_type: AuthSecurityEventType.CONTEXT_RESTORATION,
@@ -324,21 +297,7 @@ export class AuthService {
       session_id: sessionId,
     });
     return {
-      id: user.id,
-      email: user.email,
-      first_name: profile?.first_name ?? user.first_name,
-      last_name: profile?.last_name ?? user.last_name,
-      role: user.role,
-      middle_name: profile?.middle_name ?? user.middle_name ?? null,
-      gender: profile?.gender ?? user.gender ?? null,
-      dob: profile?.dob ?? user.dob ?? null,
-      phone: user.phone,
-      country: profile?.country ?? user.country ?? null,
       address: profile?.address ?? null,
-      image: user.image,
-      is_active: user.is_active,
-      created_at: user.created_at,
-      updated_at: user.updated_at,
       account_context: accountContext,
     };
   }
@@ -357,14 +316,7 @@ export class AuthService {
     this.logger.info(`Profile updated for user ${userId}`);
     return {
       ...current,
-      first_name: saved.first_name,
-      last_name: saved.last_name,
-      middle_name: saved.middle_name,
-      gender: saved.gender,
-      dob: saved.dob,
-      country: saved.country,
       address: saved.address,
-      updated_at: saved.updated_at,
       account_context: {
         ...current.account_context,
         account: {
@@ -401,7 +353,6 @@ export class AuthService {
     );
     return {
       ...current,
-      ...saved,
       account_context: {
         ...current.account_context,
         account: {
@@ -479,11 +430,6 @@ export class AuthService {
   async revokeAllSessions(userId: string) {
     await this.sessions.revokeAll(userId);
     return { message: sysMsg.LOGOUT_SUCCESS };
-  }
-
-  googleLogin(token: string): never {
-    void token;
-    throw new OAuthException('OAUTH_TRANSACTION_REQUIRED');
   }
 
   private async sendWelcomeEmail(user: User) {

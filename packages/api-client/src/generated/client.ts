@@ -52,19 +52,6 @@ export type AuthController_getRegistrationBootstrapResponse =
 export type AuthController_getRegistrationBootstrapError =
   operations['AuthController_getRegistrationBootstrap']['responses'][500]['content']['application/json'];
 
-export type AuthController_googleLoginRequest = Readonly<{
-  readonly body: NonNullable<
-    operations['AuthController_googleLogin']['requestBody']
-  >['content']['application/json'];
-  readonly headers?: ApiHeaders;
-}>;
-export type AuthController_googleLoginResponse = never;
-export type AuthController_googleLoginError =
-  | operations['AuthController_googleLogin']['responses'][400]['content']['application/json']
-  | operations['AuthController_googleLogin']['responses'][401]['content']['application/json']
-  | operations['AuthController_googleLogin']['responses'][410]['content']['application/json']
-  | operations['AuthController_googleLogin']['responses'][500]['content']['application/json'];
-
 export type AuthController_listSessionsRequest = Readonly<{
   readonly headers?: ApiHeaders;
 }>;
@@ -1093,19 +1080,6 @@ export type OrganizationController_uploadMineError =
   | operations['OrganizationController_uploadMine']['responses'][403]['content']['application/json']
   | operations['OrganizationController_uploadMine']['responses'][500]['content']['application/json'];
 
-export type PharmacyController_registerRequest = Readonly<{
-  readonly body: NonNullable<
-    operations['PharmacyController_register']['requestBody']
-  >['content']['application/json'];
-  readonly headers?: ApiHeaders;
-}>;
-export type PharmacyController_registerResponse =
-  operations['PharmacyController_register']['responses'][201]['content']['application/json'];
-export type PharmacyController_registerError =
-  | operations['PharmacyController_register']['responses'][400]['content']['application/json']
-  | operations['PharmacyController_register']['responses'][409]['content']['application/json']
-  | operations['PharmacyController_register']['responses'][500]['content']['application/json'];
-
 export type ProfessionalController_acceptMyBookingRequest = Readonly<{
   readonly path: NonNullable<
     operations['ProfessionalController_acceptMyBooking']['parameters']['path']
@@ -1728,9 +1702,6 @@ export interface ApiClient {
   readonly AuthController_getRegistrationBootstrap: (
     request?: AuthController_getRegistrationBootstrapRequest,
   ) => Promise<AuthController_getRegistrationBootstrapResponse>;
-  readonly AuthController_googleLogin: (
-    request: AuthController_googleLoginRequest,
-  ) => Promise<AuthController_googleLoginResponse>;
   readonly AuthController_listSessions: (
     request?: AuthController_listSessionsRequest,
   ) => Promise<AuthController_listSessionsResponse>;
@@ -1947,9 +1918,6 @@ export interface ApiClient {
   readonly OrganizationController_uploadMine: (
     request: OrganizationController_uploadMineRequest,
   ) => Promise<OrganizationController_uploadMineResponse>;
-  readonly PharmacyController_register: (
-    request: PharmacyController_registerRequest,
-  ) => Promise<PharmacyController_registerResponse>;
   readonly ProfessionalController_acceptMyBooking: (
     request: ProfessionalController_acceptMyBookingRequest,
   ) => Promise<ProfessionalController_acceptMyBookingResponse>;
@@ -2141,19 +2109,6 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
           operationId: 'AuthController_getRegistrationBootstrap',
           method: 'GET',
           path: '/api/auth/registration/bootstrap',
-        },
-        request,
-      ),
-    AuthController_googleLogin: (request) =>
-      core.request<
-        AuthController_googleLoginResponse,
-        AuthController_googleLoginError
-      >(
-        {
-          operationId: 'AuthController_googleLogin',
-          method: 'POST',
-          path: '/api/auth/google-login',
-          requestMediaType: 'application/json',
         },
         request,
       ),
@@ -3052,19 +3007,6 @@ export const createApiClient = (config: ApiClientConfig): ApiClient => {
           method: 'POST',
           path: '/api/organizations/onboarding/me/documents/{documentType}',
           requestMediaType: 'multipart/form-data',
-        },
-        request,
-      ),
-    PharmacyController_register: (request) =>
-      core.request<
-        PharmacyController_registerResponse,
-        PharmacyController_registerError
-      >(
-        {
-          operationId: 'PharmacyController_register',
-          method: 'POST',
-          path: '/api/pharmacies/register',
-          requestMediaType: 'application/json',
         },
         request,
       ),

@@ -384,7 +384,6 @@ describe('LaboratoryPostApprovalService', () => {
         first_name: 'Amara',
         middle_name: 'Chidi',
         last_name: 'Okafor',
-        role: [],
         is_active: true,
         is_verified: true,
       }),

@@ -224,13 +224,10 @@ describe('LaboratoryAuthService', () => {
         first_name: 'Tunde',
         middle_name: 'Ade',
         last_name: 'Adebayo',
-        role: [],
         is_active: false,
         is_verified: false,
         account_status: AccountStatus.PENDING_VERIFICATION,
         email_verified_at: null,
-        verification_code: null,
-        verification_code_expires_at: null,
       }),
     );
     expect(mockLaboratoryAdminRepository.create).toHaveBeenCalledWith(

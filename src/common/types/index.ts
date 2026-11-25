@@ -4,8 +4,6 @@ export interface IAuthUser {
   id: string;
   userId: string;
   email: string;
-  /** @deprecated Authorization is resolved from AuthContextService. */
-  roles?: string[];
   sessionId: string;
 }
 

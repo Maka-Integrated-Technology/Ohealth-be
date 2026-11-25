@@ -50,7 +50,9 @@ test('exposes every canonical operationId exactly once', async () => {
     transport: async () => ({ status: 200, data: {} }),
   });
 
-  assert.equal(operationIds.length, 124);
+  assert.equal(operationIds.length, 122);
+  assert.ok(!operationIds.includes('AuthController_googleLogin'));
+  assert.ok(!operationIds.includes('PharmacyController_register'));
   assert.deepEqual(Object.keys(client).sort(), operationIds);
 });
 

@@ -107,13 +107,10 @@ describe('OrganizationOnboardingService', () => {
       expect.objectContaining({
         email: 'admin@hospital.test',
         password: 'hashed',
-        role: [],
         is_active: false,
         is_verified: false,
         account_status: AccountStatus.PENDING_VERIFICATION,
         email_verified_at: null,
-        verification_code: null,
-        verification_code_expires_at: null,
       }),
     );
     expect(administrators.create).toHaveBeenCalledWith(

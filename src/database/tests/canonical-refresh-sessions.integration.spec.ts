@@ -471,7 +471,6 @@ integration('Canonical refresh sessions on real PostgreSQL', () => {
       password: `hash-${randomUUID()}`,
       first_name: 'Session',
       last_name: 'Tester',
-      role: ['PATIENT'],
       is_active: true,
       is_verified: true,
       account_status: AccountStatus.ACTIVE,
