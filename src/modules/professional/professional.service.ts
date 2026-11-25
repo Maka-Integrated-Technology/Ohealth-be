@@ -1419,7 +1419,7 @@ export class ProfessionalService {
         first_name: user.first_name,
         last_name: user.last_name,
         phone: user.phone,
-        is_verified: user.is_verified,
+        is_verified: Boolean(user.email_verified_at),
       },
       profile: professional
         ? this.toProfessionalMeProfileDto(professional)

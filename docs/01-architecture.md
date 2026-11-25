@@ -122,8 +122,8 @@ See [profile-photo-lifecycle.md](./profile-photo-lifecycle.md).
 
 ## Current architectural debt
 
-The existing authentication module still combines identity, role, verification,
-frontend routing, and session issuance. The existing `users.role` array and raw
-verification/reset columns are legacy. They may be removed during this rework;
-new code must use personas, memberships, challenges, and sessions defined by the
-target architecture.
+Authentication runtime uses canonical personas, memberships, challenges,
+sessions and account context. The old `users.role` and raw verification/reset
+columns remain physically present for rollback but are unmapped in the runtime;
+the proof columns are constrained to null. Their removal condition and the
+consumer contract break are recorded in `legacy-auth-retirement-139.md`.

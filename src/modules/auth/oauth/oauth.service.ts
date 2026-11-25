@@ -19,7 +19,6 @@ import { AuthContextService } from '../context/auth-context.service';
 import { AuthSession } from '../entities/auth.entity';
 import { SignupIntent } from '../enums/signup-intent.enum';
 import { PasswordCredentialsService } from '../password-policy/password-credentials.service';
-import { presentLegacyAuthResponse } from '../presentation/legacy-auth-response.presenter';
 import { AccountProvisioningService } from '../registration/account-provisioning.service';
 import { AuthSecurityAuditService } from '../security-audit/auth-security-audit.service';
 import {
@@ -201,7 +200,6 @@ export class OAuthService {
         return {
           ...response,
           account_context: accountContext,
-          ...presentLegacyAuthResponse(accountContext),
         };
       }
     }
@@ -333,7 +331,7 @@ export class OAuthService {
     });
     return {
       message: 'Login successful',
-      user: this.safeUser(user),
+      user: { id: user.id },
       ...session,
     };
   }
@@ -413,7 +411,7 @@ export class OAuthService {
     const session = await this.sessions.issueInTransaction(manager, user.id);
     return {
       message: 'Login successful',
-      user: this.safeUser(user),
+      user: { id: user.id },
       ...session,
     };
   }
@@ -525,15 +523,5 @@ export class OAuthService {
       .trim()
       .replace(/[\u0000-\u001f\u007f]/g, '');
     return cleaned?.slice(0, 100) || fallback;
-  }
-
-  private safeUser(user: User) {
-    return {
-      id: user.id,
-      email: user.email,
-      first_name: user.first_name,
-      last_name: user.last_name,
-      role: user.role,
-    };
   }
 }

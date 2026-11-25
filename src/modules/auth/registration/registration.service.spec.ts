@@ -178,10 +178,6 @@ describe('RegistrationService', () => {
           is_active: false,
         }),
       );
-      const savedUser = manager.save.mock.calls.find(
-        ([entity]) => entity === User,
-      )?.[1] as { role: unknown };
-      expect(savedUser.role).toStrictEqual([]);
       expect(inserted).toContainEqual({
         entity: UserPersona,
         values: expect.objectContaining({ persona_type: personaType }),

@@ -41,15 +41,10 @@ export class AccountProvisioningService {
         password_authentication_enabled: input.passwordAuthenticationEnabled,
         first_name: input.firstName,
         last_name: input.lastName,
-        role: [],
         account_status: input.accountStatus,
         email_verified_at: input.emailVerifiedAt,
         is_active: active,
         is_verified: input.emailVerifiedAt !== null,
-        verification_code: null,
-        verification_code_expires_at: null,
-        reset_token: null,
-        reset_token_expiry: null,
       }),
     );
     await manager.insert(UserAccountStatusHistory, {

@@ -190,6 +190,8 @@ done < <(jq -r '.workspaces[]?' package.json)
 
 long_line_found=0
 while IFS= read -r -d '' source_file; do
+  # Tracked files deleted in the worktree have no executable content to scan.
+  [[ -f "$source_file" ]] || continue
   if ! awk -v max="$MAX_EXECUTABLE_LINE_LENGTH" '
     length($0) > max {
       printf "%s:%d: executable line exceeds %d characters\n", FILENAME, FNR, max

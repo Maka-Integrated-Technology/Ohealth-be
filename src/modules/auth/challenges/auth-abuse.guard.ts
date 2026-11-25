@@ -45,6 +45,9 @@ const POLICY = new Map<string, { ip: number; subject: number }>([
   ['/auth/oauth/google/transactions', { ip: 12, subject: 6 }],
   ['/auth/oauth/google/complete', { ip: 12, subject: 5 }],
   ['/auth/browser/oauth/google/complete', { ip: 12, subject: 5 }],
+  ['/auth/me/email-change/request', { ip: 12, subject: 4 }],
+  ['/auth/me/email-change/resend', { ip: 8, subject: 5 }],
+  ['/auth/me/email-change/confirm', { ip: 20, subject: 8 }],
 ]);
 
 /** Only trust forwarding addresses from explicitly allowlisted proxy hops. */

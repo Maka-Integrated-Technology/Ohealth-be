@@ -87,6 +87,5 @@ the life of the user identity or until explicit unlinking; deleting the user
 cascades them. Security events record allowlisted signup, sign-in, link, unlink,
 conflict, and denial outcomes with internal UUIDs only.
 
-The legacy `POST /api/auth/google-login` endpoint is fail-closed and returns
-HTTP 410 with `OAUTH_TRANSACTION_REQUIRED`; it cannot create, sign in, or link
-an account.
+The legacy `POST /api/auth/google-login` endpoint has been removed. Clients
+must use the nonce-bound Google OAuth transaction flow above.

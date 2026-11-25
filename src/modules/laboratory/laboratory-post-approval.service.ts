@@ -388,7 +388,6 @@ export class LaboratoryPostApprovalService {
             last_name: lastName,
             middle_name: middleName,
             phone: dto.phone?.trim() || null,
-            role: [],
             is_active: true,
             is_verified: true,
             account_status: AccountStatus.ACTIVE,

@@ -186,6 +186,12 @@ printf 'const payload = "%4097s";\n' '' >"$long_line_fixture/payload.ts"
 git -C "$long_line_fixture" add payload.ts
 expect_fail "$long_line_fixture" 'abnormally long executable line'
 
+deleted_source_fixture=$(create_fixture deleted-source)
+printf 'export const retired = true;\n' >"$deleted_source_fixture/retired.ts"
+git -C "$deleted_source_fixture" add retired.ts
+rm "$deleted_source_fixture/retired.ts"
+expect_pass "$deleted_source_fixture" 'deleted tracked executable source'
+
 for hook in preinstall install postinstall prepublish preprepare postprepare dependencies; do
   hook_fixture=$(create_fixture "hook-$hook")
   update_json "$hook_fixture/package.json" ".scripts.${hook} = \"malicious-command\""

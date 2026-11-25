@@ -6,7 +6,6 @@ import {
 
 import { User } from '../user/entities/user.entity';
 import { AccountStatus } from '../user/enums/account-status.enum';
-import { UserRole } from '../user/enums/user-role.enum';
 
 import { AccountAccessPolicyService } from './account-access-policy.service';
 
@@ -74,7 +73,7 @@ describe('AccountAccessPolicyService canonical state matrix', () => {
       policy.assertAdminTransition(
         AccountStatus.ACTIVE,
         AccountStatus.SUSPENDED,
-        [UserRole.ADMIN],
+        true,
         'abuse report',
         true,
       ),
@@ -83,7 +82,7 @@ describe('AccountAccessPolicyService canonical state matrix', () => {
       policy.assertAdminTransition(
         AccountStatus.SUSPENDED,
         AccountStatus.ACTIVE,
-        [UserRole.ADMIN],
+        true,
         'review completed',
         true,
       ),
@@ -92,7 +91,7 @@ describe('AccountAccessPolicyService canonical state matrix', () => {
       policy.assertAdminTransition(
         AccountStatus.SUSPENDED,
         AccountStatus.ACTIVE,
-        [UserRole.ADMIN],
+        true,
         'review completed',
         false,
       ),
@@ -101,7 +100,7 @@ describe('AccountAccessPolicyService canonical state matrix', () => {
       policy.assertAdminTransition(
         AccountStatus.DEACTIVATED,
         AccountStatus.ACTIVE,
-        [UserRole.ADMIN],
+        true,
         'request',
         true,
       ),
@@ -110,7 +109,7 @@ describe('AccountAccessPolicyService canonical state matrix', () => {
       policy.assertAdminTransition(
         AccountStatus.ACTIVE,
         AccountStatus.SUSPENDED,
-        [UserRole.PATIENT],
+        false,
         'request',
         true,
       ),
@@ -119,7 +118,7 @@ describe('AccountAccessPolicyService canonical state matrix', () => {
       policy.assertAdminTransition(
         AccountStatus.ACTIVE,
         AccountStatus.SUSPENDED,
-        [UserRole.ADMIN],
+        true,
         '',
         true,
       ),

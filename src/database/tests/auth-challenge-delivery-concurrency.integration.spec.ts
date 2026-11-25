@@ -7,6 +7,7 @@ import { DataSource, QueryRunner } from 'typeorm';
 import { AuthChallengeDeliveryService } from '../../modules/auth/challenges/auth-challenge-delivery.service';
 import { AuthChallengePurpose } from '../../modules/auth/challenges/auth-challenge.entity';
 import { AuthChallengeService } from '../../modules/auth/challenges/auth-challenge.service';
+import { EmailDestinationService } from '../../modules/auth/email-change/email-destination';
 import { EmailService } from '../../modules/email/email.service';
 import { User } from '../../modules/user/entities/user.entity';
 import { AuthChallengeFoundation1793000000000 } from '../migrations/1793000000000-AuthChallengeFoundation';
@@ -45,6 +46,9 @@ integration('Delivery leases across independent PostgreSQL connections', () => {
     await db.initialize();
     await db.query(
       'CREATE TABLE users (id uuid PRIMARY KEY, email text, first_name text)',
+    );
+    await db.query(
+      'CREATE TABLE auth_email_changes (lineage_id uuid PRIMARY KEY, expires_at timestamptz, destination_iv varchar, destination_ciphertext varchar, destination_tag varchar)',
     );
     const runner: QueryRunner = db.createQueryRunner();
     await runner.connect();
@@ -86,6 +90,7 @@ integration('Delivery leases across independent PostgreSQL connections', () => {
         sendMail: (...args: unknown[]) => mail(...args),
       } as unknown as EmailService,
       { recordInTransaction: jest.fn() } as never,
+      new EmailDestinationService(settings),
     );
   });
 

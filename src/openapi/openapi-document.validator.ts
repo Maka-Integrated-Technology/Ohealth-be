@@ -41,7 +41,6 @@ const PUBLIC_OPERATION_IDS = new Set([
   'BrowserSessionController_verifyMfaLogin',
   'BrowserSessionController_verifySignup',
   'AuthController_forgotPassword',
-  'AuthController_googleLogin',
   'AuthController_login',
   'AuthController_resendLogin',
   'AuthController_resendRecovery',
@@ -54,7 +53,6 @@ const PUBLIC_OPERATION_IDS = new Set([
   'AuthController_verifyLogin',
   'AuthController_verifyMfaLogin',
   'LaboratoryPostApprovalController_acceptStaffInvitation',
-  'PharmacyController_register',
   'PublicDiscoveryController_getContract',
   'PublicProfessionalController_findAvailability',
   'PublicProfessionalController_findOne',
@@ -63,6 +61,11 @@ const PUBLIC_OPERATION_IDS = new Set([
   'PublicSpecialityController_list',
   'OAuthController_start',
   'OAuthController_complete',
+]);
+
+const RETIRED_OPERATION_IDS = new Set([
+  'AuthController_googleLogin',
+  'PharmacyController_register',
 ]);
 
 const PUBLIC_DISCOVERY_PATH_PREFIX = `/${OPENAPI_API_PREFIX}/${PUBLIC_DISCOVERY_ROUTE_NAMESPACE}/`;
@@ -336,10 +339,7 @@ function validateResponses(
     /^(4|5)\d\d$/.test(status),
   );
 
-  if (
-    successResponses.length === 0 &&
-    operation.operationId !== 'AuthController_googleLogin'
-  ) {
+  if (successResponses.length === 0) {
     errors.push(`${label} is missing a success response`);
   }
 
@@ -407,6 +407,8 @@ function validateOperation(
 
   if (!operation.operationId) {
     errors.push(`${label} is missing operationId`);
+  } else if (RETIRED_OPERATION_IDS.has(operation.operationId)) {
+    errors.push(`${label} uses retired operationId ${operation.operationId}`);
   } else if (operationIds.has(operation.operationId)) {
     errors.push(`${label} has duplicate operationId ${operation.operationId}`);
   } else {

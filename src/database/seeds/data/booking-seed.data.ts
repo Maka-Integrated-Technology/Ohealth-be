@@ -4,7 +4,6 @@ import { OrganizationMembershipRole } from 'src/modules/organization/enums/organ
 import { OrganizationType } from 'src/modules/organization/enums/organization-type.enum';
 import { OrganizationVerificationStatus } from 'src/modules/organization/enums/organization-verification-status.enum';
 import { ConsultationType } from 'src/modules/professional/entities/professional.entity';
-import { UserRole } from 'src/modules/user/enums/user-role.enum';
 
 export const DEMO_SEED_PASSWORD = 'Password123!';
 
@@ -34,8 +33,6 @@ export interface IUserSeedData {
   last_name: string;
   // Authoritative under the reworked identity model.
   personas: UserPersonaType[];
-  // Legacy role array, retained only while the legacy guards still read it.
-  role: UserRole[];
 }
 
 export interface IProfessionalProfileSeedData {
@@ -73,7 +70,6 @@ export const DEMO_PATIENT: IUserSeedData = {
   first_name: 'Olivia',
   last_name: 'Jane',
   personas: [UserPersonaType.PATIENT],
-  role: [UserRole.PATIENT],
 };
 
 // ── Specialities ─────────────────────────────────────────────────────────────
@@ -111,8 +107,7 @@ export const SEED_SPECIALITIES: ISpecialitySeedData[] = [
 
 // ── Professional users + profiles ─────────────────────────────────────────────
 // Every entry carries the healthcare-professional persona; the discipline lives
-// in the speciality, never in the persona or the legacy role. The legacy role
-// values below exist only to satisfy the role guards that are still in place.
+// in the speciality, never in the persona or a global user role.
 
 export const SEED_PROFESSIONALS: IProfessionalEntrySeedData[] = [
   // ── General Doctor ────────────────────────────────────────────────────────
@@ -122,7 +117,6 @@ export const SEED_PROFESSIONALS: IProfessionalEntrySeedData[] = [
       first_name: 'Adebayo',
       last_name: 'Okafor',
       personas: [UserPersonaType.HEALTHCARE_PROFESSIONAL],
-      role: [UserRole.DOCTOR],
     },
     profile: {
       image: 'https://i.pravatar.cc/150?u=pro.general.adebayo',
@@ -142,7 +136,6 @@ export const SEED_PROFESSIONALS: IProfessionalEntrySeedData[] = [
       first_name: 'Aisha',
       last_name: 'Bello',
       personas: [UserPersonaType.HEALTHCARE_PROFESSIONAL],
-      role: [UserRole.DOCTOR],
     },
     profile: {
       image: 'https://i.pravatar.cc/150?u=pro.general.aisha',
@@ -162,7 +155,6 @@ export const SEED_PROFESSIONALS: IProfessionalEntrySeedData[] = [
       first_name: 'Chisom',
       last_name: 'Obi',
       personas: [UserPersonaType.HEALTHCARE_PROFESSIONAL],
-      role: [UserRole.DOCTOR],
     },
     profile: {
       image: 'https://i.pravatar.cc/150?u=pro.general.chisom',
@@ -176,14 +168,13 @@ export const SEED_PROFESSIONALS: IProfessionalEntrySeedData[] = [
     },
     speciality_name: 'General Doctor',
   },
-  // ── Nurse (legacy role LAB_PROFESSIONAL — UserRole has no NURSE variant) ──
+  // ── Nurse ──
   {
     user: {
       email: 'pro.nurse.fatima@healthbridge.test',
       first_name: 'Fatima',
       last_name: 'Bello',
       personas: [UserPersonaType.HEALTHCARE_PROFESSIONAL],
-      role: [UserRole.LAB_PROFESSIONAL],
     },
     profile: {
       image: 'https://i.pravatar.cc/150?u=pro.nurse.fatima',
@@ -203,7 +194,6 @@ export const SEED_PROFESSIONALS: IProfessionalEntrySeedData[] = [
       first_name: 'Daniel',
       last_name: 'Mensah',
       personas: [UserPersonaType.HEALTHCARE_PROFESSIONAL],
-      role: [UserRole.LAB_PROFESSIONAL],
     },
     profile: {
       image: 'https://i.pravatar.cc/150?u=pro.nurse.daniel',
@@ -224,7 +214,6 @@ export const SEED_PROFESSIONALS: IProfessionalEntrySeedData[] = [
       first_name: 'Ngozi',
       last_name: 'Eze',
       personas: [UserPersonaType.HEALTHCARE_PROFESSIONAL],
-      role: [UserRole.DOCTOR],
     },
     profile: {
       image: 'https://i.pravatar.cc/150?u=pro.nutritionist.ngozi',
@@ -244,7 +233,6 @@ export const SEED_PROFESSIONALS: IProfessionalEntrySeedData[] = [
       first_name: 'Maya',
       last_name: 'Okonkwo',
       personas: [UserPersonaType.HEALTHCARE_PROFESSIONAL],
-      role: [UserRole.THERAPIST],
     },
     profile: {
       image: 'https://i.pravatar.cc/150?u=pro.nutritionist.maya',
@@ -265,7 +253,6 @@ export const SEED_PROFESSIONALS: IProfessionalEntrySeedData[] = [
       first_name: 'Emeka',
       last_name: 'Nwosu',
       personas: [UserPersonaType.HEALTHCARE_PROFESSIONAL],
-      role: [UserRole.COUNSELLOR],
     },
     profile: {
       image: 'https://i.pravatar.cc/150?u=pro.counsellor.emeka',
@@ -285,7 +272,6 @@ export const SEED_PROFESSIONALS: IProfessionalEntrySeedData[] = [
       first_name: 'Tola',
       last_name: 'Adeyemi',
       personas: [UserPersonaType.HEALTHCARE_PROFESSIONAL],
-      role: [UserRole.COUNSELLOR],
     },
     profile: {
       image: 'https://i.pravatar.cc/150?u=pro.counsellor.tola',
@@ -309,21 +295,18 @@ export const SEED_REVIEWERS: IUserSeedData[] = [
     first_name: 'Amara',
     last_name: 'Osei',
     personas: [UserPersonaType.PATIENT],
-    role: [UserRole.PATIENT],
   },
   {
     email: 'reviewer.john@healthbridge.test',
     first_name: 'John',
     last_name: 'Taiwo',
     personas: [UserPersonaType.PATIENT],
-    role: [UserRole.PATIENT],
   },
   {
     email: 'reviewer.zainab@healthbridge.test',
     first_name: 'Zainab',
     last_name: 'Musa',
     personas: [UserPersonaType.PATIENT],
-    role: [UserRole.PATIENT],
   },
 ];
 
@@ -529,21 +512,18 @@ export const SEED_ORGANIZATION_USERS: IUserSeedData[] = [
     first_name: 'Ifeoma',
     last_name: 'Nwachukwu',
     personas: [],
-    role: [UserRole.HOSPITAL_ADMIN],
   },
   {
     email: 'org.admin.hospital@healthbridge.test',
     first_name: 'Samuel',
     last_name: 'Adeleke',
     personas: [],
-    role: [UserRole.HOSPITAL_ADMIN],
   },
   {
     email: 'org.owner.lab@healthbridge.test',
     first_name: 'Grace',
     last_name: 'Adekunle',
     personas: [],
-    role: [UserRole.LAB_ADMIN],
   },
   // Dual persona, two organizations, two different membership roles.
   {
@@ -554,7 +534,6 @@ export const SEED_ORGANIZATION_USERS: IUserSeedData[] = [
       UserPersonaType.PATIENT,
       UserPersonaType.HEALTHCARE_PROFESSIONAL,
     ],
-    role: [UserRole.DOCTOR],
   },
 ];
 
