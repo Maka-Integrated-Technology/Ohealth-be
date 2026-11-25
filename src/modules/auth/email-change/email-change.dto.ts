@@ -19,7 +19,10 @@ export class BeginEmailChangeDto {
   @MaxLength(1024)
   current_password?: string;
 
-  @ApiPropertyOptional({ description: 'Required when MFA is enabled' })
+  @ApiPropertyOptional({
+    description: 'Required when MFA is enabled',
+    pattern: '^\\d{6}$',
+  })
   @IsOptional()
   @IsString()
   @Matches(/^\d{6}$/)

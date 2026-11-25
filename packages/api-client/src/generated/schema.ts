@@ -2280,6 +2280,10 @@ export interface components {
       /** Format: uuid */
       readonly challenge_id: string;
     };
+    readonly EmailChangeStepUpErrorResponseDto: components['schemas']['ApiErrorResponseDto'] & {
+      /** @enum {string} */
+      readonly error_code: EmailChangeStepUpErrorResponseDtoError_code;
+    };
     readonly EnableTwoFactorAuthDataDto: {
       /** @example 600 */
       readonly expires_in_seconds: number;
@@ -2782,7 +2786,7 @@ export interface components {
        * @description Stable machine-readable error code when defined
        * @example OAUTH_TRANSACTION_INVALID
        */
-      readonly error_code?: components['schemas']['OAuthErrorCode'];
+      readonly error_code: components['schemas']['OAuthErrorCode'];
       readonly message: string | readonly string[];
       /** @example POST */
       readonly method: string;
@@ -4189,7 +4193,7 @@ export interface operations {
       readonly query?: never;
       readonly header: {
         /** @description Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually. */
-        readonly Origin?: string;
+        readonly Origin: string;
         readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginMfaVerifyPostParametersHeaderXOHealthClient;
       };
       readonly path?: never;
@@ -4221,7 +4225,9 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+          readonly 'application/json':
+            | (components['schemas']['ApiErrorResponseDto'] & unknown)
+            | components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       /** @description Origin or browser header rejected */
@@ -4267,7 +4273,7 @@ export interface operations {
       readonly query?: never;
       readonly header: {
         /** @description Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually. */
-        readonly Origin?: string;
+        readonly Origin: string;
         readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginMfaVerifyPostParametersHeaderXOHealthClient;
       };
       readonly path?: never;
@@ -4297,7 +4303,9 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+          readonly 'application/json':
+            | (components['schemas']['ApiErrorResponseDto'] & unknown)
+            | components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       /** @description Origin or browser header rejected */
@@ -4343,7 +4351,7 @@ export interface operations {
       readonly query?: never;
       readonly header: {
         /** @description Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually. */
-        readonly Origin?: string;
+        readonly Origin: string;
         readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginMfaVerifyPostParametersHeaderXOHealthClient;
       };
       readonly path?: never;
@@ -4424,7 +4432,7 @@ export interface operations {
       readonly query?: never;
       readonly header: {
         /** @description Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually. */
-        readonly Origin?: string;
+        readonly Origin: string;
         readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginMfaVerifyPostParametersHeaderXOHealthClient;
       };
       readonly path?: never;
@@ -4465,7 +4473,9 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
+          readonly 'application/json':
+            | (components['schemas']['ApiErrorResponseDto'] & unknown)
+            | components['schemas']['OAuthErrorResponseDto'];
         };
       };
       readonly 401: {
@@ -4535,7 +4545,7 @@ export interface operations {
       readonly query?: never;
       readonly header: {
         /** @description Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually. */
-        readonly Origin?: string;
+        readonly Origin: string;
         readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginMfaVerifyPostParametersHeaderXOHealthClient;
       };
       readonly path?: never;
@@ -4614,7 +4624,7 @@ export interface operations {
       readonly query?: never;
       readonly header: {
         /** @description Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually. */
-        readonly Origin?: string;
+        readonly Origin: string;
         readonly 'X-OHealth-Client': PathsApiAuthBrowserLoginMfaVerifyPostParametersHeaderXOHealthClient;
       };
       readonly path?: never;
@@ -4646,7 +4656,9 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+          readonly 'application/json':
+            | (components['schemas']['ApiErrorResponseDto'] & unknown)
+            | components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       /** @description Origin or browser header rejected */
@@ -4837,7 +4849,9 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+          readonly 'application/json':
+            | (components['schemas']['ApiErrorResponseDto'] & unknown)
+            | components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       readonly 429: {
@@ -4964,7 +4978,9 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+          readonly 'application/json':
+            | (components['schemas']['ApiErrorResponseDto'] & unknown)
+            | components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       /** @description Internal server error */
@@ -5008,7 +5024,9 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+          readonly 'application/json':
+            | (components['schemas']['ApiErrorResponseDto'] & unknown)
+            | components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       readonly 429: {
@@ -5070,7 +5088,9 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+          readonly 'application/json':
+            | (components['schemas']['ApiErrorResponseDto'] & unknown)
+            | components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       /** @description Internal server error */
@@ -5259,7 +5279,9 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+          readonly 'application/json':
+            | (components['schemas']['ApiErrorResponseDto'] & unknown)
+            | components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       /** @description Authentication is required */
@@ -5331,15 +5353,20 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+          readonly 'application/json':
+            | (components['schemas']['ApiErrorResponseDto'] & unknown)
+            | components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
+      /** @description Missing or invalid session, failed reauthentication, or missing/invalid MFA proof */
       readonly 401: {
         headers: {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['ApiErrorResponseDto'];
+          readonly 'application/json':
+            | (components['schemas']['ApiErrorResponseDto'] & unknown)
+            | components['schemas']['EmailChangeStepUpErrorResponseDto'];
         };
       };
       readonly 403: {
@@ -5405,7 +5432,9 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+          readonly 'application/json':
+            | (components['schemas']['ApiErrorResponseDto'] & unknown)
+            | components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       /** @description Authentication is required */
@@ -5734,7 +5763,9 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
+          readonly 'application/json':
+            | (components['schemas']['ApiErrorResponseDto'] & unknown)
+            | components['schemas']['OAuthErrorResponseDto'];
         };
       };
       readonly 401: {
@@ -5918,6 +5949,16 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
+          readonly 'application/json':
+            | (components['schemas']['ApiErrorResponseDto'] & unknown)
+            | components['schemas']['OAuthErrorResponseDto'];
+        };
+      };
+      readonly 401: {
+        headers: {
+          readonly [name: string]: unknown;
+        };
+        content: {
           readonly 'application/json': components['schemas']['OAuthErrorResponseDto'];
         };
       };
@@ -6078,7 +6119,9 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+          readonly 'application/json':
+            | (components['schemas']['ApiErrorResponseDto'] & unknown)
+            | components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       /** @description Internal server error */
@@ -6323,7 +6366,9 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+          readonly 'application/json':
+            | (components['schemas']['ApiErrorResponseDto'] & unknown)
+            | components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       /** @description Internal server error */
@@ -6365,7 +6410,9 @@ export interface operations {
           readonly [name: string]: unknown;
         };
         content: {
-          readonly 'application/json': components['schemas']['AuthChallengeErrorResponseDto'];
+          readonly 'application/json':
+            | (components['schemas']['ApiErrorResponseDto'] & unknown)
+            | components['schemas']['AuthChallengeErrorResponseDto'];
         };
       };
       readonly 429: {
@@ -10767,6 +10814,10 @@ export enum ConsultationType {
 export enum CreateBookingDtoConsultation_type {
   chat = 'chat',
   video = 'video',
+}
+export enum EmailChangeStepUpErrorResponseDtoError_code {
+  EMAIL_CHANGE_REAUTHENTICATION_REQUIRED = 'EMAIL_CHANGE_REAUTHENTICATION_REQUIRED',
+  EMAIL_CHANGE_MFA_REQUIRED = 'EMAIL_CHANGE_MFA_REQUIRED',
 }
 export enum GooglePatientSignupTransactionRequestConsumer {
   web = 'web',

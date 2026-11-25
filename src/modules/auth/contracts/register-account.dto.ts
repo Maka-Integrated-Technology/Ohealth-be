@@ -17,13 +17,13 @@ import { isSignupOrganizationDetails } from './is-signup-organization-details.de
 import { OrganizationRegistrationDto } from './organization-registration.dto';
 
 export class RegisterAccountDto {
-  @ApiProperty({ example: 'Example' })
+  @ApiProperty({ example: 'Example', maxLength: 100 })
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
   first_name: string;
 
-  @ApiProperty({ example: 'Person' })
+  @ApiProperty({ example: 'Person', maxLength: 100 })
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)

@@ -61,6 +61,7 @@ export class OAuthController {
   })
   @ApiCreatedResponse({ type: GoogleOAuthTransactionResponseDto })
   @ApiBadRequestResponse({ type: OAuthErrorResponseDto })
+  @ApiUnauthorizedResponse({ type: OAuthErrorResponseDto })
   @ApiConflictResponse({ type: OAuthErrorResponseDto })
   @ApiUnprocessableEntityResponse({
     description:

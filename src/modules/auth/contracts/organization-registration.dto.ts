@@ -8,19 +8,19 @@ import {
 } from 'class-validator';
 
 export class OrganizationRegistrationDto {
-  @ApiProperty({ example: 'Example Organization' })
+  @ApiProperty({ example: 'Example Organization', maxLength: 160 })
   @IsString()
   @IsNotEmpty()
   @MaxLength(160)
   name: string;
 
-  @ApiProperty({ example: 'EXAMPLE-001' })
+  @ApiProperty({ example: 'EXAMPLE-001', maxLength: 100 })
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
   registration_number: string;
 
-  @ApiProperty({ example: 'Example location' })
+  @ApiProperty({ example: 'Example location', maxLength: 500 })
   @IsString()
   @IsNotEmpty()
   @MaxLength(500)

@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import {
   DocumentBuilder,
   type OpenAPIObject,
@@ -8,9 +9,15 @@ import {
   ApiErrorResponseDto,
   ApiSuccessResponseDto,
 } from '../common/dto/response.dto';
+import { RegistrationService } from '../modules/auth/registration/registration.service';
 
+import {
+  committedAuthRequestExamples,
+  type IAuthRequestExampleValues,
+} from './auth-request-variants';
 import { transformOpenApiDocument } from './openapi-document.transformer';
 import { assertOpenApiDocumentComplete } from './openapi-document.validator';
+import { isOpenApiContractGenerationEnabled } from './openapi-generation-context';
 import {
   OPENAPI_DOCUMENT_DESCRIPTION,
   OPENAPI_DOCUMENT_TITLE,
@@ -19,7 +26,33 @@ import {
 
 import type { INestApplication } from '@nestjs/common';
 
+export function resolveAuthRequestExampleValues(
+  app: INestApplication,
+): IAuthRequestExampleValues {
+  if (isOpenApiContractGenerationEnabled()) return committedAuthRequestExamples;
+  const bootstrap = app.get(RegistrationService).getBootstrap();
+  const config = app.get(ConfigService);
+  const firstAudience = (key: string): string | undefined =>
+    config
+      .get<string>(key)
+      ?.split(',')
+      .map((value) => value.trim())
+      .find(Boolean);
+  const googleEnabled = config.get<boolean>('oauth.google.enabled');
+  return {
+    termsVersion: bootstrap.terms.version,
+    privacyVersion: bootstrap.privacy.version,
+    googleWebAudience: googleEnabled
+      ? firstAudience('oauth.google.webClientIds')
+      : undefined,
+    googleMobileAudience: googleEnabled
+      ? firstAudience('oauth.google.mobileClientIds')
+      : undefined,
+  };
+}
+
 export function createOpenApiDocument(app: INestApplication): OpenAPIObject {
+  const examples = resolveAuthRequestExampleValues(app);
   const configuration = new DocumentBuilder()
     .setTitle(OPENAPI_DOCUMENT_TITLE)
     .setDescription(OPENAPI_DOCUMENT_DESCRIPTION)
@@ -62,7 +95,7 @@ export function createOpenApiDocument(app: INestApplication): OpenAPIObject {
       `${controllerKey}_${methodKey}`,
   });
 
-  transformOpenApiDocument(document);
+  transformOpenApiDocument(document, examples);
   assertOpenApiDocumentComplete(document);
   return document;
 }

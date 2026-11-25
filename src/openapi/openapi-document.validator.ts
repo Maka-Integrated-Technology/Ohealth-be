@@ -120,22 +120,26 @@ function hasErrorEnvelope(
   document: OpenAPIObject,
   response: ReferenceObject | ResponseObject,
 ): boolean {
-  if (hasEnvelopeReference(response, getSchemaPath(ApiErrorResponseDto))) {
-    return true;
-  }
   if (isReferenceObject(response)) return false;
-
   const schema = response.content?.['application/json']?.schema;
-  if (!schema || !isReferenceObject(schema)) return false;
-  const componentName = schema.$ref.replace('#/components/schemas/', '');
-  const component = document.components.schemas?.[componentName];
-  if (!component || isReferenceObject(component)) return false;
-
-  const required = new Set(component.required ?? []);
-  return ['status_code', 'message', 'data'].every(
-    (property) =>
-      property in (component.properties ?? {}) && required.has(property),
-  );
+  if (!schema) return false;
+  const containsEnvelope = (value: SchemaObject | ReferenceObject): boolean => {
+    if (isReferenceObject(value)) {
+      if (value.$ref === getSchemaPath(ApiErrorResponseDto)) return true;
+      const name = value.$ref.replace('#/components/schemas/', '');
+      const component = document.components.schemas?.[name];
+      return Boolean(component && containsEnvelope(component));
+    }
+    if (value.oneOf) return value.oneOf.every(containsEnvelope);
+    if (value.anyOf) return value.anyOf.every(containsEnvelope);
+    if (value.allOf?.some(containsEnvelope)) return true;
+    const required = new Set(value.required ?? []);
+    return ['status_code', 'message', 'data'].every(
+      (property) =>
+        property in (value.properties ?? {}) && required.has(property),
+    );
+  };
+  return containsEnvelope(schema);
 }
 
 function hasDirectSchemaReference(
@@ -145,7 +149,12 @@ function hasDirectSchemaReference(
   if (isReferenceObject(response)) return false;
   const schema = response.content?.['application/json']?.schema;
   return Boolean(
-    schema && isReferenceObject(schema) && schema.$ref === schemaPath,
+    schema &&
+    (isReferenceObject(schema)
+      ? schema.$ref === schemaPath
+      : schema.oneOf?.some(
+          (branch) => isReferenceObject(branch) && branch.$ref === schemaPath,
+        )),
   );
 }
 

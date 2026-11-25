@@ -41,15 +41,32 @@ function replaceRequest(
   if (examples) body.content['application/json'].examples = examples;
 }
 
-const legalExample = {
-  accepted_terms_version: 'TERMS_VERSION_FROM_BOOTSTRAP',
-  accepted_privacy_version: 'PRIVACY_VERSION_FROM_BOOTSTRAP',
+export interface IAuthRequestExampleValues {
+  termsVersion: string;
+  privacyVersion: string;
+  googleWebAudience?: string;
+  googleMobileAudience?: string;
+}
+
+/** Fixed values used only by committed contract generation and its HTTP fixture. */
+export const committedAuthRequestExamples: IAuthRequestExampleValues = {
+  termsVersion: 'terms-v1',
+  privacyVersion: 'privacy-v1',
+  googleWebAudience: 'web-audience.test',
+  googleMobileAudience: 'mobile-audience.test',
 };
-const legalExampleDescription =
-  'Before sending, replace the two version markers with terms.version and privacy.version from GET /api/auth/registration/bootstrap.';
 
 /** Contract-only alternatives for the runtime's conditional DTO validation. */
-export function addAuthRequestVariants(document: OpenAPIObject): void {
+export function addAuthRequestVariants(
+  document: OpenAPIObject,
+  values: IAuthRequestExampleValues = committedAuthRequestExamples,
+): void {
+  const legalExample = {
+    accepted_terms_version: values.termsVersion,
+    accepted_privacy_version: values.privacyVersion,
+  };
+  const legalExampleDescription =
+    'Versions are the current terms.version and privacy.version from GET /api/auth/registration/bootstrap for this server.';
   component(document, 'OrganizationRegistrationDto').additionalProperties =
     false;
   const signup = component(document, 'RegisterAccountDto');
@@ -101,7 +118,7 @@ export function addAuthRequestVariants(document: OpenAPIObject): void {
           value: {
             first_name: 'Example',
             last_name: 'Person',
-            email: 'person@example.com',
+            email: `example-${intent}@example.com`,
             password: 'Synthetic example passphrase 2026!',
             intent,
             ...legalExample,
@@ -109,7 +126,7 @@ export function addAuthRequestVariants(document: OpenAPIObject): void {
               ? {
                   organization: {
                     name: 'Example Organization',
-                    registration_number: 'EXAMPLE-001',
+                    registration_number: `EXAMPLE-${intent}`,
                     location: 'Example location',
                     contact_email: 'organization@example.com',
                   },
@@ -168,23 +185,38 @@ export function addAuthRequestVariants(document: OpenAPIObject): void {
     request(document, '/api/auth/oauth/google/transactions'),
     oauthVariants.map(([, , name]) => name),
     'Start sign-in or patient/professional signup only. Use the authenticated /api/auth/oauth/google/link/transactions endpoint for linking. Signup legal versions must come from GET /api/auth/registration/bootstrap; sign-in forbids intent and legal versions.',
-    Object.fromEntries(
-      oauthVariants.map(([operation, intent]) => [
-        intent ?? 'signin',
-        {
-          summary: intent ? `Google ${intent} signup` : 'Google sign-in',
-          description: intent
-            ? `${legalExampleDescription} Replace audience with a configured Google client ID.`
-            : 'Replace audience with a configured Google client ID.',
-          value: {
-            operation,
-            consumer: 'web',
-            audience: 'CONFIGURED_GOOGLE_CLIENT_ID',
-            ...(intent ? { intent, ...legalExample } : {}),
-          },
-        },
-      ]),
-    ),
+    values.googleWebAudience || values.googleMobileAudience
+      ? Object.fromEntries(
+          oauthVariants.flatMap(([operation, intent]) =>
+            (
+              [
+                ['web', values.googleWebAudience],
+                ['mobile', values.googleMobileAudience],
+              ] as const
+            )
+              .filter((entry): entry is readonly ['web' | 'mobile', string] =>
+                Boolean(entry[1]),
+              )
+              .map(([consumer, audience]) => [
+                `${intent ?? 'signin'}-${consumer}`,
+                {
+                  summary: intent
+                    ? `Google ${intent} signup (${consumer})`
+                    : `Google sign-in (${consumer})`,
+                  description: intent
+                    ? legalExampleDescription
+                    : 'Audience is a configured Google client ID for this server.',
+                  value: {
+                    operation,
+                    consumer,
+                    audience,
+                    ...(intent ? { intent, ...legalExample } : {}),
+                  },
+                },
+              ]),
+          ),
+        )
+      : undefined,
   );
 
   const email = component(document, 'BeginEmailChangeDto');

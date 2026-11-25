@@ -1,4 +1,6 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { env } from 'node:process';
 
@@ -18,6 +20,7 @@ import * as speakeasy from 'speakeasy';
 import * as request from 'supertest';
 import { DataSource, QueryRunner } from 'typeorm';
 
+import { validateOpenApiExample } from '../../../test/openapi-schema-test.util';
 import { GlobalExceptionFilter } from '../../common/exceptions/filters/global-exception.filter';
 import { TransformInterceptor } from '../../common/interceptors/transform.interceptor';
 import { AccountAccessPolicyService } from '../../modules/auth/account-access-policy.service';
@@ -81,6 +84,10 @@ import { ProfessionalController } from '../../modules/professional/professional.
 import { ProfessionalService } from '../../modules/professional/professional.service';
 import { User } from '../../modules/user/entities/user.entity';
 import { UserService } from '../../modules/user/user.service';
+import {
+  createOpenApiDocument,
+  resolveAuthRequestExampleValues,
+} from '../../openapi/openapi-document.factory';
 import { AuthChallengeFoundation1793000000000 } from '../migrations/1793000000000-AuthChallengeFoundation';
 import { DurableAuthChallengeDelivery1793005000000 } from '../migrations/1793005000000-DurableAuthChallengeDelivery';
 import { LeasedAuthChallengeDelivery1793006000000 } from '../migrations/1793006000000-LeasedAuthChallengeDelivery';
@@ -624,6 +631,165 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     }
     throw new Error(`Timed out waiting for ${expected} database lock waiters.`);
   }
+
+  it('accepts committed signup and OAuth examples and validates serialized HTTP responses', async () => {
+    const contract = JSON.parse(
+      readFileSync(join(__dirname, '../../../contracts/openapi.json'), 'utf8'),
+    ) as {
+      paths: Record<
+        string,
+        Record<
+          string,
+          {
+            requestBody?: {
+              content: Record<
+                string,
+                { examples: Record<string, { value: Record<string, unknown> }> }
+              >;
+            };
+            responses: Record<
+              string,
+              { content: Record<string, { schema: object }> }
+            >;
+          }
+        >
+      >;
+      components: { schemas: Record<string, object> };
+    };
+    const assertResponse = (
+      path: string,
+      method: string,
+      status: number,
+      body: unknown,
+    ) => {
+      const schema =
+        contract.paths[path][method].responses[String(status)].content[
+          'application/json'
+        ].schema;
+      expect(
+        validateOpenApiExample(contract.components.schemas, schema, body),
+      ).toEqual({ valid: true, errors: null });
+    };
+    const bootstrap = await request(app.getHttpServer())
+      .get('/api/auth/registration/bootstrap')
+      .expect(200);
+    const configured = resolveAuthRequestExampleValues(app);
+    expect(configured).toMatchObject({
+      termsVersion: bootstrap.body.data.terms.version,
+      privacyVersion: bootstrap.body.data.privacy.version,
+      googleWebAudience: 'web-audience.test',
+      googleMobileAudience: 'mobile-audience.test',
+    });
+    const liveDocument = createOpenApiDocument(app);
+    const liveSignup =
+      liveDocument.paths['/api/auth/signup']?.post?.requestBody;
+    if (!liveSignup || '$ref' in liveSignup) {
+      throw new Error('Missing runtime Swagger signup body');
+    }
+    const livePatient =
+      liveSignup.content['application/json'].examples?.patient;
+    if (!livePatient || '$ref' in livePatient) {
+      throw new Error('Missing runtime Swagger patient example');
+    }
+    expect(livePatient.value).toMatchObject({
+      accepted_terms_version: configured.termsVersion,
+      accepted_privacy_version: configured.privacyVersion,
+    });
+    const signupPath = '/api/auth/signup';
+    const signupExamples =
+      contract.paths[signupPath].post.requestBody!.content['application/json']
+        .examples;
+    for (const [intent, example] of Object.entries(signupExamples)) {
+      expect(example.value.accepted_terms_version).toBe(
+        configured.termsVersion,
+      );
+      expect(example.value.accepted_privacy_version).toBe(
+        configured.privacyVersion,
+      );
+      const response = await request(app.getHttpServer())
+        .post(signupPath)
+        .send(example.value);
+      if (response.status !== 201) {
+        throw new Error(
+          `Signup example ${intent} failed: ${response.status} ${JSON.stringify(response.body)}`,
+        );
+      }
+      assertResponse(signupPath, 'post', 201, response.body);
+    }
+    const invalidSignup = await request(app.getHttpServer())
+      .post(signupPath)
+      .send({
+        ...signupExamples.patient.value,
+        accepted_terms_version: 'stale',
+      })
+      .expect(400);
+    assertResponse(signupPath, 'post', 400, invalidSignup.body);
+
+    const oauthPath = '/api/auth/oauth/google/transactions';
+    const oauthExamples =
+      contract.paths[oauthPath].post.requestBody!.content['application/json']
+        .examples;
+    for (const example of Object.values(oauthExamples)) {
+      const response = await request(app.getHttpServer())
+        .post(oauthPath)
+        .send(example.value)
+        .expect(201);
+      assertResponse(oauthPath, 'post', 201, response.body);
+    }
+    const invalidAudience = await request(app.getHttpServer())
+      .post(oauthPath)
+      .send({
+        ...oauthExamples['signin-web'].value,
+        audience: 'unconfigured-audience',
+      })
+      .expect(401);
+    expect(invalidAudience.body.error_code).toBe('OAUTH_TRANSACTION_INVALID');
+    assertResponse(oauthPath, 'post', 401, invalidAudience.body);
+    const validationError = await request(app.getHttpServer())
+      .post(oauthPath)
+      .send({ operation: 'signin' })
+      .expect(400);
+    expect(validationError.body.error_code).toBeUndefined();
+    assertResponse(oauthPath, 'post', 400, validationError.body);
+    const originDenied = await request(app.getHttpServer())
+      .post('/api/auth/browser/oauth/google/complete')
+      .set('X-OHealth-Client', 'browser')
+      .send({})
+      .expect(403);
+    assertResponse(
+      '/api/auth/browser/oauth/google/complete',
+      'post',
+      403,
+      originDenied.body,
+    );
+    const owner = await createUser(
+      'contract-email-stepup',
+      'active',
+      await bcrypt.hash('Correct example passphrase 2026!', 10),
+    );
+    await database.query(
+      'INSERT INTO user_personas (user_id, persona_type) VALUES ($1, $2)',
+      [owner.id, 'patient'],
+    );
+    const session = await app.get(RefreshSessionService).issue(owner.id);
+    const reauthentication = await request(app.getHttpServer())
+      .post('/api/auth/me/email-change/request')
+      .set('Authorization', `Bearer ${session.access_token}`)
+      .send({
+        candidate_email: `new-${randomUUID()}@example.test`,
+        current_password: 'Wrong example passphrase 2026!',
+      })
+      .expect(401);
+    expect(reauthentication.body.error_code).toBe(
+      'EMAIL_CHANGE_REAUTHENTICATION_REQUIRED',
+    );
+    assertResponse(
+      '/api/auth/me/email-change/request',
+      'post',
+      401,
+      reauthentication.body,
+    );
+  }, 60_000);
 
   it('binds OAuth sign-in to one transaction and records denial after rollback', async () => {
     const user = await createUser('oauth-live', 'active');

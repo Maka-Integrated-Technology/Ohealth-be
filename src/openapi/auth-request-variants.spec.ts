@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 
+import { validateOpenApiExample } from '../../test/openapi-schema-test.util';
 import { RegisterAccountDto } from '../modules/auth/contracts/register-account.dto';
 import { StartGoogleOAuthDto } from '../modules/auth/oauth/oauth.dto';
 
@@ -24,6 +25,18 @@ const contract = JSON.parse(
     Record<
       string,
       {
+        responses: Record<
+          string,
+          {
+            content?: Record<
+              string,
+              {
+                schema: IAuthTestSchema;
+                examples?: Record<string, { value: Record<string, unknown> }>;
+              }
+            >;
+          }
+        >;
         requestBody: {
           content: Record<
             string,
@@ -40,27 +53,8 @@ const contract = JSON.parse(
 };
 
 function matches(schema: IAuthTestSchema, value: unknown): boolean {
-  if (schema.$ref) {
-    const name = schema.$ref.substring(schema.$ref.lastIndexOf('/') + 1);
-    return matches(contract.components.schemas[name], value);
-  }
-  if (schema.oneOf) {
-    return schema.oneOf.filter((branch) => matches(branch, value)).length === 1;
-  }
-  if (schema.enum) return schema.enum.includes(value as string);
-  if (!schema.properties) return true;
-  if (typeof value !== 'object' || value === null || Array.isArray(value))
-    return false;
-  const object = value as Record<string, unknown>;
-  return (
-    (schema.required ?? []).every((key) => object[key] !== undefined) &&
-    Object.entries(object).every(
-      ([key, item]) =>
-        (schema.properties?.[key] !== undefined &&
-          matches(schema.properties[key], item)) ||
-        schema.additionalProperties !== false,
-    )
-  );
+  return validateOpenApiExample(contract.components.schemas, schema, value)
+    .valid;
 }
 
 function request(path: string): {
@@ -108,12 +102,34 @@ describe('auth conditional OpenAPI requests', () => {
     '/api/auth/2fa/enable',
   ])('publishes only schema-valid labelled examples for %s', (path) => {
     const body = request(path);
-    expect(body.schema.oneOf).toHaveLength(
-      Object.keys(body.examples ?? {}).length,
-    );
+    expect(body.schema.oneOf?.length).toBeGreaterThan(0);
     for (const example of Object.values(body.examples ?? {})) {
       expect(matches(body.schema, example.value)).toBe(true);
     }
+  });
+
+  it('enforces format, pattern, length, and nested organization constraints', () => {
+    const signup = request('/api/auth/signup');
+    const patient = signup.examples!.patient.value;
+    const hospital = signup.examples!.hospital.value;
+    expect(matches(signup.schema, { ...patient, email: 'not-an-email' })).toBe(
+      false,
+    );
+    expect(
+      matches(signup.schema, { ...patient, first_name: 'x'.repeat(101) }),
+    ).toBe(false);
+    expect(
+      matches(signup.schema, {
+        ...hospital,
+        organization: {
+          ...(hospital.organization as object),
+          contact_email: 'bad',
+        },
+      }),
+    ).toBe(false);
+    const email = request('/api/auth/me/email-change/request');
+    const mfa = email.examples!.PasswordMfaEmailChangeRequest.value;
+    expect(matches(email.schema, { ...mfa, mfa_code: '123' })).toBe(false);
   });
 
   it('forbids organization details for persona signup and requires them for organization signup', () => {
@@ -139,7 +155,7 @@ describe('auth conditional OpenAPI requests', () => {
 
   it('forbids link, organization intents, and signup fields during Google sign-in', () => {
     const body = request('/api/auth/oauth/google/transactions');
-    const signIn = body.examples!.signin.value;
+    const signIn = body.examples!['signin-web'].value;
     expect(matches(body.schema, { ...signIn, operation: 'link' })).toBe(false);
     expect(matches(body.schema, { ...signIn, intent: 'patient' })).toBe(false);
     expect(
@@ -178,6 +194,24 @@ describe('auth conditional OpenAPI requests', () => {
     expect(matches(reenrollment, { password: mfaExample.password })).toBe(
       false,
     );
+  });
+
+  it('validates every published auth continuation example against its full response schema', () => {
+    for (const path of [
+      '/api/auth/login/verify',
+      '/api/auth/browser/login/verify',
+      '/api/auth/oauth/google/complete',
+      '/api/auth/browser/oauth/google/complete',
+    ]) {
+      for (const response of Object.values(
+        contract.paths[path].post.responses,
+      )) {
+        const json = response.content?.['application/json'];
+        for (const example of Object.values(json?.examples ?? {})) {
+          expect(matches(json!.schema, example.value)).toBe(true);
+        }
+      }
+    }
   });
 
   it('does not require compatibility fields that runtime omits', () => {

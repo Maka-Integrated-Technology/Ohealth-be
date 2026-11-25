@@ -1202,6 +1202,28 @@
         ],
         "type": "object"
       },
+      "EmailChangeStepUpErrorResponseDto": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiErrorResponseDto"
+          },
+          {
+            "properties": {
+              "error_code": {
+                "enum": [
+                  "EMAIL_CHANGE_REAUTHENTICATION_REQUIRED",
+                  "EMAIL_CHANGE_MFA_REQUIRED"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "error_code"
+            ],
+            "type": "object"
+          }
+        ]
+      },
       "EnableTwoFactorAuthDataDto": {
         "properties": {
           "expires_in_seconds": {
@@ -1431,6 +1453,7 @@
           },
           "first_name": {
             "example": "Example",
+            "maxLength": 100,
             "type": "string"
           },
           "intent": {
@@ -1441,6 +1464,7 @@
           },
           "last_name": {
             "example": "Person",
+            "maxLength": 100,
             "type": "string"
           },
           "organization": {
@@ -1852,6 +1876,7 @@
           },
           "first_name": {
             "example": "Example",
+            "maxLength": 100,
             "type": "string"
           },
           "intent": {
@@ -1862,6 +1887,7 @@
           },
           "last_name": {
             "example": "Person",
+            "maxLength": 100,
             "type": "string"
           },
           "organization": {
@@ -2449,6 +2475,7 @@
         "additionalProperties": false,
         "properties": {
           "current_code": {
+            "pattern": "^\\d{6}$",
             "type": "string"
           },
           "password": {
@@ -2619,7 +2646,8 @@
           "data",
           "timestamp",
           "path",
-          "method"
+          "method",
+          "error_code"
         ],
         "type": "object"
       },
@@ -2830,14 +2858,17 @@
           },
           "location": {
             "example": "Example location",
+            "maxLength": 500,
             "type": "string"
           },
           "name": {
             "example": "Example Organization",
+            "maxLength": 160,
             "type": "string"
           },
           "registration_number": {
             "example": "EXAMPLE-001",
+            "maxLength": 100,
             "type": "string"
           }
         },
@@ -3056,6 +3087,7 @@
           },
           "mfa_code": {
             "description": "Required when MFA is enabled",
+            "pattern": "^\\d{6}$",
             "type": "string"
           }
         },
@@ -3085,6 +3117,7 @@
           },
           "first_name": {
             "example": "Example",
+            "maxLength": 100,
             "type": "string"
           },
           "intent": {
@@ -3095,6 +3128,7 @@
           },
           "last_name": {
             "example": "Person",
+            "maxLength": 100,
             "type": "string"
           },
           "password": {
@@ -3134,6 +3168,7 @@
           },
           "first_name": {
             "example": "Example",
+            "maxLength": 100,
             "type": "string"
           },
           "intent": {
@@ -3144,6 +3179,7 @@
           },
           "last_name": {
             "example": "Person",
+            "maxLength": 100,
             "type": "string"
           },
           "organization": {
@@ -4302,6 +4338,7 @@
           },
           "first_name": {
             "example": "Example",
+            "maxLength": 100,
             "type": "string"
           },
           "intent": {
@@ -4312,6 +4349,7 @@
           },
           "last_name": {
             "example": "Person",
+            "maxLength": 100,
             "type": "string"
           },
           "password": {
@@ -5094,6 +5132,7 @@
           },
           "mfa_code": {
             "description": "Required when MFA is enabled",
+            "pattern": "^\\d{6}$",
             "type": "string"
           }
         },
@@ -6422,7 +6461,7 @@
             "description": "Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually.",
             "in": "header",
             "name": "Origin",
-            "required": false,
+            "required": true,
             "schema": {
               "type": "string"
             }
@@ -6479,7 +6518,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -6540,7 +6597,7 @@
             "description": "Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually.",
             "in": "header",
             "name": "Origin",
-            "required": false,
+            "required": true,
             "schema": {
               "type": "string"
             }
@@ -6664,7 +6721,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -6726,7 +6801,7 @@
             "description": "Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually.",
             "in": "header",
             "name": "Origin",
-            "required": false,
+            "required": true,
             "schema": {
               "type": "string"
             }
@@ -6854,7 +6929,7 @@
             "description": "Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually.",
             "in": "header",
             "name": "Origin",
-            "required": false,
+            "required": true,
             "schema": {
               "type": "string"
             }
@@ -7033,7 +7108,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -7125,7 +7218,7 @@
             "description": "Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually.",
             "in": "header",
             "name": "Origin",
-            "required": false,
+            "required": true,
             "schema": {
               "type": "string"
             }
@@ -7248,7 +7341,7 @@
             "description": "Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually.",
             "in": "header",
             "name": "Origin",
-            "required": false,
+            "required": true,
             "schema": {
               "type": "string"
             }
@@ -7305,7 +7398,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -7585,7 +7696,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -7769,7 +7898,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -7836,7 +7983,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -7991,7 +8156,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -8286,7 +8469,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -8436,7 +8637,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -8446,11 +8665,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/EmailChangeStepUpErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
-            "description": ""
+            "description": "Missing or invalid session, failed reauthentication, or missing/invalid MFA proof"
           },
           "403": {
             "content": {
@@ -8548,7 +8785,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -9133,7 +9388,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -9372,35 +9645,68 @@
           "content": {
             "application/json": {
               "examples": {
-                "healthcare_professional": {
-                  "description": "Before sending, replace the two version markers with terms.version and privacy.version from GET /api/auth/registration/bootstrap. Replace audience with a configured Google client ID.",
-                  "summary": "Google healthcare_professional signup",
+                "healthcare_professional-mobile": {
+                  "description": "Versions are the current terms.version and privacy.version from GET /api/auth/registration/bootstrap for this server.",
+                  "summary": "Google healthcare_professional signup (mobile)",
                   "value": {
-                    "accepted_privacy_version": "PRIVACY_VERSION_FROM_BOOTSTRAP",
-                    "accepted_terms_version": "TERMS_VERSION_FROM_BOOTSTRAP",
-                    "audience": "CONFIGURED_GOOGLE_CLIENT_ID",
+                    "accepted_privacy_version": "privacy-v1",
+                    "accepted_terms_version": "terms-v1",
+                    "audience": "mobile-audience.test",
+                    "consumer": "mobile",
+                    "intent": "healthcare_professional",
+                    "operation": "signup"
+                  }
+                },
+                "healthcare_professional-web": {
+                  "description": "Versions are the current terms.version and privacy.version from GET /api/auth/registration/bootstrap for this server.",
+                  "summary": "Google healthcare_professional signup (web)",
+                  "value": {
+                    "accepted_privacy_version": "privacy-v1",
+                    "accepted_terms_version": "terms-v1",
+                    "audience": "web-audience.test",
                     "consumer": "web",
                     "intent": "healthcare_professional",
                     "operation": "signup"
                   }
                 },
-                "patient": {
-                  "description": "Before sending, replace the two version markers with terms.version and privacy.version from GET /api/auth/registration/bootstrap. Replace audience with a configured Google client ID.",
-                  "summary": "Google patient signup",
+                "patient-mobile": {
+                  "description": "Versions are the current terms.version and privacy.version from GET /api/auth/registration/bootstrap for this server.",
+                  "summary": "Google patient signup (mobile)",
                   "value": {
-                    "accepted_privacy_version": "PRIVACY_VERSION_FROM_BOOTSTRAP",
-                    "accepted_terms_version": "TERMS_VERSION_FROM_BOOTSTRAP",
-                    "audience": "CONFIGURED_GOOGLE_CLIENT_ID",
+                    "accepted_privacy_version": "privacy-v1",
+                    "accepted_terms_version": "terms-v1",
+                    "audience": "mobile-audience.test",
+                    "consumer": "mobile",
+                    "intent": "patient",
+                    "operation": "signup"
+                  }
+                },
+                "patient-web": {
+                  "description": "Versions are the current terms.version and privacy.version from GET /api/auth/registration/bootstrap for this server.",
+                  "summary": "Google patient signup (web)",
+                  "value": {
+                    "accepted_privacy_version": "privacy-v1",
+                    "accepted_terms_version": "terms-v1",
+                    "audience": "web-audience.test",
                     "consumer": "web",
                     "intent": "patient",
                     "operation": "signup"
                   }
                 },
-                "signin": {
-                  "description": "Replace audience with a configured Google client ID.",
-                  "summary": "Google sign-in",
+                "signin-mobile": {
+                  "description": "Audience is a configured Google client ID for this server.",
+                  "summary": "Google sign-in (mobile)",
                   "value": {
-                    "audience": "CONFIGURED_GOOGLE_CLIENT_ID",
+                    "audience": "mobile-audience.test",
+                    "consumer": "mobile",
+                    "operation": "signin"
+                  }
+                },
+                "signin-web": {
+                  "description": "Audience is a configured Google client ID for this server.",
+                  "summary": "Google sign-in (web)",
+                  "value": {
+                    "audience": "web-audience.test",
                     "consumer": "web",
                     "operation": "signin"
                   }
@@ -9451,6 +9757,34 @@
             "description": ""
           },
           "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
             "content": {
               "application/json": {
                 "schema": {
@@ -9690,7 +10024,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -9950,12 +10302,12 @@
             "application/json": {
               "examples": {
                 "healthcare_professional": {
-                  "description": "Before sending, replace the two version markers with terms.version and privacy.version from GET /api/auth/registration/bootstrap.",
+                  "description": "Versions are the current terms.version and privacy.version from GET /api/auth/registration/bootstrap for this server.",
                   "summary": "healthcare_professional signup",
                   "value": {
-                    "accepted_privacy_version": "PRIVACY_VERSION_FROM_BOOTSTRAP",
-                    "accepted_terms_version": "TERMS_VERSION_FROM_BOOTSTRAP",
-                    "email": "person@example.com",
+                    "accepted_privacy_version": "privacy-v1",
+                    "accepted_terms_version": "terms-v1",
+                    "email": "example-healthcare_professional@example.com",
                     "first_name": "Example",
                     "intent": "healthcare_professional",
                     "last_name": "Person",
@@ -9963,12 +10315,12 @@
                   }
                 },
                 "hospital": {
-                  "description": "Before sending, replace the two version markers with terms.version and privacy.version from GET /api/auth/registration/bootstrap.",
+                  "description": "Versions are the current terms.version and privacy.version from GET /api/auth/registration/bootstrap for this server.",
                   "summary": "hospital signup",
                   "value": {
-                    "accepted_privacy_version": "PRIVACY_VERSION_FROM_BOOTSTRAP",
-                    "accepted_terms_version": "TERMS_VERSION_FROM_BOOTSTRAP",
-                    "email": "person@example.com",
+                    "accepted_privacy_version": "privacy-v1",
+                    "accepted_terms_version": "terms-v1",
+                    "email": "example-hospital@example.com",
                     "first_name": "Example",
                     "intent": "hospital",
                     "last_name": "Person",
@@ -9976,18 +10328,18 @@
                       "contact_email": "organization@example.com",
                       "location": "Example location",
                       "name": "Example Organization",
-                      "registration_number": "EXAMPLE-001"
+                      "registration_number": "EXAMPLE-hospital"
                     },
                     "password": "Synthetic example passphrase 2026!"
                   }
                 },
                 "laboratory": {
-                  "description": "Before sending, replace the two version markers with terms.version and privacy.version from GET /api/auth/registration/bootstrap.",
+                  "description": "Versions are the current terms.version and privacy.version from GET /api/auth/registration/bootstrap for this server.",
                   "summary": "laboratory signup",
                   "value": {
-                    "accepted_privacy_version": "PRIVACY_VERSION_FROM_BOOTSTRAP",
-                    "accepted_terms_version": "TERMS_VERSION_FROM_BOOTSTRAP",
-                    "email": "person@example.com",
+                    "accepted_privacy_version": "privacy-v1",
+                    "accepted_terms_version": "terms-v1",
+                    "email": "example-laboratory@example.com",
                     "first_name": "Example",
                     "intent": "laboratory",
                     "last_name": "Person",
@@ -9995,18 +10347,18 @@
                       "contact_email": "organization@example.com",
                       "location": "Example location",
                       "name": "Example Organization",
-                      "registration_number": "EXAMPLE-001"
+                      "registration_number": "EXAMPLE-laboratory"
                     },
                     "password": "Synthetic example passphrase 2026!"
                   }
                 },
                 "patient": {
-                  "description": "Before sending, replace the two version markers with terms.version and privacy.version from GET /api/auth/registration/bootstrap.",
+                  "description": "Versions are the current terms.version and privacy.version from GET /api/auth/registration/bootstrap for this server.",
                   "summary": "patient signup",
                   "value": {
-                    "accepted_privacy_version": "PRIVACY_VERSION_FROM_BOOTSTRAP",
-                    "accepted_terms_version": "TERMS_VERSION_FROM_BOOTSTRAP",
-                    "email": "person@example.com",
+                    "accepted_privacy_version": "privacy-v1",
+                    "accepted_terms_version": "terms-v1",
+                    "email": "example-patient@example.com",
                     "first_name": "Example",
                     "intent": "patient",
                     "last_name": "Person",
@@ -10014,12 +10366,12 @@
                   }
                 },
                 "pharmacy": {
-                  "description": "Before sending, replace the two version markers with terms.version and privacy.version from GET /api/auth/registration/bootstrap.",
+                  "description": "Versions are the current terms.version and privacy.version from GET /api/auth/registration/bootstrap for this server.",
                   "summary": "pharmacy signup",
                   "value": {
-                    "accepted_privacy_version": "PRIVACY_VERSION_FROM_BOOTSTRAP",
-                    "accepted_terms_version": "TERMS_VERSION_FROM_BOOTSTRAP",
-                    "email": "person@example.com",
+                    "accepted_privacy_version": "privacy-v1",
+                    "accepted_terms_version": "terms-v1",
+                    "email": "example-pharmacy@example.com",
                     "first_name": "Example",
                     "intent": "pharmacy",
                     "last_name": "Person",
@@ -10027,7 +10379,7 @@
                       "contact_email": "organization@example.com",
                       "location": "Example location",
                       "name": "Example Organization",
-                      "registration_number": "EXAMPLE-001"
+                      "registration_number": "EXAMPLE-pharmacy"
                     },
                     "password": "Synthetic example passphrase 2026!"
                   }
@@ -10174,7 +10526,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -10241,7 +10611,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },

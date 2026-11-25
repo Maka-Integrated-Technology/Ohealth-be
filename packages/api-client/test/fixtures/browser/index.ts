@@ -26,12 +26,14 @@ const client = createApiClient({
 void client.AuthController_getProfile();
 void client.BrowserSessionController_refresh({
   headerParameters: {
+    Origin: window.location.origin,
     'X-OHealth-Client':
       PathsApiAuthBrowserLoginMfaVerifyPostParametersHeaderXOHealthClient.browser,
   },
 });
 void client.BrowserSessionController_completeGoogle({
   headerParameters: {
+    Origin: window.location.origin,
     'X-OHealth-Client':
       PathsApiAuthBrowserLoginMfaVerifyPostParametersHeaderXOHealthClient.browser,
   },

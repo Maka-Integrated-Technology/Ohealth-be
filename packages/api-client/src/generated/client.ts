@@ -856,6 +856,7 @@ export type OAuthController_startResponse =
   operations['OAuthController_start']['responses'][201]['content']['application/json'];
 export type OAuthController_startError =
   | operations['OAuthController_start']['responses'][400]['content']['application/json']
+  | operations['OAuthController_start']['responses'][401]['content']['application/json']
   | operations['OAuthController_start']['responses'][409]['content']['application/json']
   | operations['OAuthController_start']['responses'][422]['content']['application/json']
   | operations['OAuthController_start']['responses'][429]['content']['application/json']

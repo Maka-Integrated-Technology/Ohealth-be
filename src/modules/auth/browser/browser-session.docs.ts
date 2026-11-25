@@ -29,7 +29,7 @@ const BrowserBoundaryDocs = () =>
   applyDecorators(
     ApiHeader({
       name: 'Origin',
-      required: false,
+      required: true,
       description:
         'Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually.',
     }),
