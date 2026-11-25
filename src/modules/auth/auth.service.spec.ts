@@ -42,12 +42,9 @@ describe('AuthService', () => {
   const mockUserService = {
     findByEmail: jest.fn(),
     findById: jest.fn(),
-    create: jest.fn(),
     setPasswordResetChallenge: jest.fn(),
     consumePasswordResetToken: jest.fn(),
     rotateVerificationChallenge: jest.fn(),
-    replaceAuthenticatedPassword: jest.fn(),
-    linkGoogleIdentity: jest.fn(),
     verifyEmailWithCode: jest.fn(),
   };
 

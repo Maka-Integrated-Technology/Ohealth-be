@@ -90,6 +90,7 @@ import { LoginVerificationChallenges1793500000000 } from '../migrations/17935000
 import { TransactionalIntentRegistration1793600000000 } from '../migrations/1793600000000-TransactionalIntentRegistration';
 import { AuthChallengeContinuation1793700000000 } from '../migrations/1793700000000-AuthChallengeContinuation';
 import { EmailChanges1795400000000 } from '../migrations/1795400000000-EmailChanges';
+import { RetireLegacyAuthProofs1795500000000 } from '../migrations/1795500000000-RetireLegacyAuthProofs';
 
 // This suite deliberately uses the production controller, AuthService, abuse
 // guard, limit, challenge, delivery and audit services against real PostgreSQL.
@@ -315,6 +316,7 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
       await new TransactionalIntentRegistration1793600000000().up(runner);
       await new AuthChallengeContinuation1793700000000().up(runner);
       await new EmailChanges1795400000000().up(runner);
+      await new RetireLegacyAuthProofs1795500000000().up(runner);
     } finally {
       await runner.release();
     }
@@ -587,16 +589,15 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     const active = status === 'active';
     await database.query(
       'INSERT INTO users ' +
-        '(id, email, password, first_name, last_name, role, account_status, ' +
+        '(id, email, password, first_name, last_name, account_status, ' +
         'is_active, is_verified, email_verified_at) ' +
-        'VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+        'VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)',
       [
         id,
         email,
         password,
         'Ada',
         'User',
-        'PATIENT',
         status,
         active,
         active,
@@ -1894,17 +1895,21 @@ integration('Live challenge routes on actual HTTP and PostgreSQL', () => {
     expect(challengeId).toMatch(/^[a-f0-9-]{36}$/i);
     const before: Array<{
       account_status: string;
+      role: string | null;
+      google_id: string | null;
       verification_code: string | null;
       verification_code_expires_at: Date | null;
       reset_token: string | null;
       reset_token_expiry: Date | null;
     }> = await database.query(
-      'SELECT account_status, verification_code, verification_code_expires_at, reset_token, reset_token_expiry FROM users WHERE email = $1',
+      'SELECT account_status, role, google_id, verification_code, verification_code_expires_at, reset_token, reset_token_expiry FROM users WHERE email = $1',
       [email],
     );
     expect(before).toEqual([
       {
         account_status: 'pending_verification',
+        role: null,
+        google_id: null,
         verification_code: null,
         verification_code_expires_at: null,
         reset_token: null,

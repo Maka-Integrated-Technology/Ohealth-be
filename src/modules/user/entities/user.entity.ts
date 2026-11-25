@@ -62,9 +62,6 @@ export class User extends BaseEntity {
   @Column({ default: true })
   password_authentication_enabled: boolean;
 
-  @Column({ nullable: true })
-  google_id?: string | null;
-
   @OneToMany(() => AuthSession, (session) => session.user)
   sessions: AuthSession[];
 
