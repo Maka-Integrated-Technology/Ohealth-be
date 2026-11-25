@@ -7,6 +7,7 @@ export enum EmailTemplateID {
   VERIFICATION_CODE = 'verification-code.njk',
   OTP = 'otp.njk',
   LOGIN_CODE = 'login-code.njk',
+  EMAIL_CHANGE = 'email-change.njk',
   LABORATORY_STAFF_INVITATION = 'laboratory-staff-invitation.njk',
   SECURITY_AUTHENTICATOR_CHANGED = 'security-authenticator-changed.njk',
 }

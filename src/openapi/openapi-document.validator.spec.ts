@@ -106,6 +106,18 @@ describe('assertOpenApiDocumentComplete', () => {
     );
   });
 
+  it.each(['AuthController_googleLogin', 'PharmacyController_register'])(
+    'rejects retired operation %s even with bearer security',
+    (operationId) => {
+      const document = createCompleteDocument();
+      document.paths['/api/items/{id}'].get.operationId = operationId;
+
+      expect(() => assertOpenApiDocumentComplete(document)).toThrow(
+        `uses retired operationId ${operationId}`,
+      );
+    },
+  );
+
   it('rejects incomplete multipart file constraints', () => {
     const document = createCompleteDocument();
     document.paths['/api/items/{id}'].get.requestBody = {

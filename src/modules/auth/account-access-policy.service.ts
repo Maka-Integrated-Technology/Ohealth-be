@@ -8,7 +8,6 @@ import {
 import * as sysMsg from '../../constants/system.messages';
 import { User } from '../user/entities/user.entity';
 import { AccountStatus } from '../user/enums/account-status.enum';
-import { UserRole } from '../user/enums/user-role.enum';
 
 export type AccountIdentity = Pick<
   User,
@@ -65,13 +64,13 @@ export class AccountAccessPolicyService {
   assertAdminTransition(
     current: AccountStatus,
     target: AccountStatus,
-    actorRoles: readonly UserRole[],
+    actorIsPlatformAdmin: boolean,
     reason: string,
     hasVerifiedContact: boolean,
   ): void {
     this.assertKnownStatus(current);
     this.assertKnownStatus(target);
-    if (!actorRoles.includes(UserRole.ADMIN) || !reason.trim()) {
+    if (!actorIsPlatformAdmin || !reason.trim()) {
       throw new ForbiddenException(
         'An administrator and a reason are required.',
       );

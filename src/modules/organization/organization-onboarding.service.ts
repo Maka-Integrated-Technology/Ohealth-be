@@ -155,13 +155,10 @@ export class OrganizationOnboardingService {
             last_name: parsedName.lastName,
             middle_name: parsedName.middleName,
             phone: administratorPayload.phone,
-            role: [],
             is_active: false,
             is_verified: false,
             account_status: AccountStatus.PENDING_VERIFICATION,
             email_verified_at: null,
-            verification_code: null,
-            verification_code_expires_at: null,
           }),
         );
         const administrator = await administrators.save(

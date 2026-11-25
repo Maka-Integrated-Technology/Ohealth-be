@@ -65,15 +65,12 @@ describe('canonical public authentication contract', () => {
 
   it.each(operations)(
     '$method $path has typed success and stable error responses',
-    ({ path, operation }) => {
+    ({ operation }) => {
       const responses = Object.entries(operation.responses);
       const success = responses.filter(([status]) => /^2\d\d$/.test(status));
       const errors = responses.filter(([status]) => /^[45]\d\d$/.test(status));
 
-      // The retired legacy Google endpoint deliberately exposes only HTTP 410.
-      expect(path === '/api/auth/google-login' || success.length > 0).toBe(
-        true,
-      );
+      expect(success.length).toBeGreaterThan(0);
       expect(errors.length).toBeGreaterThan(0);
 
       for (const [status, response] of responses) {

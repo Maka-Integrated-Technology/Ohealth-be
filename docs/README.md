@@ -27,6 +27,8 @@ must follow.
     boundary, visibility policy, query conventions, and response allowlists.
 11. [Private profile photos](./profile-photo-lifecycle.md) — shared account ownership,
     validation limits, object consistency, and deletion semantics.
+12. [Legacy auth retirement](./legacy-auth-retirement-139.md) — removed-surface matrix,
+    rollback remnants, and consumer migration notes for issue #139.
 
 ## Documentation status labels
 
@@ -56,9 +58,10 @@ must follow.
 | Public professional directory                     | Implemented |
 | Public professional details                       | Implemented |
 | Public professional availability                  | Implemented |
-| Existing role-array authentication                | Legacy      |
+| Existing role-array authentication                | Retired on `dev`; schema remnant only |
 | Canonical account context and capability policies | Implemented |
 | Private patient/professional profile photos       | Implemented |
+| Verified patient/professional email change        | Implemented |
 
 Update this table whenever an area moves between statuses.
 

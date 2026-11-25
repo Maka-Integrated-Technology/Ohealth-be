@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  ForbiddenException,
   HttpCode,
   HttpStatus,
   Header,
@@ -14,7 +13,6 @@ import {
 import {
   ApiBearerAuth,
   ApiBadRequestResponse,
-  ApiExcludeEndpoint,
   ApiForbiddenResponse,
   ApiOkResponse,
   ApiOperation,
@@ -43,7 +41,6 @@ import {
   ForgotPasswordDocs,
   ChangePasswordDocs,
   GetProfileDocs,
-  GoogleLoginDocs,
   LoginDocs,
   ResendLoginDocs,
   LogoutDocs,
@@ -66,7 +63,6 @@ import {
   LogoutDto,
   RefreshTokenDto,
   ResetPasswordDto,
-  GoogleLoginDto,
   VerifySignupDto,
 } from './dto/auth.dto';
 import { LoginDto } from './dto/login.dto';
@@ -145,14 +141,6 @@ export class AuthController {
     return this.authService.resendLogin(payload);
   }
 
-  @Public()
-  @Post('google-login')
-  @HttpCode(HttpStatus.GONE)
-  @GoogleLoginDocs()
-  googleLogin(@Body() googleLoginDto: GoogleLoginDto) {
-    return this.authService.googleLogin(googleLoginDto.token);
-  }
-
   @RefreshTokenDocs()
   @Public()
   @Post('refresh')
@@ -203,17 +191,6 @@ export class AuthController {
   @UseGuards(AuthAbuseGuard)
   resendVerification(@Body() payload: ResendAuthChallengeDto) {
     return this.authService.resendVerification(payload);
-  }
-
-  // Keep a guarded rejection for legacy clients: 401 without a valid JWT,
-  // 403 with one. Only the proof-of-contact verification flow can activate users.
-  @ApiExcludeEndpoint()
-  @UseGuards(JwtAuthGuard)
-  @Patch('users/:user_id/activate')
-  activateAccount(): never {
-    throw new ForbiddenException(
-      'Legacy account activation is disabled. Verify your contact instead.',
-    );
   }
 
   @GetProfileDocs()

@@ -82,15 +82,13 @@ Consequences:
 
 ### 7. Legacy removal
 
-After production data reconciliation and client adoption:
-
-- delete the global `users.role` field and related guards;
-- delete raw verification and reset columns;
-- delete the existing frontend-routing service;
-- delete obsolete organization-specific admin identity flows;
-- replace existing MFA and session tables;
-- remove compatibility DTOs, endpoints, tests, and messages;
-- update `docs/README.md` status labels to match implementation.
+Issue #139 retires runtime role guards, routing responses, raw proof readers and
+writers, and parallel public registration on backend `dev`. See
+`legacy-auth-retirement-139.md` for the reviewed matrix and rollback decisions.
+The legacy database columns remain physically present and inert until the
+coordinated consumer migration, staging validation and data reconciliation
+permit a separately reviewed destructive migration. Issue #163 audits the
+resulting canonical auth and basic profile/settings tree before handoff.
 
 ## Migration safety
 

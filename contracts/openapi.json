@@ -445,91 +445,10 @@
             "maxLength": 500,
             "nullable": true,
             "type": "string"
-          },
-          "country": {
-            "deprecated": true,
-            "nullable": true,
-            "type": "string"
-          },
-          "created_at": {
-            "deprecated": true,
-            "format": "date-time",
-            "type": "string"
-          },
-          "dob": {
-            "deprecated": true,
-            "nullable": true,
-            "type": "string"
-          },
-          "email": {
-            "deprecated": true,
-            "type": "string"
-          },
-          "first_name": {
-            "deprecated": true,
-            "type": "string"
-          },
-          "gender": {
-            "deprecated": true,
-            "nullable": true,
-            "type": "string"
-          },
-          "id": {
-            "deprecated": true,
-            "type": "string"
-          },
-          "image": {
-            "deprecated": true,
-            "nullable": true,
-            "type": "string"
-          },
-          "is_active": {
-            "deprecated": true,
-            "type": "boolean"
-          },
-          "last_name": {
-            "deprecated": true,
-            "type": "string"
-          },
-          "middle_name": {
-            "deprecated": true,
-            "nullable": true,
-            "type": "string"
-          },
-          "phone": {
-            "deprecated": true,
-            "nullable": true,
-            "type": "string"
-          },
-          "role": {
-            "deprecated": true,
-            "items": {
-              "type": "string"
-            },
-            "type": "array"
-          },
-          "updated_at": {
-            "deprecated": true,
-            "format": "date-time",
-            "type": "string"
           }
         },
         "required": [
-          "id",
-          "email",
-          "first_name",
-          "last_name",
-          "role",
-          "middle_name",
-          "gender",
-          "dob",
-          "phone",
-          "country",
           "address",
-          "image",
-          "is_active",
-          "created_at",
-          "updated_at",
           "account_context"
         ],
         "type": "object"
@@ -711,6 +630,25 @@
         ],
         "type": "object"
       },
+      "BeginEmailChangeDto": {
+        "properties": {
+          "candidate_email": {
+            "type": "string"
+          },
+          "current_password": {
+            "description": "Required for password-enabled accounts; recent OAuth sessions can use their active authenticator",
+            "type": "string"
+          },
+          "mfa_code": {
+            "description": "Required when MFA is enabled",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_email"
+        ],
+        "type": "object"
+      },
       "BeginMfaDto": {
         "properties": {
           "current_code": {
@@ -801,14 +739,6 @@
       },
       "BrowserSessionResponseDto": {
         "properties": {
-          "access_level": {
-            "deprecated": true,
-            "enum": [
-              "full",
-              "limited"
-            ],
-            "type": "string"
-          },
           "access_token": {
             "description": "Short-lived access JWT for in-memory use only",
             "type": "string"
@@ -820,40 +750,12 @@
             "example": "Login success",
             "type": "string"
           },
-          "routing_target": {
-            "deprecated": true,
-            "enum": [
-              "email_verification",
-              "admin_dashboard",
-              "patient_home",
-              "professional_verification",
-              "professional_dashboard",
-              "hospital_verification",
-              "hospital_dashboard",
-              "laboratory_verification",
-              "laboratory_dashboard",
-              "pharmacy_verification",
-              "pharmacy_dashboard",
-              "account_setup",
-              "account_restricted"
-            ],
-            "type": "string"
-          },
           "session_expires_at": {
             "format": "date-time",
             "type": "string"
           },
           "session_id": {
             "format": "uuid",
-            "type": "string"
-          },
-          "user": {
-            "deprecated": true,
-            "type": "object"
-          },
-          "verification_status": {
-            "deprecated": true,
-            "nullable": true,
             "type": "string"
           }
         },
@@ -862,49 +764,18 @@
           "access_token",
           "session_id",
           "session_expires_at",
-          "account_context",
-          "user",
-          "routing_target",
-          "access_level",
-          "verification_status"
+          "account_context"
         ],
         "type": "object"
       },
       "BrowserSessionResponseDtoData": {
         "properties": {
-          "access_level": {
-            "deprecated": true,
-            "enum": [
-              "full",
-              "limited"
-            ],
-            "type": "string"
-          },
           "access_token": {
             "description": "Short-lived access JWT for in-memory use only",
             "type": "string"
           },
           "account_context": {
             "$ref": "#/components/schemas/AuthContextResponseDto"
-          },
-          "routing_target": {
-            "deprecated": true,
-            "enum": [
-              "email_verification",
-              "admin_dashboard",
-              "patient_home",
-              "professional_verification",
-              "professional_dashboard",
-              "hospital_verification",
-              "hospital_dashboard",
-              "laboratory_verification",
-              "laboratory_dashboard",
-              "pharmacy_verification",
-              "pharmacy_dashboard",
-              "account_setup",
-              "account_restricted"
-            ],
-            "type": "string"
           },
           "session_expires_at": {
             "format": "date-time",
@@ -913,26 +784,13 @@
           "session_id": {
             "format": "uuid",
             "type": "string"
-          },
-          "user": {
-            "deprecated": true,
-            "type": "object"
-          },
-          "verification_status": {
-            "deprecated": true,
-            "nullable": true,
-            "type": "string"
           }
         },
         "required": [
           "access_token",
           "session_id",
           "session_expires_at",
-          "account_context",
-          "user",
-          "routing_target",
-          "access_level",
-          "verification_status"
+          "account_context"
         ],
         "type": "object"
       },
@@ -982,6 +840,37 @@
         "required": [
           "currentPassword",
           "newPassword"
+        ],
+        "type": "object"
+      },
+      "ChangePasswordResponseDto": {
+        "properties": {
+          "message": {
+            "example": "password changed",
+            "type": "string"
+          },
+          "session_terminated": {
+            "description": "The current session and all other sessions have been revoked.",
+            "example": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "message",
+          "session_terminated"
+        ],
+        "type": "object"
+      },
+      "ChangePasswordResponseDtoData": {
+        "properties": {
+          "session_terminated": {
+            "description": "The current session and all other sessions have been revoked.",
+            "example": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "session_terminated"
         ],
         "type": "object"
       },
@@ -1095,6 +984,22 @@
         ],
         "type": "object"
       },
+      "ConfirmEmailChangeDto": {
+        "properties": {
+          "challenge_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "challenge_id",
+          "code"
+        ],
+        "type": "object"
+      },
       "ConfirmMfaDto": {
         "properties": {
           "code": {
@@ -1171,48 +1076,6 @@
           "name",
           "price",
           "turnaround_time_minutes"
-        ],
-        "type": "object"
-      },
-      "CreatePharmacyDto": {
-        "properties": {
-          "business_address": {
-            "example": "12 Admiralty Way, Lekki Phase 1, Lagos",
-            "type": "string"
-          },
-          "contact_email": {
-            "example": "contact@healthplus.example",
-            "type": "string"
-          },
-          "contact_phone": {
-            "example": "+2348012345678",
-            "type": "string"
-          },
-          "license_number": {
-            "example": "LIC-789012",
-            "type": "string"
-          },
-          "name": {
-            "example": "HealthPlus Pharmacy",
-            "type": "string"
-          },
-          "region": {
-            "example": "Lagos",
-            "type": "string"
-          },
-          "registration_number": {
-            "example": "PCN-123456",
-            "type": "string"
-          }
-        },
-        "required": [
-          "name",
-          "registration_number",
-          "license_number",
-          "business_address",
-          "region",
-          "contact_email",
-          "contact_phone"
         ],
         "type": "object"
       },
@@ -1328,6 +1191,50 @@
         ],
         "type": "object"
       },
+      "EmailChangeChallengeDto": {
+        "properties": {
+          "challenge_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "expires_in_seconds": {
+            "type": "number"
+          },
+          "resend_after_seconds": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "challenge_id",
+          "expires_in_seconds",
+          "resend_after_seconds"
+        ],
+        "type": "object"
+      },
+      "EmailChangeCommittedDto": {
+        "properties": {
+          "sessions_revoked": {
+            "example": true,
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "sessions_revoked"
+        ],
+        "type": "object"
+      },
+      "EmailChangeHandleDto": {
+        "properties": {
+          "challenge_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "challenge_id"
+        ],
+        "type": "object"
+      },
       "EnableTwoFactorAuthDataDto": {
         "properties": {
           "expires_in_seconds": {
@@ -1360,19 +1267,6 @@
         },
         "required": [
           "email"
-        ],
-        "type": "object"
-      },
-      "GoogleLoginDto": {
-        "properties": {
-          "token": {
-            "description": "Google ID Token",
-            "example": "eyJhbGciOiJSUzI1NiIsImtpZCI6IjFj... (Google ID Token)",
-            "type": "string"
-          }
-        },
-        "required": [
-          "token"
         ],
         "type": "object"
       },
@@ -2175,14 +2069,6 @@
       },
       "LoginResponseDto": {
         "properties": {
-          "access_level": {
-            "deprecated": true,
-            "enum": [
-              "full",
-              "limited"
-            ],
-            "type": "string"
-          },
           "access_token": {
             "description": "JWT access token with 15 minutes expiration",
             "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -2206,25 +2092,6 @@
             "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
             "type": "string"
           },
-          "routing_target": {
-            "deprecated": true,
-            "enum": [
-              "email_verification",
-              "admin_dashboard",
-              "patient_home",
-              "professional_verification",
-              "professional_dashboard",
-              "hospital_verification",
-              "hospital_dashboard",
-              "laboratory_verification",
-              "laboratory_dashboard",
-              "pharmacy_verification",
-              "pharmacy_dashboard",
-              "account_setup",
-              "account_restricted"
-            ],
-            "type": "string"
-          },
           "session_expires_at": {
             "example": "2024-01-15T10:30:00Z",
             "format": "date-time",
@@ -2240,25 +2107,12 @@
             "example": 200,
             "nullable": true,
             "type": "number"
-          },
-          "user": {
-            "deprecated": true,
-            "type": "object"
-          },
-          "verification_status": {
-            "deprecated": true,
-            "nullable": true,
-            "type": "string"
           }
         },
         "required": [
           "access_token",
           "refresh_token",
           "account_context",
-          "user",
-          "routing_target",
-          "access_level",
-          "verification_status",
           "status_code",
           "message",
           "session_id",
@@ -2268,14 +2122,6 @@
       },
       "LoginResponseDtoData": {
         "properties": {
-          "access_level": {
-            "deprecated": true,
-            "enum": [
-              "full",
-              "limited"
-            ],
-            "type": "string"
-          },
           "access_token": {
             "description": "JWT access token with 15 minutes expiration",
             "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -2294,25 +2140,6 @@
             "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
             "type": "string"
           },
-          "routing_target": {
-            "deprecated": true,
-            "enum": [
-              "email_verification",
-              "admin_dashboard",
-              "patient_home",
-              "professional_verification",
-              "professional_dashboard",
-              "hospital_verification",
-              "hospital_dashboard",
-              "laboratory_verification",
-              "laboratory_dashboard",
-              "pharmacy_verification",
-              "pharmacy_dashboard",
-              "account_setup",
-              "account_restricted"
-            ],
-            "type": "string"
-          },
           "session_expires_at": {
             "example": "2024-01-15T10:30:00Z",
             "format": "date-time",
@@ -2323,25 +2150,12 @@
             "example": "550e8400-e29b-41d4-a716-446655440000",
             "nullable": true,
             "type": "string"
-          },
-          "user": {
-            "deprecated": true,
-            "type": "object"
-          },
-          "verification_status": {
-            "deprecated": true,
-            "nullable": true,
-            "type": "string"
           }
         },
         "required": [
           "access_token",
           "refresh_token",
           "account_context",
-          "user",
-          "routing_target",
-          "access_level",
-          "verification_status",
           "session_id",
           "session_expires_at"
         ],
@@ -2994,69 +2808,6 @@
           "organization_id",
           "verification_status",
           "rejection_reason",
-          "updated_at"
-        ],
-        "type": "object"
-      },
-      "PharmacyResponseDto": {
-        "properties": {
-          "business_address": {
-            "type": "string"
-          },
-          "contact_email": {
-            "type": "string"
-          },
-          "contact_phone": {
-            "type": "string"
-          },
-          "created_at": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "id": {
-            "type": "string"
-          },
-          "is_active": {
-            "type": "boolean"
-          },
-          "license_number": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "region": {
-            "type": "string"
-          },
-          "registration_number": {
-            "type": "string"
-          },
-          "updated_at": {
-            "format": "date-time",
-            "type": "string"
-          },
-          "verification_status": {
-            "enum": [
-              "submitted",
-              "under_review",
-              "approved",
-              "rejected"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "name",
-          "registration_number",
-          "license_number",
-          "business_address",
-          "region",
-          "contact_email",
-          "contact_phone",
-          "verification_status",
-          "is_active",
-          "created_at",
           "updated_at"
         ],
         "type": "object"
@@ -4932,14 +4683,6 @@
       },
       "RefreshTokenResponseDto": {
         "properties": {
-          "access_level": {
-            "deprecated": true,
-            "enum": [
-              "full",
-              "limited"
-            ],
-            "type": "string"
-          },
           "access_token": {
             "description": "JWT access token with 15 minutes expiration",
             "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -4963,25 +4706,6 @@
             "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
             "type": "string"
           },
-          "routing_target": {
-            "deprecated": true,
-            "enum": [
-              "email_verification",
-              "admin_dashboard",
-              "patient_home",
-              "professional_verification",
-              "professional_dashboard",
-              "hospital_verification",
-              "hospital_dashboard",
-              "laboratory_verification",
-              "laboratory_dashboard",
-              "pharmacy_verification",
-              "pharmacy_dashboard",
-              "account_setup",
-              "account_restricted"
-            ],
-            "type": "string"
-          },
           "session_expires_at": {
             "example": "2024-01-15T10:30:00Z",
             "format": "date-time",
@@ -4995,25 +4719,12 @@
             "example": 200,
             "nullable": true,
             "type": "number"
-          },
-          "user": {
-            "deprecated": true,
-            "type": "object"
-          },
-          "verification_status": {
-            "deprecated": true,
-            "nullable": true,
-            "type": "string"
           }
         },
         "required": [
           "access_token",
           "refresh_token",
           "account_context",
-          "user",
-          "routing_target",
-          "access_level",
-          "verification_status",
           "status_code",
           "message",
           "session_id",
@@ -5023,14 +4734,6 @@
       },
       "RefreshTokenResponseDtoData": {
         "properties": {
-          "access_level": {
-            "deprecated": true,
-            "enum": [
-              "full",
-              "limited"
-            ],
-            "type": "string"
-          },
           "access_token": {
             "description": "JWT access token with 15 minutes expiration",
             "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -5049,25 +4752,6 @@
             "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
             "type": "string"
           },
-          "routing_target": {
-            "deprecated": true,
-            "enum": [
-              "email_verification",
-              "admin_dashboard",
-              "patient_home",
-              "professional_verification",
-              "professional_dashboard",
-              "hospital_verification",
-              "hospital_dashboard",
-              "laboratory_verification",
-              "laboratory_dashboard",
-              "pharmacy_verification",
-              "pharmacy_dashboard",
-              "account_setup",
-              "account_restricted"
-            ],
-            "type": "string"
-          },
           "session_expires_at": {
             "example": "2024-01-15T10:30:00Z",
             "format": "date-time",
@@ -5076,25 +4760,12 @@
           "session_id": {
             "example": "550e8400-e29b-41d4-a716-446655440000",
             "type": "string"
-          },
-          "user": {
-            "deprecated": true,
-            "type": "object"
-          },
-          "verification_status": {
-            "deprecated": true,
-            "nullable": true,
-            "type": "string"
           }
         },
         "required": [
           "access_token",
           "refresh_token",
           "account_context",
-          "user",
-          "routing_target",
-          "access_level",
-          "verification_status",
           "session_id",
           "session_expires_at"
         ],
@@ -5954,14 +5625,6 @@
       },
       "VerifySignupResponseDto": {
         "properties": {
-          "access_level": {
-            "deprecated": true,
-            "enum": [
-              "full",
-              "limited"
-            ],
-            "type": "string"
-          },
           "access_token": {
             "description": "JWT access token with 15 minutes expiration",
             "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -5985,25 +5648,6 @@
             "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
             "type": "string"
           },
-          "routing_target": {
-            "deprecated": true,
-            "enum": [
-              "email_verification",
-              "admin_dashboard",
-              "patient_home",
-              "professional_verification",
-              "professional_dashboard",
-              "hospital_verification",
-              "hospital_dashboard",
-              "laboratory_verification",
-              "laboratory_dashboard",
-              "pharmacy_verification",
-              "pharmacy_dashboard",
-              "account_setup",
-              "account_restricted"
-            ],
-            "type": "string"
-          },
           "session_expires_at": {
             "example": "2024-01-15T10:30:00Z",
             "format": "date-time",
@@ -6019,25 +5663,12 @@
             "example": 200,
             "nullable": true,
             "type": "number"
-          },
-          "user": {
-            "deprecated": true,
-            "type": "object"
-          },
-          "verification_status": {
-            "deprecated": true,
-            "nullable": true,
-            "type": "string"
           }
         },
         "required": [
           "access_token",
           "refresh_token",
           "account_context",
-          "user",
-          "routing_target",
-          "access_level",
-          "verification_status",
           "status_code",
           "message",
           "session_id",
@@ -6047,14 +5678,6 @@
       },
       "VerifySignupResponseDtoData": {
         "properties": {
-          "access_level": {
-            "deprecated": true,
-            "enum": [
-              "full",
-              "limited"
-            ],
-            "type": "string"
-          },
           "access_token": {
             "description": "JWT access token with 15 minutes expiration",
             "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
@@ -6073,25 +5696,6 @@
             "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
             "type": "string"
           },
-          "routing_target": {
-            "deprecated": true,
-            "enum": [
-              "email_verification",
-              "admin_dashboard",
-              "patient_home",
-              "professional_verification",
-              "professional_dashboard",
-              "hospital_verification",
-              "hospital_dashboard",
-              "laboratory_verification",
-              "laboratory_dashboard",
-              "pharmacy_verification",
-              "pharmacy_dashboard",
-              "account_setup",
-              "account_restricted"
-            ],
-            "type": "string"
-          },
           "session_expires_at": {
             "example": "2024-01-15T10:30:00Z",
             "format": "date-time",
@@ -6102,25 +5706,12 @@
             "example": "550e8400-e29b-41d4-a716-446655440000",
             "nullable": true,
             "type": "string"
-          },
-          "user": {
-            "deprecated": true,
-            "type": "object"
-          },
-          "verification_status": {
-            "deprecated": true,
-            "nullable": true,
-            "type": "string"
           }
         },
         "required": [
           "access_token",
           "refresh_token",
           "account_context",
-          "user",
-          "routing_target",
-          "access_level",
-          "verification_status",
           "session_id",
           "session_expires_at"
         ],
@@ -7123,8 +6714,7 @@
                     {
                       "properties": {
                         "data": {
-                          "example": null,
-                          "nullable": true
+                          "$ref": "#/components/schemas/ChangePasswordResponseDtoData"
                         }
                       },
                       "required": [
@@ -7157,6 +6747,16 @@
               }
             },
             "description": "unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "The new password must differ from the current password."
           },
           "500": {
             "content": {
@@ -7350,68 +6950,6 @@
           }
         },
         "summary": "Replace a purpose-bound challenge using its opaque handle",
-        "tags": [
-          "Authentication"
-        ]
-      }
-    },
-    "/api/auth/google-login": {
-      "post": {
-        "operationId": "AuthController_googleLogin",
-        "parameters": [],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GoogleLoginDto"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
-                }
-              }
-            },
-            "description": ""
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
-                }
-              }
-            },
-            "description": ""
-          },
-          "410": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
-                }
-              }
-            },
-            "description": "OAUTH_TRANSACTION_REQUIRED"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
-                }
-              }
-            },
-            "description": "Internal server error"
-          }
-        },
-        "summary": "Retired Google login; use nonce-bound OAuth transactions",
         "tags": [
           "Authentication"
         ]
@@ -7962,6 +7500,332 @@
           }
         ],
         "summary": "Update authenticated patient personal profile",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/me/email-change/confirm": {
+      "post": {
+        "operationId": "EmailChangeController_confirm",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfirmEmailChangeDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/EmailChangeCommittedDto"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Authentication is required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Commit a verified email and revoke every session",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/me/email-change/request": {
+      "post": {
+        "operationId": "EmailChangeController_begin",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BeginEmailChangeDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/EmailChangeChallengeDto"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Request a verified email change",
+        "tags": [
+          "Authentication"
+        ]
+      }
+    },
+    "/api/auth/me/email-change/resend": {
+      "post": {
+        "operationId": "EmailChangeController_resend",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailChangeHandleDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
+                    },
+                    {
+                      "properties": {
+                        "data": {
+                          "$ref": "#/components/schemas/EmailChangeChallengeDto"
+                        }
+                      },
+                      "required": [
+                        "data"
+                      ],
+                      "type": "object"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Authentication is required"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                }
+              }
+            },
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Resend candidate email proof",
         "tags": [
           "Authentication"
         ]
@@ -13244,83 +13108,6 @@
         "summary": "Mark organization under review",
         "tags": [
           "Organization Onboarding"
-        ]
-      }
-    },
-    "/api/pharmacies/register": {
-      "post": {
-        "operationId": "PharmacyController_register",
-        "parameters": [],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CreatePharmacyDto"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "allOf": [
-                    {
-                      "$ref": "#/components/schemas/ApiSuccessResponseDto"
-                    },
-                    {
-                      "properties": {
-                        "data": {
-                          "$ref": "#/components/schemas/PharmacyResponseDto"
-                        }
-                      },
-                      "required": [
-                        "data"
-                      ],
-                      "type": "object"
-                    }
-                  ]
-                }
-              }
-            },
-            "description": ""
-          },
-          "400": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
-                }
-              }
-            },
-            "description": "Request validation failed"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
-                }
-              }
-            },
-            "description": "Pharmacy registration number or license number already exists"
-          },
-          "500": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
-                }
-              }
-            },
-            "description": "Internal server error"
-          }
-        },
-        "summary": "Register a pharmacy for onboarding review",
-        "tags": [
-          "Pharmacies"
         ]
       }
     },

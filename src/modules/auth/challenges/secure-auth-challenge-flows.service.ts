@@ -52,8 +52,7 @@ export interface IAuthChallengeContinuationResponse {
 /**
  * Shared live contact-verification and recovery boundary for issue #75.
  * All identity mutations and encrypted challenge issuance use the same
- * transaction. Existing public account-registration policy stays in AuthService
- * until issue #78 replaces its legacy role-based registration contract.
+ * transaction. Public registration uses the canonical registration boundary.
  */
 @Injectable()
 export class SecureAuthChallengeFlowsService {
@@ -321,8 +320,6 @@ export class SecureAuthChallengeFlowsService {
           user.email_verified_at = now;
           user.is_active = true;
           user.is_verified = true;
-          user.verification_code = null;
-          user.verification_code_expires_at = null;
           const saved = await manager.save(User, user);
           await manager.insert(UserAccountStatusHistory, {
             user_id: user.id,
@@ -376,8 +373,6 @@ export class SecureAuthChallengeFlowsService {
           await manager.update(User, user.id, {
             password: newPasswordHash,
             password_authentication_enabled: true,
-            reset_token: null,
-            reset_token_expiry: null,
           });
           await manager.query(
             'UPDATE auth_challenges SET consumed_at = now(), terminal_reason = $3 ' +

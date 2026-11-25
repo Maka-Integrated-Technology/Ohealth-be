@@ -5,6 +5,7 @@ import { DataSource, EntityManager } from 'typeorm';
 
 import { EmailService } from '../../email/email.service';
 import { User } from '../../user/entities/user.entity';
+import { EmailDestinationService } from '../email-change/email-destination';
 
 import { AuthChallengeDeliveryService } from './auth-challenge-delivery.service';
 import { AuthChallengePurpose } from './auth-challenge.entity';
@@ -50,8 +51,12 @@ describe('leased and encrypted authentication delivery', () => {
     { issueInTransaction } as unknown as AuthChallengeService,
     { sendMail } as unknown as EmailService,
     { recordInTransaction } as never,
+    new EmailDestinationService(config as unknown as ConfigService),
   );
   const user = { id: '4b659a6c-9d3f-4cec-8122-2dccfae3095d' } as User;
+  const destinations = new EmailDestinationService(
+    config as unknown as ConfigService,
+  );
 
   async function encryptedRow(
     overrides: Record<string, unknown> = {},
@@ -232,6 +237,31 @@ describe('leased and encrypted authentication delivery', () => {
       manager,
       expect.objectContaining({
         subject_user_id: user.id,
+      }),
+    );
+  });
+
+  it('delivers email-change proof only to the encrypted candidate address', async () => {
+    const row = await encryptedRow(
+      {
+        lineage_id: challengeId,
+        ...destinations.encrypt(challengeId, 'candidate@example.test'),
+      },
+      AuthChallengePurpose.EMAIL_CHANGE,
+    );
+    expect(JSON.stringify(row)).not.toContain('candidate@example.test');
+    prepareClaim(row);
+    expect(await service.dispatchBatch(1)).toMatchObject({ accepted: 1 });
+    expect(sendMail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: [{ email: 'candidate@example.test', name: 'Ada' }],
+        subject: 'Confirm your OHealth email change',
+        templateNameID: 'email-change.njk',
+      }),
+    );
+    expect(sendMail).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: [{ email: 'patient@example.test', name: 'Ada' }],
       }),
     );
   });
