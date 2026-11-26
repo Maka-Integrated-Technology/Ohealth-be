@@ -1,14 +1,7 @@
 export type ApiHeaders = Readonly<Record<string, string>>;
 
 export type ApiHttpMethod =
-  | 'DELETE'
-  | 'GET'
-  | 'HEAD'
-  | 'OPTIONS'
-  | 'PATCH'
-  | 'POST'
-  | 'PUT'
-  | 'TRACE';
+  'DELETE' | 'GET' | 'HEAD' | 'OPTIONS' | 'PATCH' | 'POST' | 'PUT' | 'TRACE';
 
 export interface ApiTransportRequest {
   readonly operationId: string;
@@ -44,6 +37,7 @@ export interface ApiOperationDescriptor {
   readonly method: ApiHttpMethod;
   readonly path: string;
   readonly requestMediaType?: string;
+  readonly browserManagedOrigin?: boolean;
 }
 
 export interface ApiOperationRequest {

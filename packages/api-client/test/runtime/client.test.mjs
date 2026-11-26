@@ -247,6 +247,39 @@ test('keeps browser refresh distinct and credential-free in generated input', as
   assert.equal(capturedRequest.cookies, undefined);
 });
 
+test('leaves browser Origin to the user agent even when callers supply it', async () => {
+  const requests = [];
+  const client = createApiClient({
+    baseUrl: 'https://api.ohealth.example',
+    getHeaders: () => ({ Origin: 'https://provider.example' }),
+    transport: async (request) => {
+      requests.push(request);
+      return { status: 200, data: {} };
+    },
+  });
+
+  await client.BrowserSessionController_refresh({
+    headerParameters: {
+      Origin: 'https://parameter.example',
+      'X-OHealth-Client': 'browser',
+    },
+    headers: { ORIGIN: 'https://request.example' },
+  });
+  await client.BrowserSessionController_completeGoogle({
+    headerParameters: { 'X-OHealth-Client': 'browser' },
+    body: {
+      transaction_id: '17d36477-ae70-4ac6-b557-d584bc840ad1',
+      transaction_token: 't'.repeat(43),
+      id_token: 'google-id-token',
+    },
+  });
+
+  assert.equal(requests.length, 2);
+  for (const request of requests) {
+    assert.deepEqual(request.headers, { 'X-OHealth-Client': 'browser' });
+  }
+});
+
 test('preserves the backend error response envelope', async () => {
   const envelope = {
     status_code: 403,
