@@ -5,6 +5,13 @@ import {
   ApiSuccessResponseDto,
 } from '../common/dto/response.dto';
 
+import {
+  addAuthRequestVariants,
+  committedAuthRequestExamples,
+  type IAuthRequestExampleValues,
+} from './auth-request-variants';
+import { addAuthResponseExamples } from './auth-response-examples';
+
 import type {
   OpenAPIObject,
   OperationObject,
@@ -69,7 +76,13 @@ function createDerivedDataSchema(
   );
 
   if (Object.keys(dataProperties).length === 0) {
-    return { nullable: true, example: null };
+    return {
+      type: 'object',
+      properties: {},
+      additionalProperties: false,
+      nullable: true,
+      example: null,
+    };
   }
 
   const derivedName = `${componentName}Data`;
@@ -101,6 +114,15 @@ function normalizeDataSchema(
     return schema;
   }
 
+  if (schema.oneOf) {
+    return {
+      ...schema,
+      oneOf: schema.oneOf.map((branch) =>
+        normalizeDataSchema(document, branch),
+      ),
+    };
+  }
+
   if (
     schema.type === 'object' &&
     schema.properties?.data &&
@@ -121,7 +143,13 @@ function normalizeDataSchema(
   );
 
   return Object.keys(properties).length === 0
-    ? { nullable: true, example: null }
+    ? {
+        type: 'object',
+        properties: {},
+        additionalProperties: false,
+        nullable: true,
+        example: null,
+      }
     : {
         ...schema,
         properties,
@@ -200,9 +228,79 @@ function transformOperation(
   ensureErrorResponse(operation, '500', 'Internal server error');
 }
 
+function refineAuthErrors(document: OpenAPIObject): void {
+  const schemas = document.components.schemas;
+  const oauth = schemas.OAuthErrorResponseDto;
+  if (oauth && !isReferenceObject(oauth)) {
+    oauth.required = [...new Set([...(oauth.required ?? []), 'error_code'])];
+  }
+
+  const genericWithoutCode: SchemaObject = {
+    allOf: [
+      { $ref: getSchemaPath(ApiErrorResponseDto) },
+      { not: { required: ['error_code'] } },
+    ],
+  };
+  for (const [path, item] of Object.entries(document.paths)) {
+    if (!path.startsWith('/api/auth/')) continue;
+    for (const method of HTTP_METHODS) {
+      const operation = item?.[method] as OperationObject | undefined;
+      const response = operation?.responses['400'];
+      if (!response || isReferenceObject(response)) continue;
+      const media = response.content?.[JSON_MEDIA_TYPE];
+      const schema = media?.schema;
+      if (
+        schema &&
+        isReferenceObject(schema) &&
+        ['AuthChallengeErrorResponseDto', 'OAuthErrorResponseDto'].includes(
+          getComponentName(schema) ?? '',
+        )
+      ) {
+        media.schema = { oneOf: [genericWithoutCode, schema] };
+      }
+    }
+  }
+
+  schemas.EmailChangeStepUpErrorResponseDto = {
+    allOf: [
+      { $ref: getSchemaPath(ApiErrorResponseDto) },
+      {
+        type: 'object',
+        required: ['error_code'],
+        properties: {
+          error_code: {
+            type: 'string',
+            enum: [
+              'EMAIL_CHANGE_REAUTHENTICATION_REQUIRED',
+              'EMAIL_CHANGE_MFA_REQUIRED',
+            ],
+          },
+        },
+      },
+    ],
+  };
+  const emailRequest =
+    document.paths['/api/auth/me/email-change/request']?.post;
+  const unauthorized = emailRequest?.responses['401'];
+  if (unauthorized && !isReferenceObject(unauthorized)) {
+    unauthorized.description =
+      'Missing or invalid session, failed reauthentication, or missing/invalid MFA proof';
+    unauthorized.content![JSON_MEDIA_TYPE].schema = {
+      oneOf: [
+        genericWithoutCode,
+        { $ref: getSchemaPath('EmailChangeStepUpErrorResponseDto') },
+      ],
+    };
+  }
+}
+
 export function transformOpenApiDocument(
   document: OpenAPIObject,
+  examples: IAuthRequestExampleValues = committedAuthRequestExamples,
 ): OpenAPIObject {
+  if (document.paths['/api/auth/signup']) {
+    addAuthRequestVariants(document, examples);
+  }
   const successEnvelope = document.components.schemas?.[
     ApiSuccessResponseDto.name
   ] as SchemaObject | undefined;
@@ -217,6 +315,11 @@ export function transformOpenApiDocument(
       if (operation) transformOperation(document, operation);
     });
   });
+
+  if (document.paths['/api/auth/signup']) {
+    addAuthResponseExamples(document);
+    refineAuthErrors(document);
+  }
 
   return document;
 }

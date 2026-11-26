@@ -22,6 +22,7 @@ import {
   ApiTags,
   ApiTooManyRequestsResponse,
   ApiUnauthorizedResponse,
+  ApiUnprocessableEntityResponse,
   getSchemaPath,
 } from '@nestjs/swagger';
 
@@ -60,7 +61,13 @@ export class OAuthController {
   })
   @ApiCreatedResponse({ type: GoogleOAuthTransactionResponseDto })
   @ApiBadRequestResponse({ type: OAuthErrorResponseDto })
+  @ApiUnauthorizedResponse({ type: OAuthErrorResponseDto })
   @ApiConflictResponse({ type: OAuthErrorResponseDto })
+  @ApiUnprocessableEntityResponse({
+    description:
+      'Google signup supports only patient and healthcare professional intents',
+    type: OAuthErrorResponseDto,
+  })
   @ApiTooManyRequestsResponse({ type: AuthChallengeErrorResponseDto })
   @ApiServiceUnavailableResponse({ type: OAuthErrorResponseDto })
   start(@Body() dto: StartGoogleOAuthDto) {

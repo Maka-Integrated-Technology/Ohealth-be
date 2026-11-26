@@ -41,3 +41,12 @@ void client.BrowserSessionController_completeGoogle({
     id_token: 'google-id-token',
   },
 });
+
+void client.BrowserSessionController_refresh({
+  headerParameters: {
+    // @ts-expect-error Origin is managed by the browser, not an SDK input.
+    Origin: window.location.origin,
+    'X-OHealth-Client':
+      PathsApiAuthBrowserLoginMfaVerifyPostParametersHeaderXOHealthClient.browser,
+  },
+});

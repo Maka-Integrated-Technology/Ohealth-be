@@ -630,39 +630,6 @@
         ],
         "type": "object"
       },
-      "BeginEmailChangeDto": {
-        "properties": {
-          "candidate_email": {
-            "type": "string"
-          },
-          "current_password": {
-            "description": "Required for password-enabled accounts; recent OAuth sessions can use their active authenticator",
-            "type": "string"
-          },
-          "mfa_code": {
-            "description": "Required when MFA is enabled",
-            "type": "string"
-          }
-        },
-        "required": [
-          "candidate_email"
-        ],
-        "type": "object"
-      },
-      "BeginMfaDto": {
-        "properties": {
-          "current_code": {
-            "type": "string"
-          },
-          "password": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "password"
-        ],
-        "type": "object"
-      },
       "BookingResponseDto": {
         "properties": {
           "amount": {
@@ -747,7 +714,7 @@
             "$ref": "#/components/schemas/AuthContextResponseDto"
           },
           "message": {
-            "example": "Login success",
+            "example": "login success",
             "type": "string"
           },
           "session_expires_at": {
@@ -1235,6 +1202,28 @@
         ],
         "type": "object"
       },
+      "EmailChangeStepUpErrorResponseDto": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiErrorResponseDto"
+          },
+          {
+            "properties": {
+              "error_code": {
+                "enum": [
+                  "EMAIL_CHANGE_REAUTHENTICATION_REQUIRED",
+                  "EMAIL_CHANGE_MFA_REQUIRED"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "error_code"
+            ],
+            "type": "object"
+          }
+        ]
+      },
       "EnableTwoFactorAuthDataDto": {
         "properties": {
           "expires_in_seconds": {
@@ -1242,11 +1231,10 @@
             "type": "number"
           },
           "qrCodeUrl": {
-            "example": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...",
             "type": "string"
           },
           "secret": {
-            "example": "JBSWY3DPEHPK3PXP",
+            "description": "Enrollment secret; returned once and must be protected.",
             "type": "string"
           }
         },
@@ -1254,6 +1242,18 @@
           "secret",
           "qrCodeUrl",
           "expires_in_seconds"
+        ],
+        "type": "object"
+      },
+      "FirstMfaEnrollmentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "password": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "password"
         ],
         "type": "object"
       },
@@ -1298,6 +1298,124 @@
         ],
         "type": "object"
       },
+      "GooglePatientSignupTransactionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted_privacy_version": {
+            "maxLength": 50,
+            "type": "string"
+          },
+          "accepted_terms_version": {
+            "maxLength": 50,
+            "type": "string"
+          },
+          "audience": {
+            "description": "Exact Google OAuth client ID used by this client",
+            "type": "string"
+          },
+          "consumer": {
+            "enum": [
+              "web",
+              "mobile"
+            ],
+            "type": "string"
+          },
+          "intent": {
+            "enum": [
+              "patient"
+            ],
+            "type": "string"
+          },
+          "operation": {
+            "enum": [
+              "signup"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "consumer",
+          "audience",
+          "operation",
+          "intent",
+          "accepted_terms_version",
+          "accepted_privacy_version"
+        ],
+        "type": "object"
+      },
+      "GoogleProfessionalSignupTransactionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted_privacy_version": {
+            "maxLength": 50,
+            "type": "string"
+          },
+          "accepted_terms_version": {
+            "maxLength": 50,
+            "type": "string"
+          },
+          "audience": {
+            "description": "Exact Google OAuth client ID used by this client",
+            "type": "string"
+          },
+          "consumer": {
+            "enum": [
+              "web",
+              "mobile"
+            ],
+            "type": "string"
+          },
+          "intent": {
+            "enum": [
+              "healthcare_professional"
+            ],
+            "type": "string"
+          },
+          "operation": {
+            "enum": [
+              "signup"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "consumer",
+          "audience",
+          "operation",
+          "intent",
+          "accepted_terms_version",
+          "accepted_privacy_version"
+        ],
+        "type": "object"
+      },
+      "GoogleSignInTransactionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "audience": {
+            "description": "Exact Google OAuth client ID used by this client",
+            "type": "string"
+          },
+          "consumer": {
+            "enum": [
+              "web",
+              "mobile"
+            ],
+            "type": "string"
+          },
+          "operation": {
+            "enum": [
+              "signin"
+            ],
+            "type": "string"
+          }
+        },
+        "required": [
+          "consumer",
+          "audience",
+          "operation"
+        ],
+        "type": "object"
+      },
       "GroupedAvailabilityDto": {
         "properties": {
           "date": {
@@ -1313,6 +1431,61 @@
         "required": [
           "date",
           "slots"
+        ],
+        "type": "object"
+      },
+      "HospitalSignupRequest": {
+        "additionalProperties": false,
+        "description": "hospital registration. The server derives the organization type from intent.",
+        "properties": {
+          "accepted_privacy_version": {
+            "description": "Use privacy.version from GET /api/auth/registration/bootstrap; the current value can change.",
+            "type": "string"
+          },
+          "accepted_terms_version": {
+            "description": "Use terms.version from GET /api/auth/registration/bootstrap; the current value can change.",
+            "type": "string"
+          },
+          "email": {
+            "example": "person@example.com",
+            "format": "email",
+            "type": "string"
+          },
+          "first_name": {
+            "example": "Example",
+            "maxLength": 100,
+            "type": "string"
+          },
+          "intent": {
+            "enum": [
+              "hospital"
+            ],
+            "type": "string"
+          },
+          "last_name": {
+            "example": "Person",
+            "maxLength": 100,
+            "type": "string"
+          },
+          "organization": {
+            "$ref": "#/components/schemas/OrganizationRegistrationDto"
+          },
+          "password": {
+            "description": "15+ Unicode characters, no composition rule, max 1024 UTF-8 bytes",
+            "format": "password",
+            "minLength": 15,
+            "type": "string"
+          }
+        },
+        "required": [
+          "first_name",
+          "last_name",
+          "email",
+          "password",
+          "intent",
+          "accepted_terms_version",
+          "accepted_privacy_version",
+          "organization"
         ],
         "type": "object"
       },
@@ -1681,6 +1854,61 @@
           "onboarding_status",
           "is_active",
           "created_at"
+        ],
+        "type": "object"
+      },
+      "LaboratorySignupRequest": {
+        "additionalProperties": false,
+        "description": "laboratory registration. The server derives the organization type from intent.",
+        "properties": {
+          "accepted_privacy_version": {
+            "description": "Use privacy.version from GET /api/auth/registration/bootstrap; the current value can change.",
+            "type": "string"
+          },
+          "accepted_terms_version": {
+            "description": "Use terms.version from GET /api/auth/registration/bootstrap; the current value can change.",
+            "type": "string"
+          },
+          "email": {
+            "example": "person@example.com",
+            "format": "email",
+            "type": "string"
+          },
+          "first_name": {
+            "example": "Example",
+            "maxLength": 100,
+            "type": "string"
+          },
+          "intent": {
+            "enum": [
+              "laboratory"
+            ],
+            "type": "string"
+          },
+          "last_name": {
+            "example": "Person",
+            "maxLength": 100,
+            "type": "string"
+          },
+          "organization": {
+            "$ref": "#/components/schemas/OrganizationRegistrationDto"
+          },
+          "password": {
+            "description": "15+ Unicode characters, no composition rule, max 1024 UTF-8 bytes",
+            "format": "password",
+            "minLength": 15,
+            "type": "string"
+          }
+        },
+        "required": [
+          "first_name",
+          "last_name",
+          "email",
+          "password",
+          "intent",
+          "accepted_terms_version",
+          "accepted_privacy_version",
+          "organization"
         ],
         "type": "object"
       },
@@ -2071,7 +2299,6 @@
         "properties": {
           "access_token": {
             "description": "JWT access token with 15 minutes expiration",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
             "type": "string"
           },
           "account_context": {
@@ -2083,37 +2310,26 @@
             "description": "Server-resolved account, persona, membership, verification, and capability context"
           },
           "message": {
-            "example": "Login success",
-            "nullable": true,
+            "example": "login success",
             "type": "string"
           },
           "refresh_token": {
             "description": "Opaque, rotating refresh credential",
-            "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
             "type": "string"
           },
           "session_expires_at": {
-            "example": "2024-01-15T10:30:00Z",
             "format": "date-time",
-            "nullable": true,
             "type": "string"
           },
           "session_id": {
             "example": "550e8400-e29b-41d4-a716-446655440000",
-            "nullable": true,
             "type": "string"
-          },
-          "status_code": {
-            "example": 200,
-            "nullable": true,
-            "type": "number"
           }
         },
         "required": [
           "access_token",
           "refresh_token",
           "account_context",
-          "status_code",
           "message",
           "session_id",
           "session_expires_at"
@@ -2124,7 +2340,6 @@
         "properties": {
           "access_token": {
             "description": "JWT access token with 15 minutes expiration",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
             "type": "string"
           },
           "account_context": {
@@ -2137,18 +2352,14 @@
           },
           "refresh_token": {
             "description": "Opaque, rotating refresh credential",
-            "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
             "type": "string"
           },
           "session_expires_at": {
-            "example": "2024-01-15T10:30:00Z",
             "format": "date-time",
-            "nullable": true,
             "type": "string"
           },
           "session_id": {
             "example": "550e8400-e29b-41d4-a716-446655440000",
-            "nullable": true,
             "type": "string"
           }
         },
@@ -2164,8 +2375,9 @@
       "LogoutDto": {
         "properties": {
           "session_id": {
-            "description": "session id",
-            "example": "session-id-123",
+            "description": "Current session UUID",
+            "example": "550e8400-e29b-41d4-a716-446655440000",
+            "format": "uuid",
             "type": "string"
           }
         },
@@ -2178,17 +2390,10 @@
         "properties": {
           "message": {
             "example": "logout success",
-            "nullable": true,
             "type": "string"
-          },
-          "status_code": {
-            "example": 200,
-            "nullable": true,
-            "type": "number"
           }
         },
         "required": [
-          "status_code",
           "message"
         ],
         "type": "object"
@@ -2210,6 +2415,23 @@
         },
         "required": [
           "message",
+          "mfa_challenge_id",
+          "expires_in_seconds"
+        ],
+        "type": "object"
+      },
+      "MfaChallengeResponseDtoData": {
+        "properties": {
+          "expires_in_seconds": {
+            "example": 600,
+            "type": "number"
+          },
+          "mfa_challenge_id": {
+            "format": "uuid",
+            "type": "string"
+          }
+        },
+        "required": [
           "mfa_challenge_id",
           "expires_in_seconds"
         ],
@@ -2246,6 +2468,23 @@
         },
         "required": [
           "recovery_codes"
+        ],
+        "type": "object"
+      },
+      "MfaReenrollmentRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "current_code": {
+            "pattern": "^\\d{6}$",
+            "type": "string"
+          },
+          "password": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "password",
+          "current_code"
         ],
         "type": "object"
       },
@@ -2407,7 +2646,8 @@
           "data",
           "timestamp",
           "path",
-          "method"
+          "method",
+          "error_code"
         ],
         "type": "object"
       },
@@ -2605,6 +2845,7 @@
         "type": "object"
       },
       "OrganizationRegistrationDto": {
+        "additionalProperties": false,
         "properties": {
           "contact_email": {
             "example": "operations@example.com",
@@ -2612,19 +2853,22 @@
             "type": "string"
           },
           "contact_phone": {
-            "example": "+2348012345678",
+            "example": "+10000000000",
             "type": "string"
           },
           "location": {
-            "example": "12 Adeola Odeku Street, Lagos",
+            "example": "Example location",
+            "maxLength": 500,
             "type": "string"
           },
           "name": {
-            "example": "OHealth Diagnostics",
+            "example": "Example Organization",
+            "maxLength": 160,
             "type": "string"
           },
           "registration_number": {
-            "example": "RC-123456",
+            "example": "EXAMPLE-001",
+            "maxLength": 100,
             "type": "string"
           }
         },
@@ -2809,6 +3053,154 @@
           "verification_status",
           "rejection_reason",
           "updated_at"
+        ],
+        "type": "object"
+      },
+      "PasswordEmailChangeRequest": {
+        "additionalProperties": false,
+        "description": "Password-enabled account; current password is required.",
+        "properties": {
+          "candidate_email": {
+            "type": "string"
+          },
+          "current_password": {
+            "description": "Required for password-enabled accounts; passwordless Google accounts instead require a recently created session",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_email",
+          "current_password"
+        ],
+        "type": "object"
+      },
+      "PasswordMfaEmailChangeRequest": {
+        "additionalProperties": false,
+        "description": "Password-enabled account; current password is required.",
+        "properties": {
+          "candidate_email": {
+            "type": "string"
+          },
+          "current_password": {
+            "description": "Required for password-enabled accounts; passwordless Google accounts instead require a recently created session",
+            "type": "string"
+          },
+          "mfa_code": {
+            "description": "Required when MFA is enabled",
+            "pattern": "^\\d{6}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_email",
+          "current_password",
+          "mfa_code"
+        ],
+        "type": "object"
+      },
+      "PatientSignupRequest": {
+        "additionalProperties": false,
+        "description": "patient registration. The server derives the organization type from intent.",
+        "properties": {
+          "accepted_privacy_version": {
+            "description": "Use privacy.version from GET /api/auth/registration/bootstrap; the current value can change.",
+            "type": "string"
+          },
+          "accepted_terms_version": {
+            "description": "Use terms.version from GET /api/auth/registration/bootstrap; the current value can change.",
+            "type": "string"
+          },
+          "email": {
+            "example": "person@example.com",
+            "format": "email",
+            "type": "string"
+          },
+          "first_name": {
+            "example": "Example",
+            "maxLength": 100,
+            "type": "string"
+          },
+          "intent": {
+            "enum": [
+              "patient"
+            ],
+            "type": "string"
+          },
+          "last_name": {
+            "example": "Person",
+            "maxLength": 100,
+            "type": "string"
+          },
+          "password": {
+            "description": "15+ Unicode characters, no composition rule, max 1024 UTF-8 bytes",
+            "format": "password",
+            "minLength": 15,
+            "type": "string"
+          }
+        },
+        "required": [
+          "first_name",
+          "last_name",
+          "email",
+          "password",
+          "intent",
+          "accepted_terms_version",
+          "accepted_privacy_version"
+        ],
+        "type": "object"
+      },
+      "PharmacySignupRequest": {
+        "additionalProperties": false,
+        "description": "pharmacy registration. The server derives the organization type from intent.",
+        "properties": {
+          "accepted_privacy_version": {
+            "description": "Use privacy.version from GET /api/auth/registration/bootstrap; the current value can change.",
+            "type": "string"
+          },
+          "accepted_terms_version": {
+            "description": "Use terms.version from GET /api/auth/registration/bootstrap; the current value can change.",
+            "type": "string"
+          },
+          "email": {
+            "example": "person@example.com",
+            "format": "email",
+            "type": "string"
+          },
+          "first_name": {
+            "example": "Example",
+            "maxLength": 100,
+            "type": "string"
+          },
+          "intent": {
+            "enum": [
+              "pharmacy"
+            ],
+            "type": "string"
+          },
+          "last_name": {
+            "example": "Person",
+            "maxLength": 100,
+            "type": "string"
+          },
+          "organization": {
+            "$ref": "#/components/schemas/OrganizationRegistrationDto"
+          },
+          "password": {
+            "description": "15+ Unicode characters, no composition rule, max 1024 UTF-8 bytes",
+            "format": "password",
+            "minLength": 15,
+            "type": "string"
+          }
+        },
+        "required": [
+          "first_name",
+          "last_name",
+          "email",
+          "password",
+          "intent",
+          "accepted_terms_version",
+          "accepted_privacy_version",
+          "organization"
         ],
         "type": "object"
       },
@@ -3927,6 +4319,57 @@
         ],
         "type": "object"
       },
+      "ProfessionalSignupRequest": {
+        "additionalProperties": false,
+        "description": "Independent professional signup. Organization membership is acquired later.",
+        "properties": {
+          "accepted_privacy_version": {
+            "description": "Use privacy.version from GET /api/auth/registration/bootstrap; the current value can change.",
+            "type": "string"
+          },
+          "accepted_terms_version": {
+            "description": "Use terms.version from GET /api/auth/registration/bootstrap; the current value can change.",
+            "type": "string"
+          },
+          "email": {
+            "example": "person@example.com",
+            "format": "email",
+            "type": "string"
+          },
+          "first_name": {
+            "example": "Example",
+            "maxLength": 100,
+            "type": "string"
+          },
+          "intent": {
+            "enum": [
+              "healthcare_professional"
+            ],
+            "type": "string"
+          },
+          "last_name": {
+            "example": "Person",
+            "maxLength": 100,
+            "type": "string"
+          },
+          "password": {
+            "description": "15+ Unicode characters, no composition rule, max 1024 UTF-8 bytes",
+            "format": "password",
+            "minLength": 15,
+            "type": "string"
+          }
+        },
+        "required": [
+          "first_name",
+          "last_name",
+          "email",
+          "password",
+          "intent",
+          "accepted_terms_version",
+          "accepted_privacy_version"
+        ],
+        "type": "object"
+      },
       "ProfessionalVerificationDocumentDownloadDto": {
         "properties": {
           "expires_in_seconds": {
@@ -4667,11 +5110,42 @@
         ],
         "type": "object"
       },
+      "RecentOAuthEmailChangeRequest": {
+        "additionalProperties": false,
+        "description": "Passwordless Google account; session must have been created within the last ten minutes.",
+        "properties": {
+          "candidate_email": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_email"
+        ],
+        "type": "object"
+      },
+      "RecentOAuthMfaEmailChangeRequest": {
+        "additionalProperties": false,
+        "description": "Passwordless Google account; session must have been created within the last ten minutes.",
+        "properties": {
+          "candidate_email": {
+            "type": "string"
+          },
+          "mfa_code": {
+            "description": "Required when MFA is enabled",
+            "pattern": "^\\d{6}$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_email",
+          "mfa_code"
+        ],
+        "type": "object"
+      },
       "RefreshTokenDto": {
         "properties": {
           "refresh_token": {
             "description": "Opaque refresh credential",
-            "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
             "pattern": "^[A-Za-z0-9_-]{43}$",
             "type": "string"
           }
@@ -4685,7 +5159,6 @@
         "properties": {
           "access_token": {
             "description": "JWT access token with 15 minutes expiration",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
             "type": "string"
           },
           "account_context": {
@@ -4697,35 +5170,26 @@
             "description": "Server-resolved account, persona, membership, verification, and capability context"
           },
           "message": {
-            "example": "Token refresh successful",
-            "nullable": true,
+            "example": "token refresh successful",
             "type": "string"
           },
           "refresh_token": {
             "description": "Opaque, rotating refresh credential",
-            "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
             "type": "string"
           },
           "session_expires_at": {
-            "example": "2024-01-15T10:30:00Z",
             "format": "date-time",
             "type": "string"
           },
           "session_id": {
             "example": "550e8400-e29b-41d4-a716-446655440000",
             "type": "string"
-          },
-          "status_code": {
-            "example": 200,
-            "nullable": true,
-            "type": "number"
           }
         },
         "required": [
           "access_token",
           "refresh_token",
           "account_context",
-          "status_code",
           "message",
           "session_id",
           "session_expires_at"
@@ -4736,7 +5200,6 @@
         "properties": {
           "access_token": {
             "description": "JWT access token with 15 minutes expiration",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
             "type": "string"
           },
           "account_context": {
@@ -4749,11 +5212,9 @@
           },
           "refresh_token": {
             "description": "Opaque, rotating refresh credential",
-            "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
             "type": "string"
           },
           "session_expires_at": {
-            "example": "2024-01-15T10:30:00Z",
             "format": "date-time",
             "type": "string"
           },
@@ -4768,58 +5229,6 @@
           "account_context",
           "session_id",
           "session_expires_at"
-        ],
-        "type": "object"
-      },
-      "RegisterAccountDto": {
-        "properties": {
-          "accepted_privacy_version": {
-            "example": "2026-08-01",
-            "type": "string"
-          },
-          "accepted_terms_version": {
-            "example": "2026-08-01",
-            "type": "string"
-          },
-          "email": {
-            "example": "ada@example.com",
-            "format": "email",
-            "type": "string"
-          },
-          "first_name": {
-            "example": "Ada",
-            "type": "string"
-          },
-          "intent": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/SignupIntent"
-              }
-            ],
-            "description": "Closed self-service account type that determines persona or organization type."
-          },
-          "last_name": {
-            "example": "Okafor",
-            "type": "string"
-          },
-          "organization": {
-            "$ref": "#/components/schemas/OrganizationRegistrationDto"
-          },
-          "password": {
-            "description": "15+ Unicode characters, no composition rule, max 1024 UTF-8 bytes",
-            "format": "password",
-            "minLength": 15,
-            "type": "string"
-          }
-        },
-        "required": [
-          "first_name",
-          "last_name",
-          "email",
-          "password",
-          "intent",
-          "accepted_terms_version",
-          "accepted_privacy_version"
         ],
         "type": "object"
       },
@@ -4876,7 +5285,7 @@
             ]
           },
           "version": {
-            "example": "2026-08-01",
+            "description": "Current configured legal-document version. Copy this value into the matching signup or OAuth signup field.",
             "type": "string"
           }
         },
@@ -5298,53 +5707,6 @@
         ],
         "type": "object"
       },
-      "StartGoogleOAuthDto": {
-        "properties": {
-          "accepted_privacy_version": {
-            "maxLength": 50,
-            "type": "string"
-          },
-          "accepted_terms_version": {
-            "maxLength": 50,
-            "type": "string"
-          },
-          "audience": {
-            "description": "Exact Google OAuth client ID used by this client",
-            "type": "string"
-          },
-          "consumer": {
-            "enum": [
-              "web",
-              "mobile"
-            ],
-            "type": "string"
-          },
-          "intent": {
-            "enum": [
-              "patient",
-              "healthcare_professional",
-              "pharmacy",
-              "laboratory",
-              "hospital"
-            ],
-            "type": "string"
-          },
-          "operation": {
-            "enum": [
-              "signup",
-              "signin",
-              "link"
-            ],
-            "type": "string"
-          }
-        },
-        "required": [
-          "operation",
-          "consumer",
-          "audience"
-        ],
-        "type": "object"
-      },
       "UpdateLaboratoryTestDto": {
         "properties": {
           "is_active": {
@@ -5627,7 +5989,6 @@
         "properties": {
           "access_token": {
             "description": "JWT access token with 15 minutes expiration",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
             "type": "string"
           },
           "account_context": {
@@ -5640,36 +6001,25 @@
           },
           "message": {
             "example": "account verified",
-            "nullable": true,
             "type": "string"
           },
           "refresh_token": {
             "description": "Opaque, rotating refresh credential",
-            "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
             "type": "string"
           },
           "session_expires_at": {
-            "example": "2024-01-15T10:30:00Z",
             "format": "date-time",
-            "nullable": true,
             "type": "string"
           },
           "session_id": {
             "example": "550e8400-e29b-41d4-a716-446655440000",
-            "nullable": true,
             "type": "string"
-          },
-          "status_code": {
-            "example": 200,
-            "nullable": true,
-            "type": "number"
           }
         },
         "required": [
           "access_token",
           "refresh_token",
           "account_context",
-          "status_code",
           "message",
           "session_id",
           "session_expires_at"
@@ -5680,7 +6030,6 @@
         "properties": {
           "access_token": {
             "description": "JWT access token with 15 minutes expiration",
-            "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
             "type": "string"
           },
           "account_context": {
@@ -5693,18 +6042,14 @@
           },
           "refresh_token": {
             "description": "Opaque, rotating refresh credential",
-            "example": "4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA",
             "type": "string"
           },
           "session_expires_at": {
-            "example": "2024-01-15T10:30:00Z",
             "format": "date-time",
-            "nullable": true,
             "type": "string"
           },
           "session_id": {
             "example": "550e8400-e29b-41d4-a716-446655440000",
-            "nullable": true,
             "type": "string"
           }
         },
@@ -5849,8 +6194,11 @@
                     {
                       "properties": {
                         "data": {
+                          "additionalProperties": false,
                           "example": null,
-                          "nullable": true
+                          "nullable": true,
+                          "properties": {},
+                          "type": "object"
                         }
                       },
                       "required": [
@@ -5923,11 +6271,36 @@
         "requestBody": {
           "content": {
             "application/json": {
+              "examples": {
+                "firstEnrollment": {
+                  "description": "Replace the illustrative password with the current password.",
+                  "summary": "First MFA enrollment",
+                  "value": {
+                    "password": "Synthetic example passphrase 2026!"
+                  }
+                },
+                "reenrollment": {
+                  "description": "Replace both illustrative proofs with current credentials.",
+                  "summary": "Re-enroll an active MFA factor",
+                  "value": {
+                    "current_code": "000000",
+                    "password": "Synthetic example passphrase 2026!"
+                  }
+                }
+              },
               "schema": {
-                "$ref": "#/components/schemas/BeginMfaDto"
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/FirstMfaEnrollmentRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/MfaReenrollmentRequest"
+                  }
+                ]
               }
             }
           },
+          "description": "First enrollment requires the current password. Re-enrollment of an active factor also requires current_code, a fresh six-digit TOTP code. Recovery codes are accepted only for login MFA continuation.",
           "required": true
         },
         "responses": {
@@ -6085,6 +6458,15 @@
         "operationId": "BrowserSessionController_verifyMfaLogin",
         "parameters": [
           {
+            "description": "Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually.",
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "in": "header",
             "name": "X-OHealth-Client",
             "required": true,
@@ -6136,11 +6518,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
-            "description": "Challenge or request is invalid"
+            "description": "Malformed or forbidden browser credential transport\n\nChallenge or request is invalid"
           },
           "403": {
             "content": {
@@ -6152,6 +6552,16 @@
             },
             "description": "Origin or browser header rejected"
           },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "A browser request with a body must use application/json"
+          },
           "500": {
             "content": {
               "application/json": {
@@ -6161,6 +6571,16 @@
               }
             },
             "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Browser session transport is disabled"
           }
         },
         "summary": "Verify MFA and issue a browser session",
@@ -6173,6 +6593,15 @@
       "post": {
         "operationId": "BrowserSessionController_verifyLogin",
         "parameters": [
+          {
+            "description": "Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually.",
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "in": "header",
             "name": "X-OHealth-Client",
@@ -6199,6 +6628,66 @@
           "200": {
             "content": {
               "application/json": {
+                "examples": {
+                  "mfa": {
+                    "summary": "Continue with MFA; no refresh cookie",
+                    "value": {
+                      "data": {
+                        "expires_in_seconds": 600,
+                        "mfa_challenge_id": "550e8400-e29b-41d4-a716-446655440000"
+                      },
+                      "message": "MFA verification required.",
+                      "status_code": 200
+                    }
+                  },
+                  "session": {
+                    "summary": "Browser session issued; refresh credential in Set-Cookie",
+                    "value": {
+                      "data": {
+                        "access_token": "ACCESS_TOKEN_PLACEHOLDER",
+                        "account_context": {
+                          "account": {
+                            "created_at": "2026-01-01T00:00:00.000Z",
+                            "email": "person@example.com",
+                            "email_verified": true,
+                            "first_name": "Example",
+                            "id": "550e8400-e29b-41d4-a716-446655440000",
+                            "last_name": "Person",
+                            "profile": {
+                              "country": null,
+                              "dob": null,
+                              "gender": null,
+                              "image": null,
+                              "middle_name": null,
+                              "phone": null,
+                              "updated_at": "2026-01-01T00:00:00.000Z"
+                            },
+                            "status": "active"
+                          },
+                          "active_organization_id": null,
+                          "capabilities": [],
+                          "memberships": [],
+                          "personas": [
+                            {
+                              "is_active": true,
+                              "type": "patient"
+                            }
+                          ],
+                          "professional": null,
+                          "session": {
+                            "expires_at": "2030-01-01T00:00:00.000Z",
+                            "id": "550e8400-e29b-41d4-a716-446655440000",
+                            "last_used_at": null
+                          }
+                        },
+                        "session_expires_at": "2030-01-01T00:00:00.000Z",
+                        "session_id": "550e8400-e29b-41d4-a716-446655440000"
+                      },
+                      "message": "login success",
+                      "status_code": 200
+                    }
+                  }
+                },
                 "schema": {
                   "allOf": [
                     {
@@ -6209,10 +6698,10 @@
                         "data": {
                           "oneOf": [
                             {
-                              "$ref": "#/components/schemas/BrowserSessionResponseDto"
+                              "$ref": "#/components/schemas/BrowserSessionResponseDtoData"
                             },
                             {
-                              "$ref": "#/components/schemas/MfaChallengeResponseDto"
+                              "$ref": "#/components/schemas/MfaChallengeResponseDtoData"
                             }
                           ]
                         }
@@ -6232,11 +6721,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
-            "description": ""
+            "description": "Malformed or forbidden browser credential transport"
           },
           "403": {
             "content": {
@@ -6248,6 +6755,16 @@
             },
             "description": "Origin or browser header rejected"
           },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "A browser request with a body must use application/json"
+          },
           "500": {
             "content": {
               "application/json": {
@@ -6257,6 +6774,16 @@
               }
             },
             "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Browser session transport is disabled"
           }
         },
         "summary": "Verify a login code and continue with MFA when required",
@@ -6267,8 +6794,18 @@
     },
     "/api/auth/browser/logout": {
       "post": {
+        "description": "Send the backend-managed HttpOnly refresh cookie with credentials and no body or an empty JSON object. The response clears the cookie. Bearer, query, and body refresh credentials are rejected.",
         "operationId": "BrowserSessionController_logout",
         "parameters": [
+          {
+            "description": "Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually.",
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "in": "header",
             "name": "X-OHealth-Client",
@@ -6293,8 +6830,11 @@
                     {
                       "properties": {
                         "data": {
+                          "additionalProperties": false,
                           "example": null,
-                          "nullable": true
+                          "nullable": true,
+                          "properties": {},
+                          "type": "object"
                         }
                       },
                       "required": [
@@ -6307,6 +6847,16 @@
               }
             },
             "description": "Browser session revoked"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Malformed or forbidden browser credential transport"
           },
           "401": {
             "content": {
@@ -6328,6 +6878,16 @@
             },
             "description": "Origin or browser header rejected"
           },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "A browser request with a body must use application/json"
+          },
           "500": {
             "content": {
               "application/json": {
@@ -6337,6 +6897,16 @@
               }
             },
             "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Browser session transport is disabled"
           }
         },
         "security": [
@@ -6355,6 +6925,15 @@
         "description": "Completes only transactions bound to the web consumer. Session credentials are written to the browser cookie and never returned in JSON.",
         "operationId": "BrowserSessionController_completeGoogle",
         "parameters": [
+          {
+            "description": "Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually.",
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "in": "header",
             "name": "X-OHealth-Client",
@@ -6381,6 +6960,74 @@
           "200": {
             "content": {
               "application/json": {
+                "examples": {
+                  "link": {
+                    "summary": "Google authenticator linked; no new session",
+                    "value": {
+                      "data": null,
+                      "message": "Google identity linked.",
+                      "status_code": 200
+                    }
+                  },
+                  "mfa": {
+                    "summary": "Continue with MFA; no refresh cookie",
+                    "value": {
+                      "data": {
+                        "expires_in_seconds": 600,
+                        "mfa_challenge_id": "550e8400-e29b-41d4-a716-446655440000"
+                      },
+                      "message": "MFA verification required.",
+                      "status_code": 200
+                    }
+                  },
+                  "session": {
+                    "summary": "Browser session issued; refresh credential in Set-Cookie",
+                    "value": {
+                      "data": {
+                        "access_token": "ACCESS_TOKEN_PLACEHOLDER",
+                        "account_context": {
+                          "account": {
+                            "created_at": "2026-01-01T00:00:00.000Z",
+                            "email": "person@example.com",
+                            "email_verified": true,
+                            "first_name": "Example",
+                            "id": "550e8400-e29b-41d4-a716-446655440000",
+                            "last_name": "Person",
+                            "profile": {
+                              "country": null,
+                              "dob": null,
+                              "gender": null,
+                              "image": null,
+                              "middle_name": null,
+                              "phone": null,
+                              "updated_at": "2026-01-01T00:00:00.000Z"
+                            },
+                            "status": "active"
+                          },
+                          "active_organization_id": null,
+                          "capabilities": [],
+                          "memberships": [],
+                          "personas": [
+                            {
+                              "is_active": true,
+                              "type": "patient"
+                            }
+                          ],
+                          "professional": null,
+                          "session": {
+                            "expires_at": "2030-01-01T00:00:00.000Z",
+                            "id": "550e8400-e29b-41d4-a716-446655440000",
+                            "last_used_at": null
+                          }
+                        },
+                        "session_expires_at": "2030-01-01T00:00:00.000Z",
+                        "session_id": "550e8400-e29b-41d4-a716-446655440000"
+                      },
+                      "message": "Login successful",
+                      "status_code": 200
+                    }
+                  }
+                },
                 "schema": {
                   "allOf": [
                     {
@@ -6391,13 +7038,17 @@
                         "data": {
                           "oneOf": [
                             {
-                              "$ref": "#/components/schemas/BrowserSessionResponseDto"
+                              "$ref": "#/components/schemas/BrowserSessionResponseDtoData"
                             },
                             {
-                              "$ref": "#/components/schemas/ApiMessageResponseDto"
+                              "additionalProperties": false,
+                              "example": null,
+                              "nullable": true,
+                              "properties": {},
+                              "type": "object"
                             },
                             {
-                              "$ref": "#/components/schemas/MfaChallengeResponseDto"
+                              "$ref": "#/components/schemas/MfaChallengeResponseDtoData"
                             }
                           ]
                         }
@@ -6416,6 +7067,21 @@
           "202": {
             "content": {
               "application/json": {
+                "examples": {
+                  "contact": {
+                    "summary": "Continue with contact verification",
+                    "value": {
+                      "data": {
+                        "challenge_id": "550e8400-e29b-41d4-a716-446655440000",
+                        "error_code": "OAUTH_CONTACT_VERIFICATION_REQUIRED",
+                        "expires_in_seconds": 600,
+                        "resend_after_seconds": 60
+                      },
+                      "message": "Contact verification required.",
+                      "status_code": 202
+                    }
+                  }
+                },
                 "schema": {
                   "allOf": [
                     {
@@ -6442,11 +7108,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
-            "description": ""
+            "description": "Malformed or forbidden browser credential transport"
           },
           "401": {
             "content": {
@@ -6478,6 +7162,16 @@
             },
             "description": ""
           },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "A browser request with a body must use application/json"
+          },
           "429": {
             "content": {
               "application/json": {
@@ -6506,7 +7200,7 @@
                 }
               }
             },
-            "description": ""
+            "description": "Browser session transport is disabled"
           }
         },
         "summary": "Complete a web Google OAuth transaction",
@@ -6517,8 +7211,18 @@
     },
     "/api/auth/browser/refresh": {
       "post": {
+        "description": "Send the backend-managed HttpOnly refresh cookie with credentials. Do not send a bearer token, query parameter, or JSON refresh credential. The response contains an access token but no refresh token; rotation is returned in Set-Cookie.",
         "operationId": "BrowserSessionController_refresh",
         "parameters": [
+          {
+            "description": "Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually.",
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "in": "header",
             "name": "X-OHealth-Client",
@@ -6557,6 +7261,16 @@
             },
             "description": ""
           },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Malformed or forbidden browser credential transport"
+          },
           "401": {
             "content": {
               "application/json": {
@@ -6577,6 +7291,16 @@
             },
             "description": "Origin or browser header rejected"
           },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "A browser request with a body must use application/json"
+          },
           "500": {
             "content": {
               "application/json": {
@@ -6586,6 +7310,16 @@
               }
             },
             "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Browser session transport is disabled"
           }
         },
         "security": [
@@ -6603,6 +7337,15 @@
       "post": {
         "operationId": "BrowserSessionController_verifySignup",
         "parameters": [
+          {
+            "description": "Required on the HTTP request and set automatically by browsers. It must be an exact configured allowed web origin; null and wildcard origins are rejected. Browser JavaScript cannot set this header manually.",
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
           {
             "in": "header",
             "name": "X-OHealth-Client",
@@ -6655,11 +7398,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
-            "description": "Challenge or request is invalid"
+            "description": "Malformed or forbidden browser credential transport\n\nChallenge or request is invalid"
           },
           "403": {
             "content": {
@@ -6671,6 +7432,16 @@
             },
             "description": "Origin or browser header rejected"
           },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "A browser request with a body must use application/json"
+          },
           "500": {
             "content": {
               "application/json": {
@@ -6680,6 +7451,16 @@
               }
             },
             "description": "Internal server error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                }
+              }
+            },
+            "description": "Browser session transport is disabled"
           }
         },
         "summary": "Verify contact ownership and issue a browser session",
@@ -6806,8 +7587,11 @@
                     {
                       "properties": {
                         "data": {
+                          "additionalProperties": false,
                           "example": null,
-                          "nullable": true
+                          "nullable": true,
+                          "properties": {},
+                          "type": "object"
                         }
                       },
                       "required": [
@@ -6912,7 +7696,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -7096,7 +7898,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -7163,7 +7983,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -7224,6 +8062,67 @@
           "200": {
             "content": {
               "application/json": {
+                "examples": {
+                  "mfa": {
+                    "summary": "Continue with MFA",
+                    "value": {
+                      "data": {
+                        "expires_in_seconds": 600,
+                        "mfa_challenge_id": "550e8400-e29b-41d4-a716-446655440000"
+                      },
+                      "message": "MFA verification required.",
+                      "status_code": 200
+                    }
+                  },
+                  "session": {
+                    "summary": "Mobile session issued",
+                    "value": {
+                      "data": {
+                        "access_token": "ACCESS_TOKEN_PLACEHOLDER",
+                        "account_context": {
+                          "account": {
+                            "created_at": "2026-01-01T00:00:00.000Z",
+                            "email": "person@example.com",
+                            "email_verified": true,
+                            "first_name": "Example",
+                            "id": "550e8400-e29b-41d4-a716-446655440000",
+                            "last_name": "Person",
+                            "profile": {
+                              "country": null,
+                              "dob": null,
+                              "gender": null,
+                              "image": null,
+                              "middle_name": null,
+                              "phone": null,
+                              "updated_at": "2026-01-01T00:00:00.000Z"
+                            },
+                            "status": "active"
+                          },
+                          "active_organization_id": null,
+                          "capabilities": [],
+                          "memberships": [],
+                          "personas": [
+                            {
+                              "is_active": true,
+                              "type": "patient"
+                            }
+                          ],
+                          "professional": null,
+                          "session": {
+                            "expires_at": "2030-01-01T00:00:00.000Z",
+                            "id": "550e8400-e29b-41d4-a716-446655440000",
+                            "last_used_at": null
+                          }
+                        },
+                        "refresh_token": "REFRESH_TOKEN_PLACEHOLDER",
+                        "session_expires_at": "2030-01-01T00:00:00.000Z",
+                        "session_id": "550e8400-e29b-41d4-a716-446655440000"
+                      },
+                      "message": "login success",
+                      "status_code": 200
+                    }
+                  }
+                },
                 "schema": {
                   "allOf": [
                     {
@@ -7234,10 +8133,10 @@
                         "data": {
                           "oneOf": [
                             {
-                              "$ref": "#/components/schemas/LoginResponseDto"
+                              "$ref": "#/components/schemas/LoginResponseDtoData"
                             },
                             {
-                              "$ref": "#/components/schemas/MfaChallengeResponseDto"
+                              "$ref": "#/components/schemas/MfaChallengeResponseDtoData"
                             }
                           ]
                         }
@@ -7257,7 +8156,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -7306,8 +8223,11 @@
                     {
                       "properties": {
                         "data": {
+                          "additionalProperties": false,
                           "example": null,
-                          "nullable": true
+                          "nullable": true,
+                          "properties": {},
+                          "type": "object"
                         }
                       },
                       "required": [
@@ -7549,7 +8469,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -7614,11 +8552,59 @@
         "requestBody": {
           "content": {
             "application/json": {
+              "examples": {
+                "PasswordEmailChangeRequest": {
+                  "description": "Replace any proof with the current authenticator before sending.",
+                  "summary": "PasswordEmailChange",
+                  "value": {
+                    "candidate_email": "new-address@example.com",
+                    "current_password": "Synthetic example passphrase 2026!"
+                  }
+                },
+                "PasswordMfaEmailChangeRequest": {
+                  "description": "Replace any proof with the current authenticator before sending.",
+                  "summary": "PasswordMfaEmailChange",
+                  "value": {
+                    "candidate_email": "new-address@example.com",
+                    "current_password": "Synthetic example passphrase 2026!",
+                    "mfa_code": "000000"
+                  }
+                },
+                "RecentOAuthEmailChangeRequest": {
+                  "description": "Replace any proof with the current authenticator before sending.",
+                  "summary": "RecentOAuthEmailChange",
+                  "value": {
+                    "candidate_email": "new-address@example.com"
+                  }
+                },
+                "RecentOAuthMfaEmailChangeRequest": {
+                  "description": "Replace any proof with the current authenticator before sending.",
+                  "summary": "RecentOAuthMfaEmailChange",
+                  "value": {
+                    "candidate_email": "new-address@example.com",
+                    "mfa_code": "000000"
+                  }
+                }
+              },
               "schema": {
-                "$ref": "#/components/schemas/BeginEmailChangeDto"
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PasswordEmailChangeRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PasswordMfaEmailChangeRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RecentOAuthEmailChangeRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/RecentOAuthMfaEmailChangeRequest"
+                  }
+                ]
               }
             }
           },
+          "description": "Password-enabled accounts require current_password. Passwordless Google accounts require a session created within ten minutes. When MFA is enabled, mfa_code is additionally required and accepts a six-digit TOTP code. Confirmation revokes all sessions.",
           "required": true
         },
         "responses": {
@@ -7651,7 +8637,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -7661,11 +8665,29 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/EmailChangeStepUpErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
-            "description": ""
+            "description": "Missing or invalid session, failed reauthentication, or missing/invalid MFA proof"
           },
           "403": {
             "content": {
@@ -7763,7 +8785,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -8214,6 +9254,67 @@
           "200": {
             "content": {
               "application/json": {
+                "examples": {
+                  "mfa": {
+                    "summary": "Continue with MFA",
+                    "value": {
+                      "data": {
+                        "expires_in_seconds": 600,
+                        "mfa_challenge_id": "550e8400-e29b-41d4-a716-446655440000"
+                      },
+                      "message": "MFA verification required.",
+                      "status_code": 200
+                    }
+                  },
+                  "session": {
+                    "summary": "Mobile session issued",
+                    "value": {
+                      "data": {
+                        "access_token": "ACCESS_TOKEN_PLACEHOLDER",
+                        "account_context": {
+                          "account": {
+                            "created_at": "2026-01-01T00:00:00.000Z",
+                            "email": "person@example.com",
+                            "email_verified": true,
+                            "first_name": "Example",
+                            "id": "550e8400-e29b-41d4-a716-446655440000",
+                            "last_name": "Person",
+                            "profile": {
+                              "country": null,
+                              "dob": null,
+                              "gender": null,
+                              "image": null,
+                              "middle_name": null,
+                              "phone": null,
+                              "updated_at": "2026-01-01T00:00:00.000Z"
+                            },
+                            "status": "active"
+                          },
+                          "active_organization_id": null,
+                          "capabilities": [],
+                          "memberships": [],
+                          "personas": [
+                            {
+                              "is_active": true,
+                              "type": "patient"
+                            }
+                          ],
+                          "professional": null,
+                          "session": {
+                            "expires_at": "2030-01-01T00:00:00.000Z",
+                            "id": "550e8400-e29b-41d4-a716-446655440000",
+                            "last_used_at": null
+                          }
+                        },
+                        "refresh_token": "REFRESH_TOKEN_PLACEHOLDER",
+                        "session_expires_at": "2030-01-01T00:00:00.000Z",
+                        "session_id": "550e8400-e29b-41d4-a716-446655440000"
+                      },
+                      "message": "Login successful",
+                      "status_code": 200
+                    }
+                  }
+                },
                 "schema": {
                   "allOf": [
                     {
@@ -8224,10 +9325,10 @@
                         "data": {
                           "oneOf": [
                             {
-                              "$ref": "#/components/schemas/LoginResponseDto"
+                              "$ref": "#/components/schemas/LoginResponseDtoData"
                             },
                             {
-                              "$ref": "#/components/schemas/MfaChallengeResponseDto"
+                              "$ref": "#/components/schemas/MfaChallengeResponseDtoData"
                             }
                           ]
                         }
@@ -8246,6 +9347,21 @@
           "202": {
             "content": {
               "application/json": {
+                "examples": {
+                  "contact": {
+                    "summary": "Continue with contact verification",
+                    "value": {
+                      "data": {
+                        "challenge_id": "550e8400-e29b-41d4-a716-446655440000",
+                        "error_code": "OAUTH_CONTACT_VERIFICATION_REQUIRED",
+                        "expires_in_seconds": 600,
+                        "resend_after_seconds": 60
+                      },
+                      "message": "Contact verification required.",
+                      "status_code": 202
+                    }
+                  }
+                },
                 "schema": {
                   "allOf": [
                     {
@@ -8272,7 +9388,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -8351,8 +9485,11 @@
                     {
                       "properties": {
                         "data": {
+                          "additionalProperties": false,
                           "example": null,
-                          "nullable": true
+                          "nullable": true,
+                          "properties": {},
+                          "type": "object"
                         }
                       },
                       "required": [
@@ -8507,11 +9644,90 @@
         "requestBody": {
           "content": {
             "application/json": {
+              "examples": {
+                "healthcare_professional-mobile": {
+                  "description": "Versions are the current terms.version and privacy.version from GET /api/auth/registration/bootstrap for this server.",
+                  "summary": "Google healthcare_professional signup (mobile)",
+                  "value": {
+                    "accepted_privacy_version": "privacy-v1",
+                    "accepted_terms_version": "terms-v1",
+                    "audience": "mobile-audience.test",
+                    "consumer": "mobile",
+                    "intent": "healthcare_professional",
+                    "operation": "signup"
+                  }
+                },
+                "healthcare_professional-web": {
+                  "description": "Versions are the current terms.version and privacy.version from GET /api/auth/registration/bootstrap for this server.",
+                  "summary": "Google healthcare_professional signup (web)",
+                  "value": {
+                    "accepted_privacy_version": "privacy-v1",
+                    "accepted_terms_version": "terms-v1",
+                    "audience": "web-audience.test",
+                    "consumer": "web",
+                    "intent": "healthcare_professional",
+                    "operation": "signup"
+                  }
+                },
+                "patient-mobile": {
+                  "description": "Versions are the current terms.version and privacy.version from GET /api/auth/registration/bootstrap for this server.",
+                  "summary": "Google patient signup (mobile)",
+                  "value": {
+                    "accepted_privacy_version": "privacy-v1",
+                    "accepted_terms_version": "terms-v1",
+                    "audience": "mobile-audience.test",
+                    "consumer": "mobile",
+                    "intent": "patient",
+                    "operation": "signup"
+                  }
+                },
+                "patient-web": {
+                  "description": "Versions are the current terms.version and privacy.version from GET /api/auth/registration/bootstrap for this server.",
+                  "summary": "Google patient signup (web)",
+                  "value": {
+                    "accepted_privacy_version": "privacy-v1",
+                    "accepted_terms_version": "terms-v1",
+                    "audience": "web-audience.test",
+                    "consumer": "web",
+                    "intent": "patient",
+                    "operation": "signup"
+                  }
+                },
+                "signin-mobile": {
+                  "description": "Audience is a configured Google client ID for this server.",
+                  "summary": "Google sign-in (mobile)",
+                  "value": {
+                    "audience": "mobile-audience.test",
+                    "consumer": "mobile",
+                    "operation": "signin"
+                  }
+                },
+                "signin-web": {
+                  "description": "Audience is a configured Google client ID for this server.",
+                  "summary": "Google sign-in (web)",
+                  "value": {
+                    "audience": "web-audience.test",
+                    "consumer": "web",
+                    "operation": "signin"
+                  }
+                }
+              },
               "schema": {
-                "$ref": "#/components/schemas/StartGoogleOAuthDto"
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/GoogleSignInTransactionRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/GooglePatientSignupTransactionRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/GoogleProfessionalSignupTransactionRequest"
+                  }
+                ]
               }
             }
           },
+          "description": "Start sign-in or patient/professional signup only. Use the authenticated /api/auth/oauth/google/link/transactions endpoint for linking. Signup legal versions must come from GET /api/auth/registration/bootstrap; sign-in forbids intent and legal versions.",
           "required": true
         },
         "responses": {
@@ -8544,6 +9760,34 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": ""
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
                   "$ref": "#/components/schemas/OAuthErrorResponseDto"
                 }
               }
@@ -8559,6 +9803,16 @@
               }
             },
             "description": ""
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OAuthErrorResponseDto"
+                }
+              }
+            },
+            "description": "Google signup supports only patient and healthcare professional intents"
           },
           "429": {
             "content": {
@@ -8599,6 +9853,7 @@
     },
     "/api/auth/refresh": {
       "post": {
+        "description": "Mobile clients send refresh_token in the request JSON and receive the rotated refresh_token in response JSON. Browser clients use /api/auth/browser/refresh and keep the refresh credential in an HttpOnly cookie.",
         "operationId": "AuthController_refreshToken",
         "parameters": [],
         "requestBody": {
@@ -8668,7 +9923,7 @@
             "description": "Internal server error"
           }
         },
-        "summary": "Refresh access token using refresh token",
+        "summary": "Refresh a mobile session using a JSON refresh credential",
         "tags": [
           "Authentication"
         ]
@@ -8747,8 +10002,11 @@
                     {
                       "properties": {
                         "data": {
+                          "additionalProperties": false,
                           "example": null,
-                          "nullable": true
+                          "nullable": true,
+                          "properties": {},
+                          "type": "object"
                         }
                       },
                       "required": [
@@ -8766,7 +10024,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -8880,8 +10156,11 @@
                     {
                       "properties": {
                         "data": {
+                          "additionalProperties": false,
                           "example": null,
-                          "nullable": true
+                          "nullable": true,
+                          "properties": {},
+                          "type": "object"
                         }
                       },
                       "required": [
@@ -8953,8 +10232,11 @@
                     {
                       "properties": {
                         "data": {
+                          "additionalProperties": false,
                           "example": null,
-                          "nullable": true
+                          "nullable": true,
+                          "properties": {},
+                          "type": "object"
                         }
                       },
                       "required": [
@@ -9018,11 +10300,113 @@
         "requestBody": {
           "content": {
             "application/json": {
+              "examples": {
+                "healthcare_professional": {
+                  "description": "Versions are the current terms.version and privacy.version from GET /api/auth/registration/bootstrap for this server.",
+                  "summary": "healthcare_professional signup",
+                  "value": {
+                    "accepted_privacy_version": "privacy-v1",
+                    "accepted_terms_version": "terms-v1",
+                    "email": "example-healthcare_professional@example.com",
+                    "first_name": "Example",
+                    "intent": "healthcare_professional",
+                    "last_name": "Person",
+                    "password": "Synthetic example passphrase 2026!"
+                  }
+                },
+                "hospital": {
+                  "description": "Versions are the current terms.version and privacy.version from GET /api/auth/registration/bootstrap for this server.",
+                  "summary": "hospital signup",
+                  "value": {
+                    "accepted_privacy_version": "privacy-v1",
+                    "accepted_terms_version": "terms-v1",
+                    "email": "example-hospital@example.com",
+                    "first_name": "Example",
+                    "intent": "hospital",
+                    "last_name": "Person",
+                    "organization": {
+                      "contact_email": "organization@example.com",
+                      "location": "Example location",
+                      "name": "Example Organization",
+                      "registration_number": "EXAMPLE-hospital"
+                    },
+                    "password": "Synthetic example passphrase 2026!"
+                  }
+                },
+                "laboratory": {
+                  "description": "Versions are the current terms.version and privacy.version from GET /api/auth/registration/bootstrap for this server.",
+                  "summary": "laboratory signup",
+                  "value": {
+                    "accepted_privacy_version": "privacy-v1",
+                    "accepted_terms_version": "terms-v1",
+                    "email": "example-laboratory@example.com",
+                    "first_name": "Example",
+                    "intent": "laboratory",
+                    "last_name": "Person",
+                    "organization": {
+                      "contact_email": "organization@example.com",
+                      "location": "Example location",
+                      "name": "Example Organization",
+                      "registration_number": "EXAMPLE-laboratory"
+                    },
+                    "password": "Synthetic example passphrase 2026!"
+                  }
+                },
+                "patient": {
+                  "description": "Versions are the current terms.version and privacy.version from GET /api/auth/registration/bootstrap for this server.",
+                  "summary": "patient signup",
+                  "value": {
+                    "accepted_privacy_version": "privacy-v1",
+                    "accepted_terms_version": "terms-v1",
+                    "email": "example-patient@example.com",
+                    "first_name": "Example",
+                    "intent": "patient",
+                    "last_name": "Person",
+                    "password": "Synthetic example passphrase 2026!"
+                  }
+                },
+                "pharmacy": {
+                  "description": "Versions are the current terms.version and privacy.version from GET /api/auth/registration/bootstrap for this server.",
+                  "summary": "pharmacy signup",
+                  "value": {
+                    "accepted_privacy_version": "privacy-v1",
+                    "accepted_terms_version": "terms-v1",
+                    "email": "example-pharmacy@example.com",
+                    "first_name": "Example",
+                    "intent": "pharmacy",
+                    "last_name": "Person",
+                    "organization": {
+                      "contact_email": "organization@example.com",
+                      "location": "Example location",
+                      "name": "Example Organization",
+                      "registration_number": "EXAMPLE-pharmacy"
+                    },
+                    "password": "Synthetic example passphrase 2026!"
+                  }
+                }
+              },
               "schema": {
-                "$ref": "#/components/schemas/RegisterAccountDto"
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PatientSignupRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ProfessionalSignupRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/HospitalSignupRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LaboratorySignupRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PharmacySignupRequest"
+                  }
+                ]
               }
             }
           },
+          "description": "Choose exactly one intent. Copy accepted_terms_version and accepted_privacy_version from GET /api/auth/registration/bootstrap immediately before signup. Persona signup forbids organization; organization signup requires it.",
           "required": true
         },
         "responses": {
@@ -9142,7 +10526,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -9209,7 +10611,25 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                  "oneOf": [
+                    {
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/ApiErrorResponseDto"
+                        },
+                        {
+                          "not": {
+                            "required": [
+                              "error_code"
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "$ref": "#/components/schemas/AuthChallengeErrorResponseDto"
+                    }
+                  ]
                 }
               }
             },
@@ -9910,8 +11330,11 @@
                     {
                       "properties": {
                         "data": {
+                          "additionalProperties": false,
                           "example": null,
-                          "nullable": true
+                          "nullable": true,
+                          "properties": {},
+                          "type": "object"
                         }
                       },
                       "required": [
@@ -12015,8 +13438,11 @@
                     {
                       "properties": {
                         "data": {
+                          "additionalProperties": false,
                           "example": null,
-                          "nullable": true
+                          "nullable": true,
+                          "properties": {},
+                          "type": "object"
                         }
                       },
                       "required": [
@@ -14402,8 +15828,11 @@
                     {
                       "properties": {
                         "data": {
+                          "additionalProperties": false,
                           "example": null,
-                          "nullable": true
+                          "nullable": true,
+                          "properties": {},
+                          "type": "object"
                         }
                       },
                       "required": [

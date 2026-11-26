@@ -45,7 +45,6 @@ export class ResetPasswordDto {
 }
 export class RefreshTokenDto {
   @ApiProperty({
-    example: '4s0Y1Vv7P4QkFQhp4nHq2dc6_bVdI0kQ6-1pMbx2YpA',
     description: 'Opaque refresh credential',
     pattern: '^[A-Za-z0-9_-]{43}$',
   })
@@ -74,8 +73,9 @@ export class VerifySignupDto {
 
 export class LogoutDto {
   @ApiProperty({
-    example: 'session-id-123',
-    description: 'session id',
+    format: 'uuid',
+    example: '550e8400-e29b-41d4-a716-446655440000',
+    description: 'Current session UUID',
   })
   @IsUUID()
   @IsNotEmpty()

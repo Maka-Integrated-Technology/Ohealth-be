@@ -15,7 +15,7 @@ export class BeginMfaDto {
   @MaxLength(1024)
   password: string;
 
-  @ApiPropertyOptional()
+  @ApiPropertyOptional({ pattern: '^\\d{6}$' })
   @IsOptional()
   @IsString()
   @Matches(/^\d{6}$/)
