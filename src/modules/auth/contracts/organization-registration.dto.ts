@@ -8,19 +8,19 @@ import {
 } from 'class-validator';
 
 export class OrganizationRegistrationDto {
-  @ApiProperty({ example: 'OHealth Diagnostics' })
+  @ApiProperty({ example: 'Example Organization', maxLength: 160 })
   @IsString()
   @IsNotEmpty()
   @MaxLength(160)
   name: string;
 
-  @ApiProperty({ example: 'RC-123456' })
+  @ApiProperty({ example: 'EXAMPLE-001', maxLength: 100 })
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
   registration_number: string;
 
-  @ApiProperty({ example: '12 Adeola Odeku Street, Lagos' })
+  @ApiProperty({ example: 'Example location', maxLength: 500 })
   @IsString()
   @IsNotEmpty()
   @MaxLength(500)
@@ -30,7 +30,7 @@ export class OrganizationRegistrationDto {
   @IsEmail()
   contact_email: string;
 
-  @ApiPropertyOptional({ example: '+2348012345678' })
+  @ApiPropertyOptional({ example: '+10000000000' })
   @IsOptional()
   @IsString()
   @MaxLength(32)

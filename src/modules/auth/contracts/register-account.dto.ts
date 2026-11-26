@@ -17,19 +17,19 @@ import { isSignupOrganizationDetails } from './is-signup-organization-details.de
 import { OrganizationRegistrationDto } from './organization-registration.dto';
 
 export class RegisterAccountDto {
-  @ApiProperty({ example: 'Ada' })
+  @ApiProperty({ example: 'Example', maxLength: 100 })
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
   first_name: string;
 
-  @ApiProperty({ example: 'Okafor' })
+  @ApiProperty({ example: 'Person', maxLength: 100 })
   @IsString()
   @IsNotEmpty()
   @MaxLength(100)
   last_name: string;
 
-  @ApiProperty({ format: 'email', example: 'ada@example.com' })
+  @ApiProperty({ format: 'email', example: 'person@example.com' })
   @IsEmail()
   email: string;
 
@@ -52,13 +52,19 @@ export class RegisterAccountDto {
   @IsEnum(SignupIntent)
   intent: SignupIntent;
 
-  @ApiProperty({ example: '2026-08-01' })
+  @ApiProperty({
+    description:
+      'Use terms.version from GET /api/auth/registration/bootstrap; the current value can change.',
+  })
   @IsString()
   @IsNotEmpty()
   @MaxLength(50)
   accepted_terms_version: string;
 
-  @ApiProperty({ example: '2026-08-01' })
+  @ApiProperty({
+    description:
+      'Use privacy.version from GET /api/auth/registration/bootstrap; the current value can change.',
+  })
   @IsString()
   @IsNotEmpty()
   @MaxLength(50)

@@ -62,6 +62,13 @@ export const createCoreClient = (config: ApiClientConfig): ApiCoreClient => {
       ...stringifyHeaderParameters(operationRequest.headerParameters),
       ...operationRequest.headers,
     };
+    if (descriptor.browserManagedOrigin) {
+      for (const name of Object.keys(headers)) {
+        if (name.toLowerCase() === 'origin') {
+          delete headers[name];
+        }
+      }
+    }
     const path = resolvePath(descriptor.path, operationRequest.path);
     const response = await config.transport({
       operationId: descriptor.operationId,

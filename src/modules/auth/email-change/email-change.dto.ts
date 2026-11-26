@@ -11,7 +11,7 @@ import {
 export class BeginEmailChangeDto {
   @ApiPropertyOptional({
     description:
-      'Required for password-enabled accounts; recent OAuth sessions can use their active authenticator',
+      'Required for password-enabled accounts; passwordless Google accounts instead require a recently created session',
   })
   @IsOptional()
   @IsString()
@@ -19,7 +19,10 @@ export class BeginEmailChangeDto {
   @MaxLength(1024)
   current_password?: string;
 
-  @ApiPropertyOptional({ description: 'Required when MFA is enabled' })
+  @ApiPropertyOptional({
+    description: 'Required when MFA is enabled',
+    pattern: '^\\d{6}$',
+  })
   @IsOptional()
   @IsString()
   @Matches(/^\d{6}$/)

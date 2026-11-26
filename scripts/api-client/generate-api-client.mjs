@@ -149,6 +149,11 @@ const mergeParameters = (contract, pathItem, operation) => {
 
 const requestShape = (contract, pathItem, operation, operationId) => {
   const parameters = mergeParameters(contract, pathItem, operation);
+  const originParameter = parameters.find(
+    (parameter) =>
+      parameter.in === 'header' && parameter.name.toLowerCase() === 'origin',
+  );
+  const browserManagedOrigin = originParameter !== undefined;
   const groups = [
     ['path', 'path'],
     ['query', 'query'],
@@ -160,7 +165,13 @@ const requestShape = (contract, pathItem, operation, operationId) => {
 
   for (const [location, fieldName] of groups) {
     const matchingParameters = parameters.filter(
-      (parameter) => parameter.in === location,
+      (parameter) =>
+        parameter.in === location &&
+        !(
+          location === 'header' &&
+          browserManagedOrigin &&
+          parameter.name.toLowerCase() === 'origin'
+        ),
     );
     if (matchingParameters.length === 0) {
       continue;
@@ -170,10 +181,9 @@ const requestShape = (contract, pathItem, operation, operationId) => {
       location === 'path' ||
       matchingParameters.some((parameter) => parameter.required === true);
     hasRequiredInput ||= required;
+    const parameterType = `NonNullable<${operationType(operationId)}["parameters"]${propertyAccess(location)}>`;
     fields.push(
-      `  readonly ${fieldName}${required ? '' : '?'}: NonNullable<${operationType(
-        operationId,
-      )}["parameters"]${propertyAccess(location)}>;`,
+      `  readonly ${fieldName}${required ? '' : '?'}: ${location === 'header' && browserManagedOrigin ? `Omit<${parameterType}, ${JSON.stringify(originParameter.name)}>` : parameterType};`,
     );
   }
 
@@ -201,6 +211,7 @@ const requestShape = (contract, pathItem, operation, operationId) => {
   fields.push('  readonly headers?: ApiHeaders;');
 
   return {
+    browserManagedOrigin,
     hasRequiredInput,
     requestMediaType,
     type: `Readonly<{\n${fields.join('\n')}\n}>`,
@@ -245,7 +256,10 @@ const collectOperations = (contract) => {
       const errorStatuses = statuses.filter(
         (status) => !successStatuses.includes(status),
       );
-      if (successStatuses.length === 0 && operationId !== 'AuthController_googleLogin') {
+      if (
+        successStatuses.length === 0 &&
+        operationId !== 'AuthController_googleLogin'
+      ) {
         fail(`${operationId} does not define a successful response`);
       }
 
@@ -314,6 +328,9 @@ export type ${operation.operationId}Error =
             operation.request.requestMediaType,
           )}`
         : '';
+      const browserManagedOrigin = operation.request.browserManagedOrigin
+        ? ',\n          browserManagedOrigin: true'
+        : '';
 
       return `    ${operation.operationId}: (${requestArgument}) =>
       core.request<
@@ -323,7 +340,7 @@ export type ${operation.operationId}Error =
         {
           operationId: ${JSON.stringify(operation.operationId)},
           method: ${JSON.stringify(operation.method)},
-          path: ${JSON.stringify(operation.path)}${mediaType},
+          path: ${JSON.stringify(operation.path)}${mediaType}${browserManagedOrigin},
         },
         request,
       ),`;

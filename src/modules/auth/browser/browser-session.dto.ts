@@ -3,7 +3,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { AuthContextResponseDto } from '../dto/auth-response.dto';
 
 export class BrowserSessionResponseDto {
-  @ApiProperty({ example: 'Login success' })
+  @ApiProperty({ example: 'login success' })
   message: string;
 
   @ApiProperty({ description: 'Short-lived access JWT for in-memory use only' })

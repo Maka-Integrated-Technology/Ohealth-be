@@ -20,7 +20,10 @@ export class RegistrationBootstrapLegalDocumentDto {
   @ApiProperty({ enum: LegalDocumentType, enumName: 'LegalDocumentType' })
   document_type: LegalDocumentType;
 
-  @ApiProperty({ example: '2026-08-01' })
+  @ApiProperty({
+    description:
+      'Current configured legal-document version. Copy this value into the matching signup or OAuth signup field.',
+  })
   version: string;
 }
 

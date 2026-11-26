@@ -51,6 +51,10 @@ query values, cookies, media type, headers and body as structured values.
 Serialization, retries, cancellation, telemetry and platform-specific network
 behavior remain consumer-owned.
 
+For browser auth operations, pass `X-OHealth-Client: browser` in
+`headerParameters`. The browser supplies the required `Origin` header; the
+client omits caller-provided `Origin` values from these requests.
+
 `getHeaders` is evaluated for every request. The package retains the callback,
 not an access token, so web, dashboard and mobile applications continue to own
 their authentication state.
